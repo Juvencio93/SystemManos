@@ -1,20 +1,60 @@
-// @lovable.dev/vite-tanstack-config keeps the Lovable editor and sandbox
-// integration working while still allowing self-hosted deployment targets.
-//
-// Do not add TanStack Start, React, Tailwind, Nitro, or path-alias plugins
-// manually: the wrapper already installs them.
-import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { defineConfig } from "vite";
+import viteReact from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+import tsConfigPaths from "vite-tsconfig-paths";
+import { tanstackStart } from "@tanstack/react-start/plugin/vite";
+import { nitro } from "nitro/vite";
+
+// Standalone Vite config for TanStack Start, replacing the
+// @lovable.dev/vite-tanstack-config wrapper now that the project no longer
+// runs inside the Lovable editor/sandbox. This replicates the parts of the
+// wrapper this project actually used: Tailwind, tsconfig path aliases,
+// TanStack Start with server/client import protection, Nitro (Vercel preset
+// on Vercel, default elsewhere), and the React plugin.
 
 const isVercel = process.env["VERCEL"] === "1";
 
 export default defineConfig({
-  tanstackStart: {
-    // Keep the custom SSR error wrapper for every hosting provider.
-    server: { entry: "server" },
+  server: {
+    host: "::",
+    port: 8080,
   },
-
-  // Lovable controls its own sandbox preset. Vercel builds advertise
-  // VERCEL=1 and receive Nitro's Vercel-compatible output automatically.
-  // Local/self-hosted builds keep portable Nitro output enabled.
-  nitro: isVercel ? { preset: "vercel" } : true,
+  resolve: {
+    alias: { "@": `${process.cwd()}/src` },
+    dedupe: [
+      "react",
+      "react-dom",
+      "react/jsx-runtime",
+      "react/jsx-dev-runtime",
+      "@tanstack/react-query",
+      "@tanstack/query-core",
+    ],
+  },
+  optimizeDeps: {
+    include: [
+      "react",
+      "react-dom",
+      "react-dom/client",
+      "react/jsx-runtime",
+      "react/jsx-dev-runtime",
+    ],
+    ignoreOutdatedRequests: true,
+  },
+  plugins: [
+    tailwindcss(),
+    tsConfigPaths({ projects: ["./tsconfig.json"] }),
+    tanstackStart({
+      importProtection: {
+        behavior: "error",
+        client: {
+          files: ["**/server/**"],
+          specifiers: ["server-only"],
+        },
+      },
+      // Keep the custom SSR error wrapper for every hosting provider.
+      server: { entry: "server" },
+    }),
+    nitro(isVercel ? { preset: "vercel" } : {}),
+    viteReact(),
+  ],
 });
