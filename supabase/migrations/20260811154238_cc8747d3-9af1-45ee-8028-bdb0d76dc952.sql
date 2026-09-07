@@ -1,0 +1,2 @@
+ALTER TABLE public.operational_analyses ADD COLUMN indicators JSONB DEFAULT '{}'::jsonb;
+UPDATE public.operational_analyses SET status = 'invalido' WHERE analysis_date = '2026-08-11' AND status = 'concluido';

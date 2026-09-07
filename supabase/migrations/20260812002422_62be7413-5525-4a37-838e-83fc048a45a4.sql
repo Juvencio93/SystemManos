@@ -1,0 +1,2 @@
+alter table public.operational_analyses add column if not exists updated_at timestamp with time zone default now();
+update public.operational_analyses set updated_at = created_at where updated_at is null;

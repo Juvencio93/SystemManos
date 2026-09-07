@@ -1,0 +1,1 @@
+DELETE FROM public.operational_analyses WHERE analysis_date = '2026-08-11';
