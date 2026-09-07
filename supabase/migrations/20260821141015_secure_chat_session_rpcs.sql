@@ -1,4 +1,4 @@
--- Chat must work in Lovable without a server-side service key. These RPCs use
+-- Chat must work without a server-side service key. These RPCs use
 -- auth.uid() as the only caller identity and expose only the hierarchy data
 -- needed by the widget.
 

@@ -1,5 +1,5 @@
 import React, { type ErrorInfo, type ReactNode } from "react";
-import { reportLovableError } from "@/lib/lovable-error-reporting";
+import { reportRuntimeError } from "@/lib/error-reporting";
 
 type Props = { children: ReactNode };
 type State = { hasError: boolean };
@@ -13,7 +13,7 @@ export class AppErrorBoundary extends React.Component<Props, State> {
 
   override componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("[AppErrorBoundary] Unhandled component error", error, info.componentStack);
-    void reportLovableError(error, { boundary: "authenticated_app_error_boundary" });
+    void reportRuntimeError(error, { boundary: "authenticated_app_error_boundary" });
   }
 
   private recover = () => {

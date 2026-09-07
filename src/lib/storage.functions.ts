@@ -19,7 +19,7 @@ export const getAttachmentSignedUrl = createServerFn({ method: "GET" })
     const { attachmentId } = data;
 
     // Use the caller's authenticated Supabase session so RLS remains the
-    // authorization source in Lovable, where no service key is required.
+    // authorization source in environments where no service key is set.
     const { data: attachment, error: attError } = await supabase
       .from("chat_attachments")
       .select(`

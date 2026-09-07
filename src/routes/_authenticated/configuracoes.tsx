@@ -855,7 +855,7 @@ function SettingsPage() {
                   type="url"
                   value={asaasSiteUrl}
                   onChange={(event) => setAsaasSiteUrl(event.target.value)}
-                  placeholder="https://manostech.lovable.app"
+                  placeholder="https://system-manos.vercel.app"
                 />
                 <p className="text-xs text-muted-foreground">
                   Usada pela Asaas para avisar pagamentos confirmados. Normalmente o sistema já

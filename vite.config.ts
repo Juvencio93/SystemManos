@@ -5,12 +5,9 @@ import tsConfigPaths from "vite-tsconfig-paths";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import { nitro } from "nitro/vite";
 
-// Standalone Vite config for TanStack Start, replacing the
-// @lovable.dev/vite-tanstack-config wrapper now that the project no longer
-// runs inside the Lovable editor/sandbox. This replicates the parts of the
-// wrapper this project actually used: Tailwind, tsconfig path aliases,
-// TanStack Start with server/client import protection, Nitro (Vercel preset
-// on Vercel, default elsewhere), and the React plugin.
+// Standalone Vite config for TanStack Start: Tailwind, tsconfig path
+// aliases, TanStack Start with server/client import protection, Nitro
+// (Vercel preset on Vercel, default elsewhere), and the React plugin.
 
 const isVercel = process.env["VERCEL"] === "1";
 

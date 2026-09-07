@@ -628,11 +628,9 @@ function PortalSuccess({
   const [isInIframe, setIsInIframe] = useState(false);
 
   useEffect(() => {
-    // Detect if we are inside an iframe or Lovable preview
+    // Detect if we are inside an iframe
     try {
-      const insideIframe = window.self !== window.top;
-      const isLovable = window.location.hostname.includes("lovable.app");
-      setIsInIframe(insideIframe || isLovable);
+      setIsInIframe(window.self !== window.top);
     } catch (e) {
       setIsInIframe(true);
     }

@@ -341,10 +341,6 @@
   }
 }
 
-#lovable-badge {
-  display: none !important;
-}
-
 @keyframes attention-shake {
   0%, 100% { transform: translateX(0); }
   15% { transform: translateX(-8px); }

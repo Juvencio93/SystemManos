@@ -9,7 +9,7 @@ const ASAAS_USER_AGENT = "ManosTech/1.0 (Asaas API; server)";
  * Este arquivo define um handler estável sob /api/public/asaas-manager
  * para facilitar a migração. O usuário pediu Supabase Edge Functions,
  * mas o ambiente TanStack Start prefere rotas de servidor para manter
- * o deploy unificado no Cloudflare Workers do Lovable.
+ * o deploy unificado numa única função serverless.
  */
 
 export const Route = createFileRoute("/api/public/asaas-manager")({

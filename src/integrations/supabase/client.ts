@@ -2,7 +2,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { SUPABASE_PUBLIC_FALLBACK } from "./public-config";
 import type { Database } from "./types";
-import { brokeredPreviewStorage } from "./previewAuthStorage";
 
 function isNewSupabaseApiKey(value: string): boolean {
   return value.startsWith("sb_publishable_") || value.startsWith("sb_secret_");
@@ -48,7 +47,7 @@ function createSupabaseClient() {
       ...(!SUPABASE_URL ? ["SUPABASE_URL"] : []),
       ...(!SUPABASE_PUBLISHABLE_KEY ? ["SUPABASE_PUBLISHABLE_KEY"] : []),
     ];
-    const message = `Missing Supabase environment variable(s): ${missing.join(", ")}. Connect Supabase in Lovable Cloud.`;
+    const message = `Missing Supabase environment variable(s): ${missing.join(", ")}. Set them in your hosting provider's environment variables.`;
     console.error(`[Supabase] ${message}`);
     throw new Error(message);
   }
@@ -58,7 +57,7 @@ function createSupabaseClient() {
       fetch: createSupabaseFetch(SUPABASE_PUBLISHABLE_KEY),
     },
     auth: {
-      storage: brokeredPreviewStorage(),
+      storage: typeof window === "undefined" ? undefined : localStorage,
       persistSession: true,
       autoRefreshToken: true,
     },

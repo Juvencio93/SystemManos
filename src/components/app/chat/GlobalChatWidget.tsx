@@ -307,9 +307,9 @@ function ChatPanel({ onClose, setIsOpen, activeConversationId, setActiveConversa
             const result = await getChatContacts();
             return result as any;
         },
-        // Lovable can mount the widget before its authenticated session has
-        // finished hydrating. Waiting for the resolved access scope prevents
-        // an early unauthorized request from being cached as an empty list.
+        // The widget can mount before its authenticated session has finished
+        // hydrating. Waiting for the resolved access scope prevents an early
+        // unauthorized request from being cached as an empty list.
         enabled: !!access?.userId && !!access?.role,
     });
 

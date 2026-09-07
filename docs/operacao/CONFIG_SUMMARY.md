@@ -3,7 +3,7 @@
 ## 1. Configuração Atual
 - **Backup:** Nativo do Supabase (Apenas Banco de Dados). Retenção padrão (7-30 dias).
 - **Storage:** Sem backup nativo automático.
-- **Monitoramento:** Logs Explorer do Supabase (Autenticação, Banco, Funções) + relatório interno de erros (`lovable-error-reporting.ts`).
+- **Monitoramento:** Logs Explorer do Supabase (Autenticação, Banco, Funções) + relatório interno de erros (`error-reporting.ts`).
 - **Privacidade:** Logs configurados para evitar o registro de senhas, tokens, cookies, telefones ou e-mails.
 
 ## 2. Configuração Proposta

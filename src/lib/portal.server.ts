@@ -3,6 +3,17 @@ import { z } from "zod";
 import { normalizePortalAppearance, type PortalAppearance } from "@/lib/campaign-appearance";
 import { normalizeSponsorDisplayType, type SponsorDisplayType } from "@/lib/campaign-sponsors";
 
+// Site's own base URL for absolute fallback asset links (server-only env,
+// same resolution order used for Asaas webhooks). Falls back to the
+// asset's relative path when no site URL is configured, which still works
+// for any client rendering it against the site's own origin.
+function defaultLogoUrl(): string {
+  const explicit = process.env["VITE_SITE_URL"]?.trim().replace(/\/+$/, "");
+  const vercelUrl = process.env["VERCEL_URL"]?.trim();
+  const base = explicit || (vercelUrl ? `https://${vercelUrl}` : "http://localhost:8080");
+  return `${base}/manos-tech-robot.png`;
+}
+
 export const portalSlugSchema = z.object({ slug: z.string().trim().min(1).max(120) });
 
 export const portalLeadSchema = z.object({
@@ -183,7 +194,7 @@ export async function resolvePortalTarget(
         .maybeSingle();
       logoPath =
         pSettings?.logo_url ||
-        "https://id-preview--be97ad20-8aa3-4eb2-8466-ba2c053298e6.lovable.app/manos-tech-robot.png";
+        defaultLogoUrl();
     }
 
     return {
@@ -235,7 +246,7 @@ export async function resolvePortalTarget(
         .maybeSingle();
       logoPath =
         pSettings?.logo_url ||
-        "https://id-preview--be97ad20-8aa3-4eb2-8466-ba2c053298e6.lovable.app/manos-tech-robot.png";
+        defaultLogoUrl();
     }
 
     return {
@@ -300,7 +311,7 @@ export async function resolvePortalTarget(
         .maybeSingle();
       logoPath =
         pSettings?.logo_url ||
-        "https://id-preview--be97ad20-8aa3-4eb2-8466-ba2c053298e6.lovable.app/manos-tech-robot.png";
+        defaultLogoUrl();
     }
 
     return {

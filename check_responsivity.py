@@ -49,8 +49,8 @@ async def main():
         page = await context.new_page()
 
         # Auth injection
-        storage_key = os.environ.get("LOVABLE_BROWSER_SUPABASE_STORAGE_KEY")
-        session_json = os.environ.get("LOVABLE_BROWSER_SUPABASE_SESSION_JSON")
+        storage_key = os.environ.get("BROWSER_SUPABASE_STORAGE_KEY")
+        session_json = os.environ.get("BROWSER_SUPABASE_SESSION_JSON")
         if storage_key and session_json:
             await page.goto("http://localhost:8080")
             await page.evaluate(f"window.localStorage.setItem({json.dumps(storage_key)}, {json.dumps(session_json)})")

@@ -17,7 +17,7 @@ export async function checkAiLimitAndIncrement(supabase: SupabaseClient<Database
   await supabase.rpc("reset_daily_ai_usage");
 
   // 2. Resolve the role with the authenticated request session. Using the
-  // administrative client here made Lovable depend on a server secret merely
+  // administrative client here made this depend on a server secret merely
   // to read the current user's own role, which caused valid users to be denied.
   const { data: roleData, error: roleError } = await supabase
     .from("user_roles")

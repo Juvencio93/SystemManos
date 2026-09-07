@@ -81,9 +81,6 @@ function resolveSiteUrl(inputUrl?: string) {
   const vercelUrl = process.env["VERCEL_URL"]?.trim();
   if (vercelUrl) return `https://${vercelUrl}`.replace(/\/+$/, "");
 
-  const lovableUrl = process.env["LOVABLE_SITE_URL"]?.trim();
-  if (lovableUrl) return lovableUrl.replace(/\/+$/, "");
-
   return "";
 }
 
@@ -307,7 +304,7 @@ export const saveAsaasIntegration = createServerFn({ method: "POST" })
 
     if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(siteUrl)) {
       throw new Error(
-        "A URL pública do sistema não pode ser localhost. Use a URL publicada, como https://manostech.lovable.app.",
+        "A URL pública do sistema não pode ser localhost. Use a URL publicada, como https://system-manos.vercel.app.",
       );
     }
 

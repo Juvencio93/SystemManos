@@ -222,9 +222,9 @@ export const getConversations = createServerFn({ method: "GET" })
     // 2c. Fetch messages with individual history clearing filter.
     // The conversations above are already scoped through the authenticated
     // client/RLS. If the server-only key is available, use the server client
-    // for compatibility with stricter message/attachment policies. In Lovable
-    // previews without TECH_SUPABASE_SERVICE_KEY, fall back to the authenticated
-    // client instead of breaking the entire chat panel.
+    // for compatibility with stricter message/attachment policies. In
+    // environments without TECH_SUPABASE_SERVICE_KEY, fall back to the
+    // authenticated client instead of breaking the entire chat panel.
     const convDataWithMessages = await Promise.all((rawConversations ?? []).map(async (conv) => {
       const prefs = preferencesByConv.get(conv.id);
       const historyClearedAt = prefs?.history_cleared_at;
@@ -281,7 +281,7 @@ export const getConversations = createServerFn({ method: "GET" })
 
 
     // Resolve only the safe hierarchy projection exposed by the authenticated
-    // chat RPC. This keeps Lovable independent from a server service key.
+    // chat RPC. This keeps the chat panel independent from a server service key.
     const { data: contactsPayload, error: contactsError } = await (supabase as any).rpc(
       "chat_get_contacts",
     );
@@ -821,8 +821,8 @@ export const sendMessage = createServerFn({ method: "POST" })
     }
 
     // 2. Resolve recipients through the authenticated hierarchy projection.
-    // Keep a compatibility fallback for Lovable/Vercel environments whose SQL
-    // function is not synchronized yet, especially legacy Support conversations.
+    // Keep a compatibility fallback for environments whose SQL function is
+    // not synchronized yet, especially legacy Support conversations.
     if (recipientIds.size > 0) {
       const receiptInserts = Array.from(recipientIds).map(pid => ({
         message_id: message.id,
