@@ -183,8 +183,8 @@ function ReportsPage() {
         {groups.map(([id, group]) => (
           <Card
             key={id}
-            className={`glass-panel rounded-3xl transition-all duration-300 ${
-              id !== "sem-campanha" ? "cursor-pointer hover:bg-white/5 hover:-translate-y-1 hover:shadow-glow hover:border-primary/50" : ""
+            className={`rounded-xl transition-colors duration-150 ${
+              id !== "sem-campanha" ? "cursor-pointer hover:bg-card/80 hover:border-primary/40" : ""
             }`}
             onClick={() => handleCardClick(id)}
           >

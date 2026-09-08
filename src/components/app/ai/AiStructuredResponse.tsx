@@ -105,8 +105,7 @@ export function AiStructuredResponse({
       )}
 
       {aiResult.acaoPratica && (
-        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-6 shadow-glow relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-3xl -mr-16 -mt-16 pointer-events-none" />
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-6 relative overflow-hidden">
           <div className="flex items-center gap-2 mb-2 text-primary relative">
             <span className="text-xl">🎯</span>
             <h5 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50">

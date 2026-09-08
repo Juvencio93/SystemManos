@@ -456,7 +456,7 @@ const AdminFloatingAssistant = forwardRef<{ openWithPrompt: (prompt: string) => 
         <div 
           className={cn(
             "fixed right-5 z-[70] flex flex-col w-[90vw] sm:w-[380px] h-[580px] max-h-[calc(100dvh-112px)]",
-            "bg-[#0F172A] border border-primary/20 rounded-3xl shadow-elevated overflow-hidden",
+            "bg-popover border border-primary/20 rounded-3xl overflow-hidden",
             "animate-in slide-in-from-bottom-5 fade-in duration-500 cubic-bezier(0.16, 1, 0.3, 1)"
           )}
           style={{ bottom: "calc(20px + 56px + 20px + env(safe-area-inset-bottom))" }}
@@ -578,8 +578,8 @@ const AdminFloatingAssistant = forwardRef<{ openWithPrompt: (prompt: string) => 
                       className={cn(
                         "max-w-[90%] rounded-2xl px-4 py-3 text-sm leading-relaxed",
                         msg.role === "user"
-                          ? "bg-primary text-primary-foreground font-bold rounded-tr-none shadow-glow"
-                          : "bg-white/5 border border-white/10 text-white rounded-tl-none shadow-md backdrop-blur-sm",
+                          ? "bg-primary text-primary-foreground font-bold rounded-tr-none"
+                          : "bg-card border border-border text-foreground rounded-tl-none",
                       )}
                     >
                       {msg.role === "assistant" ? <AiStructuredResponse data={msg.content} /> : msg.content}

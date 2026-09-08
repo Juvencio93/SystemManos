@@ -37,12 +37,12 @@ export function ChatTrigger({ onClick, isOpen }: { onClick: () => void; isOpen: 
   );
 
   return (
-    <button type="button" onClick={onClick} aria-label={isOpen ? "Fechar bate-papo" : "Abrir bate-papo"} title={isOpen ? "Fechar bate-papo" : "Abrir bate-papo"} className="group relative flex size-14 items-center justify-center rounded-full border border-primary/30 bg-primary shadow-glow transition-all duration-300 hover:scale-110 hover:shadow-[0_0_30px_rgba(59,130,246,0.4)] active:scale-95">
+    <button type="button" onClick={onClick} aria-label={isOpen ? "Fechar bate-papo" : "Abrir bate-papo"} title={isOpen ? "Fechar bate-papo" : "Abrir bate-papo"} className="group relative flex size-14 items-center justify-center rounded-full border border-primary/30 bg-primary shadow-glow transition-transform duration-300 hover:scale-110 active:scale-95">
       <div className="relative size-6">
         <MessageCircle className={cn("absolute inset-0 size-6 text-primary-foreground transition-all duration-300", isOpen ? "scale-0 rotate-90 opacity-0" : "scale-100 rotate-0 opacity-100")} />
         <X className={cn("absolute inset-0 size-6 text-primary-foreground transition-all duration-300", isOpen ? "scale-100 rotate-0 opacity-100" : "scale-0 -rotate-90 opacity-0")} />
       </div>
-      {hasUnread && !isOpen ? <span className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full border-2 border-[#0F172A] bg-red-500 text-[10px] font-bold text-white">!</span> : null}
+      {hasUnread && !isOpen ? <span className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full border-2 border-background bg-red-500 text-[10px] font-bold text-white">!</span> : null}
     </button>
   );
 }

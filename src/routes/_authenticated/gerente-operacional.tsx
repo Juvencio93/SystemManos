@@ -362,7 +362,7 @@ function OperationalManagerPage() {
   return (
     <div className="space-y-6 pb-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       {/* 1. CABEÇALHO COMPACTO */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-card/40 p-6 rounded-3xl border border-border/60 backdrop-blur-sm">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-card p-6 rounded-2xl border border-border">
         <div className="space-y-2">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-display font-black tracking-tight text-white">Gerente Operacional IA</h1>

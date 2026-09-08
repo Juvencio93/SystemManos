@@ -133,7 +133,7 @@ export function OperationalUnitCard({
   return (
     <Card
       className={cn(
-        "transition-all duration-300 hover:shadow-glow hover:-translate-y-1 border-l-4 rounded-2xl",
+        "transition-colors duration-150 hover:bg-card/80 border-l-4 rounded-xl",
         config.colors,
       )}
     >
