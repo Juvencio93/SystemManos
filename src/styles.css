@@ -174,18 +174,18 @@
 
 @utility glass-panel {
   background: var(--card);
-  border: 1px solid oklch(1 0 0 / 8%);
-  box-shadow: var(--shadow-elevated);
-  backdrop-filter: blur(12px);
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid var(--border);
 }
 
 @utility glass-panel-hover {
   background: var(--card);
-  border: 1px solid oklch(1 0 0 / 12%);
-  box-shadow: var(--shadow-card-hover);
-  backdrop-filter: blur(16px);
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid var(--border);
+  transition: border-color 0.15s ease-out, background-color 0.15s ease-out;
+
+  &:hover {
+    border-color: color-mix(in oklab, var(--primary) 35%, var(--border));
+    background: color-mix(in oklab, var(--card) 96%, var(--primary) 4%);
+  }
 }
 
 @utility text-gradient {

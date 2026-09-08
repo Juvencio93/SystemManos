@@ -526,11 +526,11 @@ function ModuleCard({ module, isLoading }: { module: DashboardModule; isLoading:
   return (
     <Link
       to={module.to as never}
-      className="group block h-full rounded-3xl outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      className="group block h-full rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-primary"
     >
-      <Card className="glass-panel flex h-full flex-col text-center transition-all duration-300 group-hover:-translate-y-2 group-hover:border-primary/50 group-hover:shadow-glow rounded-3xl cursor-pointer">
+      <Card className="flex h-full flex-col text-center transition-colors duration-150 group-hover:border-primary/40 group-hover:bg-card/80 cursor-pointer">
         <CardContent className="flex flex-1 flex-col items-center justify-between gap-3 py-6 px-4 sm:px-5">
-          <span className="grid size-11 place-items-center rounded-xl border border-primary/20 bg-primary/10 shadow-inner sm:size-12">
+          <span className="grid size-11 place-items-center rounded-lg border border-primary/20 bg-primary/10 sm:size-12">
             <module.icon className="size-5 text-primary sm:size-6" />
           </span>
           <p className="font-display text-base font-black tracking-tight sm:text-lg">{module.label}</p>
@@ -672,9 +672,9 @@ function StatsGrid({
             key={tile.label}
             to={tile.to as never}
             params={tile.params as never}
-            className="group rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="group rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            <Card className="glass-panel h-full transition-all duration-300 group-hover:-translate-y-2 group-hover:border-primary/50 group-hover:shadow-glow rounded-3xl">
+            <Card className="h-full transition-colors duration-150 group-hover:border-primary/40 group-hover:bg-card/80">
               <CardHeader className="flex flex-row items-center justify-between pb-1.5 pt-5 px-5">
                 <CardTitle className="leading-none text-[12px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">
                   {tile.label}
