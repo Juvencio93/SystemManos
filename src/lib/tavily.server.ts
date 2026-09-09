@@ -12,9 +12,11 @@ export type CompanyEnvironmentProfile = {
   state?: string | null;
 };
 
+export type EnvironmentConfidence = "confirmado" | "parcial" | "nao_confirmado";
+
 export type CompanyEnvironmentResearch = {
   ok: boolean;
-  verified: boolean;
+  confidence: EnvironmentConfidence;
   context: string;
   sources: string[];
 };
@@ -61,11 +63,11 @@ function identityTokens(profile: CompanyEnvironmentProfile) {
   );
 }
 
-function isIdentityMatch(
+function identityMatchStrength(
   title: string,
   content: string,
   profile: CompanyEnvironmentProfile,
-) {
+): "strong" | "weak" | "none" {
   const haystack = normalizeSearchText(`${title} ${content}`);
   const tokens = identityTokens(profile);
   const matchedTokens = tokens.filter((token) => haystack.includes(token));
@@ -79,7 +81,18 @@ function isIdentityMatch(
   const addressMatches =
     addressTokens.length > 0 && addressTokens.filter((token) => haystack.includes(token)).length >= 2;
 
-  return matchedTokens.length >= Math.min(2, Math.max(1, tokens.length)) && (cityMatches || addressMatches);
+  if (matchedTokens.length === 0) return "none";
+
+  // Strong: most identity tokens matched AND corroborated by city/address —
+  // treat as an official-source-grade match (site/redes da própria empresa).
+  const strongTokenCoverage = matchedTokens.length >= Math.max(2, Math.ceil(tokens.length * 0.6));
+  if (strongTokenCoverage && (cityMatches || addressMatches)) return "strong";
+
+  // Weak: some identity signal, but not enough on its own — needs a second
+  // independent source to be treated as confirmed (regra de duas fontes).
+  if (matchedTokens.length >= Math.min(2, Math.max(1, tokens.length))) return "weak";
+
+  return "none";
 }
 
 export function needsCompanyEnvironmentResearch(profile: CompanyEnvironmentProfile) {
@@ -94,7 +107,7 @@ export async function searchCompanyEnvironment(
 ): Promise<CompanyEnvironmentResearch> {
   const apiKey = process.env["TAVILY_API_KEY"];
   if (!apiKey) {
-    return { ok: false, verified: false, context: "", sources: [] };
+    return { ok: false, confidence: "nao_confirmado", context: "", sources: [] };
   }
 
   const identity = profile.tradeName || profile.name || profile.legalName;
@@ -119,14 +132,27 @@ export async function searchCompanyEnvironment(
       includeImageDescriptions: true,
     });
 
-    const matchingResults = result.results
-      .filter((item) => isIdentityMatch(item.title, item.content, profile))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 4);
-    const verified = matchingResults.length > 0;
+    const scoredResults = result.results
+      .map((item) => ({ item, strength: identityMatchStrength(item.title, item.content, profile) }))
+      .filter((entry) => entry.strength !== "none")
+      .sort((a, b) => b.item.score - a.item.score);
 
-    if (!verified) {
-      return { ok: true, verified: false, context: "", sources: [] };
+    const hasStrong = scoredResults.some((entry) => entry.strength === "strong");
+    // Regra de duas fontes: sem um match forte (site/rede oficial), só
+    // tratamos como confirmado se pelo menos duas fontes independentes
+    // concordarem na identidade.
+    const confidence: EnvironmentConfidence = hasStrong
+      ? "confirmado"
+      : scoredResults.length >= 2
+        ? "confirmado"
+        : scoredResults.length === 1
+          ? "parcial"
+          : "nao_confirmado";
+
+    const matchingResults = scoredResults.slice(0, 4).map((entry) => entry.item);
+
+    if (confidence === "nao_confirmado") {
+      return { ok: true, confidence, context: "", sources: [] };
     }
 
     const sources = matchingResults.map((item) => item.url);
@@ -136,25 +162,28 @@ export async function searchCompanyEnvironment(
           `Fonte ${index + 1}: ${item.title}\nURL: ${item.url}\nTrecho público: ${item.content}`,
       )
       .join("\n\n");
-    const imageContext = result.images
-      .filter((image) =>
-        image.description
-          ? isIdentityMatch(image.description, image.description, profile)
-          : false,
-      )
-      .slice(0, 4)
-      .map((image, index) => `Referência visual ${index + 1}: ${image.description}\nURL: ${image.url}`)
-      .join("\n\n");
+    const imageContext =
+      confidence === "confirmado"
+        ? result.images
+            .filter((image) =>
+              image.description
+                ? identityMatchStrength(image.description, image.description, profile) !== "none"
+                : false,
+            )
+            .slice(0, 4)
+            .map((image, index) => `Referência visual ${index + 1}: ${image.description}\nURL: ${image.url}`)
+            .join("\n\n")
+        : "";
 
     return {
       ok: true,
-      verified: true,
+      confidence,
       sources,
       context: [sourceContext, imageContext].filter(Boolean).join("\n\n"),
     };
   } catch (error) {
     console.error("[Tavily] Company environment search failed:", error);
-    return { ok: false, verified: false, context: "", sources: [] };
+    return { ok: false, confidence: "nao_confirmado", context: "", sources: [] };
   }
 }
 
