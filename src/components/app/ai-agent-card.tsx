@@ -28,7 +28,7 @@ import { forwardRef, useImperativeHandle, useState, useCallback, useMemo, useEff
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -239,6 +239,15 @@ function AdminAiAgentCard() {
 }
 const ENCARGOS_ESTIMATED_DESC = "Estimativa adicional para encargos, benefícios e estrutura: 70%";
 
+// Cresce a textarea junto com o texto digitado (até um teto), em vez de rolar
+// horizontalmente como um input de uma linha só.
+const CHAT_TEXTAREA_MAX_HEIGHT = 120;
+function autoGrowTextarea(el: HTMLTextAreaElement | null) {
+  if (!el) return;
+  el.style.height = "auto";
+  el.style.height = `${Math.min(el.scrollHeight, CHAT_TEXTAREA_MAX_HEIGHT)}px`;
+}
+
 const AdminFloatingAssistant = forwardRef<{ openWithPrompt: (prompt: string) => void }, any>((_props, ref) => {
   const ask = useServerFn(askAgent);
   const getConversation = useServerFn(getOperationalAiConversation);
@@ -251,6 +260,7 @@ const AdminFloatingAssistant = forwardRef<{ openWithPrompt: (prompt: string) => 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [messages, setMessages] = useState<{ id?: string; role: "user" | "assistant"; content: any; createdAt?: string }[]>([]);
   const [input, setInput] = useState("");
+  const inputTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<{ message: string; code?: string | null } | null>(null);
 
@@ -607,17 +617,31 @@ const AdminFloatingAssistant = forwardRef<{ openWithPrompt: (prompt: string) => 
 
           {/* Input area */}
           <div className="p-4 border-t border-white/5 bg-black/40">
-            <div className="flex gap-2">
-              <Input
+            <div className="flex items-end gap-2">
+              <Textarea
+                ref={inputTextareaRef}
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  autoGrowTextarea(e.target);
+                }}
                 placeholder="Pergunte algo estratégico..."
                 disabled={isProcessing}
-                onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                className="bg-white/5 border-primary/20 focus-visible:ring-primary h-12 text-sm rounded-xl px-5"
+                rows={1}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                    e.currentTarget.style.height = "auto";
+                  }
+                }}
+                className="bg-white/5 border-primary/20 focus-visible:ring-primary min-h-12 max-h-[120px] resize-none text-sm rounded-xl px-5 py-3 leading-tight"
               />
               <Button 
-                onClick={() => handleSend()}
+                onClick={() => {
+                  handleSend();
+                  if (inputTextareaRef.current) inputTextareaRef.current.style.height = "auto";
+                }}
                 disabled={isProcessing || !input.trim()}
                 className="h-12 w-12 shrink-0 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground p-0 shadow-glow"
               >
@@ -646,6 +670,7 @@ function ClientAiAgentCard({
   const ask = useServerFn(askAgent);
   const fetchAiUsage = useServerFn(getAiUsageSummary);
   const [question, setQuestion] = useState("");
+  const questionTextareaRef = useRef<HTMLTextAreaElement>(null);
   const queryClient = useQueryClient();
 
   const isMatriz = role === "matriz";
@@ -1025,23 +1050,36 @@ function ClientAiAgentCard({
                 </div>
               )}
 
-              <div className="flex gap-2">
-                <Input
+              <div className="flex items-end gap-2">
+                <Textarea
+                  ref={questionTextareaRef}
                   value={question}
-                  onChange={(e) => setQuestion(e.target.value)}
+                  onChange={(e) => {
+                    setQuestion(e.target.value);
+                    autoGrowTextarea(e.target);
+                  }}
                   placeholder={
                     isFilial
                       ? "Pergunte sobre marketing ou peça um prompt para banner..."
                       : "Ex: Como atrair mais clientes hoje?"
                   }
-                  className="bg-background/40 border-primary/20 focus-visible:ring-primary/40 h-11 text-base"
-
-                  onKeyDown={(e) => e.key === "Enter" && send(question)}
+                  rows={1}
+                  className="bg-background/40 border-primary/20 focus-visible:ring-primary/40 min-h-11 max-h-[120px] resize-none text-base py-2.5 leading-tight"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      send(question);
+                      e.currentTarget.style.height = "auto";
+                    }
+                  }}
                 />
                 <Button
                   size="icon"
                   disabled={chat.isPending || !question.trim()}
-                  onClick={() => send(question)}
+                  onClick={() => {
+                    send(question);
+                    if (questionTextareaRef.current) questionTextareaRef.current.style.height = "auto";
+                  }}
                   className="shrink-0 size-11"
 
                 >
@@ -1124,18 +1162,32 @@ function ClientAiAgentCard({
                 </Badge>
               </div>
 
-              <div className="flex gap-2">
-                <Input
+              <div className="flex items-end gap-2">
+                <Textarea
+                  ref={questionTextareaRef}
                   value={question}
-                  onChange={(e) => setQuestion(e.target.value)}
+                  onChange={(e) => {
+                    setQuestion(e.target.value);
+                    autoGrowTextarea(e.target);
+                  }}
                   placeholder="Pergunte sobre marketing ou peça um prompt para banner..."
-                  className="bg-background/40 border-primary/20 focus-visible:ring-primary/40 h-11 text-base"
-                  onKeyDown={(e) => e.key === "Enter" && send(question)}
+                  rows={1}
+                  className="bg-background/40 border-primary/20 focus-visible:ring-primary/40 min-h-11 max-h-[120px] resize-none text-base py-2.5 leading-tight"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      send(question);
+                      e.currentTarget.style.height = "auto";
+                    }
+                  }}
                 />
                 <Button
                   size="icon"
                   disabled={chat.isPending || !question.trim()}
-                  onClick={() => send(question)}
+                  onClick={() => {
+                    send(question);
+                    if (questionTextareaRef.current) questionTextareaRef.current.style.height = "auto";
+                  }}
                   className="shrink-0 size-11"
                 >
                   <Send className={`size-4 ${chat.isPending ? "animate-pulse" : ""}`} />
@@ -1178,6 +1230,7 @@ const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) => void 
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [input, setInput] = useState("");
+  const inputTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isFinalTurn, setIsFinalTurn] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1378,18 +1431,32 @@ const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) => void 
 
         <div className="p-6 border-t border-white/5 bg-black/20">
           {!result ? (
-            <div className="flex gap-2">
-              <Input
+            <div className="flex items-end gap-2">
+              <Textarea
+                ref={inputTextareaRef}
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  autoGrowTextarea(e.target);
+                }}
                 placeholder={isFinalTurn ? "Responda à IA..." : "O que será o banner?"}
                 disabled={isProcessing}
-                onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                className="bg-background/40 border-cyan-500/20 focus-visible:ring-cyan-500/40"
+                rows={1}
+                className="bg-background/40 border-cyan-500/20 focus-visible:ring-cyan-500/40 min-h-10 max-h-[120px] resize-none py-2.5 leading-tight"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                    e.currentTarget.style.height = "auto";
+                  }
+                }}
               />
               <Button
                 disabled={!input.trim() || isProcessing}
-                onClick={() => handleSend()}
+                onClick={() => {
+                  handleSend();
+                  if (inputTextareaRef.current) inputTextareaRef.current.style.height = "auto";
+                }}
                 className="bg-cyan-600 hover:bg-cyan-700 text-white"
               >
                 <Send className="size-4" />
