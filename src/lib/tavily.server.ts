@@ -72,6 +72,7 @@ function identityMatchStrength(
   const tokens = identityTokens(profile);
   const matchedTokens = tokens.filter((token) => haystack.includes(token));
   const normalizedCity = normalizeSearchText(profile.city);
+  // cityMatches só é true se a cidade de fato aparece no texto (ou não há cidade no cadastro)
   const cityMatches = !normalizedCity || haystack.includes(normalizedCity);
   const normalizedAddress = normalizeSearchText(profile.address);
   const addressTokens = normalizedAddress
@@ -83,24 +84,23 @@ function identityMatchStrength(
 
   if (matchedTokens.length === 0) return "none";
 
-  // Strong: most identity tokens matched AND corroborated by city/address —
-  // treat as an official-source-grade match (site/redes da própria empresa).
-  const strongTokenCoverage = matchedTokens.length >= Math.max(2, Math.ceil(tokens.length * 0.6));
+  // Strong: pelo menos 40% dos tokens de identidade matcharam E cidade/endereço confirmam.
+  // Threshold reduzido de 60% para 40% para cobrir nomes curtos (ex: "Panificadora Campos").
+  // Um único site oficial com nome + cidade já é suficiente para "strong".
+  const strongTokenCoverage = matchedTokens.length >= Math.max(1, Math.ceil(tokens.length * 0.4));
   if (strongTokenCoverage && (cityMatches || addressMatches)) return "strong";
 
-  // Weak: some identity signal, but not enough on its own — needs a second
-  // independent source to be treated as confirmed (regra de duas fontes).
-  if (matchedTokens.length >= Math.min(2, Math.max(1, tokens.length))) return "weak";
+  // Weak: algum sinal de identidade, mas sem corroboração por cidade/endereço —
+  // precisa de segunda fonte independente para ser "confirmado".
+  if (matchedTokens.length >= 1) return "weak";
 
   return "none";
 }
 
-export function needsCompanyEnvironmentResearch(profile: CompanyEnvironmentProfile) {
-  // A fidelidade visual depende de consultar fontes públicas atuais mesmo
-  // quando o cadastro já possui descrição e links. O cadastro orienta a
-  // busca; a Tavily confirma o ambiente, fachada e referências visuais reais.
-  return Boolean((profile.tradeName || profile.name || profile.legalName || "").trim());
-}
+// needsCompanyEnvironmentResearch foi removida — Tavily agora roda sempre (sem condicional).
+
+// Exportada somente para testes unitários — não usar em produção diretamente.
+export const identityMatchStrengthTest = identityMatchStrength;
 
 export async function searchCompanyEnvironment(
   profile: CompanyEnvironmentProfile,

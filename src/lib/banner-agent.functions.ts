@@ -65,12 +65,10 @@ export const askBannerAgent = createServerFn({ method: "POST" })
       const snapshot = CompanySnapshotSchema.parse(rawSnapshot);
       const companyCtx = companyPrompt(snapshot);
 
-      // A pesquisa externa complementa apenas lacunas do cadastro. Ela nunca
-      // substitui os dados oficiais nem autoriza inferir um ambiente pela cidade.
-      let environmentResearchContext =
-        "Nenhuma pesquisa externa necessária: use somente o cadastro e as informações confirmadas pelo usuário.";
-      const { needsCompanyEnvironmentResearch, searchCompanyEnvironment } =
-        await import("@/lib/tavily.server");
+      // 2.1. SEMPRE executa Tavily: identifica ramo, ambiente e características reais.
+      // Tavily é obrigatório — não condicional. A confiança retornada (CONFIRMADO /
+      // PARCIAL / NÃO_CONFIRMADO) define como o BANNER_SYSTEM usa o resultado.
+      const { searchCompanyEnvironment } = await import("@/lib/tavily.server");
       const researchProfile = {
         name: snapshot.name,
         tradeName: snapshot.trade_name ?? null,
@@ -83,18 +81,16 @@ export const askBannerAgent = createServerFn({ method: "POST" })
         state: snapshot.state ?? null,
       };
 
-      // 2.1. SEMPRE executa pesquisa: identifica ramo, ambiente, características reais.
-      // Mesmo com descrição no cadastro, a pesquisa confirma informações atuais da empresa.
       const research = await searchCompanyEnvironment(researchProfile);
 
-      // Constrói contexto de pesquisa com base no nível de confiança.
+      let environmentResearchContext: string;
       if (research.confidence === "confirmado") {
-        environmentResearchContext = `PESQUISA EXTERNA CONFIRMADA (confiança: CONFIRMADO):\nFontes públicas cuja identidade coincide com o cadastro. CUSTOMIZE a direção de arte com base no AMBIENTE, RAMO e CARACTERÍSTICAS REAIS — não genericize.\n\n${research.context}`;
+        environmentResearchContext = `PESQUISA EXTERNA CONFIRMADA (confiança: CONFIRMADO):\nFontes públicas cuja identidade coincide com o cadastro. CUSTOMIZE a direção de arte com base no AMBIENTE, RAMO e CARACTERÍSTICAS REAIS da empresa — não genericize.\n\n${research.context}`;
       } else if (research.confidence === "parcial") {
-        environmentResearchContext = `PESQUISA EXTERNA PARCIAL (confiança: PARCIAL):\nApenas uma fonte com correspondência parcial. Trate como indício: pode inspirar estilo/tom, mas não descreva fachada/interior/vista como confirmados. Use estúdio ou fundo neutro.\n\n${research.context}`;
+        environmentResearchContext = `PESQUISA EXTERNA PARCIAL (confiança: PARCIAL):\nApenas uma fonte com correspondência parcial. Trate como indício fraco: pode inspirar estilo/tom, mas não descreva fachada/interior/vista como fatos confirmados. Use estúdio ou fundo neutro para o ambiente físico.\n\n${research.context}`;
       } else {
         environmentResearchContext =
-          "PESQUISA EXTERNA NÃO CONFIRMADA (confiança: NÃO CONFIRMADO):\nNenhuma fonte pública encontrada. Não invente ambiente; use estúdio ou fundo neutro. Sugira fotos reais se precisar especificidade visual.";
+          "PESQUISA EXTERNA NÃO CONFIRMADA (confiança: NÃO CONFIRMADO):\nNenhuma fonte pública encontrada com correspondência confiável. Não invente ambiente; use composição de estúdio ou fundo neutro. Se precisar de especificidade visual, sugira ao usuário enviar fotos reais.";
       }
 
       // 3. Prepare AI Prompt with the scanned company context. The model
