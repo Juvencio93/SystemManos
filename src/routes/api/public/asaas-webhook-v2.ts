@@ -187,6 +187,27 @@ export const Route = createFileRoute("/api/public/asaas-webhook-v2")({
             if (charge.status !== "pago" && charge.status !== "cancelado") {
               updates["status"] = "atrasado";
               shouldUpdate = true;
+
+              // Bloqueio automático: só bloqueia se já passou 1 dia de tolerância após o vencimento.
+              // due_date está em formato "YYYY-MM-DD". Usamos meio-dia BRT (UTC-3) para evitar
+              // problemas de borda de fuso — a empresa tem até o final do dia de vencimento + 1 dia.
+              const dueDate = new Date(`${charge.due_date}T12:00:00-03:00`);
+              const toleranceCutoff = new Date(dueDate.getTime() + 1 * 24 * 60 * 60 * 1000);
+              const now = new Date();
+
+              if (now >= toleranceCutoff) {
+                await supabaseAdmin
+                  .from("companies")
+                  .update({ blocked: true, status: "bloqueada" })
+                  .eq("id", charge.company_id);
+                console.log(
+                  `[asaas-webhook-v2] Empresa ${charge.company_id} bloqueada por inadimplência (cobrança ${charge.id}, vencimento ${charge.due_date}).`,
+                );
+              } else {
+                console.log(
+                  `[asaas-webhook-v2] Cobrança ${charge.id} em atraso mas dentro da tolerância de 1 dia (vencimento ${charge.due_date}). Empresa não bloqueada ainda.`,
+                );
+              }
             }
           } else if (event === "PAYMENT_DELETED") {
             if (charge.status !== "cancelado") {
