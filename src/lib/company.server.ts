@@ -229,13 +229,19 @@ PADRÃO VISUAL OBRIGATÓRIO PARA AMBAS AS OPÇÕES:
 
 DIFERENÇA REAL ENTRE AS OPÇÕES:
 - Opção 1 — Direção premium e editorial adaptada ao segmento: protagonismo do produto ou serviço, imagem refinada, composição elegante, poucos elementos e atmosfera coerente com a empresa.
-- Opção 2 — Direção comercial limpa e contemporânea: oferta fácil de entender, contraste controlado e hierarquia forte, mas sem selos gigantes, excesso de urgência ou aparência de panfleto. A segunda opção deve mudar composição e direção visual, não aumentar a quantidade de elementos. Se usar faixa de texto, ela deve ocupar no máximo 25% da altura e não pode esconder nem reduzir o protagonismo do produto.
+- Opção 2 — Direção comercial contemporânea com identidade própria: deve ser tão forte e desejável quanto a Opção 1, mas com uma linguagem visual completamente diferente. NÃO é a versão "mais simples" da Opção 1. NÃO é faixa escura na base com texto centralizado — isso é panfleto. A Opção 2 deve usar uma das seguintes abordagens ou equivalente criativo de mesmo nível:
+  • Macro gastronômico: produto em close extremo, textura em evidência, tipografia integrada na composição (não em bloco separado)
+  • Flat lay com grade limpa: visão superior, produto organizado com intenção geométrica, tipografia sutil sobre a superfície ou em área de respiro lateral
+  • Composição tipográfica dominante: o texto é elemento visual — tamanho, peso e cor competem com o produto em termos de impacto; produto menor mas presente
+  • Split screen assimétrico: divisão vertical em proporção áurea, fundo de cor da paleta de um lado, produto no outro, hierarquia de texto integrada ao lado colorido
+  • Fundo de cor da paleta em largura total com produto flutuante centralizado: sem faixa, tipografia distribuída acima e abaixo do produto
+- A faixa inferior de cor é PERMITIDA apenas se ocupar no máximo 25% da altura, não esconder o produto e não parecer o template padrão de padaria — nesse caso, a tipografia dentro da faixa deve ter personalidade forte (tamanho, espaçamento, peso incomum).
 - As opções devem ser TOTALMENTE DIFERENTES em grade/layout, posição do assunto principal, enquadramento ou ângulo, fundo, família tipográfica, hierarquia, cor dominante e tratamento de luz.
-- Se a Opção 1 usar texto à esquerda e produto à direita, a Opção 2 está proibida de repetir essa distribuição. Use, por exemplo, imagem em largura total com faixa inferior, composição central, visão superior ou divisão vertical invertida.
+- Se a Opção 1 usar texto à esquerda e produto à direita, a Opção 2 está proibida de repetir essa distribuição.
 - Use famílias tipográficas de categorias distintas (por exemplo, serifada editorial versus sans-serif geométrica), sem prejudicar a legibilidade.
-- As paletas devem ter dominantes e contraste diferentes, porém ambas precisam continuar compatíveis com a identidade confirmada. Não troque coerência de marca por diferença aleatória.
+- As paletas devem ter dominantes e contraste diferentes, porém ambas precisam continuar compatíveis com a identidade confirmada.
 - As duas opções devem ser igualmente fortes e desejáveis, a ponto de o cliente realmente hesitar entre elas; não entregue uma opção claramente mais simples, genérica ou inacabada.
-- Não reutilize na Opção 2 a mesma atmosfera, distribuição de texto, ângulo, tratamento de fundo ou ritmo visual da Opção 1. Se a primeira for uma cena contextual do estabelecimento, a segunda deve assumir uma direção visual claramente oposta (por exemplo, estúdio minimalista, macro gastronômico, flat lay ou composição tipográfica integrada), mantendo o mesmo ramo e a mesma oferta.
+- Não reutilize na Opção 2 a mesma atmosfera, distribuição de texto, ângulo, tratamento de fundo ou ritmo visual da Opção 1.
 
 REVISÃO SILENCIOSA ANTES DE RESPONDER:
 1. Confirme que cada preço, horário, produto, condição e alegação veio do contexto ou do usuário e que os valores estão no formato monetário solicitado, incluindo "reais" quando aplicável.
