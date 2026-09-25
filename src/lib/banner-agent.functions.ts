@@ -2,42 +2,100 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { callGateway } from "@/lib/ai.server";
+import { runBannerDirector, BannerDirectorError } from "@/lib/banner-director";
+import type { BannerMessage } from "@/lib/banner-director";
+import {
+  extractBannerTurnFacts,
+  rebuildBannerConversationBrief,
+  commercialStateFromBrief,
+  nextCommercialQuestion,
+  pendingQuestionForCommercialState,
+} from "@/lib/banner-brief";
+import type { BannerConversationBrief } from "@/lib/banner-brief";
+import { classifyBannerCompatibility } from "@/lib/banner-compatibility";
 
 const BannerMessageSchema = z.object({
   role: z.enum(["user", "assistant"]),
   content: z.string(),
 });
 
-const BannerAgentInputSchema = z.object({
-  messages: z.array(BannerMessageSchema),
+export const BannerAgentInputSchema = z.object({
+  messages: z
+    .array(BannerMessageSchema.extend({ content: z.string().trim().min(1).max(4_000) }))
+    .min(1)
+    .max(30),
   isFinalTurn: z.boolean(),
-});
-
-const BannerResponseSchema = z.object({
-  needsMoreInfo: z.boolean(),
-  question: z.string().nullable(),
-  promptOptions: z
-    .array(
-      z.object({
-        title: z.string(),
-        prompt: z.string(),
-      }),
-    )
-    .length(2)
-    .nullable(),
-  reminder: z.string().nullable(),
+  conversationId: z.string().uuid(),
+  brief: z
+    .object({
+      subject: z.string().optional(),
+      offerItems: z.array(z.string()).optional(),
+      price: z.number().finite().optional(),
+      priceCandidate: z.number().finite().optional(),
+      commercialCondition: z.string().optional(),
+      validity: z.string().optional(),
+      weekday: z.string().optional(),
+      weekdays: z.array(z.string()).optional(),
+      dateContext: z.enum(["this", "next"]).optional(),
+      recurrence: z.enum(["NONE", "WEEKLY"]).optional(),
+      unit: z.string().optional(),
+      time: z.string().optional(),
+      scopeConfirmed: z.boolean().optional(),
+      compatibilityConfirmed: z.boolean().optional(),
+      pendingQuestion: z
+        .enum([
+          "subject",
+          "offer_scope_confirmation",
+          "offer_scope_correction",
+          "price_confirmation",
+          "business_compatibility_confirmation",
+        ])
+        .optional(),
+    })
+    .default({}),
 });
 
 export type BannerAgentResponse =
-  | { success: true; data: z.infer<typeof BannerResponseSchema>; error: null }
+  | {
+      success: true;
+      data: {
+        needsMoreInfo: boolean;
+        question: string | null;
+        promptOptions: { title: string; prompt: string }[] | null;
+        reminder: string | null;
+        brief?: BannerConversationBrief;
+      };
+      error: null;
+    }
   | { success: false; data: null; error: string; code?: string };
+
+export function resolveBannerConversationTurn(
+  previousBrief: BannerConversationBrief,
+  userMessages: readonly string[],
+) {
+  const activeBrief = rebuildBannerConversationBrief(previousBrief, userMessages);
+  const state = commercialStateFromBrief(activeBrief, userMessages);
+  const nextQuestion = nextCommercialQuestion(userMessages, activeBrief);
+  const pendingQuestion = nextQuestion
+    ? pendingQuestionForCommercialState(userMessages, activeBrief)
+    : undefined;
+  const brief = pendingQuestion ? { ...activeBrief, pendingQuestion } : activeBrief;
+  return {
+    brief,
+    state,
+    newFacts: userMessages.length
+      ? extractBannerTurnFacts(userMessages[userMessages.length - 1] ?? "", previousBrief)
+      : {},
+    nextQuestion,
+  };
+}
 
 export const askBannerAgent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: unknown) => BannerAgentInputSchema.parse(input))
   .handler(async ({ context, data }): Promise<BannerAgentResponse> => {
     try {
-      // 1. Resolve Context and Permissions using the centralized function
+      // 1. Resolve context and permissions
       const { resolveContext } = await import("./insights.functions");
       const { role, companyId, branchId } = await resolveContext(context.supabase, context.userId);
 
@@ -53,124 +111,131 @@ export const askBannerAgent = createServerFn({ method: "POST" })
         return { success: false, data: null, error: "Empresa não identificada." };
       }
 
-      // 2. Load Company Context before asking questions or generating prompts.
-      // This guarantees that every turn starts with a fresh read of the Matriz
-      // (and the current Filial, when applicable).
-      const { computeCompanySnapshot, companyPrompt, BANNER_SYSTEM } =
-        await import("@/lib/company.server");
-      const { CompanySnapshotSchema } = await import("./utils/date-utils");
+      // Reject exhausted accounts before any provider call.
+      const { checkAiLimitAndIncrement } = await import("@/lib/ai-limits.server");
+      const aiEligibility = await checkAiLimitAndIncrement(context.supabase, context.userId);
+      if (!aiEligibility.allowed) {
+        return {
+          success: false,
+          data: null,
+          error: aiEligibility.error || "Limite de IA atingido.",
+        };
+      }
 
+      // 2. Load company context via the dedicated server module
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      const rawSnapshot = await computeCompanySnapshot(supabaseAdmin, companyId, branchId);
-      const snapshot = CompanySnapshotSchema.parse(rawSnapshot);
-      const companyCtx = companyPrompt(snapshot);
+      const { loadBannerContext } = await import("@/lib/banner-context.server");
+      const company = await loadBannerContext(supabaseAdmin, companyId, branchId ?? null);
 
-      // 2.1. SEMPRE executa Tavily: identifica ramo, ambiente e características reais.
-      // Tavily é obrigatório — não condicional. A confiança retornada (CONFIRMADO /
-      // PARCIAL / NÃO_CONFIRMADO) define como o BANNER_SYSTEM usa o resultado.
+      // 3. Tavily: SEMPRE executa pesquisa de ambiente/ramo (obrigatório)
       const { searchCompanyEnvironment } = await import("@/lib/tavily.server");
       const researchProfile = {
-        name: snapshot.name,
-        tradeName: snapshot.trade_name ?? null,
-        legalName: snapshot.legal_name ?? null,
-        segment: snapshot.business_segment ?? null,
-        description: snapshot.business_description ?? null,
-        address: snapshot.address ?? null,
-        neighborhood: snapshot.neighborhood ?? null,
-        city: snapshot.city ?? null,
-        state: snapshot.state ?? null,
+        name: company.name,
+        tradeName: company.tradeName ?? null,
+        legalName: company.legalName ?? null,
+        segment: company.segment ?? null,
+        description: company.description ?? null,
+        address: company.address ?? null,
+        neighborhood: company.neighborhood ?? null,
+        city: company.city ?? null,
+        state: company.state ?? null,
       };
-
       const research = await searchCompanyEnvironment(researchProfile);
 
-      let environmentResearchContext: string;
-      if (research.confidence === "confirmado") {
-        environmentResearchContext = `PESQUISA EXTERNA CONFIRMADA (confiança: CONFIRMADO):\nFontes públicas cuja identidade coincide com o cadastro. CUSTOMIZE a direção de arte com base no AMBIENTE, RAMO e CARACTERÍSTICAS REAIS da empresa — não genericize.\n\n${research.context}`;
-      } else if (research.confidence === "parcial") {
-        environmentResearchContext = `PESQUISA EXTERNA PARCIAL (confiança: PARCIAL):\nApenas uma fonte com correspondência parcial. Trate como indício fraco: pode inspirar estilo/tom, mas não descreva fachada/interior/vista como fatos confirmados. Use estúdio ou fundo neutro para o ambiente físico.\n\n${research.context}`;
-      } else {
-        environmentResearchContext =
-          "PESQUISA EXTERNA NÃO CONFIRMADA (confiança: NÃO CONFIRMADO):\nNenhuma fonte pública encontrada com correspondência confiável. Não invente ambiente; use composição de estúdio ou fundo neutro. Se precisar de especificidade visual, sugira ao usuário enviar fotos reais.";
-      }
+      const researchContext =
+        research.confidence === "confirmado"
+          ? `PESQUISA CONFIRMADA: fontes públicas identificaram a empresa. Use como direção de arte do ambiente real.\n\n${research.context}`
+          : research.confidence === "parcial"
+            ? `PESQUISA PARCIAL: uma fonte com correspondência fraca. Inspire estilo/tom mas não descreva ambiente real.\n\n${research.context}`
+            : "PESQUISA NÃO CONFIRMADA: sem correspondência confiável. Use estúdio ou fundo neutro.";
 
-      // 3. Prepare AI Prompt with the scanned company context. The model
-      // itself decides — turn by turn, from the full conversation and the
-      // company context above — whether it already has enough information
-      // or needs to ask exactly one contextual question, per the reasoning
-      // order in BANNER_SYSTEM. No regex-based gate runs before this: a
-      // fixed pattern match can't tell "35 pila" from "R$ 35,00", and it
-      // ends up re-asking things the model already understood.
-      const chatHistory = data.messages
-        .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
-        .join("\n");
+      // 4. Briefing vivo: extrai fatos da conversa e decide próxima pergunta
+      const userMessages = data.messages
+        .filter((m) => m.role === "user")
+        .map((m) => m.content);
+      const turn = resolveBannerConversationTurn(data.brief, userMessages);
+      const activeBrief = turn.brief;
 
-      const systemPrompt = `${BANNER_SYSTEM}\n\nCONTEXTO OFICIAL DA EMPRESA:\n${companyCtx}\n\nPESQUISA EXTERNA SOBRE O AMBIENTE:\n${environmentResearchContext}`;
-      const userPrompt = `Histórico da conversa:\n${chatHistory}\n\nResponda apenas com o JSON conforme o formato obrigatório.`;
-
-      // 4. Call AI (Dry Run - no quota yet)
-      const aiResponse = await callGateway(systemPrompt, userPrompt);
-
-      if (!aiResponse.ok || !aiResponse.text) {
+      // 5. Compatibilidade: detecta STRONG_MISMATCH (ex: troca de óleo em padaria)
+      const compatibility = classifyBannerCompatibility(
+        {
+          name: company.name,
+          segment: company.segment,
+          description: company.description,
+          location: [company.city, company.state].filter(Boolean).join(", "),
+        },
+        activeBrief.subject,
+      );
+      if (compatibility.classification === "STRONG_MISMATCH") {
         return {
-          success: false,
-          data: null,
-          error: aiResponse.error || "Erro na comunicação com a IA.",
+          success: true,
+          data: {
+            needsMoreInfo: true,
+            question: `Não consigo criar um banner de ${activeBrief.subject} porque o cadastro de ${company.name} indica ${company.segment}. Envie uma promoção relacionada ao ramo cadastrado.`,
+            promptOptions: null,
+            reminder: null,
+            brief: { ...activeBrief, pendingQuestion: "subject" },
+          },
+          error: null,
         };
       }
 
-      // 5. Parse and Validate Response
-      try {
-        // Tenta encontrar o JSON no texto (DeepSeek pode retornar markdown)
-        const jsonMatch = aiResponse.text.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-          console.error("[BannerAgent] JSON not found in response:", aiResponse.text);
-          throw new Error("JSON not found in AI response");
-        }
-
-        const parsed = JSON.parse(jsonMatch[0]);
-        const validated = BannerResponseSchema.parse(parsed);
-
-        // 6. Quota Logic - Debit only on success (when prompts are generated)
-        if (
-          !validated.needsMoreInfo &&
-          validated.promptOptions &&
-          validated.promptOptions.length === 2
-        ) {
-          const { checkAiLimitAndIncrement } = await import("@/lib/ai-limits.server");
-          const limitCheck = await checkAiLimitAndIncrement(context.supabase, context.userId);
-
-          if (!limitCheck.allowed) {
-            return {
-              success: false,
-              data: null,
-              error: limitCheck.error || "Limite de IA atingido.",
-            };
-          }
-
-          if (limitCheck.increment) {
-            const commit = await limitCheck.increment();
-            if (!commit.allowed) {
-              return {
-                success: false,
-                data: null,
-                error: commit.error || "Erro ao processar cota.",
-              };
-            }
-          }
-        }
-
-        // Return validated data
-        return { success: true, data: validated, error: null };
-      } catch (parseError: any) {
-        console.error("[BannerAgent] Parse/Validation Error:", parseError.message, aiResponse.text);
+      // 6. Pergunta determinística: se o briefing estruturado já sabe o que falta,
+      // não delega à IA — economiza tokens e evita JSON malformado
+      if (turn.nextQuestion) {
         return {
-          success: false,
-          data: null,
-          error: "Falha ao processar os dados da IA. Por favor, tente novamente.",
-          code: "IA-PARSE-ERR",
+          success: true,
+          data: {
+            needsMoreInfo: true,
+            question: turn.nextQuestion,
+            promptOptions: null,
+            reminder: null,
+            brief: activeBrief,
+          },
+          error: null,
         };
       }
+
+      // 7. Banner Director: orquestrador com auto-revisão (gera → revisa → corrige)
+      const messages: BannerMessage[] = data.messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+      const result = await runBannerDirector(callGateway, company, researchContext, messages);
+
+      // 8. Débito de quota apenas ao gerar prompts finais
+      if (!result.needsMoreInfo && result.promptOptions?.length === 2) {
+        const limitCheck = await checkAiLimitAndIncrement(context.supabase, context.userId);
+        if (!limitCheck.allowed) {
+          return { success: false, data: null, error: limitCheck.error || "Limite de IA atingido." };
+        }
+        if (limitCheck.increment) {
+          const commit = await limitCheck.increment();
+          if (!commit.allowed) {
+            return { success: false, data: null, error: commit.error || "Erro ao processar cota." };
+          }
+        }
+      }
+
+      return { success: true, data: { ...result, brief: activeBrief }, error: null };
     } catch (e: any) {
+      if (e instanceof BannerDirectorError) {
+        console.error("[BannerAgent] Director error:", e.code);
+        if (e.code === "BANNER_QUALITY") {
+          return {
+            success: false,
+            data: null,
+            error: "Não foi possível gerar um banner que atenda todos os critérios de qualidade. Tente novamente.",
+          };
+        }
+        return {
+          success: false,
+          data: null,
+          error: "Ocorreu um erro técnico ao processar sua solicitação.",
+          code: e.code,
+        };
+      }
       console.error("[BannerAgent] Internal Error:", e.message, e.stack);
       return {
         success: false,
@@ -180,4 +245,3 @@ export const askBannerAgent = createServerFn({ method: "POST" })
       };
     }
   });
-
