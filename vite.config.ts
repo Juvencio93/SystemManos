@@ -13,6 +13,7 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
 import viteTsconfigPaths from "vite-tsconfig-paths";
 import tailwindcss from "@tailwindcss/vite";
+import { nitro } from "nitro/vite";
 
 export default defineConfig({
   server: {
@@ -26,6 +27,7 @@ export default defineConfig({
     }),
     viteTsconfigPaths(),
     tanstackStart(),
+    nitro(),
   ],
   build: {
     target: "es2022",
