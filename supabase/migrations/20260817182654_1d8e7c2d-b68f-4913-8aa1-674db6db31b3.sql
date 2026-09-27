@@ -1,0 +1,92 @@
+CREATE OR REPLACE FUNCTION public.chat_find_or_create_conversation(p_company_id uuid, p_participants jsonb, p_canonical_key text, p_creator_id uuid)
+ RETURNS TABLE(conversation_id uuid, created boolean)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+    v_conversation_id uuid;
+    v_created boolean := false;
+    v_participant jsonb;
+BEGIN
+    -- LOCK strictly on canonical key to prevent race conditions during search/create
+    PERFORM pg_advisory_xact_lock(hashtextextended(p_canonical_key, 0));
+
+    -- SEARCH AFTER LOCK: ONLY return a conversation that is VISIBLE for p_creator_id
+    SELECT c.id INTO v_conversation_id
+    FROM public.conversations AS c
+    JOIN (
+        SELECT 
+            cp_inner.conversation_id AS conversation_id, 
+            array_agg(
+                CASE 
+                    WHEN cp_inner.participant_type = 'matriz' THEN 'matriz:' || COALESCE(cp_inner.profile_id::text, '')
+                    WHEN cp_inner.participant_type = 'filial' THEN 'filial:' || COALESCE(cp_inner.branch_id::text, '')
+                    WHEN cp_inner.participant_type = 'support' THEN 'support'
+                END ORDER BY 1
+            ) as p_keys
+        FROM public.conversation_participants AS cp_inner
+        GROUP BY cp_inner.conversation_id
+    ) AS p_sets ON p_sets.conversation_id = c.id
+    -- Check visibility for THIS specific user
+    LEFT JOIN public.conversation_user_preferences AS pref 
+        ON pref.conversation_id = c.id AND pref.user_id = p_creator_id
+    WHERE c.company_id = p_company_id
+      -- MUST be visible: Either no preference row (default visible) OR hidden_at is NULL
+      AND (pref.user_id IS NULL OR pref.hidden_at IS NULL)
+      AND array_to_string(p_sets.p_keys, ',') = p_canonical_key
+    ORDER BY c.last_message_at DESC
+    LIMIT 1;
+
+    IF v_conversation_id IS NOT NULL THEN
+        RETURN QUERY SELECT v_conversation_id AS conversation_id, false AS created;
+        RETURN;
+    END IF;
+
+    -- CREATE: If no visible conversation found, create a new session
+    INSERT INTO public.conversations (company_id, last_message_at)
+    VALUES (p_company_id, now())
+    RETURNING id INTO v_conversation_id;
+
+    v_created := true;
+
+    FOR v_participant IN SELECT * FROM jsonb_array_elements(p_participants)
+    LOOP
+        INSERT INTO public.conversation_participants (
+            conversation_id,
+            profile_id,
+            branch_id,
+            participant_type
+        ) VALUES (
+            v_conversation_id,
+            (v_participant->>'profile_id')::uuid,
+            (v_participant->>'branch_id')::uuid,
+            (v_participant->>'participant_type')
+        );
+    END LOOP;
+
+    -- PREFERENCE WITH UPSERT for the NEW conversation only. 
+    -- NEVER update hidden_at = NULL on an old conversation here.
+    INSERT INTO public.conversation_user_preferences (
+        user_id,
+        conversation_id,
+        is_pinned,
+        hidden_at,
+        updated_at
+    ) VALUES (
+        p_creator_id,
+        v_conversation_id,
+        false,
+        null,
+        now()
+    ) ON CONFLICT ON CONSTRAINT conversation_user_preferences_pkey DO UPDATE 
+    SET updated_at = now(); -- Just touch updated_at, do NOT clear hidden_at if it were set (though it shouldn't be for a new ID)
+
+    RETURN QUERY SELECT v_conversation_id AS conversation_id, v_created AS created;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.chat_find_or_create_conversation(uuid, jsonb, text, uuid) FROM public, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.chat_find_or_create_conversation(uuid, jsonb, text, uuid) TO service_role;
+
+NOTIFY pgrst, 'reload schema';

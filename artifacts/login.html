@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="cache-control" content="no-cache">
+    <title>Conectando ao Wi-Fi</title>
+  </head>
+  <body>
+    <p>Redirecionando para o acesso Wi-Fi…</p>
+
+    <!-- MikroTik substitutes every $(...) field before serving this page. -->
+    <form id="manos-tech-entry" method="post" action="https://manostech-system.com.br/api/public/hotspot-entry">
+      <!-- Universal file: the platform maps this unique RouterOS identity to
+           the correct company, branch and campaign. Do not hard-code a slug. -->
+      <input type="hidden" name="router-id" value="$(identity)">
+      <input type="hidden" name="mac" value="$(mac)">
+      <input type="hidden" name="ip" value="$(ip)">
+      <input type="hidden" name="link-login" value="$(link-login)">
+      <input type="hidden" name="link-login-only" value="$(link-login-only)">
+      <input type="hidden" name="link-orig" value="$(link-orig)">
+      <input type="hidden" name="link-orig-esc" value="$(link-orig-esc)">
+    </form>
+
+    <script>
+      document.getElementById("manos-tech-entry").submit();
+    </script>
+  </body>
+</html>

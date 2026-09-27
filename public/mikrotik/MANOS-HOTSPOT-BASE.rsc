@@ -1,0 +1,27 @@
+# Manos Tech - kit-base RouterOS v7
+# Universal template. Import the device activation file after this one.
+# Never put RADIUS/WireGuard secrets or certificate private keys in this file.
+
+/interface bridge add name=bridge-lan protocol-mode=rstp
+/interface bridge port add bridge=bridge-lan interface=ether2
+/interface bridge port add bridge=bridge-lan interface=ether3
+/interface bridge port add bridge=bridge-lan interface=ether4
+/ip address add address=192.168.88.1/24 interface=bridge-lan
+/ip pool add name=pool-lan ranges=192.168.88.10-192.168.88.254
+/ip dhcp-server add name=dhcp-lan interface=bridge-lan address-pool=pool-lan lease-time=1h disabled=no
+/ip dhcp-server network add address=192.168.88.0/24 gateway=192.168.88.1 dns-server=192.168.88.1
+/ip dhcp-client add interface=ether1 add-default-route=yes use-peer-dns=yes disabled=no
+/ip dns set allow-remote-requests=yes
+/ip firewall nat add chain=srcnat out-interface=ether1 action=masquerade comment="MANOS-NAT-INTERNET"
+
+# Guest aggregate cap for a 100 Mbps connection. ether5 is outside bridge-lan,
+# therefore this 60 Mbps cap never includes internal/admin traffic. PCQ shares
+# available guest bandwidth fairly among active visitor addresses.
+/queue type add name=manos-pcq-upload kind=pcq pcq-classifier=src-address
+/queue type add name=manos-pcq-download kind=pcq pcq-classifier=dst-address
+/queue simple add name="MANOS-WIFI-TOTAL" target=192.168.88.0/24 max-limit=60M/60M queue=manos-pcq-upload/manos-pcq-download comment="Guest Wi-Fi aggregate cap; ether5 excluded"
+
+# ether5 remains outside bridge-lan and therefore outside the captive portal.
+# Download this package's login.html as flash/hotspot/login.html and its
+# alogin.html as flash/hotspot/alogin.html. The latter skips RouterOS's
+# default "login successful" page and immediately opens the configured URL.

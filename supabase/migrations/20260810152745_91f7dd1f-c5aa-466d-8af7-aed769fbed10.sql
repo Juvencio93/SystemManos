@@ -1,0 +1,1 @@
+ALTER FUNCTION public.handle_updated_at_expenses() SET search_path = public;

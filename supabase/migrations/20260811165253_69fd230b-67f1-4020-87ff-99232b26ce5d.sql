@@ -1,0 +1,3 @@
+ALTER TABLE public.operational_analyses DROP CONSTRAINT IF EXISTS operational_analyses_analysis_date_key;
+ALTER TABLE public.operational_analyses DROP CONSTRAINT IF EXISTS operational_analyses_analysis_date_company_id_key;
+ALTER TABLE public.operational_analyses ADD CONSTRAINT operational_analyses_analysis_date_company_id_key UNIQUE (analysis_date, company_id);

@@ -1,0 +1,1 @@
+ALTER TABLE public.companies ADD COLUMN IF NOT EXISTS activated_at timestamptz; UPDATE public.companies SET activated_at = created_at WHERE activated_at IS NULL;
