@@ -349,9 +349,9 @@ export const askBannerAgent = createServerFn({ method: "POST" })
       const beforeState = commercialStateFromBrief(data.brief, userMessages.slice(0, -1));
       const afterState = turn.state;
       const comboWithPrice =
-        /\bcombo\b/iu.test(chatHistory) &&
+        /combo/iu.test(chatHistory) &&
         (afterState.hasPrice || activeBrief.priceCandidate !== undefined ||
-          /(?:r\$\s*)?\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila)\b/iu.test(chatHistory));
+          /(?:r\$\s*)?\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila)/iu.test(chatHistory));
       const deterministicComplete =
         afterState.hasSubject && (afterState.hasPrice || comboWithPrice) &&
         (comboWithPrice || (afterState.hasConfirmedScope && !turn.nextQuestion));
