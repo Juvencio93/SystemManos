@@ -346,7 +346,7 @@ export const askBannerAgent = createServerFn({ method: "POST" })
       const latestUserMessage = userMessages.at(-1) ?? "";
       const answeredScopeWithCombo =
         /^\s*(?:combo|completa|completo|combo\s+completo)\s*[.!]?\s*$/iu.test(latestUserMessage) &&
-        activeBrief.price !== undefined;
+        (activeBrief.price !== undefined || activeBrief.priceCandidate !== undefined);
       const requiredQuestion = answeredScopeWithCombo ? undefined : turn.nextQuestion;
       if (requiredQuestion) {
         return {
