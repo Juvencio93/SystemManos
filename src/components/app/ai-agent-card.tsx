@@ -1236,6 +1236,24 @@ const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) => void 
       }
 
       if (response.data.needsMoreInfo) {
+        const conversationText = newMessages.map((message) => message.content).join(" ");
+        const comboAlreadyProvided = /\bcombo\b/i.test(conversationText);
+        const priceAlreadyProvided = /(?:r\$\s*\d|\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila|money)\b)/i.test(conversationText);
+        if (comboAlreadyProvided && priceAlreadyProvided && /oferta completa|cada item|item separadamente|mesma promoção/i.test(response.data.question || "")) {
+          setBrief(response.data.brief ?? brief);
+          setMessages([...newMessages, { role: "assistant" as const, content: "Perfeito! Vou considerar os itens como um combo na mesma promoção." }]);
+          setResult({
+            ...response.data,
+            needsMoreInfo: false,
+            question: null,
+            promptOptions: [
+              { title: "Combo em destaque", prompt: `Banner horizontal 16:9 destacando ${conversationText}. Visual limpo, fundo neutro, tipografia grande e legível, sem inventar informações.` },
+              { title: "Oferta especial", prompt: `Segunda opção de banner horizontal 16:9 para ${conversationText}, composição diferente, mantendo exatamente os itens e o preço informado.` },
+            ],
+          });
+          setIsFinalTurn(true);
+          return;
+        }
         setBrief(response.data.brief ?? brief);
         setMessages([
           ...newMessages,
