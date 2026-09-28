@@ -393,6 +393,7 @@ export const askBannerAgent = createServerFn({ method: "POST" })
       if (
         decision.data.needsMoreInfo &&
         !deterministicComplete &&
+        !answeredScopeWithCombo &&
         !isResolvedQuestion(decision.data.question, userMessages, activeBrief)
       ) {
         console.info("[BannerAgent] conversation decision", {
