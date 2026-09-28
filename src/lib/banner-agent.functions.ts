@@ -36,8 +36,10 @@ function safeBannerOptions(
   const price = facts.price !== undefined ? `R$ ${facts.price.toFixed(2).replace(".", ",")}` : "o valor informado";
   const unit = facts.priceUnit ? ` (${facts.priceUnit})` : "";
   const base = `${items} por ${price}${unit}`;
-  const business = facts.business ? ` da ${facts.business}` : "";
-  const segment = context?.segment ? `, respeitando o posicionamento de ${context.segment}` : "";
+  const business = facts.business ? ` para ${facts.business}` : "";
+  const segment = context?.segment && !/^outro$/iu.test(context.segment.trim())
+    ? `, respeitando o posicionamento de ${context.segment}`
+    : "";
   const visual = context?.hasVisualEvidence
     ? " Aplicar as cores, materiais e elementos visuais confirmados na pesquisa pública da empresa; não inventar elementos fora dessas referências."
     : " Usar fotografia gastronômica realista em composição de estúdio neutro, sem simular fachada ou interior não confirmado.";
