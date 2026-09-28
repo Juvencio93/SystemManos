@@ -188,12 +188,16 @@ export function resolveBannerConversationTurn(
   userMessages: readonly string[],
 ) {
   const activeBrief = rebuildBannerConversationBrief(previousBrief, userMessages);
-  const state = commercialStateFromBrief(activeBrief, userMessages);
-  const nextQuestion = nextCommercialQuestion(userMessages, activeBrief);
+  const comboNamed = /\bcombo\b/iu.test(userMessages.join("\n"));
+  const normalizedBrief = comboNamed
+    ? { ...activeBrief, scopeConfirmed: true, pendingQuestion: undefined }
+    : activeBrief;
+  const state = commercialStateFromBrief(normalizedBrief, userMessages);
+  const nextQuestion = nextCommercialQuestion(userMessages, normalizedBrief);
   const pendingQuestion = nextQuestion
-    ? pendingQuestionForCommercialState(userMessages, activeBrief)
+    ? pendingQuestionForCommercialState(userMessages, normalizedBrief)
     : undefined;
-  const brief = pendingQuestion ? { ...activeBrief, pendingQuestion } : activeBrief;
+  const brief = pendingQuestion ? { ...normalizedBrief, pendingQuestion } : normalizedBrief;
   return {
     brief,
     state,
