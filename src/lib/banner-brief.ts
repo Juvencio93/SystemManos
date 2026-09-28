@@ -515,6 +515,7 @@ export function mergeBannerConversationBrief(
     ...(facts.unit !== undefined ? { unit: facts.unit } : {}),
     ...(facts.time !== undefined ? { time: facts.time } : {}),
     ...(facts.scopeConfirmed !== undefined ? { scopeConfirmed: facts.scopeConfirmed } : {}),
+    ...(facts.scopeConfirmed === true ? { pendingQuestion: undefined } : {}),
     ...(facts.subject !== undefined ? { pendingQuestion: undefined } : {}),
   };
 }
