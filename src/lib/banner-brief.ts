@@ -884,6 +884,14 @@ function sameCommercialItem(left: string, right: string) {
   return a === b || a.includes(b) || b.includes(a);
 }
 
+function normalizedCommercialUnit(value: string) {
+  const normalized = normalizedWords(value);
+  if (/\b(?:kg|quilo|kilo|quilograma)\b/.test(normalized)) return "quilo";
+  if (/\b(?:unidade|unitario|cada)\b/.test(normalized)) return "unidade";
+  if (/\b(?:porcao|pessoa|item)\b/.test(normalized)) return "porcao";
+  return normalized;
+}
+
 /**
  * Final commercial gate. `visualItems` makes the product representation
  * inspectable separately from the artwork copy, so writing “+ café” in text
@@ -935,7 +943,7 @@ export function validateGeneratedCommercialFacts(
       detail: `Validade deve ser ${required.validity}`,
     });
   }
-  if (required.unit && normalizedWords(facts.unit ?? "") !== normalizedWords(required.unit)) {
+  if (required.unit && normalizedCommercialUnit(facts.unit ?? "") !== normalizedCommercialUnit(required.unit)) {
     violations.push({ reason: "MISSING_UNIT", detail: `Unidade deve ser ${required.unit}` });
   }
   if (
