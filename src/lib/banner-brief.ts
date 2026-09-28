@@ -460,7 +460,10 @@ export function extractBannerTurnFacts(
   if (dateContext) facts.dateContext = dateContext;
   const unit = extractUnitFact(message);
   if (unit) facts.unit = unit;
-  if (/^\s*(?:combo|completa|completo|combo\s+completo)\s*[.!]?\s*$/iu.test(message)) {
+  if (
+    /^\s*(?:combo|completa|completo|combo\s+completo)\s*[.!]?\s*$/iu.test(message) ||
+    /^\s*(?:sim|isso|correto|exato|confirmo|pode\s+ser)\b.*\b(?:combo|oferta completa|completa|completo)\b/iu.test(message)
+  ) {
     facts.scopeConfirmed = true;
   }
   const time = extractTimeFact(message);
@@ -755,7 +758,8 @@ export function rebuildBannerConversationBrief(
     // the conversation history before resolving a direct scope answer such
     // as “Combo”. This prevents the price question from being reopened.
     if (
-      /^\s*(?:combo|completa|completo|combo\s+completo)\s*[.!]?\s*$/iu.test(latestMessage) &&
+      /\b(?:combo|completa|completo)\b/iu.test(latestMessage) &&
+      /^(?:\s*(?:sim|isso|correto|exato|confirmo|pode\s+ser)\b)?[\s,]*(?:ao|a|o|do|da)?[\s,]*(?:combo|oferta|completa|completo)\b/iu.test(latestMessage) &&
       resolved.price === undefined &&
       resolved.priceCandidate === undefined
     ) {
