@@ -1179,6 +1179,7 @@ function ClientAiAgentCard({
 
 const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) => void }, any>((_props, ref) => {
   const ask = useServerFn(askBannerAgent);
+  const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [input, setInput] = useState("");
@@ -1255,6 +1256,7 @@ const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) => void 
               { title: "Composição alternativa", prompt: `Criar uma segunda opção realmente diferente de banner horizontal 16:9 para o estabelecimento e ramo cadastrados, mantendo exatamente ${userFactsText}. Usar enquadramento de mesa em três quartos, produtos em primeiro plano, preço em selo promocional e composição visual distinta da primeira. Aplicar logo, cores e materiais confirmados no cadastro/pesquisa; não adicionar informações comerciais não informadas.` },
             ],
           });
+          queryClient.invalidateQueries({ queryKey: ["company-ai-usage"] });
           setIsFinalTurn(true);
           return;
         }
@@ -1267,6 +1269,7 @@ const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) => void 
       } else if (response.data.promptOptions) {
         setBrief(response.data.brief ?? brief);
         setResult(response.data);
+        queryClient.invalidateQueries({ queryKey: ["company-ai-usage"] });
       } else {
         setBrief(response.data.brief ?? brief);
         // A resposta pode chegar sem opções quando a IA precisa de um dado
