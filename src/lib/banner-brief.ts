@@ -260,7 +260,12 @@ export function extractOfferItems(subject: string | undefined) {
         .replace(/^\s*(?:um(?:a)?|o|a|os|as)\s+/iu, "")
         .trim(),
     )
-    .filter((item) => item.length > 1 && !/^(?:at[ée]|v[áa]lid)/iu.test(item));
+    .filter(
+      (item) =>
+        item.length > 1 &&
+        !/^(?:at[ée]|v[áa]lid)/iu.test(item) &&
+        !/^(?:promo(?:ç|c)[aã]o|oferta)(?:\s+da\s+semana|\s+especial)?$/iu.test(item),
+    );
 }
 
 const COMMERCIAL_SUBJECT =
