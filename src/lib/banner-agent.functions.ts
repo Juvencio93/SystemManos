@@ -343,7 +343,11 @@ export const askBannerAgent = createServerFn({ method: "POST" })
       // not delegate that decision to the model. This keeps the assistant
       // responsive, avoids wasting gateway calls and prevents malformed JSON
       // from replacing a precise contextual question.
-      const requiredQuestion = turn.nextQuestion;
+      const latestUserMessage = userMessages.at(-1) ?? "";
+      const answeredScopeWithCombo =
+        /^\s*(?:combo|completa|completo|combo\s+completo)\s*[.!]?\s*$/iu.test(latestUserMessage) &&
+        activeBrief.price !== undefined;
+      const requiredQuestion = answeredScopeWithCombo ? undefined : turn.nextQuestion;
       if (requiredQuestion) {
         return {
           success: true,
