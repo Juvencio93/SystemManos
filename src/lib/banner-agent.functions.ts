@@ -549,9 +549,15 @@ export const askBannerAgent = createServerFn({ method: "POST" })
           );
           if (!correction.ok || !correction.text) {
             return {
-              success: false,
-              data: null,
-              error: "Não foi possível corrigir o cenário visual sem inventar informações.",
+              success: true,
+              data: {
+                needsMoreInfo: false,
+                question: null,
+                promptOptions: safeBannerOptions(requiredOfferFacts),
+                reminder: "As opções preservam os itens e o valor informados.",
+                brief: activeBrief,
+              },
+              error: null,
             };
           }
           const corrected = parseBannerResponse(correction.text);
@@ -559,10 +565,15 @@ export const askBannerAgent = createServerFn({ method: "POST" })
             if (!corrected.ok)
               logBannerParseFailure(correction.requestId, "prompt_generation", corrected);
             return {
-              success: false,
-              data: null,
-              error:
-                "Não foi possível produzir prompts visuais compatíveis com as referências confirmadas.",
+              success: true,
+              data: {
+                needsMoreInfo: false,
+                question: null,
+                promptOptions: safeBannerOptions(requiredOfferFacts),
+                reminder: "As opções preservam os itens e o valor informados.",
+                brief: activeBrief,
+              },
+              error: null,
             };
           }
           const correctedOptions = corrected.data.promptOptions.map((option) => ({
@@ -588,10 +599,15 @@ export const askBannerAgent = createServerFn({ method: "POST" })
               violations: correctionViolations,
             });
             return {
-              success: false,
-              data: null,
-              error:
-                "Não foi possível produzir prompts visuais compatíveis com as referências confirmadas.",
+              success: true,
+              data: {
+                needsMoreInfo: false,
+                question: null,
+                promptOptions: safeBannerOptions(requiredOfferFacts),
+                reminder: "As opções preservam os itens e o valor informados.",
+                brief: activeBrief,
+              },
+              error: null,
             };
           }
           normalized = { ...corrected.data, promptOptions: correctedOptions };
