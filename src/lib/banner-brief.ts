@@ -846,7 +846,7 @@ export function nextCommercialQuestion(
   }
   const state = commercialStateFromBrief(activeBrief, messages);
   const comboAlreadyNamed = /\bcombo\b/iu.test(activeBrief.subject ?? "") || /\bcombo\b/iu.test(conversation);
-  if (comboAlreadyNamed && state.hasPrice) {
+  if (comboAlreadyNamed && (state.hasPrice || activeBrief.priceCandidate !== undefined)) {
     return null;
   }
   const temporal =
@@ -886,7 +886,7 @@ export function pendingQuestionForCommercialState(
   if (brief.commercialCondition && !brief.freeCopyConfirmed) return undefined;
   const state = commercialStateFromBrief(brief, messages);
   const comboAlreadyNamed = /\bcombo\b/iu.test(brief.subject ?? "") || /\bcombo\b/iu.test(conversation);
-  if (comboAlreadyNamed && state.hasPrice) return undefined;
+  if (comboAlreadyNamed && (state.hasPrice || brief.priceCandidate !== undefined)) return undefined;
   const temporal =
     TEMPORAL_COMMERCIAL_REQUEST.test(conversation) ||
     /\b(?:festival|feira|evento|edi[çc][aã]o\s+especial)\b/iu.test(brief.subject ?? "");
