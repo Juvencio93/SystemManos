@@ -278,7 +278,7 @@ const BARE_PRICE = /^\s*\d{1,6}(?:[.,]\d{1,2})?\s*$/u;
 
 function extractPriceFact(message: string) {
   if (FREE_OFFER.test(message)) return 0;
-  if (/\b\d+(?:[.,]\d{1,2})?\s*(?:kg|quilo|kilo|quilograma)\b/iu.test(message)) return normalizePrice(message);
+  if (/\b\d+(?:[.,]\d{1,2})?\s*(?:(?:o|por)\s+)?(?:kg|quilo|kilo|quilograma)\b/iu.test(message)) return normalizePrice(message);
   if (!PRICE_FACT.test(message)) return undefined;
   return normalizePrice(message);
 }
@@ -346,7 +346,7 @@ function extractRecurrence(message: string): "NONE" | "WEEKLY" | undefined {
 function extractUnitFact(message: string) {
   return (
     message.match(
-      /\bpor\s+(?:pessoa|por[çc][aã]o|unidade|item|casal|adulto|crian[çc]a|kg|quilo|kilo|quilograma)\b/iu,
+      /\b(?:por\s+|o\s+)?(?:pessoa|por[çc][aã]o|unidade|item|casal|adulto|crian[çc]a|kg|quilo|kilo|quilograma)\b/iu,
     )?.[0] ?? message.match(/\b(?:cada)\s+(?:pessoa|unidade|item)\b/iu)?.[0]
   );
 }
