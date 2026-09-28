@@ -1214,7 +1214,9 @@ const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) => void 
       const response = await ask({
         data: {
           messages: newMessages,
-          isFinalTurn: isFinalTurn || (newMessages.length >= 3), // Turno 2+ é considerado final se a IA já perguntou
+          // O briefing decide quando está completo; a quantidade de mensagens
+          // nunca deve forçar a geração antes de interpretar a resposta atual.
+          isFinalTurn,
           conversationId: conversationIdRef.current,
           brief,
         },
