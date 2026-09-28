@@ -349,11 +349,12 @@ export const askBannerAgent = createServerFn({ method: "POST" })
       const beforeState = commercialStateFromBrief(data.brief, userMessages.slice(0, -1));
       const afterState = turn.state;
       const comboWithPrice =
-        /\bcombo\b/iu.test(userMessages.join("\n")) &&
+        /\bcombo\b/iu.test(chatHistory) &&
         (afterState.hasPrice || activeBrief.priceCandidate !== undefined ||
-          /(?:r\$\s*)?\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila)\b/iu.test(userMessages.join("\n")));
+          /(?:r\$\s*)?\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila)\b/iu.test(chatHistory));
       const deterministicComplete =
-        !turn.nextQuestion && afterState.hasSubject && (afterState.hasPrice || comboWithPrice) && (afterState.hasConfirmedScope || comboWithPrice);
+        afterState.hasSubject && (afterState.hasPrice || comboWithPrice) &&
+        (comboWithPrice || (afterState.hasConfirmedScope && !turn.nextQuestion));
       const compatibility = classifyBannerCompatibility(
         {
           name: snapshot.name,
