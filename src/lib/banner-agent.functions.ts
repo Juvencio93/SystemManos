@@ -40,6 +40,7 @@ export const BannerAgentInputSchema = z.object({
       subject: z.string().optional(),
       offerItems: z.array(z.string()).optional(),
       price: z.number().finite().optional(),
+      priceUnit: z.string().optional(),
       priceCandidate: z.number().finite().optional(),
       commercialCondition: z.string().optional(),
       freeCopyConfirmed: z.boolean().optional(),
@@ -433,6 +434,7 @@ export const askBannerAgent = createServerFn({ method: "POST" })
         requiredOfferFacts.price !== undefined
           ? `preço obrigatório: ${formatOfferPrice(requiredOfferFacts.price)}.`
           : "",
+        requiredOfferFacts.priceUnit ? `base do preço obrigatória: ${requiredOfferFacts.priceUnit}.` : "",
         requiredOfferFacts.validity ? `validade obrigatória: ${requiredOfferFacts.validity}.` : "",
         requiredOfferFacts.weekday
           ? `dia obrigatório: ${requiredOfferFacts.weekday}; recorrência: ${requiredOfferFacts.recurrence === "WEEKLY" ? "semanal explicitamente informada" : "NÃO informada — jamais escreva toda/todos/semanal/semanalmente"}.`

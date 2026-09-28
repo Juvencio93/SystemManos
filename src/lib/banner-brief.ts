@@ -205,6 +205,7 @@ export type BannerConversationBrief = {
   /** Individual commercial items, kept separately from the free-form subject. */
   offerItems?: string[] | undefined;
   price?: number | undefined;
+  priceUnit?: string | undefined;
   /** Bare values such as "35" stay pending until the user confirms that they are the offer price. */
   priceCandidate?: number | undefined;
   commercialCondition?: string | undefined;
@@ -287,6 +288,15 @@ function extractPriceFact(message: string) {
   if (/\b\d+(?:[.,]\d{1,2})?\s*(?:(?:o|por)\s+)?(?:kg|quilo|kilo|quilograma)\b/iu.test(message)) return normalizePrice(message);
   if (!PRICE_FACT.test(message)) return undefined;
   return normalizePrice(message);
+}
+
+function extractPriceUnit(message: string) {
+  const normalized = message.toLocaleLowerCase("pt-BR");
+  if (/\b(?:kg|quilo|kilo|quilograma)\b/.test(normalized)) return "por quilo";
+  if (/\b(?:unidade|unit[aá]rio|cada)\b/.test(normalized)) return "por unidade";
+  if (/\b(?:combo|conjunto|oferta\s+completa|total)\b/.test(normalized)) return "oferta completa";
+  if (/\bpor[cç][aã]o\b/.test(normalized)) return "por porção";
+  return undefined;
 }
 
 function extractBarePriceCandidate(message: string) {
@@ -430,6 +440,8 @@ export function extractBannerTurnFacts(
   const facts: BannerTurnFacts = {};
   const price = extractPriceFact(message);
   if (price !== undefined) facts.price = price;
+  const priceUnit = extractPriceUnit(message);
+  if (priceUnit) facts.priceUnit = priceUnit;
   const barePrice = extractBarePriceCandidate(message);
   if (barePrice !== undefined) facts.priceCandidate = barePrice;
   const commercialCondition = extractCommercialCondition(message);
@@ -500,6 +512,7 @@ export function mergeBannerConversationBrief(
     ...(facts.subject !== undefined ? { offerItems: extractOfferItems(subject) } : {}),
     ...(facts.price !== undefined ? { price: facts.price } : {}),
     ...(facts.price !== undefined ? { priceCandidate: undefined } : {}),
+    ...(facts.priceUnit !== undefined ? { priceUnit: facts.priceUnit } : {}),
     ...(facts.priceCandidate !== undefined ? { priceCandidate: facts.priceCandidate } : {}),
     ...(facts.commercialCondition !== undefined
       ? { commercialCondition: facts.commercialCondition }
@@ -844,7 +857,7 @@ export function nextCommercialQuestion(
     return `${label} acontece em um dia específico, durante a semana ou em algum período definido?`;
   }
   if (!state.hasPrice) return "Qual é o valor exato da oferta?";
-  if (!state.hasConfirmedScope && !state.isSingleService) {
+  if (!state.hasConfirmedScope && !state.isSingleService && !activeBrief.priceUnit) {
     const items = activeBrief.offerItems?.length
       ? activeBrief.offerItems
       : extractOfferItems(activeBrief.subject);
@@ -870,7 +883,7 @@ export function pendingQuestionForCommercialState(
   if (!state.hasSubject) return "subject" as const;
   if (temporal && !state.hasValidity) return undefined;
   if (brief.priceCandidate !== undefined || !state.hasPrice) return "price_confirmation" as const;
-  if (!state.hasConfirmedScope && !state.isSingleService)
+  if (!state.hasConfirmedScope && !state.isSingleService && !brief.priceUnit)
     return "offer_scope_confirmation" as const;
   return undefined;
 }
@@ -878,6 +891,7 @@ export function pendingQuestionForCommercialState(
 export type RequiredOfferFacts = {
   items: string[];
   price?: number;
+  priceUnit?: string;
   validity?: string;
   weekday?: string;
   recurrence?: "NONE" | "WEEKLY";
@@ -921,6 +935,7 @@ export function requiredOfferFactsFromBrief(
   return {
     items: brief.offerItems?.length ? brief.offerItems : extractOfferItems(brief.subject),
     ...(brief.price !== undefined ? { price: brief.price } : {}),
+    ...(brief.priceUnit ? { priceUnit: brief.priceUnit } : {}),
     ...(brief.validity ? { validity: brief.validity } : {}),
     ...(brief.weekday ? { weekday: brief.weekday } : {}),
     ...(brief.recurrence ? { recurrence: brief.recurrence } : {}),
