@@ -737,7 +737,23 @@ export function rebuildBannerConversationBrief(
     // replaying older messages would let stale text replace a later correction.
     const latestMessage = messages[messages.length - 1];
     if (!latestMessage) return previous;
-    const resolved = resolvePendingBannerQuestion(previous, latestMessage);
+    let resolved = resolvePendingBannerQuestion(previous, latestMessage);
+    // If the client carried an older brief without the price, recover it from
+    // the conversation history before resolving a direct scope answer such
+    // as “Combo”. This prevents the price question from being reopened.
+    if (
+      /^\s*(?:combo|completa|completo|combo\s+completo)\s*[.!]?\s*$/iu.test(latestMessage) &&
+      resolved.price === undefined &&
+      resolved.priceCandidate === undefined
+    ) {
+      for (const priorMessage of messages.slice(0, -1).reverse()) {
+        const priorFacts = extractBannerTurnFacts(priorMessage, resolved);
+        if (priorFacts.price !== undefined || priorFacts.priceCandidate !== undefined) {
+          resolved = mergeBannerConversationBrief(resolved, priorFacts);
+          break;
+        }
+      }
+    }
     const merged = mergeBannerConversationBrief(
       resolved,
       extractBannerTurnFacts(latestMessage, resolved),
