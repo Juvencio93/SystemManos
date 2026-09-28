@@ -626,7 +626,14 @@ export function resolvePendingBannerQuestion(
   // “Combo” is a direct answer to the offer-scope question. Accept it even
   // when an older client persisted the previous price-confirmation marker.
   if (/^\s*(?:combo|completa|completo|combo\s+completo)\s*[.!]?\s*$/iu.test(message)) {
-    return { ...brief, scopeConfirmed: true, pendingQuestion: undefined };
+    return {
+      ...brief,
+      ...(brief.price === undefined && brief.priceCandidate !== undefined
+        ? { price: brief.priceCandidate, priceCandidate: undefined }
+        : {}),
+      scopeConfirmed: true,
+      pendingQuestion: undefined,
+    };
   }
   if (brief.pendingQuestion === "price_confirmation") {
     const candidate = extractBarePriceCandidate(message);

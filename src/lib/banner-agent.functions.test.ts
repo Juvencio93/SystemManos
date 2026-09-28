@@ -7,6 +7,27 @@ import {
 } from "./banner-brief";
 
 describe("banner agent production turn orchestrator", () => {
+  it("interprets combo as scope confirmation without repeating the price", () => {
+    let turn = resolveBannerConversationTurn({}, ["Quero criar um banner de promoção"]);
+    turn = resolveBannerConversationTurn(turn.brief, [
+      "Quero criar um banner de promoção",
+      "Café passado e misto quente",
+    ]);
+    turn = resolveBannerConversationTurn(turn.brief, [
+      "Quero criar um banner de promoção",
+      "Café passado e misto quente",
+      "12 reais",
+    ]);
+    turn = resolveBannerConversationTurn(turn.brief, [
+      "Quero criar um banner de promoção",
+      "Café passado e misto quente",
+      "12 reais",
+      "Combo",
+    ]);
+    expect(turn.brief).toMatchObject({ price: 12, scopeConfirmed: true });
+    expect(turn.brief.priceCandidate).toBeUndefined();
+    expect(turn.nextQuestion).toBeNull();
+  });
   it("preserves the pending question through the runtime payload schema", () => {
     const parsed = BannerAgentInputSchema.parse({
       conversationId: "e1d96ac2-9325-4b56-9900-d6ff2ca714c1",
