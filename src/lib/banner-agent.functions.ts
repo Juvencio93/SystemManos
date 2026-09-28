@@ -28,6 +28,17 @@ const BannerMessageSchema = z.object({
   content: z.string(),
 });
 
+function safeBannerOptions(facts: { items: string[]; price?: number; priceUnit?: string }) {
+  const items = facts.items.filter(Boolean).join(" + ") || "a oferta informada";
+  const price = facts.price !== undefined ? `R$ ${facts.price.toFixed(2).replace(".", ",")}` : "o valor informado";
+  const unit = facts.priceUnit ? ` (${facts.priceUnit})` : "";
+  const base = `${items} por ${price}${unit}`;
+  return [
+    { title: "Oferta em destaque", prompt: `Criar banner promocional horizontal 16:9, visual limpo e profissional, destacando ${base}. Fundo neutro de estúdio, iluminação agradável, tipografia grande e legível, sem inventar informações.` },
+    { title: "Combo em evidência", prompt: `Criar uma segunda opção de banner horizontal 16:9 para ${base}, com composição visual diferente, mantendo exatamente os itens e o preço. Usar fundo neutro, alto contraste e texto curto, sem adicionar dados não informados.` },
+  ];
+}
+
 export const BannerAgentInputSchema = z.object({
   messages: z
     .array(BannerMessageSchema.extend({ content: z.string().trim().min(1).max(4_000) }))

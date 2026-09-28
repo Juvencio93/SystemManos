@@ -845,6 +845,7 @@ export function nextCommercialQuestion(
     return "Você prefere mostrar no banner “Grátis” ou “Por conta da casa”?";
   }
   const state = commercialStateFromBrief(activeBrief, messages);
+  const comboAlreadyNamed = /\bcombo\b/iu.test(activeBrief.subject ?? "") || /\bcombo\b/iu.test(conversation);
   const temporal =
     TEMPORAL_COMMERCIAL_REQUEST.test(conversation) ||
     /\b(?:festival|feira|evento|edi[çc][aã]o\s+especial)\b/iu.test(activeBrief.subject ?? "");
@@ -861,7 +862,7 @@ export function nextCommercialQuestion(
     return `${label} acontece em um dia específico, durante a semana ou em algum período definido?`;
   }
   if (!state.hasPrice) return "Qual é o valor exato da oferta?";
-  if (!state.hasConfirmedScope && !state.isSingleService && !activeBrief.priceUnit) {
+  if (!state.hasConfirmedScope && !state.isSingleService && !activeBrief.priceUnit && !comboAlreadyNamed) {
     const items = activeBrief.offerItems?.length
       ? activeBrief.offerItems
       : extractOfferItems(activeBrief.subject);
@@ -881,13 +882,14 @@ export function pendingQuestionForCommercialState(
   if (brief.pendingQuestion === "offer_scope_correction") return "offer_scope_correction" as const;
   if (brief.commercialCondition && !brief.freeCopyConfirmed) return undefined;
   const state = commercialStateFromBrief(brief, messages);
+  const comboAlreadyNamed = /\bcombo\b/iu.test(brief.subject ?? "") || /\bcombo\b/iu.test(conversation);
   const temporal =
     TEMPORAL_COMMERCIAL_REQUEST.test(conversation) ||
     /\b(?:festival|feira|evento|edi[çc][aã]o\s+especial)\b/iu.test(brief.subject ?? "");
   if (!state.hasSubject) return "subject" as const;
   if (temporal && !state.hasValidity) return undefined;
   if (brief.priceCandidate !== undefined || !state.hasPrice) return "price_confirmation" as const;
-  if (!state.hasConfirmedScope && !state.isSingleService && !brief.priceUnit)
+  if (!state.hasConfirmedScope && !state.isSingleService && !brief.priceUnit && !comboAlreadyNamed)
     return "offer_scope_confirmation" as const;
   return undefined;
 }
