@@ -28,14 +28,22 @@ const BannerMessageSchema = z.object({
   content: z.string(),
 });
 
-function safeBannerOptions(facts: { items: string[]; price?: number; priceUnit?: string }) {
+function safeBannerOptions(
+  facts: { items: string[]; price?: number; priceUnit?: string; business?: string },
+  context?: { segment?: string; hasVisualEvidence?: boolean },
+) {
   const items = facts.items.filter(Boolean).join(" + ") || "a oferta informada";
   const price = facts.price !== undefined ? `R$ ${facts.price.toFixed(2).replace(".", ",")}` : "o valor informado";
   const unit = facts.priceUnit ? ` (${facts.priceUnit})` : "";
   const base = `${items} por ${price}${unit}`;
+  const business = facts.business ? ` da ${facts.business}` : "";
+  const segment = context?.segment ? `, respeitando o posicionamento de ${context.segment}` : "";
+  const visual = context?.hasVisualEvidence
+    ? " Aplicar as cores, materiais e elementos visuais confirmados na pesquisa pública da empresa; não inventar elementos fora dessas referências."
+    : " Usar fotografia gastronômica realista em composição de estúdio neutro, sem simular fachada ou interior não confirmado.";
   return [
-    { title: "Oferta em destaque", prompt: `Criar banner promocional horizontal 16:9, visual limpo e profissional, destacando ${base}. Fundo neutro de estúdio, iluminação agradável, tipografia grande e legível, sem inventar informações.` },
-    { title: "Combo em evidência", prompt: `Criar uma segunda opção de banner horizontal 16:9 para ${base}, com composição visual diferente, mantendo exatamente os itens e o preço. Usar fundo neutro, alto contraste e texto curto, sem adicionar dados não informados.` },
+    { title: "Oferta em destaque", prompt: `Criar um banner promocional horizontal 16:9 para ${business || "o estabelecimento"}${segment}, destacando “${items}” por “${price}${unit}”. Mostrar visualmente todos os itens em uma composição gastronômica apetitosa e realista, com hierarquia clara: oferta no maior destaque, produtos em segundo plano e marca apenas quando confirmada no cadastro. Usar tipografia grande, legível e alto contraste; não incluir datas, ingredientes, endereço ou condições não informados.${visual}` },
+    { title: "Composição alternativa", prompt: `Criar uma segunda opção realmente diferente de banner horizontal 16:9 para ${business || "o estabelecimento"}${segment}, mantendo exatamente “${items}” e “${price}${unit}”. Alterar o enquadramento para uma cena de mesa com os produtos em primeiro plano, preço em selo ou faixa de destaque e texto curto. Todos os itens devem aparecer na imagem e a leitura deve funcionar em celular. Não adicionar informações comerciais não confirmadas.${visual}` },
   ];
 }
 
@@ -556,7 +564,10 @@ export const askBannerAgent = createServerFn({ method: "POST" })
               data: {
                 needsMoreInfo: false,
                 question: null,
-                promptOptions: safeBannerOptions(requiredOfferFacts),
+                promptOptions: safeBannerOptions(requiredOfferFacts, {
+                  segment: snapshot.business_segment ?? undefined,
+                  hasVisualEvidence: initialResearch?.hasVisualEvidence === true,
+                }),
                 reminder: "As opções preservam os itens e o valor informados.",
                 brief: activeBrief,
               },
@@ -572,7 +583,10 @@ export const askBannerAgent = createServerFn({ method: "POST" })
               data: {
                 needsMoreInfo: false,
                 question: null,
-                promptOptions: safeBannerOptions(requiredOfferFacts),
+                promptOptions: safeBannerOptions(requiredOfferFacts, {
+                  segment: snapshot.business_segment ?? undefined,
+                  hasVisualEvidence: initialResearch?.hasVisualEvidence === true,
+                }),
                 reminder: "As opções preservam os itens e o valor informados.",
                 brief: activeBrief,
               },
@@ -606,7 +620,10 @@ export const askBannerAgent = createServerFn({ method: "POST" })
               data: {
                 needsMoreInfo: false,
                 question: null,
-                promptOptions: safeBannerOptions(requiredOfferFacts),
+                promptOptions: safeBannerOptions(requiredOfferFacts, {
+                  segment: snapshot.business_segment ?? undefined,
+                  hasVisualEvidence: initialResearch?.hasVisualEvidence === true,
+                }),
                 reminder: "As opções preservam os itens e o valor informados.",
                 brief: activeBrief,
               },
