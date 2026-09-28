@@ -1216,7 +1216,9 @@ const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) => void 
           messages: newMessages,
           // O briefing decide quando está completo; a quantidade de mensagens
           // nunca deve forçar a geração antes de interpretar a resposta atual.
-          isFinalTurn,
+          // A conversa só deve ser finalizada quando o agente confirmar que
+          // não faltam dados; nunca pelo estado local de uma pergunta anterior.
+          isFinalTurn: false,
           conversationId: conversationIdRef.current,
           brief,
         },
