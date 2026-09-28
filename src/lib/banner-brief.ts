@@ -208,6 +208,7 @@ export type BannerConversationBrief = {
   /** Bare values such as "35" stay pending until the user confirms that they are the offer price. */
   priceCandidate?: number | undefined;
   commercialCondition?: string | undefined;
+  freeCopyConfirmed?: boolean | undefined;
   /** A finite validity window such as "até domingo" or "setembro". */
   validity?: string | undefined;
   /** The explicitly named day, kept separate from recurrence. */
@@ -433,6 +434,8 @@ export function extractBannerTurnFacts(
   if (barePrice !== undefined) facts.priceCandidate = barePrice;
   const commercialCondition = extractCommercialCondition(message);
   if (commercialCondition) facts.commercialCondition = commercialCondition;
+  if (/^\s*(?:gr[aá]tis|por\s+conta\s+da\s+casa)\s*[.!]?\s*$/iu.test(message))
+    facts.freeCopyConfirmed = true;
   const validity = extractValidityFact(message);
   if (validity) facts.validity = validity;
   const weekdays = extractWeekdayFacts(message);
@@ -496,6 +499,9 @@ export function mergeBannerConversationBrief(
     ...(facts.priceCandidate !== undefined ? { priceCandidate: facts.priceCandidate } : {}),
     ...(facts.commercialCondition !== undefined
       ? { commercialCondition: facts.commercialCondition }
+      : {}),
+    ...(facts.freeCopyConfirmed !== undefined
+      ? { freeCopyConfirmed: facts.freeCopyConfirmed }
       : {}),
     ...(facts.validity !== undefined ? { validity: facts.validity } : {}),
     ...(facts.weekday !== undefined ? { weekday: facts.weekday } : {}),
@@ -785,6 +791,9 @@ export function nextCommercialQuestion(
       ? `Entendi. O ${formatOfferPrice(activeBrief.price)} vale só para qual item da oferta?`
       : "Entendi. O valor vale só para qual item da oferta?";
   }
+  if (activeBrief.commercialCondition && !activeBrief.freeCopyConfirmed) {
+    return "Você prefere mostrar no banner “Grátis” ou “Por conta da casa”?";
+  }
   const state = commercialStateFromBrief(activeBrief, messages);
   const temporal =
     TEMPORAL_COMMERCIAL_REQUEST.test(conversation) ||
@@ -795,6 +804,10 @@ export function nextCommercialQuestion(
     return `Você quer usar ${formatBRL(activeBrief.priceCandidate)} como o valor da oferta no banner?`;
   if (temporal && !state.hasValidity) {
     const label = /\bfestival\b/iu.test(activeBrief.subject ?? "") ? "Esse festival" : "Essa promoção";
+    if (/promo(?:ç|c)[aã]o\s+(?:da|de|para)\s+semana/iu.test(conversation)) {
+      const today = new Intl.DateTimeFormat("pt-BR", { weekday: "long", timeZone: "America/Sao_Paulo" }).format(new Date());
+      return `Hoje é ${today}. Você quer considerar a semana desde segunda-feira, começar na próxima semana ou deixar essa promoção válida independentemente do dia?`;
+    }
     return `${label} acontece em um dia específico, durante a semana ou em algum período definido?`;
   }
   if (!state.hasPrice) return "Qual é o valor exato da oferta?";
@@ -816,6 +829,7 @@ export function pendingQuestionForCommercialState(
   const conversation = messages.join("\n");
   if (INSTITUTIONAL_REQUEST.test(conversation)) return undefined;
   if (brief.pendingQuestion === "offer_scope_correction") return "offer_scope_correction" as const;
+  if (brief.commercialCondition && !brief.freeCopyConfirmed) return undefined;
   const state = commercialStateFromBrief(brief, messages);
   const temporal =
     TEMPORAL_COMMERCIAL_REQUEST.test(conversation) ||

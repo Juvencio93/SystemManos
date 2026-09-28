@@ -42,6 +42,7 @@ export const BannerAgentInputSchema = z.object({
       price: z.number().finite().optional(),
       priceCandidate: z.number().finite().optional(),
       commercialCondition: z.string().optional(),
+      freeCopyConfirmed: z.boolean().optional(),
       validity: z.string().optional(),
       weekday: z.string().optional(),
       weekdays: z.array(z.string()).optional(),
