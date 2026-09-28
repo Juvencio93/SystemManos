@@ -356,7 +356,7 @@ export const askBannerAgent = createServerFn({ method: "POST" })
         };
       }
       const groundingDirective = physicalElementGroundingRule();
-      const briefingDecisionSystem = `${BANNER_SYSTEM}\n\n${groundingDirective}\n\nMODO BRIEFING: ainda não gere prompts. Analise cadastro e histórico como um diretor criativo. Extraia internamente objetivo, produto/serviço, oferta, preço, unidade, período, horário e público somente quando presentes. Não invente fatos nem repita perguntas já respondidas. Se houver ambiguidade comercial real, retorne needsMoreInfo=true com UMA pergunta humana, contextual e curta. Se o briefing for suficiente, retorne needsMoreInfo=false, promptOptions=null e question=null.`;
+      const briefingDecisionSystem = `${BANNER_SYSTEM}\n\n${groundingDirective}\n\nMODO BRIEFING: ainda não gere prompts. Analise cadastro e histórico como um diretor criativo. Extraia internamente objetivo, produto/serviço, oferta, preço, unidade, período, horário e público somente quando presentes. Não invente fatos nem repita perguntas já respondidas. Faça perguntas em português simples e natural, usando o ramo e o produto do cliente quando isso ajudar; nunca diga “briefing”, “escopo”, “referências confirmadas” ou “organizar informações”. Se houver ambiguidade comercial real, retorne needsMoreInfo=true com UMA pergunta humana, contextual e curta. Se o briefing for suficiente, retorne needsMoreInfo=false, promptOptions=null e question=null.`;
       const briefingDecision = await callGateway(
         `${briefingDecisionSystem}\n\nCONTEXTO OFICIAL DA EMPRESA:\n${companyCtx}\n\nCOMPATIBILIDADE DO PEDIDO: ${compatibility.classification}. ${compatibility.reason} Segmento é contexto, não whitelist; extensões plausíveis devem seguir normalmente.`,
         `Histórico completo da conversa:\n${chatHistory}\n\nResponda apenas com o JSON obrigatório.`,
@@ -377,7 +377,7 @@ export const askBannerAgent = createServerFn({ method: "POST" })
           success: true,
           data: {
             needsMoreInfo: true,
-            question: safeBriefingFallbackQuestion(lastUserMessage),
+            question: turn.nextQuestion ?? safeBriefingFallbackQuestion(lastUserMessage),
             promptOptions: null,
             reminder: null,
           },
