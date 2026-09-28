@@ -277,7 +277,7 @@ const EVENT_OR_OFFER_SUBJECT =
 const PRICE_MENTION =
   /(?:r\$\s*\d|\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila|money)\b|\b(?:valor|pre[cç]o)\s*(?:de|:)?\s*r?\$?\s*\d|\b(?:gr[aá]tis|gratuita?|sem\s+custo|por\s+conta\s+da\s+casa)\b)/iu;
 const SCOPE_CONFIRMATION =
-  /\b(?:mesma\s+(?:promo[çc][aã]o|oferta)|combo\s+(?:completo|inclui)|inclui\s+(?:o|a|os|as)|valor\s+(?:do|da)\s+(?:combo|oferta)|isso|sim|correto|exato|pode\s+ser|perfeito)\b/i;
+  /\b(?:mesma\s+(?:promo[çc][aã]o|oferta)|combo\s*(?:completo|inclui)?|oferta\s+completa|oferta\s+completa|inclui\s+(?:o|a|os|as)|valor\s+(?:do|da)\s+(?:combo|oferta)|isso|sim|correto|exato|pode\s+ser|perfeito)\b/i;
 
 const FREE_OFFER = /\b(?:gr[aá]tis|gratuita?|sem\s+custo|por\s+conta\s+da\s+casa)\b/iu;
 const PRICE_FACT = /(?:r\$\s*\d|\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila|money)\b|\b(?:valor|pre[cç]o)\b[^\d]{0,24}\d)/i;
@@ -461,7 +461,7 @@ export function extractBannerTurnFacts(
   const unit = extractUnitFact(message);
   if (unit) facts.unit = unit;
   if (
-    /^\s*(?:combo|completa|completo|combo\s+completo)\s*[.!]?\s*$/iu.test(message) ||
+    /^\s*(?:combo|oferta\s+completa|completa|completo|combo\s+completo)\s*[.!]?\s*$/iu.test(message) ||
     /^\s*(?:sim|isso|correto|exato|confirmo|pode\s+ser)\b.*\b(?:combo|oferta completa|completa|completo)\b/iu.test(message)
   ) {
     facts.scopeConfirmed = true;
@@ -758,8 +758,8 @@ export function rebuildBannerConversationBrief(
     // the conversation history before resolving a direct scope answer such
     // as “Combo”. This prevents the price question from being reopened.
     if (
-      /\b(?:combo|completa|completo)\b/iu.test(latestMessage) &&
-      /^(?:\s*(?:sim|isso|correto|exato|confirmo|pode\s+ser)\b)?[\s,]*(?:ao|a|o|do|da)?[\s,]*(?:combo|oferta|completa|completo)\b/iu.test(latestMessage) &&
+      /\b(?:combo|oferta\s+completa|completa|completo)\b/iu.test(latestMessage) &&
+      /^(?:\s*(?:sim|isso|correto|exato|confirmo|pode\s+ser)\b)?[\s,]*(?:ao|a|o|do|da)?[\s,]*(?:combo|oferta|oferta\s+completa|completa|completo)\b/iu.test(latestMessage) &&
       resolved.price === undefined &&
       resolved.priceCandidate === undefined
     ) {

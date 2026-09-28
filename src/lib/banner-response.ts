@@ -162,7 +162,7 @@ export function safeBriefingFallbackQuestion(lastUserMessage: string) {
   if (/^\s*(?:sim|isso|correto|exato|perfeito|ok|certo)\b[.!]?\s*$/iu.test(subject))
     return "Perfeito, entendi a confirmação. Vou considerar essa informação na promoção.";
   if (
-    /^\s*(?:combo|completa|completo|combo\s+completo)\s*[.!]?\s*$/iu.test(subject) ||
+    /^\s*(?:combo|oferta\s+completa|completa|completo|combo\s+completo)\s*[.!]?\s*$/iu.test(subject) ||
     /^\s*(?:sim|isso|correto|exato|confirmo|pode\s+ser)\b.*\b(?:combo|oferta completa|completa|completo)\b/iu.test(subject)
   )
     return "Perfeito! Vou considerar os itens como um combo na mesma promoção.";

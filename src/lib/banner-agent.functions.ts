@@ -346,7 +346,7 @@ export const askBannerAgent = createServerFn({ method: "POST" })
       // from replacing a precise contextual question.
       const latestUserMessage = userMessages.at(-1) ?? "";
       const answeredScopeWithCombo =
-        (/^\s*(?:combo|completa|completo|combo\s+completo)\s*[.!]?\s*$/iu.test(latestUserMessage) ||
+        (/^\s*(?:combo|oferta\s+completa|completa|completo|combo\s+completo)\s*[.!]?\s*$/iu.test(latestUserMessage) ||
           /^\s*(?:sim|isso|correto|exato|confirmo|pode\s+ser)\b.*\b(?:combo|oferta completa|completa|completo)\b/iu.test(latestUserMessage)) &&
         (activeBrief.price !== undefined || activeBrief.priceCandidate !== undefined);
       const requiredQuestion = answeredScopeWithCombo ? undefined : turn.nextQuestion;
