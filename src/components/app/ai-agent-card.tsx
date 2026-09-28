@@ -1236,28 +1236,6 @@ const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) => void 
       }
 
       if (response.data.needsMoreInfo) {
-        const userFactsText = newMessages
-          .filter((message) => message.role === "user")
-          .map((message) => message.content)
-          .filter((message) => !/^(?:quero|preciso|gostaria)\s+(?:criar|fazer|montar)\s+(?:um\s+)?banner/i.test(message.trim()))
-          .join(" ");
-        const comboAlreadyProvided = /\bcombo\b/i.test(userFactsText);
-        const priceAlreadyProvided = /(?:r\$\s*\d|\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila|money)\b)/i.test(userFactsText);
-        if (comboAlreadyProvided && priceAlreadyProvided && /oferta completa|cada item|item separadamente|mesma promoção/i.test(response.data.question || "")) {
-          setBrief(response.data.brief ?? brief);
-          setMessages([...newMessages, { role: "assistant" as const, content: "Perfeito! Vou considerar os itens como um combo na mesma promoção." }]);
-          setResult({
-            ...response.data,
-            needsMoreInfo: false,
-            question: null,
-            promptOptions: [
-              { title: "Combo em destaque", prompt: `Criar um banner promocional horizontal 16:9 para o estabelecimento e ramo cadastrados, destacando ${userFactsText}. Mostrar visualmente todos os itens do combo em fotografia gastronômica realista, com preço em grande destaque, tipografia legível, alto contraste e composição profissional para redes sociais. Usar a identidade visual confirmada no cadastro/pesquisa da empresa quando disponível; não inventar datas, ingredientes ou condições.` },
-              { title: "Composição alternativa", prompt: `Criar uma segunda opção realmente diferente de banner horizontal 16:9 para o estabelecimento e ramo cadastrados, mantendo exatamente ${userFactsText}. Usar enquadramento de mesa com os produtos em primeiro plano, preço em selo promocional e texto curto que funcione no celular. Aplicar a identidade visual confirmada da empresa quando disponível e não adicionar informações não informadas.` },
-            ],
-          });
-          setIsFinalTurn(true);
-          return;
-        }
         setBrief(response.data.brief ?? brief);
         setMessages([
           ...newMessages,
