@@ -311,8 +311,11 @@ export const askBannerAgent = createServerFn({ method: "POST" })
       const activeBrief = turn.brief;
       const beforeState = commercialStateFromBrief(data.brief, userMessages.slice(0, -1));
       const afterState = turn.state;
+      const comboWithPrice =
+        /\bcombo\b/iu.test(userMessages.join("\n")) &&
+        (afterState.hasPrice || activeBrief.priceCandidate !== undefined);
       const deterministicComplete =
-        !turn.nextQuestion && afterState.hasSubject && afterState.hasPrice && afterState.hasConfirmedScope;
+        !turn.nextQuestion && afterState.hasSubject && (afterState.hasPrice || comboWithPrice) && afterState.hasConfirmedScope;
       const compatibility = classifyBannerCompatibility(
         {
           name: snapshot.name,
