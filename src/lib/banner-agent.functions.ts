@@ -350,7 +350,8 @@ export const askBannerAgent = createServerFn({ method: "POST" })
       const afterState = turn.state;
       const comboWithPrice =
         /\bcombo\b/iu.test(userMessages.join("\n")) &&
-        (afterState.hasPrice || activeBrief.priceCandidate !== undefined);
+        (afterState.hasPrice || activeBrief.priceCandidate !== undefined ||
+          /(?:r\$\s*)?\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila)\b/iu.test(userMessages.join("\n")));
       const deterministicComplete =
         !turn.nextQuestion && afterState.hasSubject && (afterState.hasPrice || comboWithPrice) && (afterState.hasConfirmedScope || comboWithPrice);
       const compatibility = classifyBannerCompatibility(
