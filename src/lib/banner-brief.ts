@@ -448,6 +448,9 @@ export function extractBannerTurnFacts(
   if (dateContext) facts.dateContext = dateContext;
   const unit = extractUnitFact(message);
   if (unit) facts.unit = unit;
+  if (/^\s*(?:combo|completa|completo|combo\s+completo)\s*[.!]?\s*$/iu.test(message)) {
+    facts.scopeConfirmed = true;
+  }
   const time = extractTimeFact(message);
   if (time) facts.time = time;
   if (SCOPE_CONFIRMATION.test(message)) facts.scopeConfirmed = true;
@@ -458,6 +461,7 @@ export function extractBannerTurnFacts(
     const subject = extractCommercialSubject(message);
     if (
       subject &&
+      !/^\s*(?:combo|completa|completo|combo\s+completo)\s*[.!]?\s*$/iu.test(message) &&
       (COMMERCIAL_SUBJECT.test(message) ||
         EVENT_OR_OFFER_SUBJECT.test(message) ||
         PRICE_FACT.test(message) ||

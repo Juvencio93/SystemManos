@@ -295,6 +295,8 @@ export const askBannerAgent = createServerFn({ method: "POST" })
       const activeBrief = turn.brief;
       const beforeState = commercialStateFromBrief(data.brief, userMessages.slice(0, -1));
       const afterState = turn.state;
+      const deterministicComplete =
+        !turn.nextQuestion && afterState.hasSubject && afterState.hasPrice && afterState.hasConfirmedScope;
       const compatibility = classifyBannerCompatibility(
         {
           name: snapshot.name,
@@ -386,6 +388,7 @@ export const askBannerAgent = createServerFn({ method: "POST" })
       }
       if (
         decision.data.needsMoreInfo &&
+        !deterministicComplete &&
         !isResolvedQuestion(decision.data.question, userMessages, activeBrief)
       ) {
         console.info("[BannerAgent] conversation decision", {
