@@ -352,7 +352,7 @@ export const askBannerAgent = createServerFn({ method: "POST" })
         /\bcombo\b/iu.test(userMessages.join("\n")) &&
         (afterState.hasPrice || activeBrief.priceCandidate !== undefined);
       const deterministicComplete =
-        !turn.nextQuestion && afterState.hasSubject && (afterState.hasPrice || comboWithPrice) && afterState.hasConfirmedScope;
+        !turn.nextQuestion && afterState.hasSubject && (afterState.hasPrice || comboWithPrice) && (afterState.hasConfirmedScope || comboWithPrice);
       const compatibility = classifyBannerCompatibility(
         {
           name: snapshot.name,
@@ -404,7 +404,7 @@ export const askBannerAgent = createServerFn({ method: "POST" })
         (/^\s*(?:combo|oferta\s+completa|completa|completo|combo\s+completo)\s*[.!]?\s*$/iu.test(latestUserMessage) ||
           /^\s*(?:sim|isso|correto|exato|confirmo|pode\s+ser)\b.*\b(?:combo|oferta completa|completa|completo)\b/iu.test(latestUserMessage)) &&
         (activeBrief.price !== undefined || activeBrief.priceCandidate !== undefined);
-      const requiredQuestion = answeredScopeWithCombo ? undefined : turn.nextQuestion;
+      const requiredQuestion = answeredScopeWithCombo || comboWithPrice ? undefined : turn.nextQuestion;
       if (requiredQuestion) {
         return {
           success: true,
