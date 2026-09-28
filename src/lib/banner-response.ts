@@ -161,6 +161,8 @@ export function safeBriefingFallbackQuestion(lastUserMessage: string) {
     return "Tive um problema ao organizar as informações. Pode me dizer qual produto, serviço ou condição deseja destacar?";
   if (/^\s*(?:sim|isso|correto|exato|perfeito|ok|certo)\b[.!]?\s*$/iu.test(subject))
     return "Perfeito, entendi a confirmação. Vou considerar essa informação na promoção.";
+  if (/^\s*(?:combo|completa|completo|combo\s+completo)\s*[.!]?\s*$/iu.test(subject))
+    return "Perfeito! Vou considerar os itens como um combo na mesma promoção.";
   if (/\b(?:r\$\s*\d|\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila|money|kg|quilo|kilo|quilograma))\b/iu.test(subject))
     return "Entendi o valor informado. Ele corresponde à oferta completa ou a cada item separadamente?";
   return `Entendi que você quer trabalhar com “${subject}”. Só tive um problema ao organizar essas informações. Os itens fazem parte da mesma promoção?`;
