@@ -36,13 +36,13 @@ function safeBannerOptions(
   const price = facts.price !== undefined ? `R$ ${facts.price.toFixed(2).replace(".", ",")}` : "o valor informado";
   const unit = facts.priceUnit ? ` (${facts.priceUnit})` : "";
   const base = `${items} por ${price}${unit}`;
-  const business = facts.business ? ` para ${facts.business}` : "";
+  const business = facts.business ? facts.business : "";
   const segment = context?.segment && !/^outro$/iu.test(context.segment.trim())
     ? `, respeitando o posicionamento de ${context.segment}`
     : "";
   const visual = context?.hasVisualEvidence
     ? " Aplicar as cores, materiais e elementos visuais confirmados na pesquisa pública da empresa; não inventar elementos fora dessas referências."
-    : " Usar fotografia gastronômica realista em composição de estúdio neutro, sem simular fachada ou interior não confirmado.";
+    : " Usar o nome, logotipo e identidade visual disponíveis no cadastro; se a logo não estiver disponível, solicitar o arquivo original. Usar fotografia gastronômica realista em composição de estúdio neutro, sem simular fachada ou interior não confirmado.";
   return [
     { title: "Oferta em destaque", prompt: `Criar um banner promocional horizontal 16:9 para ${business || "o estabelecimento"}${segment}, destacando “${items}” por “${price}${unit}”. Mostrar visualmente todos os itens em uma composição gastronômica apetitosa e realista, com hierarquia clara: oferta no maior destaque, produtos em segundo plano e marca apenas quando confirmada no cadastro. Usar tipografia grande, legível e alto contraste; não incluir datas, ingredientes, endereço ou condições não informados.${visual}` },
     { title: "Composição alternativa", prompt: `Criar uma segunda opção realmente diferente de banner horizontal 16:9 para ${business || "o estabelecimento"}${segment}, mantendo exatamente “${items}” e “${price}${unit}”. Alterar o enquadramento para uma cena de mesa com os produtos em primeiro plano, preço em selo ou faixa de destaque e texto curto. Todos os itens devem aparecer na imagem e a leitura deve funcionar em celular. Não adicionar informações comerciais não confirmadas.${visual}` },
