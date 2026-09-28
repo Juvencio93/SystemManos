@@ -49,6 +49,33 @@ function safeBannerOptions(
   ];
 }
 
+function enrichBannerPromptOptions(
+  options: Array<{ title: string; prompt: string }>,
+  facts: { business?: string },
+  context: { segment?: string; hasVisualEvidence?: boolean },
+) {
+  const business = facts.business ? `Nome da empresa: ${facts.business}.` : "Usar o nome da empresa confirmado no cadastro.";
+  const segment = context.segment && !/^outro$/iu.test(context.segment.trim())
+    ? ` Ramo: ${context.segment}.`
+    : "";
+  const visual = context.hasVisualEvidence
+    ? " Aplicar a identidade visual confirmada na pesquisa pública (logo, paleta, materiais e estilo), sem inventar elementos." 
+    : " Usar a identidade visual do cadastro e solicitar a logo original quando ela não estiver disponível; não inventar cores ou fachada.";
+  return options.slice(0, 2).map((option, index) => {
+    const cleanPrompt = option.prompt
+      .replace(/\bpara\s+da\s+/giu, "para ")
+      .replace(/\brespeitando o posicionamento de Outro,?\s*/giu, "");
+    const direction = index === 0
+      ? "Direção 1: composição editorial com área de texto à esquerda, produtos em destaque à direita e preço em bloco de alto contraste."
+      : "Direção 2: composição fotográfica de mesa vista em três quartos, produtos em primeiro plano, preço em selo e hierarquia visual diferente da primeira opção.";
+    return {
+      ...option,
+      title: index === 0 ? "Identidade da marca" : "Composição alternativa",
+      prompt: `${cleanPrompt.trim()} ${business}${segment}${visual} ${direction}`.trim(),
+    };
+  });
+}
+
 export const BannerAgentInputSchema = z.object({
   messages: z
     .array(BannerMessageSchema.extend({ content: z.string().trim().min(1).max(4_000) }))
@@ -633,6 +660,16 @@ export const askBannerAgent = createServerFn({ method: "POST" })
             };
           }
           normalized = { ...corrected.data, promptOptions: correctedOptions };
+        }
+
+        if (!normalized.needsMoreInfo && normalized.promptOptions?.length) {
+          normalized = {
+            ...normalized,
+            promptOptions: enrichBannerPromptOptions(normalized.promptOptions, requiredOfferFacts, {
+              segment: snapshot.business_segment ?? undefined,
+              hasVisualEvidence: initialResearch?.hasVisualEvidence === true,
+            }),
+          };
         }
 
         // 6. Quota Logic - Debit only on success (when prompts are generated)
