@@ -270,7 +270,7 @@ const EVENT_OR_OFFER_SUBJECT =
 const PRICE_MENTION =
   /(?:r\$\s*\d|\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila|money)\b|\b(?:valor|pre[cç]o)\s*(?:de|:)?\s*r?\$?\s*\d|\b(?:gr[aá]tis|gratuita?|sem\s+custo|por\s+conta\s+da\s+casa)\b)/iu;
 const SCOPE_CONFIRMATION =
-  /\b(?:mesma\s+(?:promo[çc][aã]o|oferta)|combo\s+(?:completo|inclui)|inclui\s+(?:o|a|os|as)|valor\s+(?:do|da)\s+(?:combo|oferta))\b/i;
+  /\b(?:mesma\s+(?:promo[çc][aã]o|oferta)|combo\s+(?:completo|inclui)|inclui\s+(?:o|a|os|as)|valor\s+(?:do|da)\s+(?:combo|oferta)|isso|sim|correto|exato|pode\s+ser|perfeito)\b/i;
 
 const FREE_OFFER = /\b(?:gr[aá]tis|gratuita?|sem\s+custo|por\s+conta\s+da\s+casa)\b/iu;
 const PRICE_FACT = /(?:r\$\s*\d|\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila|money)\b|\b(?:valor|pre[cç]o)\b[^\d]{0,24}\d)/i;
@@ -278,6 +278,7 @@ const BARE_PRICE = /^\s*\d{1,6}(?:[.,]\d{1,2})?\s*$/u;
 
 function extractPriceFact(message: string) {
   if (FREE_OFFER.test(message)) return 0;
+  if (/\b\d+(?:[.,]\d{1,2})?\s*(?:kg|quilo|kilo|quilograma)\b/iu.test(message)) return normalizePrice(message);
   if (!PRICE_FACT.test(message)) return undefined;
   return normalizePrice(message);
 }
@@ -345,7 +346,7 @@ function extractRecurrence(message: string): "NONE" | "WEEKLY" | undefined {
 function extractUnitFact(message: string) {
   return (
     message.match(
-      /\bpor\s+(?:pessoa|por[çc][aã]o|unidade|item|casal|adulto|crian[çc]a)\b/iu,
+      /\bpor\s+(?:pessoa|por[çc][aã]o|unidade|item|casal|adulto|crian[çc]a|kg|quilo|kilo|quilograma)\b/iu,
     )?.[0] ?? message.match(/\b(?:cada)\s+(?:pessoa|unidade|item)\b/iu)?.[0]
   );
 }
