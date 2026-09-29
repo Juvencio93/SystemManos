@@ -16,7 +16,9 @@ export const getMikrotikActivationDownload = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const scope = await resolveScope(context.userId, data);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: device } = await (supabaseAdmin as any).from("hotspot_devices").select("router_identity").eq("company_id", scope.companyId).eq("branch_id", scope.branchId).maybeSingle();
+    let deviceQuery = (supabaseAdmin as any).from("hotspot_devices").select("router_identity").eq("company_id", scope.companyId);
+    deviceQuery = scope.branchId ? deviceQuery.eq("branch_id", scope.branchId) : deviceQuery.is("branch_id", null);
+    const { data: device } = await deviceQuery.maybeSingle();
     const secret = process.env["HOTSPOT_CREDENTIAL_SECRET"]?.trim();
     if (!device?.router_identity || !secret) throw new Error("Ativação personalizada indisponível.");
     const exp = String(Date.now() + 10 * 60 * 1000);
