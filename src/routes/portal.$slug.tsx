@@ -233,6 +233,31 @@ function PortalPage() {
       });
     },
     onSuccess: (result) => {
+      // HotSpot authentication must be submitted directly to RouterOS. This
+      // is the stable captive-portal flow: RouterOS performs the RADIUS
+      // exchange and then follows the configured destination (Instagram).
+      if (result.hotspotAccess) {
+        const loginForm = document.createElement("form");
+        loginForm.method = "post";
+        loginForm.action = result.hotspotAccess.loginUrl;
+        const fields: Record<string, string> = {
+          username: result.hotspotAccess.username,
+          password: result.hotspotAccess.password,
+          ...(result.hotspotAccess.destination
+            ? { dst: result.hotspotAccess.destination }
+            : {}),
+        };
+        for (const [name, value] of Object.entries(fields)) {
+          const input = document.createElement("input");
+          input.type = "hidden";
+          input.name = name;
+          input.value = value;
+          loginForm.appendChild(input);
+        }
+        document.body.appendChild(loginForm);
+        loginForm.submit();
+        return;
+      }
       setDone({
         isReturning: result.isReturning,
         connectionsCount: result.connectionsCount,
