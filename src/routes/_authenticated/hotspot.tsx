@@ -36,6 +36,7 @@ function HotspotPage() {
     if (error) throw error; return (data ?? []) as any[];
   }});
   const healthQuery = useQuery({ queryKey: ["hotspot-health"], refetchInterval: 60000, queryFn: async () => { const response = await fetch("/api/internal/hotspot-health"); if (!response.ok) throw new Error("Falha no diagnóstico"); return response.json() as Promise<{ radiusConfigured: boolean; heartbeatConfigured: boolean; reason: string; checkedAt: string }>; } });
+  const filesQuery = useQuery({ queryKey: ["hotspot-files"], refetchInterval: 60000, queryFn: async () => (await fetch("/api/internal/hotspot-files")).json() as Promise<{ files: { path: string; available: boolean }[] }> });
   const clients = clientsQuery.data ?? [];
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
@@ -87,6 +88,7 @@ function HotspotPage() {
     <div className="container max-w-5xl space-y-8 py-10">
       <PageHeader title="Hotspot" description="Manuais e arquivos oficiais para instalação e atualização das RBs." />
       <Card className="border-primary/20"><CardContent className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm"><span className="font-semibold">Diagnóstico da integração</span><span className={healthQuery.data?.radiusConfigured && healthQuery.data?.heartbeatConfigured ? "text-emerald-400" : "text-amber-300"}>{healthQuery.isLoading ? "Verificando…" : healthQuery.data?.reason ?? "Não foi possível verificar"}</span></CardContent></Card>
+      <Card className="border-primary/20"><CardContent className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm"><span className="font-semibold">Arquivos publicados</span><span className={filesQuery.data?.files.every((file) => file.available) ? "text-emerald-400" : "text-amber-300"}>{filesQuery.isLoading ? "Validando…" : filesQuery.data?.files.every((file) => file.available) ? "Todos disponíveis" : "Há arquivos indisponíveis"}</span></CardContent></Card>
       <Card className="glass-panel border-primary/20"><CardHeader><CardTitle>Cadastro e políticas das RBs</CardTitle></CardHeader><CardContent className="grid gap-3 sm:grid-cols-2">{portalItems.filter((item) => item.kind !== "Evento").map((item) => <div key={item.id} className="rounded-lg border border-border p-3"><p className="font-medium">{item.name}</p><p className="mb-3 text-xs text-muted-foreground">Política RADIUS e homologação do Hotspot</p><HotspotConfigDialog kind={item.kind === "Sede" ? "company" : "branch"} targetId={item.id} unitName={item.name} portalSlug={item.slug} baseUrl={typeof window !== "undefined" ? window.location.origin : ""} /></div>)}</CardContent></Card>
       <div className="-mt-4 grid gap-3 sm:grid-cols-5">
         <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Dispositivos cadastrados</p><p className="mt-1 text-2xl font-bold">{clients.length}</p></CardContent></Card>
