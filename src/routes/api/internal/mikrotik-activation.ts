@@ -11,9 +11,12 @@ export const Route = createFileRoute("/api/internal/mikrotik-activation")({
     const token = process.env["RADIUS_API_TOKEN"];
     if (!token) return new Response("Activation unavailable", { status: 503 });
     const script = kind === "heartbeat" ? `:local heartbeatToken "${token}"
- :local routerIdentity [/system identity get name]
- :local heartbeatUrl "https://manostech-system.com.br/api/internal/hotspot-heartbeat?routerIdentity=$routerIdentity"
- /tool fetch url=$heartbeatUrl http-method=post http-header-field=("X-Manos-Heartbeat: " . $heartbeatToken) keep-result=no
+ /system scheduler remove [find name="MANOS-HEARTBEAT"]
+ /system scheduler add name="MANOS-HEARTBEAT" interval=5m on-event={
+  :local routerIdentity [/system identity get name]
+  :local heartbeatUrl ("https://manostech-system.com.br/api/internal/hotspot-heartbeat?routerIdentity=" . $routerIdentity)
+  /tool fetch url=$heartbeatUrl http-method=post http-header-field=("X-Manos-Heartbeat: " . $heartbeatToken) keep-result=no
+ }
 ` : `:local routerIdentity "${identity}"
  :local radiusHost "***REMOVED***"
 :local radiusSecret "***REMOVED***"
