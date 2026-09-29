@@ -17,6 +17,7 @@ export const Route = createFileRoute("/api/internal/mikrotik-activation")({
   :local heartbeatUrl ("https://manostech-system.com.br/api/internal/hotspot-heartbeat?routerIdentity=" . $routerIdentity)
   /tool fetch url=$heartbeatUrl http-method=post http-header-field=("X-Manos-Heartbeat: " . $heartbeatToken) keep-result=no
  }
+ /system scheduler enable [find name="MANOS-HEARTBEAT"]
 ` : `:local routerIdentity "${identity}"
  :local radiusHost "***REMOVED***"
 :local radiusSecret "***REMOVED***"
