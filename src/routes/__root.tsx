@@ -29,7 +29,8 @@ const staleChunkRecoveryScript = `
 
       sessionStorage.setItem(retryKey, String(now));
       const url = new URL(window.location.href);
-      url.searchParams.set("__chunk_retry", String(now));
+      // Keep the recovery internal: the public URL must remain clean.
+      url.searchParams.delete("__chunk_retry");
       window.location.replace(url.toString());
     };
 
