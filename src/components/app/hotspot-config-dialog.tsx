@@ -131,7 +131,7 @@ export function HotspotConfigDialog({
       vendor: normalizeVendor(config.vendor),
       displayName: config.displayName ?? "",
       apMac: config.apMac ?? "",
-      routerIdentity: form.routerIdentity,
+      routerIdentity: "",
       sessionTimeoutMinutes: String((config.sessionTimeoutSeconds ?? 600) / 60),
       idleTimeoutMinutes: String((config.idleTimeoutSeconds ?? 120) / 60),
       downloadMbps: String((config.downloadKbps ?? 10_000) / 1_000),
