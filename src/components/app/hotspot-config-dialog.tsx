@@ -131,13 +131,19 @@ export function HotspotConfigDialog({
       vendor: normalizeVendor(config.vendor),
       displayName: config.displayName ?? "",
       apMac: config.apMac ?? "",
-      routerIdentity: "",
+      routerIdentity: form.routerIdentity,
       sessionTimeoutMinutes: String((config.sessionTimeoutSeconds ?? 600) / 60),
       idleTimeoutMinutes: String((config.idleTimeoutSeconds ?? 120) / 60),
       downloadMbps: String((config.downloadKbps ?? 10_000) / 1_000),
       uploadMbps: String((config.uploadKbps ?? 3_000) / 1_000),
     });
   }, [configQuery.data]);
+
+  useEffect(() => {
+    if (provisioningQuery.data?.routerIdentity) {
+      setForm((current) => ({ ...current, routerIdentity: provisioningQuery.data.routerIdentity }));
+    }
+  }, [provisioningQuery.data]);
 
   const saveMutation = useMutation({
     mutationFn: () =>
