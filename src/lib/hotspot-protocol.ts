@@ -1,0 +1,4 @@
+export type HeartbeatInput = { routerIdentity?: string; mac?: string; ip?: string; version?: string; activeSessions?: string | number; rxBytes?: string | number; txBytes?: string | number };
+export function validateHeartbeat(input: HeartbeatInput | null | undefined) { return Boolean(input?.routerIdentity?.trim() && input?.mac?.trim()); }
+export function heartbeatUpdate(input: HeartbeatInput, now: string, syncRequested = false) { return { ap_mac: input.mac, last_seen_at: now, last_seen_ip: input.ip ?? null, router_version: input.version ?? null, active_sessions: Number(input.activeSessions ?? 0), rx_bytes: Number(input.rxBytes ?? 0), tx_bytes: Number(input.txBytes ?? 0), ...(syncRequested ? { sync_applied_at: now } : {}), updated_at: now }; }
+export function validateSyncRequest(input: { routerIdentity?: string } | null | undefined) { return Boolean(input?.routerIdentity?.trim()); }
