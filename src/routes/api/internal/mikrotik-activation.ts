@@ -10,7 +10,7 @@ export const Route = createFileRoute("/api/internal/mikrotik-activation")({
     if (expected.length !== sig.length || !timingSafeEqual(Buffer.from(expected), Buffer.from(sig))) return new Response("Unauthorized", { status: 401 });
     const token = process.env["RADIUS_API_TOKEN"];
     if (!token) return new Response("Activation unavailable", { status: 503 });
-    const script = `:local routerIdentity "${identity}"\n:local heartbeatToken "${token}"\n/system identity set name=$routerIdentity\n# Import Hotspot base and configure the heartbeat scheduler for this RB.`;
+    const script = `:local routerIdentity "${identity}"\n:local heartbeatToken "${token}"\n:local radiusHost "***REMOVED***"\n:local radiusSecret "***REMOVED***"\n/system identity set name=$routerIdentity\n/radius remove [find service=hotspot]\n/radius add service=hotspot address=$radiusHost secret=$radiusSecret authentication-port=1812 accounting-port=1813 timeout=3s require-message-auth=no\n/ip hotspot profile set [find name="hsprof1"] use-radius=yes radius-accounting=yes login-by=http-chap,http-pap html-directory=flash/hotspot html-directory-override=flash/hotspot\n/ip hotspot enable [find name="hotspot1"]\n/system scheduler add name="MANOS-HEARTBEAT" interval=5m on-event="/tool fetch http-method=post http-header-field=\\"Content-Type: application/json,X-Manos-Heartbeat: $heartbeatToken\\" url=\\"https://manostech-system.com.br/api/internal/hotspot-heartbeat\\" keep-result=no"`;
     return new Response(script, { headers: { "content-type": "text/plain", "content-disposition": `attachment; filename="${identity}-activation.rsc"` } });
   } } },
 });
