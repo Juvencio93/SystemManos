@@ -23,6 +23,10 @@ function HotspotPage() {
     if (error) throw error;
     return (data ?? []) as any[];
   }});
+  const auditQuery = useQuery({ queryKey: ["hotspot-audit"], queryFn: async () => {
+    const { data, error } = await (supabase as any).from("hotspot_device_audit").select("id,device_id,action,previous_status,new_status,created_at").order("created_at", { ascending: false }).limit(20);
+    if (error) throw error; return (data ?? []) as any[];
+  }});
   const clients = clientsQuery.data ?? [];
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
@@ -69,6 +73,7 @@ function HotspotPage() {
           </div>
         </CardContent>
       </Card>
+      <Card className="glass-panel border-primary/20"><CardHeader><CardTitle>Histórico recente</CardTitle></CardHeader><CardContent className="space-y-2">{(auditQuery.data ?? []).map((item) => <div key={item.id} className="flex items-center justify-between rounded border border-border p-2 text-xs"><span>{item.action} · dispositivo {String(item.device_id).slice(0, 8)}</span><span className="text-muted-foreground">{new Date(item.created_at).toLocaleString("pt-BR")}</span></div>)}{!auditQuery.data?.length && <p className="text-sm text-muted-foreground">Nenhuma ação registrada.</p>}</CardContent></Card>
       <div className="grid gap-3 sm:grid-cols-3">
         <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Dispositivos cadastrados</p><p className="mt-1 text-2xl font-bold">{clients.length}</p></CardContent></Card>
         <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Homologados</p><p className="mt-1 text-2xl font-bold text-emerald-400">{clients.filter((c) => c.status === "operational").length}</p></CardContent></Card>
