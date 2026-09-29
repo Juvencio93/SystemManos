@@ -16,6 +16,9 @@ export const Route = createFileRoute("/api/internal/hotspot-heartbeat")({
           last_seen_at: new Date().toISOString(),
           last_seen_ip: body.ip ?? null,
           router_version: body.version ?? null,
+          active_sessions: Number(body.activeSessions ?? 0),
+          rx_bytes: Number(body.rxBytes ?? 0),
+          tx_bytes: Number(body.txBytes ?? 0),
           updated_at: new Date().toISOString(),
         }).eq("router_identity", body.routerIdentity);
         if (error) return new Response("Could not update heartbeat", { status: 500 });
