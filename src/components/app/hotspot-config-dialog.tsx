@@ -319,7 +319,7 @@ export function HotspotConfigDialog({
               nesta etapa.
             </p> : null}
 
-            {!isClientPolicyView ? <Accordion type="single" collapsible className="rounded-xl border border-primary/25 px-3">
+            {false ? <Accordion type="single" collapsible className="rounded-xl border border-primary/25 px-3">
               {form.vendor === "mikrotik_hotspot" ? (
                 <AccordionItem value="mikrotik-kit" className="border-b">
                   <AccordionTrigger className="text-sm text-primary hover:no-underline">
