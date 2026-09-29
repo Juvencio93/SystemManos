@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { randomBytes } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -9,6 +9,20 @@ const targetSchema = z.object({
   kind: z.enum(["company", "branch"]),
   targetId: z.string().uuid(),
 });
+
+export const getMikrotikActivationDownload = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => targetSchema.parse(data))
+  .handler(async ({ data, context }) => {
+    const scope = await resolveScope(context.userId, data);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: device } = await (supabaseAdmin as any).from("hotspot_devices").select("router_identity").eq("company_id", scope.companyId).eq("branch_id", scope.branchId).maybeSingle();
+    const secret = process.env["HOTSPOT_CREDENTIAL_SECRET"]?.trim();
+    if (!device?.router_identity || !secret) throw new Error("Ativação personalizada indisponível.");
+    const exp = String(Date.now() + 10 * 60 * 1000);
+    const sig = createHmac("sha256", secret).update(`${device.router_identity}.${exp}`).digest("hex");
+    return `/api/internal/mikrotik-activation?router=${encodeURIComponent(device.router_identity)}&exp=${exp}&sig=${sig}`;
+  });
 
 const nullableText = z
   .string()
