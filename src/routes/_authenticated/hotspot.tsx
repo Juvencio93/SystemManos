@@ -11,7 +11,6 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { getPortals, type PortalItem } from "@/lib/portals.functions";
 import { HotspotConfigDialog } from "@/components/app/hotspot-config-dialog";
-import { useAccess } from "@/hooks/use-access";
 import { useServerFn } from "@tanstack/react-start";
 import { getMikrotikActivationDownload } from "@/lib/hotspot-config.functions";
 
@@ -22,7 +21,6 @@ export const Route = createFileRoute("/_authenticated/hotspot")({
 
 function HotspotPage() {
   const getActivation = useServerFn(getMikrotikActivationDownload);
-  const { data: access } = useAccess();
   const fetchPortals = useServerFn(getPortals);
   const portalsQuery = useQuery({ queryKey: ["hotspot-portals"], queryFn: () => fetchPortals() });
   const portalItems = (portalsQuery.data?.items ?? []) as PortalItem[];
