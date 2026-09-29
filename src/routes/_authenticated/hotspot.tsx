@@ -51,7 +51,7 @@ function HotspotPage() {
     if (error) throw error; return (data ?? []) as any[];
   }});
   const healthQuery = useQuery({ queryKey: ["hotspot-health"], refetchInterval: 60000, queryFn: async () => { const response = await fetch("/api/internal/hotspot-health"); if (!response.ok) throw new Error("Falha no diagnóstico"); return response.json() as Promise<{ radiusConfigured: boolean; heartbeatConfigured: boolean; reason: string; checkedAt: string }>; } });
-  const filesQuery = useQuery({ queryKey: ["hotspot-files"], refetchInterval: 60000, queryFn: async () => (await fetch("/api/internal/hotspot-files")).json() as Promise<{ files: { path: string; available: boolean }[]; checkedAt: string }> });
+  const filesQuery = useQuery({ queryKey: ["hotspot-files"], refetchInterval: 60000, queryFn: async () => (await fetch("/api/internal/hotspot-files")).json() as Promise<{ files: { path: string; available: boolean }[]; publishedAt: string | null }> });
   const clients = clientsQuery.data ?? [];
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -70,7 +70,7 @@ function HotspotPage() {
   const trafficBytes = clients.reduce((sum, c) => sum + Number(c.rx_bytes ?? 0) + Number(c.tx_bytes ?? 0), 0);
   const auditItems = (auditQuery.data ?? []).reduce<any[]>((items, item) => { const t = new Date(item.created_at).getTime(); if (`${item.action} ${item.device_id}`.toLowerCase().includes(auditSearch.toLowerCase()) && (!auditFrom || t >= new Date(auditFrom).getTime()) && (!auditTo || t <= new Date(`${auditTo}T23:59:59`).getTime())) items.push(item); return items; }, []);
   const formatBytes = (n: number) => n > 1_000_000_000 ? `${(n / 1_000_000_000).toFixed(1)} GB` : `${(n / 1_000_000).toFixed(1)} MB`;
-  const filesCheckedAt = filesQuery.data?.checkedAt ? new Date(filesQuery.data.checkedAt).toLocaleString("pt-BR") : "Aguardando validação";
+  const filesCheckedAt = filesQuery.data?.publishedAt ? new Date(filesQuery.data.publishedAt).toLocaleString("pt-BR") : "Data da última publicação indisponível";
   const visible = useMemo(() => filteredClients.slice((page - 1) * 10, page * 10), [filteredClients, page]);
   const statusLabel = (s: string) => s === "operational" ? "Homologado" : s === "blocked" ? "Bloqueado" : "Pendente";
   const statusClass = (s: string) => s === "operational" ? "border-emerald-400/40 text-emerald-300" : s === "blocked" ? "border-red-400/40 text-red-300" : "border-amber-400/40 text-amber-300";
@@ -123,8 +123,8 @@ function HotspotPage() {
         <CardContent className="space-y-5">
           <p className="text-sm text-muted-foreground">Use os arquivos abaixo em todas as RBs. A plataforma identifica cada equipamento pela identidade exclusiva do RouterOS.</p>
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-lg border border-primary/25 bg-primary/5 p-3 text-sm"><p className="font-semibold text-primary">Arquivos verificados</p><p className="text-muted-foreground">{filesCheckedAt}</p></div>
-            <div className="rounded-lg border border-primary/25 bg-primary/5 p-3 text-sm"><p className="font-semibold text-primary">Manual verificado</p><p className="text-muted-foreground">{filesCheckedAt}</p></div>
+            <div className="rounded-lg border border-primary/25 bg-primary/5 p-3 text-sm"><p className="font-semibold text-primary">Arquivos atualizados</p><p className="text-muted-foreground">{filesCheckedAt}</p></div>
+            <div className="rounded-lg border border-primary/25 bg-primary/5 p-3 text-sm"><p className="font-semibold text-primary">Manual atualizado</p><p className="text-muted-foreground">{filesCheckedAt}</p></div>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" asChild><a href="/mikrotik/MANOS-HOTSPOT-BASE.rsc" download><Download className="size-4" /> Kit-base .rsc</a></Button>
