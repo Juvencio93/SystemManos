@@ -3,10 +3,10 @@
 # Never put RADIUS/WireGuard secrets or certificate private keys in this file.
 
 # WAN: ether1 receives the provider address and default route automatically.
-/ip dhcp-client add interface=ether1 disabled=no comment="MANOS-WAN"
+:if ([:len [/ip dhcp-client find interface=ether1]] = 0) do={/ip dhcp-client add interface=ether1 disabled=no comment="MANOS-WAN"}
 
 # Portal files directory.
-/file make-dir flash/hotspot
+:if ([:len [/file find name="flash/hotspot"]] = 0) do={/file add name=flash/hotspot type=directory}
 
 /interface bridge add name=bridge-lan protocol-mode=rstp
 /interface bridge port add bridge=bridge-lan interface=ether2
