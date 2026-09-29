@@ -76,6 +76,10 @@ function HotspotPage() {
     const blob = new Blob(["\ufeff" + header + rows], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "hotspot-dispositivos.csv"; a.click(); URL.revokeObjectURL(url);
   }
+  function exportAuditCsv() {
+    const csv = "Ação,Dispositivo,Status anterior,Novo status,Data\n" + auditItems.map((i) => [i.action, i.device_id, i.previous_status, i.new_status, i.created_at].map((v) => `"${String(v ?? "").replaceAll('"', '""')}"`).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" })); const a = document.createElement("a"); a.href = url; a.download = "hotspot-auditoria.csv"; a.click(); URL.revokeObjectURL(url);
+  }
   return (
     <div className="container max-w-5xl space-y-8 py-10">
       <PageHeader title="Hotspot" description="Manuais e arquivos oficiais para instalação e atualização das RBs." />
@@ -104,7 +108,7 @@ function HotspotPage() {
           </div>
         </CardContent>
       </Card>
-      <Card className="glass-panel border-primary/20"><CardHeader><CardTitle>Histórico recente</CardTitle></CardHeader><CardContent className="space-y-2"><Input placeholder="Filtrar histórico por ação ou dispositivo" value={auditSearch} onChange={(e) => setAuditSearch(e.target.value)} />{auditItems.map((item) => <div key={item.id} className="flex items-center justify-between rounded border border-border p-2 text-xs"><span>{item.action} · dispositivo {String(item.device_id).slice(0, 8)}</span><span className="text-muted-foreground">{new Date(item.created_at).toLocaleString("pt-BR")}</span></div>)}{!auditItems.length && <p className="text-sm text-muted-foreground">Nenhuma ação encontrada.</p>}</CardContent></Card>
+      <Card className="glass-panel border-primary/20"><CardHeader className="flex flex-row items-center justify-between"><CardTitle>Histórico recente</CardTitle><Button variant="outline" size="sm" onClick={exportAuditCsv}>Exportar histórico</Button></CardHeader><CardContent className="space-y-2"><Input placeholder="Filtrar histórico por ação ou dispositivo" value={auditSearch} onChange={(e) => setAuditSearch(e.target.value)} />{auditItems.map((item) => <div key={item.id} className="flex items-center justify-between rounded border border-border p-2 text-xs"><span>{item.action} · dispositivo {String(item.device_id).slice(0, 8)}</span><span className="text-muted-foreground">{new Date(item.created_at).toLocaleString("pt-BR")}</span></div>)}{!auditItems.length && <p className="text-sm text-muted-foreground">Nenhuma ação encontrada.</p>}</CardContent></Card>
       {offlineCount > 0 && <Card className="border-amber-400/30 bg-amber-400/5"><CardContent className="p-4 text-sm"><p className="font-semibold text-amber-300">Atenção operacional</p><p className="text-muted-foreground">{offlineCount} dispositivo(s) não enviaram heartbeat nos últimos 15 minutos. Verifique a conexão da RB e o RADIUS.</p></CardContent></Card>}
       <Card className="glass-panel border-primary/20">
         <CardHeader className="flex flex-row items-center justify-between"><CardTitle className="flex items-center gap-2"><Router className="size-5 text-primary" /> Clientes ativos homologados</CardTitle><Button variant="outline" size="sm" onClick={() => { void clientsQuery.refetch(); void auditQuery.refetch(); }}>Atualizar dados</Button></CardHeader>
