@@ -167,6 +167,6 @@ export function safeBriefingFallbackQuestion(lastUserMessage: string) {
   )
     return "Perfeito! Vou considerar os itens como um combo na mesma promoção.";
   if (/\b(?:r\$\s*\d|\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila|money|kg|quilo|kilo|quilograma))\b/iu.test(subject))
-    return "Entendi o valor informado. Ele corresponde à oferta completa ou a cada item separadamente?";
+    return `Entendi o valor informado em “${subject}”. Ele corresponde à oferta completa ou a cada item separadamente?`;
   return `Entendi que você quer trabalhar com “${subject}”. Só tive um problema ao organizar essas informações. Os itens fazem parte da mesma promoção?`;
 }
