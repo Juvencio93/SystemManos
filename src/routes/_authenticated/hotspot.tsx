@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/hotspot")({
@@ -23,8 +24,14 @@ function HotspotPage() {
     return (data ?? []) as any[];
   }});
   const clients = clientsQuery.data ?? [];
-  const totalPages = Math.max(1, Math.ceil(clients.length / 10));
-  const visible = useMemo(() => clients.slice((page - 1) * 10, page * 10), [clients, page]);
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState("all");
+  const filteredClients = clients.filter((client) => {
+    const text = `${client.router_identity ?? ""} ${client.ap_mac ?? ""}`.toLowerCase();
+    return text.includes(search.toLowerCase()) && (filter === "all" || client.status === filter);
+  });
+  const totalPages = Math.max(1, Math.ceil(filteredClients.length / 10));
+  const visible = useMemo(() => filteredClients.slice((page - 1) * 10, page * 10), [filteredClients, page]);
   const statusLabel = (s: string) => s === "operational" ? "Homologado" : s === "blocked" ? "Bloqueado" : "Pendente";
   const statusClass = (s: string) => s === "operational" ? "border-emerald-400/40 text-emerald-300" : s === "blocked" ? "border-red-400/40 text-red-300" : "border-amber-400/40 text-amber-300";
   async function changeStatus(status: string) {
@@ -53,9 +60,15 @@ function HotspotPage() {
           </div>
         </CardContent>
       </Card>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Dispositivos cadastrados</p><p className="mt-1 text-2xl font-bold">{clients.length}</p></CardContent></Card>
+        <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Homologados</p><p className="mt-1 text-2xl font-bold text-emerald-400">{clients.filter((c) => c.status === "operational").length}</p></CardContent></Card>
+        <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Bloqueados</p><p className="mt-1 text-2xl font-bold text-red-400">{clients.filter((c) => c.status === "blocked").length}</p></CardContent></Card>
+      </div>
       <Card className="glass-panel border-primary/20">
         <CardHeader><CardTitle className="flex items-center gap-2"><Router className="size-5 text-primary" /> Clientes ativos homologados</CardTitle></CardHeader>
         <CardContent className="space-y-3">
+          <div className="flex flex-col gap-2 sm:flex-row"><Input placeholder="Buscar por identidade ou MAC" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} /><select className="rounded-md border border-input bg-background px-3 text-sm" value={filter} onChange={(e) => { setFilter(e.target.value); setPage(1); }}><option value="all">Todos os status</option><option value="operational">Homologados</option><option value="awaiting_homologation">Pendentes</option><option value="blocked">Bloqueados</option></select></div>
           {visible.map((client) => <button key={client.id} onClick={() => setSelected(client)} className="flex w-full items-center justify-between rounded-lg border border-border bg-muted/20 p-3 text-left hover:border-primary/50"><span><span className="font-medium">{client.router_identity ?? "RB sem identidade"}</span><span className="ml-3 text-xs text-muted-foreground">MAC: {client.ap_mac ?? "não informado"}</span></span><Badge variant="outline" className={statusClass(client.status)}>{statusLabel(client.status)}</Badge></button>)}
           {!clients.length && <p className="text-sm text-muted-foreground">Nenhum dispositivo cadastrado.</p>}
           <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground"><span>Página {page} de {totalPages}</span><div className="flex gap-2"><Button size="icon" variant="outline" disabled={page === 1} onClick={() => setPage((p) => p - 1)}><ChevronLeft className="size-4" /></Button><Button size="icon" variant="outline" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)}><ChevronRight className="size-4" /></Button></div></div>
