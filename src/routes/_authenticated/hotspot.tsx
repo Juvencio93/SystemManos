@@ -13,6 +13,7 @@ import { getPortals, type PortalItem } from "@/lib/portals.functions";
 import { HotspotConfigDialog } from "@/components/app/hotspot-config-dialog";
 import { useServerFn } from "@tanstack/react-start";
 import { getMikrotikActivationDownload } from "@/lib/hotspot-config.functions";
+import { useAccess } from "@/hooks/use-access";
 
 export const Route = createFileRoute("/_authenticated/hotspot")({
   head: () => ({ meta: [{ title: "Hotspot | Manos Tech" }] }),
@@ -20,14 +21,28 @@ export const Route = createFileRoute("/_authenticated/hotspot")({
 });
 
 function HotspotPage() {
+  const { data: access } = useAccess();
   const getActivation = useServerFn(getMikrotikActivationDownload);
   const fetchPortals = useServerFn(getPortals);
   const portalsQuery = useQuery({ queryKey: ["hotspot-portals"], queryFn: () => fetchPortals() });
   const portalItems = (portalsQuery.data?.items ?? []) as PortalItem[];
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<any>(null);
-  const clientsQuery = useQuery({ queryKey: ["hotspot-approved-clients"], refetchInterval: 60000, queryFn: async () => {
-    const { data, error } = await (supabase as any).from("hotspot_devices").select("id,router_identity,ap_mac,status,company_id,branch_id,updated_at,last_seen_at,last_seen_ip,router_version,active_sessions,rx_bytes,tx_bytes,sync_requested_at,sync_applied_at").order("last_seen_at", { ascending: false, nullsFirst: false });
+  const clientsQuery = useQuery({ queryKey: ["hotspot-approved-clients", access?.role, access?.resellerId, access?.companyId, access?.branchId], enabled: Boolean(access), refetchInterval: 60000, queryFn: async () => {
+    let query = (supabase as any).from("hotspot_devices").select("id,router_identity,ap_mac,status,company_id,branch_id,updated_at,last_seen_at,last_seen_ip,router_version,active_sessions,rx_bytes,tx_bytes,sync_requested_at,sync_applied_at");
+    if (access?.role === "revenda" && access.resellerId) {
+      const [{ data: companies }, { data: branches }] = await Promise.all([
+        (supabase as any).from("companies").select("id").eq("reseller_id", access.resellerId),
+        (supabase as any).from("branches").select("id").eq("reseller_id", access.resellerId),
+      ]);
+      const companyIds = (companies ?? []).map((row: any) => row.id);
+      const branchIds = (branches ?? []).map((row: any) => row.id);
+      if (!companyIds.length && !branchIds.length) return [];
+      const filters = [...(companyIds.length ? [`company_id.in.(${companyIds.join(",")})`] : []), ...(branchIds.length ? [`branch_id.in.(${branchIds.join(",")})`] : [])];
+      query = query.or(filters.join(","));
+    } else if (access?.role === "matriz" && access.companyId) query = query.eq("company_id", access.companyId);
+    else if (access?.role === "filial" && access.branchId) query = query.eq("branch_id", access.branchId);
+    const { data, error } = await query.order("last_seen_at", { ascending: false, nullsFirst: false });
     if (error) throw error;
     return (data ?? []) as any[];
   }});

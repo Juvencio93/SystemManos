@@ -41,12 +41,12 @@ export const getPortals = createServerFn({ method: "GET" })
     let companiesQuery = supabase
       .from("companies")
       .select(
-        "id, name, trade_name, legal_name, portal_slug, portal_active, city, state, status, blocked, billing_blocked",
+        "id, name, trade_name, legal_name, portal_slug, portal_active, city, state, status, blocked, billing_blocked, reseller_id",
       );
     let branchesQuery = supabase
       .from("branches")
       .select(
-        "id, name, trade_name, legal_name, portal_slug, city, state, active, company_id, is_headquarters",
+        "id, name, trade_name, legal_name, portal_slug, city, state, active, company_id, is_headquarters, reseller_id",
       );
     let eventsQuery = supabase
       .from("events")
@@ -77,6 +77,13 @@ export const getPortals = createServerFn({ method: "GET" })
       } else {
         return { items: [], role };
       }
+    } else if (role === "revenda" && primary.reseller_id) {
+      companiesQuery = companiesQuery.eq("reseller_id", primary.reseller_id);
+      branchesQuery = branchesQuery.eq("reseller_id", primary.reseller_id);
+      const { data: resellerCompanies } = await supabase.from("companies").select("id").eq("reseller_id", primary.reseller_id);
+      const ids = (resellerCompanies ?? []).map((company) => company.id);
+      eventsQuery = ids.length ? eventsQuery.in("company_id", ids) : eventsQuery.eq("company_id", "00000000-0000-0000-0000-000000000000");
+      campaignsQuery = ids.length ? campaignsQuery.in("company_id", ids) : campaignsQuery.eq("company_id", "00000000-0000-0000-0000-000000000000");
     }
 
     const [companiesRes, branchesRes, eventsRes, campaignsRes] = await Promise.all([
