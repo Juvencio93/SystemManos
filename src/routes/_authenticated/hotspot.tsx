@@ -40,6 +40,7 @@ function HotspotPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const [auditSearch, setAuditSearch] = useState("");
+  const [syncMessage, setSyncMessage] = useState("");
   const filteredClients = clients.filter((client) => {
     const text = `${client.router_identity ?? ""} ${client.ap_mac ?? ""}`.toLowerCase();
     return text.includes(search.toLowerCase()) && (filter === "all" || client.status === filter);
@@ -67,7 +68,8 @@ function HotspotPage() {
     window.location.href = path;
   }
   async function requestSync(client: any) {
-    await fetch("/api/internal/hotspot-sync", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ routerIdentity: client.router_identity }) });
+    const response = await fetch("/api/internal/hotspot-sync", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ routerIdentity: client.router_identity }) });
+    setSyncMessage(response.ok ? `Sincronização solicitada para ${client.router_identity}.` : "Não foi possível solicitar a sincronização.");
     await clientsQuery.refetch();
   }
   function exportCsv() {
@@ -110,6 +112,7 @@ function HotspotPage() {
       </Card>
       <Card className="glass-panel border-primary/20"><CardHeader className="flex flex-row items-center justify-between"><CardTitle>Histórico recente</CardTitle><Button variant="outline" size="sm" onClick={exportAuditCsv}>Exportar histórico</Button></CardHeader><CardContent className="space-y-2"><Input placeholder="Filtrar histórico por ação ou dispositivo" value={auditSearch} onChange={(e) => setAuditSearch(e.target.value)} />{auditItems.map((item) => <div key={item.id} className="flex items-center justify-between rounded border border-border p-2 text-xs"><span>{item.action} · dispositivo {String(item.device_id).slice(0, 8)}</span><span className="text-muted-foreground">{new Date(item.created_at).toLocaleString("pt-BR")}</span></div>)}{!auditItems.length && <p className="text-sm text-muted-foreground">Nenhuma ação encontrada.</p>}</CardContent></Card>
       {offlineCount > 0 && <Card className="border-amber-400/30 bg-amber-400/5"><CardContent className="p-4 text-sm"><p className="font-semibold text-amber-300">Atenção operacional</p><p className="text-muted-foreground">{offlineCount} dispositivo(s) não enviaram heartbeat nos últimos 15 minutos. Verifique a conexão da RB e o RADIUS.</p></CardContent></Card>}
+      {syncMessage && <Card className="border-primary/30 bg-primary/5"><CardContent className="p-4 text-sm text-primary">{syncMessage}</CardContent></Card>}
       <Card className="glass-panel border-primary/20">
         <CardHeader className="flex flex-row items-center justify-between"><CardTitle className="flex items-center gap-2"><Router className="size-5 text-primary" /> Clientes ativos homologados</CardTitle><Button variant="outline" size="sm" onClick={() => { void clientsQuery.refetch(); void auditQuery.refetch(); }}>Atualizar dados</Button></CardHeader>
         <CardContent className="space-y-3">
