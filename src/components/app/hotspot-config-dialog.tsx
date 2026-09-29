@@ -23,7 +23,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { cancelHotspotHomologation, getHotspotConfig, getMikrotikProvisioning, saveHotspotConfig, setHotspotBlocked } from "@/lib/hotspot-config.functions";
+import { activateHotspotHomologation, cancelHotspotHomologation, getHotspotConfig, getMikrotikProvisioning, saveHotspotConfig, setHotspotBlocked } from "@/lib/hotspot-config.functions";
 import { useAccess } from "@/hooks/use-access";
 
 type Vendor = "test" | "mikrotik_hotspot" | "intelbras_zeus" | "intelbras_hotspot300_legacy";
@@ -107,6 +107,7 @@ export function HotspotConfigDialog({
   const fetchProvisioning = useServerFn(getMikrotikProvisioning);
   const persistConfig = useServerFn(saveHotspotConfig);
   const cancelHomologation = useServerFn(cancelHotspotHomologation);
+  const activateHomologation = useServerFn(activateHotspotHomologation);
   const changeBlocked = useServerFn(setHotspotBlocked);
   const queryKey = useMemo(() => ["hotspot-config", kind, targetId], [kind, targetId]);
 
@@ -171,9 +172,11 @@ export function HotspotConfigDialog({
       ),
   });
   const actionMutation = useMutation({
-    mutationFn: (action: "cancel" | "block" | "unblock") => action === "cancel"
-      ? cancelHomologation({ data: { kind, targetId } })
-      : changeBlocked({ data: { kind, targetId, blocked: action === "block" } }),
+    mutationFn: (action: "activate" | "cancel" | "block" | "unblock") => action === "activate"
+      ? activateHomologation({ data: { kind, targetId } })
+      : action === "cancel"
+        ? cancelHomologation({ data: { kind, targetId } })
+        : changeBlocked({ data: { kind, targetId, blocked: action === "block" } }),
     onSuccess: async () => { toast.success("Status do equipamento atualizado."); await queryClient.invalidateQueries({ queryKey }); },
     onError: (error) => toast.error(error instanceof Error ? error.message : "Não foi possível atualizar o equipamento."),
   });
@@ -415,6 +418,7 @@ export function HotspotConfigDialog({
         <DialogFooter>
           {!isClientPolicyView && configQuery.data?.config ? (
             <div className="mr-auto flex flex-wrap gap-2">
+              <Button type="button" size="sm" variant="default" disabled={actionMutation.isPending} onClick={() => actionMutation.mutate("activate")}>Ativar/Homologar equipamento</Button>
               <Button type="button" size="sm" variant="outline" disabled={actionMutation.isPending} onClick={() => actionMutation.mutate("cancel")}>Cancelar homologação</Button>
               <Button type="button" size="sm" variant="destructive" disabled={actionMutation.isPending} onClick={() => actionMutation.mutate("block")}>Bloquear equipamento</Button>
             </div>

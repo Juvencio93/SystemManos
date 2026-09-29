@@ -305,6 +305,26 @@ export const cancelHotspotHomologation = createServerFn({ method: "POST" })
     return { success: true };
   });
 
+export const activateHotspotHomologation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => deviceActionSchema.parse(data))
+  .handler(async ({ data, context }) => {
+    const configId = await getScopedConfigId(context.userId, data);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const now = new Date().toISOString();
+    const { error } = await supabaseAdmin
+      .from("hotspot_configs")
+      .update({ status: "operational", is_active: true, updated_at: now })
+      .eq("id", configId);
+    if (error) throw new Error("Não foi possível ativar a homologação.");
+    const { error: deviceError } = await (supabaseAdmin as any)
+      .from("hotspot_devices")
+      .update({ status: "operational", updated_at: now })
+      .eq("hotspot_config_id", configId);
+    if (deviceError) throw new Error("Não foi possível ativar o equipamento.");
+    return { success: true };
+  });
+
 export const setHotspotBlocked = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((data: unknown) => deviceActionSchema.extend({ blocked: z.boolean() }).parse(data))
