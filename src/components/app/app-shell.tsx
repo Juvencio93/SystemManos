@@ -18,7 +18,7 @@ import {
   Wallet,
   HandCoins,
   Handshake,
-  BookOpen,
+  Router,
 } from "lucide-react";
 
 import { useEffect, useState, type ReactNode } from "react";
@@ -165,11 +165,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                 })}
                 {role ? (
                   <Link
-                    to="/configuracoes#hotspot"
+                    to="/portais"
                     onClick={() => setOpen(false)}
                     className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
                   >
-                    <BookOpen className="size-4" />
+                    <Router className="size-4" />
                     Hotspot
                   </Link>
                 ) : null}
