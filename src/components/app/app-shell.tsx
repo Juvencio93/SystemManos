@@ -163,16 +163,15 @@ export function AppShell({ children }: { children: ReactNode }) {
                     </Link>
                   );
                 })}
-                {role === "adm" || role === "revenda" ? (
-                  <a
-                    href="/mikrotik/guia-instalacao-mikrotik-manos-tech-v2.pdf"
-                    target="_blank"
-                    rel="noreferrer"
+                {role ? (
+                  <Link
+                    to="/configuracoes#hotspot"
+                    onClick={() => setOpen(false)}
                     className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
                   >
                     <BookOpen className="size-4" />
-                    Guia de instalação
-                  </a>
+                    Hotspot
+                  </Link>
                 ) : null}
               </nav>
 

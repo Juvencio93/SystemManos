@@ -323,7 +323,7 @@ export function HotspotConfigDialog({
               {form.vendor === "mikrotik_hotspot" ? (
                 <AccordionItem value="mikrotik-kit" className="border-b">
                   <AccordionTrigger className="text-sm text-primary hover:no-underline">
-                    Kit de instalação MikroTik
+                    Hotspot
                   </AccordionTrigger>
                   <AccordionContent className="space-y-3 pb-4 text-xs text-muted-foreground">
                     <p>
@@ -341,6 +341,16 @@ export function HotspotConfigDialog({
                     ) : (
                       <p>Salve a configuração MikroTik e reabra esta janela para gerar a identidade do equipamento.</p>
                     )}
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
+                        <p className="font-semibold text-primary">Arquivos atualizados</p>
+                        <p className="text-muted-foreground">29/09/2026 às 09:00</p>
+                      </div>
+                      <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
+                        <p className="font-semibold text-primary">Manual atualizado</p>
+                        <p className="text-muted-foreground">29/09/2026 às 09:00</p>
+                      </div>
+                    </div>
                     <div className="flex flex-wrap gap-2">
                       <Button type="button" size="sm" variant="outline" asChild>
                         <a href="/mikrotik/MANOS-HOTSPOT-BASE.rsc" download>Baixar kit-base .rsc</a>
@@ -356,7 +366,7 @@ export function HotspotConfigDialog({
                       </Button>
                       <Button type="button" size="sm" variant="outline" asChild>
                         <a href="/mikrotik/guia-instalacao-mikrotik-manos-tech-v2.pdf" target="_blank" rel="noreferrer">
-                          Abrir guia de instalação
+                          Abrir manual Hotspot
                         </a>
                       </Button>
                     </div>
