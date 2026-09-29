@@ -2,6 +2,12 @@
 # Universal template. Import the device activation file after this one.
 # Never put RADIUS/WireGuard secrets or certificate private keys in this file.
 
+# WAN: ether1 receives the provider address and default route automatically.
+/ip dhcp-client add interface=ether1 disabled=no comment="MANOS-WAN"
+
+# Portal files directory.
+/file make-dir flash/hotspot
+
 /interface bridge add name=bridge-lan protocol-mode=rstp
 /interface bridge port add bridge=bridge-lan interface=ether2
 /interface bridge port add bridge=bridge-lan interface=ether3
@@ -12,6 +18,10 @@
 /ip dhcp-server network add address=192.168.88.0/24 gateway=192.168.88.1 dns-server=192.168.88.1
 /ip dns set allow-remote-requests=yes
 /ip firewall nat add chain=srcnat out-interface=ether1 action=masquerade comment="MANOS-NAT-INTERNET"
+
+# Captive portal base. The personalized activation file enables RADIUS later.
+/ip hotspot profile add name=hsprof1 hotspot-address=192.168.88.1 html-directory=flash/hotspot html-directory-override=flash/hotspot login-by=http-chap,http-pap
+/ip hotspot add name=hotspot1 interface=bridge-lan address-pool=pool-lan profile=hsprof1 disabled=no
 
 # Guest aggregate cap for a 100 Mbps connection. ether5 is outside bridge-lan,
 # therefore this 60 Mbps cap never includes internal/admin traffic. PCQ shares
