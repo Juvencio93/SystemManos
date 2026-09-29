@@ -276,3 +276,44 @@ export const saveHotspotConfig = createServerFn({ method: "POST" })
             : "Configuração técnica salva. A liberação real continua desativada até a homologação.",
     };
   });
+
+const deviceActionSchema = z.object({
+  kind: z.enum(["company", "branch"]),
+  targetId: z.string().uuid(),
+});
+
+async function getScopedConfigId(userId: string, target: z.infer<typeof targetSchema>) {
+  const scope = await resolveScope(userId, target);
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  let query = supabaseAdmin.from("hotspot_configs").select("id").eq("company_id", scope.companyId);
+  query = scope.branchId ? query.eq("branch_id", scope.branchId) : query.is("branch_id", null);
+  const { data, error } = await query.maybeSingle();
+  if (error || !data) throw new Error("Configuração do equipamento não encontrada.");
+  return data.id;
+}
+
+export const cancelHotspotHomologation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => deviceActionSchema.parse(data))
+  .handler(async ({ data, context }) => {
+    const configId = await getScopedConfigId(context.userId, data);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const now = new Date().toISOString();
+    const { error } = await supabaseAdmin.from("hotspot_configs").update({ status: "awaiting_homologation", is_active: false, updated_at: now }).eq("id", configId);
+    if (error) throw new Error("Não foi possível cancelar a homologação.");
+    await (supabaseAdmin as any).from("hotspot_devices").update({ status: "awaiting_homologation", updated_at: now }).eq("hotspot_config_id", configId);
+    return { success: true };
+  });
+
+export const setHotspotBlocked = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => deviceActionSchema.extend({ blocked: z.boolean() }).parse(data))
+  .handler(async ({ data, context }) => {
+    const configId = await getScopedConfigId(context.userId, data);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const now = new Date().toISOString();
+    const { error } = await supabaseAdmin.from("hotspot_configs").update({ status: data.blocked ? "blocked" : "awaiting_homologation", is_active: false, updated_at: now }).eq("id", configId);
+    if (error) throw new Error("Não foi possível atualizar o bloqueio.");
+    await (supabaseAdmin as any).from("hotspot_devices").update({ status: data.blocked ? "blocked" : "awaiting_homologation", updated_at: now }).eq("hotspot_config_id", configId);
+    return { success: true };
+  });

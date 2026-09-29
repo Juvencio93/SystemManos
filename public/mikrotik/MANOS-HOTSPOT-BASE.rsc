@@ -10,7 +10,6 @@
 /ip pool add name=pool-lan ranges=192.168.88.10-192.168.88.254
 /ip dhcp-server add name=dhcp-lan interface=bridge-lan address-pool=pool-lan lease-time=1h disabled=no
 /ip dhcp-server network add address=192.168.88.0/24 gateway=192.168.88.1 dns-server=192.168.88.1
-/ip dhcp-client add interface=ether1 add-default-route=yes use-peer-dns=yes disabled=no
 /ip dns set allow-remote-requests=yes
 /ip firewall nat add chain=srcnat out-interface=ether1 action=masquerade comment="MANOS-NAT-INTERNET"
 

@@ -17,7 +17,7 @@ export async function portalSlugForRouterIdentity(admin: AdminClient, rawIdentit
     .select("id, hotspot_config_id, company_id, branch_id, status")
     .eq("router_identity", identity)
     .maybeSingle();
-  if (error || !device || ["suspended", "error"].includes(device.status)) return null;
+  if (error || !device || device.status !== "operational") return null;
 
   await (admin as any)
     .from("hotspot_devices")

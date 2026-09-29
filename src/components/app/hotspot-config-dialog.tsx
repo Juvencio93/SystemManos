@@ -23,7 +23,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { getHotspotConfig, getMikrotikProvisioning, saveHotspotConfig } from "@/lib/hotspot-config.functions";
+import { cancelHotspotHomologation, getHotspotConfig, getMikrotikProvisioning, saveHotspotConfig, setHotspotBlocked } from "@/lib/hotspot-config.functions";
 import { useAccess } from "@/hooks/use-access";
 
 type Vendor = "test" | "mikrotik_hotspot" | "intelbras_zeus" | "intelbras_hotspot300_legacy";
@@ -57,6 +57,7 @@ const STATUS_LABELS: Record<string, string> = {
   awaiting_homologation: "Aguardando homologação",
   simulation_only: "Somente simulação",
   operational: "Operacional",
+  blocked: "Bloqueado",
   error: "Erro",
 };
 
@@ -105,6 +106,8 @@ export function HotspotConfigDialog({
   const fetchConfig = useServerFn(getHotspotConfig);
   const fetchProvisioning = useServerFn(getMikrotikProvisioning);
   const persistConfig = useServerFn(saveHotspotConfig);
+  const cancelHomologation = useServerFn(cancelHotspotHomologation);
+  const changeBlocked = useServerFn(setHotspotBlocked);
   const queryKey = useMemo(() => ["hotspot-config", kind, targetId], [kind, targetId]);
 
   const configQuery = useQuery({
@@ -166,6 +169,13 @@ export function HotspotConfigDialog({
       toast.error(
         error instanceof Error ? error.message : "Não foi possível salvar a configuração.",
       ),
+  });
+  const actionMutation = useMutation({
+    mutationFn: (action: "cancel" | "block" | "unblock") => action === "cancel"
+      ? cancelHomologation({ data: { kind, targetId } })
+      : changeBlocked({ data: { kind, targetId, blocked: action === "block" } }),
+    onSuccess: async () => { toast.success("Status do equipamento atualizado."); await queryClient.invalidateQueries({ queryKey }); },
+    onError: (error) => toast.error(error instanceof Error ? error.message : "Não foi possível atualizar o equipamento."),
   });
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
@@ -403,6 +413,12 @@ export function HotspotConfigDialog({
         )}
 
         <DialogFooter>
+          {!isClientPolicyView && configQuery.data?.config ? (
+            <div className="mr-auto flex flex-wrap gap-2">
+              <Button type="button" size="sm" variant="outline" disabled={actionMutation.isPending} onClick={() => actionMutation.mutate("cancel")}>Cancelar homologação</Button>
+              <Button type="button" size="sm" variant="destructive" disabled={actionMutation.isPending} onClick={() => actionMutation.mutate("block")}>Bloquear equipamento</Button>
+            </div>
+          ) : null}
           <Button variant="ghost" onClick={() => setOpen(false)}>
             Cancelar
           </Button>
