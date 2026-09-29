@@ -41,6 +41,12 @@ function HotspotPage() {
     await clientsQuery.refetch();
     setSelected(null);
   }
+  function exportCsv() {
+    const header = "Identidade,MAC,Status,IP,RouterOS,Última comunicação\n";
+    const rows = filteredClients.map((c) => [c.router_identity, c.ap_mac, statusLabel(c.status), c.last_seen_ip, c.router_version, c.last_seen_at].map((v) => `"${String(v ?? "").replaceAll('"', '""')}"`).join(",")).join("\n");
+    const blob = new Blob(["\ufeff" + header + rows], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "hotspot-dispositivos.csv"; a.click(); URL.revokeObjectURL(url);
+  }
   return (
     <div className="container max-w-5xl space-y-8 py-10">
       <PageHeader title="Hotspot" description="Manuais e arquivos oficiais para instalação e atualização das RBs." />
@@ -69,7 +75,7 @@ function HotspotPage() {
       <Card className="glass-panel border-primary/20">
         <CardHeader><CardTitle className="flex items-center gap-2"><Router className="size-5 text-primary" /> Clientes ativos homologados</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex flex-col gap-2 sm:flex-row"><Input placeholder="Buscar por identidade ou MAC" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} /><select className="rounded-md border border-input bg-background px-3 text-sm" value={filter} onChange={(e) => { setFilter(e.target.value); setPage(1); }}><option value="all">Todos os status</option><option value="operational">Homologados</option><option value="awaiting_homologation">Pendentes</option><option value="blocked">Bloqueados</option></select></div>
+          <div className="flex flex-col gap-2 sm:flex-row"><Input placeholder="Buscar por identidade ou MAC" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} /><select className="rounded-md border border-input bg-background px-3 text-sm" value={filter} onChange={(e) => { setFilter(e.target.value); setPage(1); }}><option value="all">Todos os status</option><option value="operational">Homologados</option><option value="awaiting_homologation">Pendentes</option><option value="blocked">Bloqueados</option></select><Button variant="outline" onClick={exportCsv}>Exportar CSV</Button></div>
           {visible.map((client) => <button key={client.id} onClick={() => setSelected(client)} className="flex w-full items-center justify-between rounded-lg border border-border bg-muted/20 p-3 text-left hover:border-primary/50"><span><span className="font-medium">{client.router_identity ?? "RB sem identidade"}</span><span className="ml-3 text-xs text-muted-foreground">MAC: {client.ap_mac ?? "não informado"}</span><span className="mt-1 block text-xs text-muted-foreground">{isOnline(client.last_seen_at) ? "● Online" : "○ Offline"} · última comunicação: {client.last_seen_at ? new Date(client.last_seen_at).toLocaleString("pt-BR") : "nunca"} · IP: {client.last_seen_ip ?? "—"} · RouterOS: {client.router_version ?? "—"}</span></span><Badge variant="outline" className={statusClass(client.status)}>{statusLabel(client.status)}</Badge></button>)}
           {!clients.length && <p className="text-sm text-muted-foreground">Nenhum dispositivo cadastrado.</p>}
           <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground"><span>Página {page} de {totalPages}</span><div className="flex gap-2"><Button size="icon" variant="outline" disabled={page === 1} onClick={() => setPage((p) => p - 1)}><ChevronLeft className="size-4" /></Button><Button size="icon" variant="outline" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)}><ChevronRight className="size-4" /></Button></div></div>
