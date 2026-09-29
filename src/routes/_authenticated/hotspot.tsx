@@ -9,6 +9,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
+import { getPortals, type PortalItem } from "@/lib/portals.functions";
+import { HotspotConfigDialog } from "@/components/app/hotspot-config-dialog";
+import { useAccess } from "@/hooks/use-access";
 import { useServerFn } from "@tanstack/react-start";
 import { getMikrotikActivationDownload } from "@/lib/hotspot-config.functions";
 
@@ -19,6 +22,10 @@ export const Route = createFileRoute("/_authenticated/hotspot")({
 
 function HotspotPage() {
   const getActivation = useServerFn(getMikrotikActivationDownload);
+  const { data: access } = useAccess();
+  const fetchPortals = useServerFn(getPortals);
+  const portalsQuery = useQuery({ queryKey: ["hotspot-portals"], queryFn: () => fetchPortals() });
+  const portalItems = (portalsQuery.data?.items ?? []) as PortalItem[];
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<any>(null);
   const clientsQuery = useQuery({ queryKey: ["hotspot-approved-clients"], refetchInterval: 60000, queryFn: async () => {
@@ -67,6 +74,7 @@ function HotspotPage() {
   return (
     <div className="container max-w-5xl space-y-8 py-10">
       <PageHeader title="Hotspot" description="Manuais e arquivos oficiais para instalação e atualização das RBs." />
+      <Card className="glass-panel border-primary/20"><CardHeader><CardTitle>Cadastro e políticas das RBs</CardTitle></CardHeader><CardContent className="grid gap-3 sm:grid-cols-2">{portalItems.filter((item) => item.kind !== "Evento").map((item) => <div key={item.id} className="rounded-lg border border-border p-3"><p className="font-medium">{item.name}</p><p className="mb-3 text-xs text-muted-foreground">Política RADIUS e homologação do Hotspot</p><HotspotConfigDialog kind={item.kind === "Sede" ? "company" : "branch"} targetId={item.id} unitName={item.name} portalSlug={item.slug} baseUrl={typeof window !== "undefined" ? window.location.origin : ""} /></div>)}</CardContent></Card>
       <div className="grid gap-3 sm:grid-cols-5">
         <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Dispositivos cadastrados</p><p className="mt-1 text-2xl font-bold">{clients.length}</p></CardContent></Card>
         <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Homologados</p><p className="mt-1 text-2xl font-bold text-emerald-400">{clients.filter((c) => c.status === "operational").length}</p></CardContent></Card>

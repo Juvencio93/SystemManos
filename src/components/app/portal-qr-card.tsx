@@ -38,7 +38,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { HotspotConfigDialog } from "@/components/app/hotspot-config-dialog";
 import { revokePortalUrl, deactivatePortal, createPortal } from "@/lib/portal-admin.functions";
 
 export type PortalItem = {
@@ -60,12 +59,10 @@ export function PortalQrCard({
   item,
   baseUrl,
   canManage = true,
-  canConfigureEquipment = false,
 }: {
   item: PortalItem;
   baseUrl: string;
   canManage?: boolean;
-  canConfigureEquipment?: boolean;
 }) {
   const url = `${baseUrl}/portal/${item.slug}`;
   const [dataUrl, setDataUrl] = useState<string | null>(null);
@@ -220,18 +217,6 @@ export function PortalQrCard({
               <span className="text-muted-foreground">Sem campanha ativa</span>
             )}
           </p>
-
-          {canConfigureEquipment && item.kind !== "Evento" ? (
-            <div className="mt-3">
-              <HotspotConfigDialog
-                kind={item.kind === "Sede" ? "company" : "branch"}
-                targetId={item.id}
-                unitName={item.name}
-                portalSlug={item.slug}
-                baseUrl={baseUrl}
-              />
-            </div>
-          ) : null}
 
           {canManage ? (
             <div className="mt-3 flex flex-wrap gap-2">

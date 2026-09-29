@@ -99,9 +99,6 @@ function PortalsPage() {
                       item={item}
                       baseUrl={baseUrl}
                       canManage={userRole === "adm"}
-                      canConfigureEquipment={
-                        userRole === "adm" || userRole === "matriz" || userRole === "revenda"
-                      }
                     />
                   ))}
               </div>
