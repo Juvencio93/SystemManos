@@ -233,30 +233,6 @@ function PortalPage() {
       });
     },
     onSuccess: (result) => {
-      // Do not render a success/interstitial page for a HotSpot check-in. The
-      // RouterOS login servlet completes the RADIUS exchange and immediately
-      // follows `dst`, which is the campaign's configured destination.
-      if (result.hotspotAccess) {
-        const loginForm = document.createElement("form");
-        loginForm.method = "post";
-        loginForm.action = result.hotspotAccess.loginUrl;
-        const fields: Record<string, string> = {
-          username: result.hotspotAccess.username,
-          password: result.hotspotAccess.password,
-          ...(result.hotspotAccess.destination ? { dst: result.hotspotAccess.destination } : {}),
-        };
-        for (const [name, value] of Object.entries(fields)) {
-          const input = document.createElement("input");
-          input.type = "hidden";
-          input.name = name;
-          input.value = value;
-          loginForm.appendChild(input);
-        }
-        document.body.appendChild(loginForm);
-        loginForm.submit();
-        return;
-      }
-
       setDone({
         isReturning: result.isReturning,
         connectionsCount: result.connectionsCount,
