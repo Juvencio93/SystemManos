@@ -38,6 +38,8 @@ function HotspotPage() {
   async function changeStatus(status: string) {
     if (!selected) return;
     await (supabase as any).from("hotspot_devices").update({ status, updated_at: new Date().toISOString() }).eq("id", selected.id);
+    const { data: authData } = await supabase.auth.getUser();
+    await (supabase as any).from("hotspot_device_audit").insert({ device_id: selected.id, action: status === "operational" ? "activate_homologation" : status === "blocked" ? "block_device" : "cancel_homologation", previous_status: selected.status, new_status: status, actor_id: authData.user?.id ?? null });
     await clientsQuery.refetch();
     setSelected(null);
   }
