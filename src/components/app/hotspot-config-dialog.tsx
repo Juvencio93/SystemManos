@@ -345,6 +345,9 @@ export function HotspotConfigDialog({
                       <Button type="button" size="sm" variant="outline" asChild>
                         <a href="/mikrotik/MANOS-HOTSPOT-BASE.rsc" download>Baixar kit-base .rsc</a>
                       </Button>
+                      <Button variant="outline" asChild>
+                        <a href="/mikrotik/MANOS-HOTSPOT-ACTIVATION.rsc" download>Baixar ativação RADIUS .rsc</a>
+                      </Button>
                       <Button type="button" size="sm" variant="outline" asChild>
                         <a href="/mikrotik/login.html" download>Baixar login.html universal</a>
                       </Button>
