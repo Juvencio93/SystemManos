@@ -58,15 +58,16 @@ function HotspotPage() {
   const [auditSearch, setAuditSearch] = useState("");
   const [auditFrom, setAuditFrom] = useState(""); const [auditTo, setAuditTo] = useState("");
   const [syncMessage, setSyncMessage] = useState("");
-  const filteredClients = clients.filter((client) => {
+  const filteredClients = clients.reduce<any[]>((items, client) => {
     const text = `${client.router_identity ?? ""} ${client.ap_mac ?? ""}`.toLowerCase();
-    return text.includes(search.toLowerCase()) && (statusFilter === "all" || client.status === statusFilter);
-  });
+    if (text.includes(search.toLowerCase()) && (statusFilter === "all" || client.status === statusFilter)) items.push(client);
+    return items;
+  }, []);
   const totalPages = Math.max(1, Math.ceil(filteredClients.length / 10));
-  const offlineCount = clients.filter((c) => !isOnline(c.last_seen_at)).length;
+  const offlineCount = clients.reduce((count, client) => count + (isOnline(client.last_seen_at) ? 0 : 1), 0);
   const activeSessions = clients.reduce((sum, c) => sum + Number(c.active_sessions ?? 0), 0);
   const trafficBytes = clients.reduce((sum, c) => sum + Number(c.rx_bytes ?? 0) + Number(c.tx_bytes ?? 0), 0);
-  const auditItems = (auditQuery.data ?? []).filter((item) => { const t = new Date(item.created_at).getTime(); return `${item.action} ${item.device_id}`.toLowerCase().includes(auditSearch.toLowerCase()) && (!auditFrom || t >= new Date(auditFrom).getTime()) && (!auditTo || t <= new Date(`${auditTo}T23:59:59`).getTime()); });
+  const auditItems = (auditQuery.data ?? []).reduce<any[]>((items, item) => { const t = new Date(item.created_at).getTime(); if (`${item.action} ${item.device_id}`.toLowerCase().includes(auditSearch.toLowerCase()) && (!auditFrom || t >= new Date(auditFrom).getTime()) && (!auditTo || t <= new Date(`${auditTo}T23:59:59`).getTime())) items.push(item); return items; }, []);
   const formatBytes = (n: number) => n > 1_000_000_000 ? `${(n / 1_000_000_000).toFixed(1)} GB` : `${(n / 1_000_000).toFixed(1)} MB`;
   const visible = useMemo(() => filteredClients.slice((page - 1) * 10, page * 10), [filteredClients, page]);
   const statusLabel = (s: string) => s === "operational" ? "Homologado" : s === "blocked" ? "Bloqueado" : "Pendente";
@@ -104,14 +105,14 @@ function HotspotPage() {
       <PageHeader title="Hotspot" description="Manuais e arquivos oficiais para instalação e atualização das RBs." />
       <div className="-mt-2 grid gap-3 sm:grid-cols-5">
         <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Dispositivos cadastrados</p><p className="mt-1 text-2xl font-bold">{clients.length}</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Homologados</p><p className="mt-1 text-2xl font-bold text-emerald-400">{clients.filter((c) => c.status === "operational").length}</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Bloqueados</p><p className="mt-1 text-2xl font-bold text-red-400">{clients.filter((c) => c.status === "blocked").length}</p></CardContent></Card>
+        <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Homologados</p><p className="mt-1 text-2xl font-bold text-emerald-400">{clients.reduce((n, c) => n + (c.status === "operational" ? 1 : 0), 0)}</p></CardContent></Card>
+        <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Bloqueados</p><p className="mt-1 text-2xl font-bold text-red-400">{clients.reduce((n, c) => n + (c.status === "blocked" ? 1 : 0), 0)}</p></CardContent></Card>
         <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Sessões ativas</p><p className="mt-1 text-2xl font-bold">{activeSessions}</p></CardContent></Card>
         <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Tráfego total</p><p className="mt-1 text-2xl font-bold">{formatBytes(trafficBytes)}</p></CardContent></Card>
       </div>
       <Card className="border-primary/20"><CardContent className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm"><span className="font-semibold">Diagnóstico da integração</span><span className={healthQuery.data?.radiusConfigured && healthQuery.data?.heartbeatConfigured ? "text-emerald-400" : "text-amber-300"}>{healthQuery.isLoading ? "Verificando…" : healthQuery.data?.reason ?? "Não foi possível verificar"}</span></CardContent></Card>
       <Card className="border-primary/20"><CardContent className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm"><span className="font-semibold">Arquivos publicados</span><span className={filesQuery.data?.files.every((file) => file.available) ? "text-emerald-400" : "text-amber-300"}>{filesQuery.isLoading ? "Validando…" : filesQuery.data?.files.every((file) => file.available) ? "Todos disponíveis" : "Há arquivos indisponíveis"}</span></CardContent></Card>
-      <Card className="glass-panel border-primary/20"><CardHeader><CardTitle>Cadastro e políticas das RBs</CardTitle></CardHeader><CardContent className="grid gap-3 sm:grid-cols-2">{portalItems.filter((item) => item.kind !== "Evento").map((item) => <div key={item.id} className="rounded-lg border border-border p-3"><p className="font-medium">{item.name}</p><p className="mb-3 text-xs text-muted-foreground">Política RADIUS e homologação do Hotspot</p><HotspotConfigDialog kind={item.kind === "Sede" ? "company" : "branch"} targetId={item.id} unitName={item.name} portalSlug={item.slug} baseUrl={typeof window !== "undefined" ? window.location.origin : ""} /></div>)}</CardContent></Card>
+      <Card className="glass-panel border-primary/20"><CardHeader><CardTitle>Cadastro e políticas das RBs</CardTitle></CardHeader><CardContent className="grid gap-3 sm:grid-cols-2">{portalItems.map((item) => item.kind === "Evento" ? null : <div key={item.id} className="rounded-lg border border-border p-3"><p className="font-medium">{item.name}</p><p className="mb-3 text-xs text-muted-foreground">Política RADIUS e homologação do Hotspot</p><HotspotConfigDialog kind={item.kind === "Sede" ? "company" : "branch"} targetId={item.id} unitName={item.name} portalSlug={item.slug} baseUrl={typeof window !== "undefined" ? window.location.origin : ""} /></div>)}</CardContent></Card>
       <Card className="glass-panel border-primary/20">
         <CardHeader><CardTitle className="flex items-center gap-2"><Router className="size-5 text-primary" /> Kit de instalação MikroTik</CardTitle></CardHeader>
         <CardContent className="space-y-5">
