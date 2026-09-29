@@ -58,6 +58,7 @@ function HotspotPage() {
   const [auditSearch, setAuditSearch] = useState("");
   const [auditFrom, setAuditFrom] = useState(""); const [auditTo, setAuditTo] = useState("");
   const [syncMessage, setSyncMessage] = useState("");
+  const isOnline = (lastSeen?: string) => Boolean(lastSeen && Date.now() - new Date(lastSeen).getTime() < 15 * 60 * 1000);
   const filteredClients = clients.reduce<any[]>((items, client) => {
     const text = `${client.router_identity ?? ""} ${client.ap_mac ?? ""}`.toLowerCase();
     if (text.includes(search.toLowerCase()) && (statusFilter === "all" || client.status === statusFilter)) items.push(client);
@@ -72,7 +73,6 @@ function HotspotPage() {
   const visible = useMemo(() => filteredClients.slice((page - 1) * 10, page * 10), [filteredClients, page]);
   const statusLabel = (s: string) => s === "operational" ? "Homologado" : s === "blocked" ? "Bloqueado" : "Pendente";
   const statusClass = (s: string) => s === "operational" ? "border-emerald-400/40 text-emerald-300" : s === "blocked" ? "border-red-400/40 text-red-300" : "border-amber-400/40 text-amber-300";
-  const isOnline = (lastSeen?: string) => Boolean(lastSeen && Date.now() - new Date(lastSeen).getTime() < 15 * 60 * 1000);
   async function changeStatus(status: string) {
     if (!selected) return;
     await (supabase as any).from("hotspot_devices").update({ status, updated_at: new Date().toISOString() }).eq("id", selected.id);
