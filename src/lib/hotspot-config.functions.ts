@@ -279,7 +279,7 @@ export const saveHotspotConfig = createServerFn({ method: "POST" })
     }
 
     if (data.vendor === "mikrotik_hotspot" && data.routerIdentity) {
-      const { error: deviceError } = await (supabaseAdmin as any).from("hotspot_devices").upsert({
+      const devicePayload = {
         hotspot_config_id: result.data.id,
         company_id: scope.companyId,
         branch_id: scope.branchId,
@@ -287,7 +287,12 @@ export const saveHotspotConfig = createServerFn({ method: "POST" })
         ap_mac: data.apMac || null,
         status: record.status === "operational" ? "operational" : "awaiting_homologation",
         updated_at: new Date().toISOString(),
-      }, { onConflict: "hotspot_config_id" });
+      };
+      const { data: existingDevice } = await (supabaseAdmin as any).from("hotspot_devices").select("id").or(`hotspot_config_id.eq.${result.data.id},router_identity.eq.${data.routerIdentity}`).maybeSingle();
+      const deviceResult = existingDevice
+        ? await (supabaseAdmin as any).from("hotspot_devices").update(devicePayload).eq("id", existingDevice.id)
+        : await (supabaseAdmin as any).from("hotspot_devices").insert(devicePayload);
+      const deviceError = deviceResult.error;
       if (deviceError) throw new Error("Configuração salva, mas não foi possível cadastrar a RB.");
     }
 
