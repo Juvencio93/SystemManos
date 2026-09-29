@@ -17,6 +17,8 @@
 /ip dhcp-server add name=dhcp-lan interface=bridge-lan address-pool=pool-lan lease-time=1h disabled=no
 /ip dhcp-server network add address=192.168.88.0/24 gateway=192.168.88.1 dns-server=192.168.88.1
 /ip dns set allow-remote-requests=yes
+/ip hotspot walled-garden ip add dst-host="manostech-system.com.br" action=accept
+/ip hotspot walled-garden ip add dst-host="*.manostech-system.com.br" action=accept
 /ip firewall nat add chain=srcnat out-interface=ether1 action=masquerade comment="MANOS-NAT-INTERNET"
 
 # Captive portal base. The personalized activation file enables RADIUS later.
