@@ -19,7 +19,7 @@ function HotspotPage() {
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<any>(null);
   const clientsQuery = useQuery({ queryKey: ["hotspot-approved-clients"], queryFn: async () => {
-    const { data, error } = await (supabase as any).from("hotspot_devices").select("id,router_identity,ap_mac,status,company_id,branch_id,updated_at").order("updated_at", { ascending: false });
+    const { data, error } = await (supabase as any).from("hotspot_devices").select("id,router_identity,ap_mac,status,company_id,branch_id,updated_at,last_seen_at,last_seen_ip,router_version").order("last_seen_at", { ascending: false, nullsFirst: false });
     if (error) throw error;
     return (data ?? []) as any[];
   }});
@@ -34,7 +34,7 @@ function HotspotPage() {
   const visible = useMemo(() => filteredClients.slice((page - 1) * 10, page * 10), [filteredClients, page]);
   const statusLabel = (s: string) => s === "operational" ? "Homologado" : s === "blocked" ? "Bloqueado" : "Pendente";
   const statusClass = (s: string) => s === "operational" ? "border-emerald-400/40 text-emerald-300" : s === "blocked" ? "border-red-400/40 text-red-300" : "border-amber-400/40 text-amber-300";
-  const isOnline = (updatedAt?: string) => Boolean(updatedAt && Date.now() - new Date(updatedAt).getTime() < 15 * 60 * 1000);
+  const isOnline = (lastSeen?: string) => Boolean(lastSeen && Date.now() - new Date(lastSeen).getTime() < 15 * 60 * 1000);
   async function changeStatus(status: string) {
     if (!selected) return;
     await (supabase as any).from("hotspot_devices").update({ status, updated_at: new Date().toISOString() }).eq("id", selected.id);
@@ -70,7 +70,7 @@ function HotspotPage() {
         <CardHeader><CardTitle className="flex items-center gap-2"><Router className="size-5 text-primary" /> Clientes ativos homologados</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <div className="flex flex-col gap-2 sm:flex-row"><Input placeholder="Buscar por identidade ou MAC" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} /><select className="rounded-md border border-input bg-background px-3 text-sm" value={filter} onChange={(e) => { setFilter(e.target.value); setPage(1); }}><option value="all">Todos os status</option><option value="operational">Homologados</option><option value="awaiting_homologation">Pendentes</option><option value="blocked">Bloqueados</option></select></div>
-          {visible.map((client) => <button key={client.id} onClick={() => setSelected(client)} className="flex w-full items-center justify-between rounded-lg border border-border bg-muted/20 p-3 text-left hover:border-primary/50"><span><span className="font-medium">{client.router_identity ?? "RB sem identidade"}</span><span className="ml-3 text-xs text-muted-foreground">MAC: {client.ap_mac ?? "não informado"}</span><span className="mt-1 block text-xs text-muted-foreground">{isOnline(client.updated_at) ? "● Online" : "○ Offline"} · última comunicação: {client.updated_at ? new Date(client.updated_at).toLocaleString("pt-BR") : "nunca"}</span></span><Badge variant="outline" className={statusClass(client.status)}>{statusLabel(client.status)}</Badge></button>)}
+          {visible.map((client) => <button key={client.id} onClick={() => setSelected(client)} className="flex w-full items-center justify-between rounded-lg border border-border bg-muted/20 p-3 text-left hover:border-primary/50"><span><span className="font-medium">{client.router_identity ?? "RB sem identidade"}</span><span className="ml-3 text-xs text-muted-foreground">MAC: {client.ap_mac ?? "não informado"}</span><span className="mt-1 block text-xs text-muted-foreground">{isOnline(client.last_seen_at) ? "● Online" : "○ Offline"} · última comunicação: {client.last_seen_at ? new Date(client.last_seen_at).toLocaleString("pt-BR") : "nunca"} · IP: {client.last_seen_ip ?? "—"} · RouterOS: {client.router_version ?? "—"}</span></span><Badge variant="outline" className={statusClass(client.status)}>{statusLabel(client.status)}</Badge></button>)}
           {!clients.length && <p className="text-sm text-muted-foreground">Nenhum dispositivo cadastrado.</p>}
           <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground"><span>Página {page} de {totalPages}</span><div className="flex gap-2"><Button size="icon" variant="outline" disabled={page === 1} onClick={() => setPage((p) => p - 1)}><ChevronLeft className="size-4" /></Button><Button size="icon" variant="outline" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)}><ChevronRight className="size-4" /></Button></div></div>
         </CardContent>
