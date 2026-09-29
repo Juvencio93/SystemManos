@@ -35,6 +35,7 @@ function HotspotPage() {
     return text.includes(search.toLowerCase()) && (filter === "all" || client.status === filter);
   });
   const totalPages = Math.max(1, Math.ceil(filteredClients.length / 10));
+  const offlineCount = clients.filter((c) => !isOnline(c.last_seen_at)).length;
   const visible = useMemo(() => filteredClients.slice((page - 1) * 10, page * 10), [filteredClients, page]);
   const statusLabel = (s: string) => s === "operational" ? "Homologado" : s === "blocked" ? "Bloqueado" : "Pendente";
   const statusClass = (s: string) => s === "operational" ? "border-emerald-400/40 text-emerald-300" : s === "blocked" ? "border-red-400/40 text-red-300" : "border-amber-400/40 text-amber-300";
@@ -79,6 +80,7 @@ function HotspotPage() {
         <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Homologados</p><p className="mt-1 text-2xl font-bold text-emerald-400">{clients.filter((c) => c.status === "operational").length}</p></CardContent></Card>
         <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Bloqueados</p><p className="mt-1 text-2xl font-bold text-red-400">{clients.filter((c) => c.status === "blocked").length}</p></CardContent></Card>
       </div>
+      {offlineCount > 0 && <Card className="border-amber-400/30 bg-amber-400/5"><CardContent className="p-4 text-sm"><p className="font-semibold text-amber-300">Atenção operacional</p><p className="text-muted-foreground">{offlineCount} dispositivo(s) não enviaram heartbeat nos últimos 15 minutos. Verifique a conexão da RB e o RADIUS.</p></CardContent></Card>}
       <Card className="glass-panel border-primary/20">
         <CardHeader><CardTitle className="flex items-center gap-2"><Router className="size-5 text-primary" /> Clientes ativos homologados</CardTitle></CardHeader>
         <CardContent className="space-y-3">
