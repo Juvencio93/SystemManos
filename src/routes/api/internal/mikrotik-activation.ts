@@ -19,8 +19,7 @@ export const Route = createFileRoute("/api/internal/mikrotik-activation")({
 /radius add service=hotspot address=$radiusHost secret=$radiusSecret authentication-port=1812 accounting-port=1813 timeout=3s require-message-auth=no
 /ip hotspot profile set [find name="hsprof1"] use-radius=yes radius-accounting=yes login-by=http-chap,http-pap html-directory=flash/hotspot html-directory-override=flash/hotspot
 /ip hotspot enable [find name="hotspot1"]
-/system scheduler remove [find name="MANOS-HEARTBEAT"]
-/system scheduler add name="MANOS-HEARTBEAT" interval=5m on-event="/tool fetch http-method=post http-header-field=\"X-Manos-Heartbeat: $heartbeatToken\" url=\"https://manostech-system.com.br/api/internal/hotspot-heartbeat?routerIdentity=$routerIdentity&mac=[ /interface ethernet get ether1 mac-address ]&ip=[ /ip address get [find interface=ether1] address ]&version=[ /system resource get version ]&activeSessions=[ /ip hotspot active print count-only ]&rxBytes=[ /interface get ether1 rx-byte ]&txBytes=[ /interface get ether1 tx-byte ]\" keep-result=no"`;
+`;
     return new Response(script, { headers: { "content-type": "text/plain", "content-disposition": `attachment; filename="${identity}-activation.rsc"` } });
   } } },
 });
