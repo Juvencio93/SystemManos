@@ -18,12 +18,12 @@ export const Route = createFileRoute("/_authenticated/hotspot")({
 function HotspotPage() {
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<any>(null);
-  const clientsQuery = useQuery({ queryKey: ["hotspot-approved-clients"], queryFn: async () => {
+  const clientsQuery = useQuery({ queryKey: ["hotspot-approved-clients"], refetchInterval: 60000, queryFn: async () => {
     const { data, error } = await (supabase as any).from("hotspot_devices").select("id,router_identity,ap_mac,status,company_id,branch_id,updated_at,last_seen_at,last_seen_ip,router_version,active_sessions,rx_bytes,tx_bytes").order("last_seen_at", { ascending: false, nullsFirst: false });
     if (error) throw error;
     return (data ?? []) as any[];
   }});
-  const auditQuery = useQuery({ queryKey: ["hotspot-audit"], queryFn: async () => {
+  const auditQuery = useQuery({ queryKey: ["hotspot-audit"], refetchInterval: 60000, queryFn: async () => {
     const { data, error } = await (supabase as any).from("hotspot_device_audit").select("id,device_id,action,previous_status,new_status,created_at").order("created_at", { ascending: false }).limit(20);
     if (error) throw error; return (data ?? []) as any[];
   }});
