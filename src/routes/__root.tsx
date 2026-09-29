@@ -28,10 +28,8 @@ const staleChunkRecoveryScript = `
       if (now - previousRetry < retryCooldownMs) return;
 
       sessionStorage.setItem(retryKey, String(now));
-      const url = new URL(window.location.href);
-      // Keep the recovery internal: the public URL must remain clean.
-      url.searchParams.delete("__chunk_retry");
-      window.location.replace(url.toString());
+      // Reload the current document without exposing an internal retry query.
+      window.location.reload();
     };
 
     window.addEventListener("vite:preloadError", (event) => {
