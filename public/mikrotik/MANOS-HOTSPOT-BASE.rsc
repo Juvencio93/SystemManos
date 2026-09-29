@@ -19,6 +19,7 @@
 /ip dns set allow-remote-requests=yes
 /ip hotspot walled-garden ip add dst-host="manostech-system.com.br" action=accept
 /ip hotspot walled-garden ip add dst-host="*.manostech-system.com.br" action=accept
+/ip hotspot walled-garden ip add dst-host="idzvginmbesnkcaapehh.supabase.co" action=accept
 /ip firewall nat add chain=srcnat out-interface=ether1 action=masquerade comment="MANOS-NAT-INTERNET"
 
 # Captive portal base. The personalized activation file enables RADIUS later.

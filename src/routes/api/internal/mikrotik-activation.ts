@@ -27,6 +27,7 @@ export const Route = createFileRoute("/api/internal/mikrotik-activation")({
  /ip hotspot profile set [find name="hsprof1"] use-radius=yes radius-accounting=yes login-by=http-chap,http-pap html-directory=flash/hotspot html-directory-override=flash/hotspot
  /ip hotspot walled-garden ip add dst-host="manostech-system.com.br" action=accept
  /ip hotspot walled-garden ip add dst-host="*.manostech-system.com.br" action=accept
+ /ip hotspot walled-garden ip add dst-host="idzvginmbesnkcaapehh.supabase.co" action=accept
  /ip hotspot enable [find name="hotspot1"]
  `;
     return new Response(script, { headers: { "content-type": "text/plain", "content-disposition": `attachment; filename="${identity}-${kind}.rsc"` } });
