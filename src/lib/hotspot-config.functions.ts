@@ -52,6 +52,7 @@ const saveSchema = targetSchema.extend({
   downloadKbps: nullablePositiveInteger(64, 1000000),
   uploadKbps: nullablePositiveInteger(64, 1000000),
   limitSource: z.enum(["equipment", "system"]),
+  routerIdentity: z.string().trim().regex(/^MT-[A-Z0-9-]{6,48}$/).optional().or(z.literal("")),
 });
 
 type HotspotConfigRow = Database["public"]["Tables"]["hotspot_configs"]["Row"];
@@ -275,6 +276,19 @@ export const saveHotspotConfig = createServerFn({ method: "POST" })
 
     if (result.error || !result.data) {
       throw new Error("Não foi possível salvar a configuração do equipamento.");
+    }
+
+    if (data.vendor === "mikrotik_hotspot" && data.routerIdentity) {
+      const { error: deviceError } = await (supabaseAdmin as any).from("hotspot_devices").upsert({
+        hotspot_config_id: result.data.id,
+        company_id: scope.companyId,
+        branch_id: scope.branchId,
+        router_identity: data.routerIdentity,
+        ap_mac: data.apMac || null,
+        status: record.status === "operational" ? "operational" : "awaiting_homologation",
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "hotspot_config_id" });
+      if (deviceError) throw new Error("Configuração salva, mas não foi possível cadastrar a RB.");
     }
 
     const isOperational = record.status === "operational" && record.is_active === true;

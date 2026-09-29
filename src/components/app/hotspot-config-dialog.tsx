@@ -33,6 +33,7 @@ type FormState = {
   vendor: Vendor;
   displayName: string;
   apMac: string;
+  routerIdentity: string;
   sessionTimeoutMinutes: string;
   idleTimeoutMinutes: string;
   downloadMbps: string;
@@ -43,6 +44,7 @@ const EMPTY_FORM: FormState = {
   vendor: "mikrotik_hotspot",
   displayName: "",
   apMac: "",
+  routerIdentity: "",
   sessionTimeoutMinutes: "10",
   idleTimeoutMinutes: "2",
   downloadMbps: "10",
@@ -129,6 +131,7 @@ export function HotspotConfigDialog({
       vendor: normalizeVendor(config.vendor),
       displayName: config.displayName ?? "",
       apMac: config.apMac ?? "",
+      routerIdentity: "",
       sessionTimeoutMinutes: String((config.sessionTimeoutSeconds ?? 600) / 60),
       idleTimeoutMinutes: String((config.idleTimeoutSeconds ?? 120) / 60),
       downloadMbps: String((config.downloadKbps ?? 10_000) / 1_000),
@@ -146,6 +149,7 @@ export function HotspotConfigDialog({
           displayName: form.displayName,
           ssid: "",
           apMac: form.apMac,
+          routerIdentity: form.routerIdentity,
           integrationMode:
             form.vendor === "mikrotik_hotspot"
               ? "radius"
@@ -263,6 +267,10 @@ export function HotspotConfigDialog({
             </div> : null}
 
             {!isClientPolicyView ? <div className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor={`router-identity-${targetId}`}>Identidade da RB</Label>
+                <Input id={`router-identity-${targetId}`} value={form.routerIdentity} onChange={(event) => set("routerIdentity", event.target.value.toUpperCase())} placeholder="Ex.: MT-EFRAIM" />
+              </div>
               <div className="grid gap-2">
                 <Label htmlFor={`equipment-name-${targetId}`}>Nome do equipamento</Label>
                 <Input
