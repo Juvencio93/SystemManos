@@ -10,7 +10,8 @@ export const Route = createFileRoute("/api/internal/hotspot-heartbeat")({
           return new Response("Unauthorized", { status: 401 });
         }
         const queryBody = Object.fromEntries(new URL(request.url).searchParams);
-        const body = Object.keys(queryBody).length > 0 ? queryBody : request.headers.get("content-type")?.includes("application/x-www-form-urlencoded")
+        const headerBody = { routerIdentity: request.headers.get("x-manos-router") ?? undefined, mac: request.headers.get("x-manos-mac") ?? undefined };
+        const body = Object.keys(queryBody).length > 0 ? queryBody : headerBody.routerIdentity ? headerBody : request.headers.get("content-type")?.includes("application/x-www-form-urlencoded")
           ? Object.fromEntries(new URLSearchParams(await request.text())) as Record<string, string>
           : await request.json().catch(() => null) as Record<string, string> | null;
         if (!validateHeartbeat(body)) return new Response("Invalid heartbeat", { status: 400 });
