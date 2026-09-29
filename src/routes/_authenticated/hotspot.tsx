@@ -39,6 +39,7 @@ function HotspotPage() {
   const clients = clientsQuery.data ?? [];
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
+  const [auditSearch, setAuditSearch] = useState("");
   const filteredClients = clients.filter((client) => {
     const text = `${client.router_identity ?? ""} ${client.ap_mac ?? ""}`.toLowerCase();
     return text.includes(search.toLowerCase()) && (filter === "all" || client.status === filter);
@@ -47,6 +48,7 @@ function HotspotPage() {
   const offlineCount = clients.filter((c) => !isOnline(c.last_seen_at)).length;
   const activeSessions = clients.reduce((sum, c) => sum + Number(c.active_sessions ?? 0), 0);
   const trafficBytes = clients.reduce((sum, c) => sum + Number(c.rx_bytes ?? 0) + Number(c.tx_bytes ?? 0), 0);
+  const auditItems = (auditQuery.data ?? []).filter((item) => `${item.action} ${item.device_id}`.toLowerCase().includes(auditSearch.toLowerCase()));
   const formatBytes = (n: number) => n > 1_000_000_000 ? `${(n / 1_000_000_000).toFixed(1)} GB` : `${(n / 1_000_000).toFixed(1)} MB`;
   const visible = useMemo(() => filteredClients.slice((page - 1) * 10, page * 10), [filteredClients, page]);
   const statusLabel = (s: string) => s === "operational" ? "Homologado" : s === "blocked" ? "Bloqueado" : "Pendente";
@@ -102,7 +104,7 @@ function HotspotPage() {
           </div>
         </CardContent>
       </Card>
-      <Card className="glass-panel border-primary/20"><CardHeader><CardTitle>Histórico recente</CardTitle></CardHeader><CardContent className="space-y-2">{(auditQuery.data ?? []).map((item) => <div key={item.id} className="flex items-center justify-between rounded border border-border p-2 text-xs"><span>{item.action} · dispositivo {String(item.device_id).slice(0, 8)}</span><span className="text-muted-foreground">{new Date(item.created_at).toLocaleString("pt-BR")}</span></div>)}{!auditQuery.data?.length && <p className="text-sm text-muted-foreground">Nenhuma ação registrada.</p>}</CardContent></Card>
+      <Card className="glass-panel border-primary/20"><CardHeader><CardTitle>Histórico recente</CardTitle></CardHeader><CardContent className="space-y-2"><Input placeholder="Filtrar histórico por ação ou dispositivo" value={auditSearch} onChange={(e) => setAuditSearch(e.target.value)} />{auditItems.map((item) => <div key={item.id} className="flex items-center justify-between rounded border border-border p-2 text-xs"><span>{item.action} · dispositivo {String(item.device_id).slice(0, 8)}</span><span className="text-muted-foreground">{new Date(item.created_at).toLocaleString("pt-BR")}</span></div>)}{!auditItems.length && <p className="text-sm text-muted-foreground">Nenhuma ação encontrada.</p>}</CardContent></Card>
       {offlineCount > 0 && <Card className="border-amber-400/30 bg-amber-400/5"><CardContent className="p-4 text-sm"><p className="font-semibold text-amber-300">Atenção operacional</p><p className="text-muted-foreground">{offlineCount} dispositivo(s) não enviaram heartbeat nos últimos 15 minutos. Verifique a conexão da RB e o RADIUS.</p></CardContent></Card>}
       <Card className="glass-panel border-primary/20">
         <CardHeader className="flex flex-row items-center justify-between"><CardTitle className="flex items-center gap-2"><Router className="size-5 text-primary" /> Clientes ativos homologados</CardTitle><Button variant="outline" size="sm" onClick={() => { void clientsQuery.refetch(); void auditQuery.refetch(); }}>Atualizar dados</Button></CardHeader>
