@@ -83,11 +83,11 @@ function HotspotPage() {
     setSelected(null);
   }
   async function downloadActivation(client: any) {
-    const path = await getActivation({ data: { kind: client.branch_id ? "branch" : "company", targetId: client.branch_id ?? client.company_id, kind: "activation" } });
+    const path = await getActivation({ data: { kind: client.branch_id ? "branch" : "company", targetId: client.branch_id ?? client.company_id, fileKind: "activation" } });
     window.location.href = path;
   }
   async function downloadHeartbeat(client: any) {
-    const path = await getActivation({ data: { kind: client.branch_id ? "branch" : "company", targetId: client.branch_id ?? client.company_id, kind: "heartbeat" } });
+    const path = await getActivation({ data: { kind: client.branch_id ? "branch" : "company", targetId: client.branch_id ?? client.company_id, fileKind: "heartbeat" } });
     window.location.href = path;
   }
   async function requestSync(client: any) {

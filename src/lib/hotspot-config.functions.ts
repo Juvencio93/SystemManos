@@ -10,7 +10,7 @@ const targetSchema = z.object({
   targetId: z.string().uuid(),
 });
 
-const downloadSchema = targetSchema.extend({ kind: z.enum(["activation", "heartbeat"]).default("activation") });
+const downloadSchema = targetSchema.extend({ fileKind: z.enum(["activation", "heartbeat"]).default("activation") });
 
 export const getMikrotikActivationDownload = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -25,7 +25,7 @@ export const getMikrotikActivationDownload = createServerFn({ method: "GET" })
     if (!device?.router_identity || !secret) throw new Error("Ativação personalizada indisponível.");
     const exp = String(Date.now() + 10 * 60 * 1000);
     const sig = createHmac("sha256", secret).update(`${device.router_identity}.${exp}`).digest("hex");
-    return `/api/internal/mikrotik-activation?router=${encodeURIComponent(device.router_identity)}&exp=${exp}&sig=${sig}&kind=${data.kind}`;
+    return `/api/internal/mikrotik-activation?router=${encodeURIComponent(device.router_identity)}&exp=${exp}&sig=${sig}&kind=${data.fileKind}`;
   });
 
 const nullableText = z
