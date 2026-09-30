@@ -1,18 +1,22 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { slugify } from "@/lib/cnpj-utils";
 
-/**
- * Generate a unique and unpredictable slug for the portal URL.
- */
-const generateSlug = () => {
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-  let result = "";
-  for (let i = 0; i < 12; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-};
+/** Build a readable portal slug from the registered company name. */
+async function generateCompanySlug(admin: any, companyId: string) {
+  const { data: company } = await admin
+    .from("companies")
+    .select("name, trade_name, legal_name")
+    .eq("id", companyId)
+    .maybeSingle();
+  const source = company?.trade_name || company?.name || company?.legal_name || "empresa";
+  const base = slugify(source).slice(0, 42) || "empresa";
+  const candidate = base;
+  const { data: sameCompany } = await admin.from("companies").select("id").eq("portal_slug", candidate).neq("id", companyId).maybeSingle();
+  if (!sameCompany) return candidate;
+  return `${base}-${companyId.replaceAll("-", "").slice(0, 8)}`;
+}
 
 /**
  * AÇÃO 1 — REVOGAR URL E QR CODE
@@ -34,26 +38,7 @@ export const revokePortalUrl = createServerFn({ method: "POST" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    let newSlug = generateSlug();
-    let isUnique = false;
-    let attempts = 0;
-
-    while (!isUnique && attempts < 5) {
-      const { data: existing } = await supabaseAdmin
-        .from("companies")
-        .select("id")
-        .eq("portal_slug", newSlug)
-        .maybeSingle();
-      
-      if (!existing) {
-        isUnique = true;
-      } else {
-        newSlug = generateSlug();
-        attempts++;
-      }
-    }
-
-    if (!isUnique) return { success: false, error: "Falha ao gerar URL única." };
+    const newSlug = await generateCompanySlug(supabaseAdmin, data.companyId);
 
     const { error } = await supabaseAdmin
       .from("companies")
@@ -118,7 +103,7 @@ export const createPortal = createServerFn({ method: "POST" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const newSlug = generateSlug();
+    const newSlug = await generateCompanySlug(supabaseAdmin, data.companyId);
     const { error } = await supabaseAdmin
       .from("companies")
       .update({ 
