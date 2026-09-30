@@ -22,13 +22,14 @@ export const Route = createFileRoute("/_authenticated/hotspot")({
 
 function HotspotPage() {
   const { data: access } = useAccess();
+  const canManageHotspot = access?.role === "adm" || access?.role === "revenda";
   const getActivation = useServerFn(getMikrotikActivationDownload);
   const fetchPortals = useServerFn(getPortals);
-  const portalsQuery = useQuery({ queryKey: ["hotspot-portals"], queryFn: () => fetchPortals() });
+  const portalsQuery = useQuery({ queryKey: ["hotspot-portals"], enabled: canManageHotspot, queryFn: () => fetchPortals() });
   const portalItems = (portalsQuery.data?.items ?? []) as PortalItem[];
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<any>(null);
-  const clientsQuery = useQuery({ queryKey: ["hotspot-approved-clients", access?.role, access?.resellerId, access?.companyId, access?.branchId], enabled: Boolean(access), refetchInterval: 60000, queryFn: async () => {
+  const clientsQuery = useQuery({ queryKey: ["hotspot-approved-clients", access?.role, access?.resellerId, access?.companyId, access?.branchId], enabled: canManageHotspot, refetchInterval: 60000, queryFn: async () => {
     let query = (supabase as any).from("hotspot_devices").select("id,router_identity,ap_mac,status,company_id,branch_id,updated_at,last_seen_at,last_seen_ip,router_version,active_sessions,rx_bytes,tx_bytes,sync_requested_at,sync_applied_at");
     if (access?.role === "revenda" && access.resellerId) {
       const [{ data: companies }, { data: branches }] = await Promise.all([
@@ -46,12 +47,12 @@ function HotspotPage() {
     if (error) throw error;
     return (data ?? []) as any[];
   }});
-  const auditQuery = useQuery({ queryKey: ["hotspot-audit"], refetchInterval: 60000, queryFn: async () => {
+  const auditQuery = useQuery({ queryKey: ["hotspot-audit"], enabled: canManageHotspot, refetchInterval: 60000, queryFn: async () => {
     const { data, error } = await (supabase as any).from("hotspot_device_audit").select("id,device_id,action,previous_status,new_status,created_at").order("created_at", { ascending: false }).limit(20);
     if (error) throw error; return (data ?? []) as any[];
   }});
-  const healthQuery = useQuery({ queryKey: ["hotspot-health"], refetchInterval: 60000, queryFn: async () => { const response = await fetch("/api/internal/hotspot-health"); if (!response.ok) throw new Error("Falha no diagnóstico"); return response.json() as Promise<{ radiusConfigured: boolean; heartbeatConfigured: boolean; reason: string; checkedAt: string }>; } });
-  const filesQuery = useQuery({ queryKey: ["hotspot-files"], refetchInterval: 60000, queryFn: async () => (await fetch("/api/internal/hotspot-files")).json() as Promise<{ files: { path: string; available: boolean }[]; publishedAt: string | null }> });
+  const healthQuery = useQuery({ queryKey: ["hotspot-health"], enabled: canManageHotspot, refetchInterval: 60000, queryFn: async () => { const response = await fetch("/api/internal/hotspot-health"); if (!response.ok) throw new Error("Falha no diagnóstico"); return response.json() as Promise<{ radiusConfigured: boolean; heartbeatConfigured: boolean; reason: string; checkedAt: string }>; } });
+  const filesQuery = useQuery({ queryKey: ["hotspot-files"], enabled: canManageHotspot, refetchInterval: 60000, queryFn: async () => (await fetch("/api/internal/hotspot-files")).json() as Promise<{ files: { path: string; available: boolean }[]; publishedAt: string | null }> });
   const clients = clientsQuery.data ?? [];
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -74,6 +75,9 @@ function HotspotPage() {
   const visible = useMemo(() => filteredClients.slice((page - 1) * 10, page * 10), [filteredClients, page]);
   const statusLabel = (s: string) => s === "operational" ? "Homologado" : s === "blocked" ? "Bloqueado" : "Pendente";
   const statusClass = (s: string) => s === "operational" ? "border-emerald-400/40 text-emerald-300" : s === "blocked" ? "border-red-400/40 text-red-300" : "border-amber-400/40 text-amber-300";
+  if (access && !canManageHotspot) {
+    return <div className="container max-w-3xl py-10"><Card className="border-amber-400/30"><CardContent className="p-6"><PageHeader title="Acesso restrito" description="O gerenciamento de equipamentos, homologação e arquivos Hotspot é exclusivo para administradores e revendas." /></CardContent></Card></div>;
+  }
   async function changeStatus(status: string) {
     if (!selected) return;
     await (supabase as any).from("hotspot_devices").update({ status, updated_at: new Date().toISOString() }).eq("id", selected.id);

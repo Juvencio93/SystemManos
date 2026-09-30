@@ -163,7 +163,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     </Link>
                   );
                 })}
-                {role ? (
+                {role === "adm" || role === "revenda" ? (
                   <Link
                     to="/hotspot"
                     onClick={() => setOpen(false)}

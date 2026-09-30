@@ -120,6 +120,7 @@ async function resolveScope(
   const allowed =
     primaryRole.role === "adm" ||
     (primaryRole.role === "matriz" && primaryRole.company_id === companyId) ||
+    (primaryRole.role === "filial" && primaryRole.branch_id === branchId) ||
     (primaryRole.role === "revenda" &&
       Boolean(primaryRole.reseller_id) &&
       primaryRole.reseller_id === targetResellerId);
