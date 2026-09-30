@@ -27,7 +27,8 @@ export const Route = createFileRoute("/api/internal/mikrotik-activation")({
     :set txBytes ($txBytes + [/ip hotspot active get $activeId bytes-out])
   }
   :local heartbeatUrl ("https://manostech-system.com.br/api/internal/hotspot-heartbeat?routerIdentity=" . $routerIdentity . "&ip=" . $wanIp . "&version=" . $routerVersion . "&mac=" . $routerMac . "&activeSessions=" . $sessions . "&rxBytes=" . $rxBytes . "&txBytes=" . $txBytes)
-  /tool fetch url=$heartbeatUrl http-method=post http-header-field=("X-Manos-Heartbeat: " . $heartbeatToken) keep-result=no
+  :local heartbeatResult [/tool fetch url=$heartbeatUrl http-method=post http-header-field=("X-Manos-Heartbeat: " . $heartbeatToken) output=user as-value]
+  :if ([:find ($heartbeatResult->"data") "\"reboot\":true"] != nil) do={/system reboot}
  }
  /system scheduler enable [find name="MANOS-HEARTBEAT"]
 ` : `:local routerIdentity "${identity}"

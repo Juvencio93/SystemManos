@@ -16,11 +16,13 @@ export const Route = createFileRoute("/api/internal/hotspot-heartbeat")({
           : await request.json().catch(() => null) as Record<string, string> | null;
         if (!validateHeartbeat(body)) return new Response("Invalid heartbeat", { status: 400 });
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const { data: current } = await (supabaseAdmin as any).from("hotspot_devices").select("sync_requested_at").eq("router_identity", body.routerIdentity).maybeSingle();
+        const { data: current } = await (supabaseAdmin as any).from("hotspot_devices").select("sync_requested_at,reboot_requested_at").eq("router_identity", body.routerIdentity).maybeSingle();
         const now = new Date().toISOString();
-        const { error } = await (supabaseAdmin as any).from("hotspot_devices").update(heartbeatUpdate(body, now, Boolean(current?.sync_requested_at))).eq("router_identity", body.routerIdentity);
+        const rebootRequested = Boolean(current?.reboot_requested_at);
+        const update = { ...heartbeatUpdate(body, now, Boolean(current?.sync_requested_at)), ...(rebootRequested ? { reboot_applied_at: now } : {}) };
+        const { error } = await (supabaseAdmin as any).from("hotspot_devices").update(update).eq("router_identity", body.routerIdentity);
         if (error) return new Response("Could not update heartbeat", { status: 500 });
-        return Response.json({ ok: true });
+        return Response.json({ ok: true, reboot: rebootRequested });
       },
     },
   },
