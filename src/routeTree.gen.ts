@@ -21,6 +21,7 @@ import { Route as AuthenticatedEventosRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedFiliaisRouteImport } from './routes/_authenticated/filiais'
 import { Route as AuthenticatedFinanceiroRouteRouteImport } from './routes/_authenticated/financeiro/route'
 import { Route as AuthenticatedGerenteOperacionalRouteImport } from './routes/_authenticated/gerente-operacional'
+import { Route as AuthenticatedHotspotRouteImport } from './routes/_authenticated/hotspot'
 import { Route as AuthenticatedMensagensRouteImport } from './routes/_authenticated/mensagens'
 import { Route as AuthenticatedPortaisRouteImport } from './routes/_authenticated/portais'
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
@@ -35,6 +36,11 @@ import { Route as AuthenticatedFinanceiroDespesasRouteImport } from './routes/_a
 import { Route as AuthenticatedFinanceiroEmAtrasoRouteImport } from './routes/_authenticated/financeiro/em-atraso'
 import { Route as AuthenticatedFinanceiroFaturamentoRouteImport } from './routes/_authenticated/financeiro/faturamento'
 import { Route as AuthenticatedMarketingCampaignIdRouteImport } from './routes/_authenticated/marketing.$campaignId'
+import { Route as ApiInternalHotspotFilesRouteImport } from './routes/api/internal/hotspot-files'
+import { Route as ApiInternalHotspotHealthRouteImport } from './routes/api/internal/hotspot-health'
+import { Route as ApiInternalHotspotHeartbeatRouteImport } from './routes/api/internal/hotspot-heartbeat'
+import { Route as ApiInternalHotspotSyncRouteImport } from './routes/api/internal/hotspot-sync'
+import { Route as ApiInternalMikrotikActivationRouteImport } from './routes/api/internal/mikrotik-activation'
 import { Route as ApiInternalRadiusAuthorizeRouteImport } from './routes/api/internal/radius-authorize'
 import { Route as ApiPublicAsaasClientRouteImport } from './routes/api/public/asaas-client'
 import { Route as ApiPublicAsaasManagerRouteImport } from './routes/api/public/asaas-manager'
@@ -108,6 +114,11 @@ const AuthenticatedGerenteOperacionalRoute =
     path: '/gerente-operacional',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedHotspotRoute = AuthenticatedHotspotRouteImport.update({
+  id: '/hotspot',
+  path: '/hotspot',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedMensagensRoute = AuthenticatedMensagensRouteImport.update({
   id: '/mensagens',
   path: '/mensagens',
@@ -186,6 +197,34 @@ const AuthenticatedMarketingCampaignIdRoute =
     path: '/marketing/$campaignId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiInternalHotspotFilesRoute = ApiInternalHotspotFilesRouteImport.update({
+  id: '/api/internal/hotspot-files',
+  path: '/api/internal/hotspot-files',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiInternalHotspotHealthRoute =
+  ApiInternalHotspotHealthRouteImport.update({
+    id: '/api/internal/hotspot-health',
+    path: '/api/internal/hotspot-health',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiInternalHotspotHeartbeatRoute =
+  ApiInternalHotspotHeartbeatRouteImport.update({
+    id: '/api/internal/hotspot-heartbeat',
+    path: '/api/internal/hotspot-heartbeat',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiInternalHotspotSyncRoute = ApiInternalHotspotSyncRouteImport.update({
+  id: '/api/internal/hotspot-sync',
+  path: '/api/internal/hotspot-sync',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiInternalMikrotikActivationRoute =
+  ApiInternalMikrotikActivationRouteImport.update({
+    id: '/api/internal/mikrotik-activation',
+    path: '/api/internal/mikrotik-activation',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiInternalRadiusAuthorizeRoute =
   ApiInternalRadiusAuthorizeRouteImport.update({
     id: '/api/internal/radius-authorize',
@@ -253,6 +292,7 @@ export interface FileRoutesByFullPath {
   '/eventos': typeof AuthenticatedEventosRoute
   '/filiais': typeof AuthenticatedFiliaisRoute
   '/gerente-operacional': typeof AuthenticatedGerenteOperacionalRoute
+  '/hotspot': typeof AuthenticatedHotspotRoute
   '/mensagens': typeof AuthenticatedMensagensRoute
   '/portais': typeof AuthenticatedPortaisRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
@@ -265,6 +305,11 @@ export interface FileRoutesByFullPath {
   '/financeiro/em-atraso': typeof AuthenticatedFinanceiroEmAtrasoRoute
   '/financeiro/faturamento': typeof AuthenticatedFinanceiroFaturamentoRoute
   '/marketing/$campaignId': typeof AuthenticatedMarketingCampaignIdRoute
+  '/api/internal/hotspot-files': typeof ApiInternalHotspotFilesRoute
+  '/api/internal/hotspot-health': typeof ApiInternalHotspotHealthRoute
+  '/api/internal/hotspot-heartbeat': typeof ApiInternalHotspotHeartbeatRoute
+  '/api/internal/hotspot-sync': typeof ApiInternalHotspotSyncRoute
+  '/api/internal/mikrotik-activation': typeof ApiInternalMikrotikActivationRoute
   '/api/internal/radius-authorize': typeof ApiInternalRadiusAuthorizeRoute
   '/api/public/asaas-client': typeof ApiPublicAsaasClientRoute
   '/api/public/asaas-manager': typeof ApiPublicAsaasManagerRoute
@@ -289,6 +334,7 @@ export interface FileRoutesByTo {
   '/eventos': typeof AuthenticatedEventosRoute
   '/filiais': typeof AuthenticatedFiliaisRoute
   '/gerente-operacional': typeof AuthenticatedGerenteOperacionalRoute
+  '/hotspot': typeof AuthenticatedHotspotRoute
   '/mensagens': typeof AuthenticatedMensagensRoute
   '/portais': typeof AuthenticatedPortaisRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
@@ -301,6 +347,11 @@ export interface FileRoutesByTo {
   '/financeiro/em-atraso': typeof AuthenticatedFinanceiroEmAtrasoRoute
   '/financeiro/faturamento': typeof AuthenticatedFinanceiroFaturamentoRoute
   '/marketing/$campaignId': typeof AuthenticatedMarketingCampaignIdRoute
+  '/api/internal/hotspot-files': typeof ApiInternalHotspotFilesRoute
+  '/api/internal/hotspot-health': typeof ApiInternalHotspotHealthRoute
+  '/api/internal/hotspot-heartbeat': typeof ApiInternalHotspotHeartbeatRoute
+  '/api/internal/hotspot-sync': typeof ApiInternalHotspotSyncRoute
+  '/api/internal/mikrotik-activation': typeof ApiInternalMikrotikActivationRoute
   '/api/internal/radius-authorize': typeof ApiInternalRadiusAuthorizeRoute
   '/api/public/asaas-client': typeof ApiPublicAsaasClientRoute
   '/api/public/asaas-manager': typeof ApiPublicAsaasManagerRoute
@@ -328,6 +379,7 @@ export interface FileRoutesById {
   '/_authenticated/eventos': typeof AuthenticatedEventosRoute
   '/_authenticated/filiais': typeof AuthenticatedFiliaisRoute
   '/_authenticated/gerente-operacional': typeof AuthenticatedGerenteOperacionalRoute
+  '/_authenticated/hotspot': typeof AuthenticatedHotspotRoute
   '/_authenticated/mensagens': typeof AuthenticatedMensagensRoute
   '/_authenticated/portais': typeof AuthenticatedPortaisRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
@@ -340,6 +392,11 @@ export interface FileRoutesById {
   '/_authenticated/financeiro/em-atraso': typeof AuthenticatedFinanceiroEmAtrasoRoute
   '/_authenticated/financeiro/faturamento': typeof AuthenticatedFinanceiroFaturamentoRoute
   '/_authenticated/marketing/$campaignId': typeof AuthenticatedMarketingCampaignIdRoute
+  '/api/internal/hotspot-files': typeof ApiInternalHotspotFilesRoute
+  '/api/internal/hotspot-health': typeof ApiInternalHotspotHealthRoute
+  '/api/internal/hotspot-heartbeat': typeof ApiInternalHotspotHeartbeatRoute
+  '/api/internal/hotspot-sync': typeof ApiInternalHotspotSyncRoute
+  '/api/internal/mikrotik-activation': typeof ApiInternalMikrotikActivationRoute
   '/api/internal/radius-authorize': typeof ApiInternalRadiusAuthorizeRoute
   '/api/public/asaas-client': typeof ApiPublicAsaasClientRoute
   '/api/public/asaas-manager': typeof ApiPublicAsaasManagerRoute
@@ -367,6 +424,7 @@ export interface FileRouteTypes {
     | '/eventos'
     | '/filiais'
     | '/gerente-operacional'
+    | '/hotspot'
     | '/mensagens'
     | '/portais'
     | '/relatorios'
@@ -379,6 +437,11 @@ export interface FileRouteTypes {
     | '/financeiro/em-atraso'
     | '/financeiro/faturamento'
     | '/marketing/$campaignId'
+    | '/api/internal/hotspot-files'
+    | '/api/internal/hotspot-health'
+    | '/api/internal/hotspot-heartbeat'
+    | '/api/internal/hotspot-sync'
+    | '/api/internal/mikrotik-activation'
     | '/api/internal/radius-authorize'
     | '/api/public/asaas-client'
     | '/api/public/asaas-manager'
@@ -403,6 +466,7 @@ export interface FileRouteTypes {
     | '/eventos'
     | '/filiais'
     | '/gerente-operacional'
+    | '/hotspot'
     | '/mensagens'
     | '/portais'
     | '/relatorios'
@@ -415,6 +479,11 @@ export interface FileRouteTypes {
     | '/financeiro/em-atraso'
     | '/financeiro/faturamento'
     | '/marketing/$campaignId'
+    | '/api/internal/hotspot-files'
+    | '/api/internal/hotspot-health'
+    | '/api/internal/hotspot-heartbeat'
+    | '/api/internal/hotspot-sync'
+    | '/api/internal/mikrotik-activation'
     | '/api/internal/radius-authorize'
     | '/api/public/asaas-client'
     | '/api/public/asaas-manager'
@@ -441,6 +510,7 @@ export interface FileRouteTypes {
     | '/_authenticated/eventos'
     | '/_authenticated/filiais'
     | '/_authenticated/gerente-operacional'
+    | '/_authenticated/hotspot'
     | '/_authenticated/mensagens'
     | '/_authenticated/portais'
     | '/_authenticated/relatorios'
@@ -453,6 +523,11 @@ export interface FileRouteTypes {
     | '/_authenticated/financeiro/em-atraso'
     | '/_authenticated/financeiro/faturamento'
     | '/_authenticated/marketing/$campaignId'
+    | '/api/internal/hotspot-files'
+    | '/api/internal/hotspot-health'
+    | '/api/internal/hotspot-heartbeat'
+    | '/api/internal/hotspot-sync'
+    | '/api/internal/mikrotik-activation'
     | '/api/internal/radius-authorize'
     | '/api/public/asaas-client'
     | '/api/public/asaas-manager'
@@ -472,6 +547,11 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   PortalSlugRoute: typeof PortalSlugRoute
+  ApiInternalHotspotFilesRoute: typeof ApiInternalHotspotFilesRoute
+  ApiInternalHotspotHealthRoute: typeof ApiInternalHotspotHealthRoute
+  ApiInternalHotspotHeartbeatRoute: typeof ApiInternalHotspotHeartbeatRoute
+  ApiInternalHotspotSyncRoute: typeof ApiInternalHotspotSyncRoute
+  ApiInternalMikrotikActivationRoute: typeof ApiInternalMikrotikActivationRoute
   ApiInternalRadiusAuthorizeRoute: typeof ApiInternalRadiusAuthorizeRoute
   ApiPublicAsaasClientRoute: typeof ApiPublicAsaasClientRoute
   ApiPublicAsaasManagerRoute: typeof ApiPublicAsaasManagerRoute
@@ -567,6 +647,13 @@ declare module '@tanstack/react-router' {
       path: '/gerente-operacional'
       fullPath: '/gerente-operacional'
       preLoaderRoute: typeof AuthenticatedGerenteOperacionalRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/hotspot': {
+      id: '/_authenticated/hotspot'
+      path: '/hotspot'
+      fullPath: '/hotspot'
+      preLoaderRoute: typeof AuthenticatedHotspotRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/mensagens': {
@@ -666,6 +753,41 @@ declare module '@tanstack/react-router' {
       fullPath: '/marketing/$campaignId'
       preLoaderRoute: typeof AuthenticatedMarketingCampaignIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/internal/hotspot-files': {
+      id: '/api/internal/hotspot-files'
+      path: '/api/internal/hotspot-files'
+      fullPath: '/api/internal/hotspot-files'
+      preLoaderRoute: typeof ApiInternalHotspotFilesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/internal/hotspot-health': {
+      id: '/api/internal/hotspot-health'
+      path: '/api/internal/hotspot-health'
+      fullPath: '/api/internal/hotspot-health'
+      preLoaderRoute: typeof ApiInternalHotspotHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/internal/hotspot-heartbeat': {
+      id: '/api/internal/hotspot-heartbeat'
+      path: '/api/internal/hotspot-heartbeat'
+      fullPath: '/api/internal/hotspot-heartbeat'
+      preLoaderRoute: typeof ApiInternalHotspotHeartbeatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/internal/hotspot-sync': {
+      id: '/api/internal/hotspot-sync'
+      path: '/api/internal/hotspot-sync'
+      fullPath: '/api/internal/hotspot-sync'
+      preLoaderRoute: typeof ApiInternalHotspotSyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/internal/mikrotik-activation': {
+      id: '/api/internal/mikrotik-activation'
+      path: '/api/internal/mikrotik-activation'
+      fullPath: '/api/internal/mikrotik-activation'
+      preLoaderRoute: typeof ApiInternalMikrotikActivationRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/internal/radius-authorize': {
       id: '/api/internal/radius-authorize'
@@ -776,6 +898,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedEventosRoute: typeof AuthenticatedEventosRoute
   AuthenticatedFiliaisRoute: typeof AuthenticatedFiliaisRoute
   AuthenticatedGerenteOperacionalRoute: typeof AuthenticatedGerenteOperacionalRoute
+  AuthenticatedHotspotRoute: typeof AuthenticatedHotspotRoute
   AuthenticatedMensagensRoute: typeof AuthenticatedMensagensRoute
   AuthenticatedPortaisRoute: typeof AuthenticatedPortaisRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
@@ -797,6 +920,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedEventosRoute: AuthenticatedEventosRoute,
   AuthenticatedFiliaisRoute: AuthenticatedFiliaisRoute,
   AuthenticatedGerenteOperacionalRoute: AuthenticatedGerenteOperacionalRoute,
+  AuthenticatedHotspotRoute: AuthenticatedHotspotRoute,
   AuthenticatedMensagensRoute: AuthenticatedMensagensRoute,
   AuthenticatedPortaisRoute: AuthenticatedPortaisRoute,
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
@@ -815,6 +939,11 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   PortalSlugRoute: PortalSlugRoute,
+  ApiInternalHotspotFilesRoute: ApiInternalHotspotFilesRoute,
+  ApiInternalHotspotHealthRoute: ApiInternalHotspotHealthRoute,
+  ApiInternalHotspotHeartbeatRoute: ApiInternalHotspotHeartbeatRoute,
+  ApiInternalHotspotSyncRoute: ApiInternalHotspotSyncRoute,
+  ApiInternalMikrotikActivationRoute: ApiInternalMikrotikActivationRoute,
   ApiInternalRadiusAuthorizeRoute: ApiInternalRadiusAuthorizeRoute,
   ApiPublicAsaasClientRoute: ApiPublicAsaasClientRoute,
   ApiPublicAsaasManagerRoute: ApiPublicAsaasManagerRoute,
