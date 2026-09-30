@@ -11,7 +11,7 @@ export const Route = createFileRoute("/api/internal/mikrotik-activation")({
     const token = process.env["RADIUS_API_TOKEN"];
     if (!token) return new Response("Activation unavailable", { status: 503 });
     const script = kind === "heartbeat" ? `/system scheduler remove [find name="MANOS-HEARTBEAT"]
- /system scheduler add name="MANOS-HEARTBEAT" interval=5m disabled=no on-event={
+ /system scheduler add name="MANOS-HEARTBEAT" interval=1m disabled=no on-event={
   :local heartbeatToken "${token}"
   :local routerIdentity [/system identity get name]
   :local wanIpRaw [/ip address get [find interface="ether1" dynamic=yes] address]
