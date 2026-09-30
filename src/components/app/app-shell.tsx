@@ -53,6 +53,7 @@ const NAV: NavItem[] = [
   },
   { to: "/empresas", label: "Empresas", icon: Building2, roles: ["adm", "revenda"] },
   { to: "/financeiro", label: "Financeiro", icon: Wallet, roles: ["adm", "revenda"] },
+  { to: "/hotspot", label: "Hotspot", icon: Router, roles: ["adm", "revenda"] },
   { to: "/creditos", label: "Créditos", icon: HandCoins, roles: ["revenda"] },
   { to: "/eventos", label: "Eventos", icon: CalendarDays, roles: ["adm"] },
   { to: "/assinatura", label: "Minha Assinatura", icon: ReceiptText, roles: ["matriz"] },
@@ -163,16 +164,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                     </Link>
                   );
                 })}
-                {role === "adm" || role === "revenda" ? (
-                  <Link
-                    to="/hotspot"
-                    onClick={() => setOpen(false)}
-                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
-                  >
-                    <Router className="size-4" />
-                    Hotspot
-                  </Link>
-                ) : null}
               </nav>
 
               <div className="mt-6 rounded-xl border border-sidebar-border bg-card/60 p-3">
