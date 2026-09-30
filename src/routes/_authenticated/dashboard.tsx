@@ -322,9 +322,7 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
     },
     { to: "/financeiro", label: "Financeiro", icon: Wallet, order: 5 },
     { to: "/relatorios", label: "Relatórios", icon: FileBarChart, order: 6 },
-    ...(access?.role === "adm" || access?.role === "revenda"
-      ? [{ to: "/hotspot", label: "Hotspot", icon: Wifi, count: undefined, countLabel: "Mapa da rede e status das RBs", order: 5.5 }]
-      : []),
+    { to: "/hotspot", label: "Hotspot", icon: Wifi, count: undefined, countLabel: "Mapa da rede e status das RBs", order: 5.5 },
   ].sort((a, b) => a.order - b.order);
 
   return (
