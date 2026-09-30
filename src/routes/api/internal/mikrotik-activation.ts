@@ -21,6 +21,7 @@ export const Route = createFileRoute("/api/internal/mikrotik-activation")({
 ` : `:local routerIdentity "${identity}"
  :local radiusHost "***REMOVED***"
  :local radiusSecret "***REMOVED***"
+ :if ([:len [/interface bridge port find bridge="bridge-lan" interface="ether5"]] > 0) do={/interface bridge port remove [find bridge="bridge-lan" interface="ether5"]}
  :if ([:len [/interface bridge find name="bridge-livre"]] = 0) do={/interface bridge add name=bridge-livre protocol-mode=rstp}
  :if ([:len [/interface bridge port find bridge="bridge-livre" interface="ether5"]] = 0) do={/interface bridge port add bridge=bridge-livre interface=ether5}
  :if ([:len [/ip address find address="192.168.89.1/24"]] = 0) do={/ip address add address=192.168.89.1/24 interface=bridge-livre}
