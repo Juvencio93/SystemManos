@@ -189,7 +189,11 @@ function PortalPage() {
       // RouterOS can send link-orig-esc as an escaped fragment rather than a URL.
       // It is only a post-login destination, so omit it when it is not valid.
       const hotspotLinkOrig = validUrlOrUndefined(searchParams.get("link-orig-esc"));
-      const hotspotHandoff = searchParams.get("handoff") || undefined;
+      const hotspotHandoff = searchParams.get("handoff") || document.cookie
+        .split(";")
+        .map((item) => item.trim())
+        .find((item) => item.startsWith("manos_hotspot_handoff="))
+        ?.slice("manos_hotspot_handoff=".length);
 
       // Re-validate inside to be safe
       const digits = form.phone.replace(/\D/g, "");

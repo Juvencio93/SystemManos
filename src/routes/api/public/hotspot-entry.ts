@@ -55,11 +55,13 @@ async function redirectToPortal(request: Request, input: URLSearchParams | FormD
     .single();
   if (error || !handoff) return new Response("Não foi possível iniciar o portal.", { status: 503 });
   const target = new URL(`/portal/${encodeURIComponent(slug)}`, request.url);
-  target.searchParams.set("handoff", handoff.id);
   return new Response(null, {
     status: 303,
     headers: {
       location: target.toString(),
+      // Keep the short-lived RouterOS handoff out of the address bar. The
+      // portal reads this scoped cookie when the visitor submits the form.
+      "set-cookie": `manos_hotspot_handoff=${encodeURIComponent(handoff.id)}; Max-Age=600; Path=/portal/${encodeURIComponent(slug)}; SameSite=Lax; Secure`,
       "cache-control": "no-store",
     },
   });
