@@ -289,6 +289,18 @@ function NetworkMapPanel({ devices, isLoading, overlay, onClose, onMouseLeave }:
     return (filter === "all" || state === filter) && String(device.router_identity ?? "").toLowerCase().includes(search.toLowerCase());
   });
   const counts = devices.reduce((acc, device) => { acc[getState(device)] += 1; return acc; }, { online: 0, unstable: 0, offline: 0 } as Record<string, number>);
+  const changeStatus = async () => {
+    if (!selected) return;
+    const blocked = selected.status === "blocked";
+    if (!window.confirm(`${blocked ? "Desbloquear" : "Bloquear"} a RB ${selected.router_identity}?`)) return;
+    const nextStatus = blocked ? "operational" : "blocked";
+    const { error } = await (supabase as any).from("hotspot_devices").update({ status: nextStatus, updated_at: new Date().toISOString() }).eq("id", selected.id);
+    if (!error) setSelected({ ...selected, status: nextStatus });
+  };
+  const requestReboot = async () => {
+    if (!selected || !window.confirm(`Solicitar reinício seguro da RB ${selected.router_identity}?`)) return;
+    await fetch("/api/internal/hotspot-reboot", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ routerIdentity: selected.router_identity }) });
+  };
   return <div className={overlay ? "fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-3 backdrop-blur-sm sm:p-8" : "mt-6"} onMouseLeave={onMouseLeave}>
     <Card className="w-full max-w-6xl overflow-hidden border-primary/30 bg-[#071017] shadow-2xl shadow-cyan-950/40">
       <CardHeader className="gap-4 border-b border-white/10 pb-4">
