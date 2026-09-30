@@ -35,6 +35,7 @@
 # Captive portal base. The personalized activation file enables RADIUS later.
 /ip hotspot profile add name=hsprof1 hotspot-address=192.168.88.1 html-directory=flash/hotspot html-directory-override=flash/hotspot login-by=http-pap
 /ip hotspot add name=hotspot1 interface=bridge-lan address-pool=pool-lan profile=hsprof1 disabled=no
+/ip hotspot set [find name="hotspot1"] idle-timeout=none keepalive-timeout=none login-timeout=none
 
 # Guest aggregate cap for a 100 Mbps connection. ether4 is outside bridge-lan,
 # and ether5 is a direct provider-network extension; therefore this cap never
