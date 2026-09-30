@@ -24,6 +24,9 @@ import {
   Wallet,
   HandCoins,
   Wifi,
+  Search,
+  Maximize2,
+  X,
 } from "lucide-react";
 import {
   Bar,
@@ -268,6 +271,33 @@ function ResellerDashboard({ access }: { access: AccessInfo | null }) {
   );
 }
 
+function NetworkMapPanel({ devices, isLoading, overlay, onClose, onMouseLeave }: { devices: any[]; isLoading: boolean; overlay: boolean; onClose: () => void; onMouseLeave: () => void }) {
+  const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const [zoom, setZoom] = useState(1);
+  const now = Date.now();
+  const getState = (device: any) => {
+    const age = device.last_seen_at ? now - new Date(device.last_seen_at).getTime() : Infinity;
+    if (age < 90_000) return "online";
+    if (age < 5 * 60_000) return "unstable";
+    return "offline";
+  };
+  const visible = devices.filter((device) => {
+    const state = getState(device);
+    return (filter === "all" || state === filter) && String(device.router_identity ?? "").toLowerCase().includes(search.toLowerCase());
+  });
+  const counts = devices.reduce((acc, device) => { acc[getState(device)] += 1; return acc; }, { online: 0, unstable: 0, offline: 0 } as Record<string, number>);
+  return <div className={overlay ? "fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-3 backdrop-blur-sm sm:p-8" : "mt-6"} onMouseLeave={onMouseLeave}>
+    <Card className="w-full max-w-6xl overflow-hidden border-primary/30 bg-[#071017] shadow-2xl shadow-cyan-950/40">
+      <CardHeader className="gap-4 border-b border-white/10 pb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3"><div><CardTitle className="flex items-center gap-2"><Wifi className="size-5 text-primary" /> Mapa da rede</CardTitle><p className="mt-1 text-xs text-muted-foreground">Visão operacional das RBs · atualização automática a cada 30s</p></div><div className="flex items-center gap-2"><Button variant="outline" size="icon" aria-label="Aumentar zoom" onClick={() => setZoom((v) => Math.min(1.4, v + .1))}><Maximize2 className="size-4" /></Button><Button variant="outline" size="icon" aria-label="Fechar mapa" onClick={onClose}><X className="size-4" /></Button></div></div>
+        <div className="flex flex-wrap items-center gap-2"><div className="relative min-w-[190px] flex-1"><Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar RB ou cidade" className="h-9 w-full rounded-md border border-white/10 bg-black/20 pl-9 pr-3 text-sm outline-none focus:border-primary" /></div>{[["all", "Todas", "text-foreground"], ["online", `Online ${counts.online}`, "text-emerald-400"], ["unstable", `Instáveis ${counts.unstable}`, "text-amber-400"], ["offline", `Offline ${counts.offline}`, "text-red-400"]].map(([key, label, color]) => <Button key={key} variant={filter === key ? "secondary" : "ghost"} size="sm" className={color} onClick={() => setFilter(key)}>{label}</Button>)}</div>
+      </CardHeader>
+      <CardContent className="p-3 sm:p-5"><div className="relative min-h-[min(58vh,520px)] overflow-hidden rounded-xl bg-[radial-gradient(circle_at_center,#12303a_0,transparent_58%),linear-gradient(135deg,#071017,#0b1820)]"><div className="absolute inset-0 opacity-20 [background-image:linear-gradient(rgba(120,190,200,.25)_1px,transparent_1px),linear-gradient(90deg,rgba(120,190,200,.25)_1px,transparent_1px)] [background-size:42px_42px]" /><div className="absolute right-3 top-3 z-20 flex items-center gap-3 rounded-md border border-white/10 bg-black/30 px-3 py-2 text-[11px]"><span className="text-emerald-400">● Online</span><span className="text-amber-400">● Instável</span><span className="text-red-400">● Offline</span></div>{isLoading && <div className="absolute inset-0 grid place-items-center text-sm text-muted-foreground">Carregando status das RBs…</div>}{!isLoading && !visible.length && <div className="absolute inset-0 grid place-items-center text-sm text-muted-foreground">Nenhuma RB encontrada.</div>}<div className="absolute inset-0 origin-center transition-transform duration-300" style={{ transform: `scale(${zoom})` }}>{visible.map((device: any, index: number) => { const state = getState(device); const color = state === "online" ? "bg-emerald-400 shadow-emerald-400/70" : state === "unstable" ? "bg-amber-400 shadow-amber-400/70" : "bg-red-400 shadow-red-400/70"; return <Link key={device.id} to="/hotspot" className="absolute z-10 -translate-x-1/2 text-left transition-transform hover:scale-110" style={{ left: `${18 + ((index * 37) % 68)}%`, top: `${28 + ((index * 53) % 45)}%` }}><span className={`mx-auto block size-4 rounded-full border-2 border-white/80 shadow-[0_0_18px_5px] ${color}`} /><span className="mt-2 block rounded bg-black/70 px-2 py-1 text-[11px] text-white"><span className="font-medium">{device.router_identity}</span><small className="block text-[10px] text-slate-400">{state === "online" ? "Online" : state === "unstable" ? "Instável" : "Offline"} · TX {((Number(device.tx_bytes ?? 0)) / 1000000).toFixed(1)} MB · RX {((Number(device.rx_bytes ?? 0)) / 1000000).toFixed(1)} MB</small></span></Link>; })}</div></div></CardContent>
+    </Card>
+  </div>;
+}
+
 function AdminDashboard({ access }: { access: AccessInfo | null }) {
   const [hotspotExpanded, setHotspotExpanded] = useState(false);
   const [hotspotHovering, setHotspotHovering] = useState(false);
@@ -346,7 +376,7 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
           <ModuleCard key={module.label} module={module} isLoading={insights.isLoading} onHotspotClick={module.label === "Hotspot" ? () => setHotspotExpanded((value) => !value) : undefined} onHotspotHover={module.label === "Hotspot" ? setHotspotHovering : undefined} />
         ))}
       </div>
-      {hotspotOpen && <div className={hotspotHovering ? "fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-3 backdrop-blur-sm sm:p-8" : "mt-6"} onMouseEnter={() => hotspotHovering && setHotspotHovering(true)} onMouseLeave={() => hotspotHovering && setHotspotHovering(false)}><Card className="w-full max-w-6xl overflow-hidden border-primary/30 bg-[#071017] shadow-2xl shadow-cyan-950/40"><CardHeader className="flex flex-row items-center justify-between"><CardTitle className="flex items-center gap-2"><Wifi className="size-5 text-primary" /> Mapa da rede</CardTitle><span className="text-xs text-muted-foreground">Atualização automática a cada 30s</span></CardHeader><CardContent><div className="relative min-h-[min(58vh,520px)] overflow-hidden rounded-xl bg-[radial-gradient(circle_at_center,#12303a_0,transparent_58%),linear-gradient(135deg,#071017,#0b1820)]"><div className="absolute inset-0 opacity-20 [background-image:linear-gradient(rgba(120,190,200,.25)_1px,transparent_1px),linear-gradient(90deg,rgba(120,190,200,.25)_1px,transparent_1px)] [background-size:42px_42px]" />{(hotspotDevices.data ?? []).map((device: any, index: number) => { const online = device.last_seen_at && Date.now() - new Date(device.last_seen_at).getTime() < 15 * 60 * 1000; return <Link key={device.id} to="/hotspot" className="absolute z-10 -translate-x-1/2 text-left" style={{ left: `${18 + ((index * 37) % 68)}%`, top: `${28 + ((index * 53) % 45)}%` }}><span className={`mx-auto block size-4 rounded-full border-2 border-white/80 shadow-[0_0_18px_5px] ${online ? "bg-emerald-400 shadow-emerald-400/70" : "bg-red-400 shadow-red-400/70"}`} /><span className="mt-2 block rounded bg-black/60 px-2 py-1 text-[11px] text-white">{device.router_identity}<small className="block text-[10px] text-slate-400">TX {((Number(device.tx_bytes ?? 0)) / 1000000).toFixed(1)} MB · RX {((Number(device.rx_bytes ?? 0)) / 1000000).toFixed(1)} MB</small></span></Link>; })}{!hotspotDevices.isLoading && !hotspotDevices.data?.length && <div className="absolute inset-0 grid place-items-center text-sm text-muted-foreground">Nenhuma RB cadastrada.</div>}</div></CardContent></Card></div>}
+      {hotspotOpen && <NetworkMapPanel devices={hotspotDevices.data ?? []} isLoading={hotspotDevices.isLoading} overlay={hotspotHovering} onClose={() => { setHotspotHovering(false); setHotspotExpanded(false); }} onMouseLeave={() => hotspotHovering && setHotspotHovering(false)} />}
 
       <div className="mt-10">
         <RealtimeHeatmap />
@@ -717,3 +747,4 @@ function ChartsSection({
 }) {
   return null;
 }
+
