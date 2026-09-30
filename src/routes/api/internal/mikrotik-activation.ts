@@ -14,7 +14,9 @@ export const Route = createFileRoute("/api/internal/mikrotik-activation")({
  /system scheduler add name="MANOS-HEARTBEAT" interval=5m on-event={
   :local heartbeatToken "${token}"
   :local routerIdentity [/system identity get name]
-  :local wanIp [/ip address get [find interface="ether1" dynamic=yes] address]
+  :local wanIpRaw [/ip address get [find interface="ether1" dynamic=yes] address]
+  :local wanIp $wanIpRaw
+  :if ([:find $wanIpRaw "/"] != nil) do={:set wanIp [:pick $wanIpRaw 0 [:find $wanIpRaw "/"]]}
   :local routerVersion [/system resource get version]
   :local routerMac [/interface ethernet get [find name="ether5"] mac-address]
   :local sessions [/ip hotspot active print count-only]
