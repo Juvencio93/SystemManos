@@ -691,7 +691,7 @@ function PortalSuccess({
     if (!done.hotspotAccess) return;
 
     const frame = document.createElement("iframe");
-    frame.name = `hotspot-login-${Date.now()}`;
+    frame.name = "hotspot-login-frame";
     frame.style.display = "none";
     document.body.appendChild(frame);
     const form = document.createElement("form");
@@ -764,7 +764,7 @@ function PortalSuccess({
           </div>
 
           {done.hotspotAccess ? (
-            <form method="post" action={done.hotspotAccess.loginUrl}>
+            <form method="post" target="hotspot-login-frame" action={done.hotspotAccess.loginUrl}>
               <input type="hidden" name="username" value={done.hotspotAccess.username} />
               <input type="hidden" name="password" value={done.hotspotAccess.password} />
               {done.hotspotAccess.destination && <input type="hidden" name="dst" value={done.hotspotAccess.destination} />}
