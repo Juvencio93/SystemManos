@@ -171,19 +171,20 @@ export async function authorizeHotspotAccess(
 ) {
   if (!input.username?.startsWith(USERNAME_PREFIX)) return null;
   const mac = normalizeMacAddress(input.mac ?? undefined);
-  if (!mac) return null;
-
   const { data, error } = await (admin as any)
     .from("hotspot_access_grants")
     .select(
-      "id, username, company_id, portal_target_id, portal_target_kind, pending_checkin, last_authenticated_at",
+      "id, username, mac_address, company_id, portal_target_id, portal_target_kind, pending_checkin, last_authenticated_at",
     )
     .eq("username", input.username)
-    .eq("mac_address", mac)
     .is("revoked_at", null)
     .gt("expires_at", new Date().toISOString())
     .maybeSingle();
   if (error || !data) return null;
+  // Some RouterOS/RADIUS setups omit Calling-Station-Id or format it
+  // differently. The grant username is random, short-lived, and single-use;
+  // accept a missing MAC while still rejecting a verifiable mismatch.
+  if (mac && normalizeMacAddress(data.mac_address) !== mac) return null;
 
   // FreeRADIUS only calls this endpoint after the grant is valid and the RB
   // has accepted the credentials. Record the pending check-in exactly once;
