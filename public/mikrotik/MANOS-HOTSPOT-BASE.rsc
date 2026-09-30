@@ -12,15 +12,22 @@
 /interface bridge port add bridge=bridge-lan interface=ether2
 /interface bridge port add bridge=bridge-lan interface=ether3
 /interface bridge port add bridge=bridge-lan interface=ether4
+/interface bridge add name=bridge-livre protocol-mode=rstp
+/interface bridge port add bridge=bridge-livre interface=ether5
 /ip address add address=192.168.88.1/24 interface=bridge-lan
+/ip address add address=192.168.89.1/24 interface=bridge-livre
 /ip pool add name=pool-lan ranges=192.168.88.10-192.168.88.254
+/ip pool add name=pool-livre ranges=192.168.89.10-192.168.89.254
 /ip dhcp-server add name=dhcp-lan interface=bridge-lan address-pool=pool-lan lease-time=1h disabled=no
+/ip dhcp-server add name=dhcp-livre interface=bridge-livre address-pool=pool-livre lease-time=1h disabled=no
 /ip dhcp-server network add address=192.168.88.0/24 gateway=192.168.88.1 dns-server=192.168.88.1
+/ip dhcp-server network add address=192.168.89.0/24 gateway=192.168.89.1 dns-server=192.168.89.1
 /ip dns set allow-remote-requests=yes
 /ip hotspot walled-garden ip add dst-host="manostech-system.com.br" action=accept
 /ip hotspot walled-garden ip add dst-host="*.manostech-system.com.br" action=accept
 /ip hotspot walled-garden ip add dst-host="idzvginmbesnkcaapehh.supabase.co" action=accept
 /ip firewall nat add chain=srcnat out-interface=ether1 action=masquerade comment="MANOS-NAT-INTERNET"
+/ip firewall nat add chain=srcnat src-address=192.168.89.0/24 out-interface=ether1 action=masquerade comment="MANOS-NAT-ETHER5-LIVRE"
 
 # Captive portal base. The personalized activation file enables RADIUS later.
 /ip hotspot profile add name=hsprof1 hotspot-address=192.168.88.1 html-directory=flash/hotspot html-directory-override=flash/hotspot login-by=http-chap,http-pap
