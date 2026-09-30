@@ -57,7 +57,9 @@ export const Route = createFileRoute("/api/internal/radius-authorize")({
             "control:Cleartext-Password": grant.password,
             "reply:Session-Timeout": grant.sessionTimeoutSeconds,
             "reply:Idle-Timeout": grant.idleTimeoutSeconds,
-            "reply:Mikrotik-Rate-Limit": `${grant.uploadKbps}k/${grant.downloadKbps}k`,
+            // RouterOS interprets the rate pair as download/upload for the
+            // Hotspot session. Keep the dashboard policy directions intact.
+            "reply:Mikrotik-Rate-Limit": `${grant.downloadKbps}k/${grant.uploadKbps}k`,
           }),
           {
             status: 200,
