@@ -32,7 +32,7 @@ export const Route = createFileRoute("/api/internal/mikrotik-activation")({
 /system identity set name=$routerIdentity
 /radius remove [find service=hotspot]
 /radius add service=hotspot address=$radiusHost secret=$radiusSecret authentication-port=1812 accounting-port=1813 timeout=3s require-message-auth=no
- /ip hotspot profile set [find name="hsprof1"] use-radius=yes radius-accounting=yes login-by=http-chap,http-pap html-directory=flash/hotspot html-directory-override=flash/hotspot
+ /ip hotspot profile set [find name="hsprof1"] use-radius=yes radius-accounting=yes login-by=http-pap html-directory=flash/hotspot html-directory-override=flash/hotspot
  /ip hotspot walled-garden ip add dst-host="manostech-system.com.br" action=accept
  /ip hotspot walled-garden ip add dst-host="*.manostech-system.com.br" action=accept
  /ip hotspot walled-garden ip add dst-host="idzvginmbesnkcaapehh.supabase.co" action=accept
