@@ -677,15 +677,15 @@ function PortalSuccess({
     // For MikroTik, RouterOS redirects only after FreeRADIUS accepts the
     // credential. Redirecting the portal page first could look like success
     // even though the device has not obtained Internet access.
-    if (!finalRedirectUrl || isInIframe || done.hotspotAccess) return;
+    if (!finalRedirectUrl || isInIframe) return;
 
     const timer = setTimeout(() => {
       // Use window.location.replace to prevent back-button loops and handle same-tab navigation
       window.location.replace(finalRedirectUrl);
-    }, 3000);
+    }, done.hotspotAccess ? 6000 : 3000);
 
     return () => clearTimeout(timer);
-  }, [finalRedirectUrl, isInIframe]);
+  }, [finalRedirectUrl, isInIframe, done.hotspotAccess]);
 
   useEffect(() => {
     if (!done.hotspotAccess) return;
