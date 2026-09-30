@@ -270,7 +270,9 @@ function ResellerDashboard({ access }: { access: AccessInfo | null }) {
 
 function AdminDashboard({ access }: { access: AccessInfo | null }) {
   const [hotspotExpanded, setHotspotExpanded] = useState(false);
-  const hotspotDevices = useQuery({ queryKey: ["dashboard-hotspot-devices"], enabled: hotspotExpanded, refetchInterval: 30000, queryFn: async () => { const { data, error } = await (supabase as any).from("hotspot_devices").select("id,router_identity,last_seen_at,active_sessions,rx_bytes,tx_bytes").order("last_seen_at", { ascending: false }); if (error) throw error; return data ?? []; } });
+  const [hotspotHovering, setHotspotHovering] = useState(false);
+  const hotspotOpen = hotspotExpanded || hotspotHovering;
+  const hotspotDevices = useQuery({ queryKey: ["dashboard-hotspot-devices"], enabled: hotspotOpen, refetchInterval: 30000, queryFn: async () => { const { data, error } = await (supabase as any).from("hotspot_devices").select("id,router_identity,last_seen_at,active_sessions,rx_bytes,tx_bytes").order("last_seen_at", { ascending: false }); if (error) throw error; return data ?? []; } });
   const fetchInsights = useServerFn(getInsights);
   const fetchOpAnalysis = useServerFn(getLatestOperationalAnalysis);
 
@@ -341,10 +343,10 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
 
       <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {modules.map((module) => (
-          <ModuleCard key={module.label} module={module} isLoading={insights.isLoading} onHotspotClick={module.label === "Hotspot" ? () => setHotspotExpanded((value) => !value) : undefined} />
+          <ModuleCard key={module.label} module={module} isLoading={insights.isLoading} onHotspotClick={module.label === "Hotspot" ? () => setHotspotExpanded((value) => !value) : undefined} onHotspotHover={module.label === "Hotspot" ? setHotspotHovering : undefined} />
         ))}
       </div>
-      {hotspotExpanded && <Card className="mt-6 overflow-hidden border-primary/30 bg-[#071017]"><CardHeader className="flex flex-row items-center justify-between"><CardTitle className="flex items-center gap-2"><Wifi className="size-5 text-primary" /> Mapa da rede</CardTitle><span className="text-xs text-muted-foreground">Atualização automática a cada 30s</span></CardHeader><CardContent><div className="relative min-h-[240px] overflow-hidden rounded-xl bg-[radial-gradient(circle_at_center,#12303a_0,transparent_58%),linear-gradient(135deg,#071017,#0b1820)]"><div className="absolute inset-0 opacity-20 [background-image:linear-gradient(rgba(120,190,200,.25)_1px,transparent_1px),linear-gradient(90deg,rgba(120,190,200,.25)_1px,transparent_1px)] [background-size:42px_42px]" />{(hotspotDevices.data ?? []).map((device: any, index: number) => { const online = device.last_seen_at && Date.now() - new Date(device.last_seen_at).getTime() < 15 * 60 * 1000; return <Link key={device.id} to="/hotspot" className="absolute z-10 -translate-x-1/2 text-left" style={{ left: `${18 + ((index * 37) % 68)}%`, top: `${28 + ((index * 53) % 45)}%` }}><span className={`mx-auto block size-4 rounded-full border-2 border-white/80 shadow-[0_0_18px_5px] ${online ? "bg-emerald-400 shadow-emerald-400/70" : "bg-red-400 shadow-red-400/70"}`} /><span className="mt-2 block rounded bg-black/60 px-2 py-1 text-[11px] text-white">{device.router_identity}<small className="block text-[10px] text-slate-400">TX {((Number(device.tx_bytes ?? 0)) / 1000000).toFixed(1)} MB · RX {((Number(device.rx_bytes ?? 0)) / 1000000).toFixed(1)} MB</small></span></Link>; })}{!hotspotDevices.isLoading && !hotspotDevices.data?.length && <div className="absolute inset-0 grid place-items-center text-sm text-muted-foreground">Nenhuma RB cadastrada.</div>}</div></CardContent></Card>}
+      {hotspotOpen && <div className={hotspotHovering ? "fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-3 backdrop-blur-sm sm:p-8" : "mt-6"} onMouseEnter={() => hotspotHovering && setHotspotHovering(true)} onMouseLeave={() => hotspotHovering && setHotspotHovering(false)}><Card className="w-full max-w-6xl overflow-hidden border-primary/30 bg-[#071017] shadow-2xl shadow-cyan-950/40"><CardHeader className="flex flex-row items-center justify-between"><CardTitle className="flex items-center gap-2"><Wifi className="size-5 text-primary" /> Mapa da rede</CardTitle><span className="text-xs text-muted-foreground">Atualização automática a cada 30s</span></CardHeader><CardContent><div className="relative min-h-[min(58vh,520px)] overflow-hidden rounded-xl bg-[radial-gradient(circle_at_center,#12303a_0,transparent_58%),linear-gradient(135deg,#071017,#0b1820)]"><div className="absolute inset-0 opacity-20 [background-image:linear-gradient(rgba(120,190,200,.25)_1px,transparent_1px),linear-gradient(90deg,rgba(120,190,200,.25)_1px,transparent_1px)] [background-size:42px_42px]" />{(hotspotDevices.data ?? []).map((device: any, index: number) => { const online = device.last_seen_at && Date.now() - new Date(device.last_seen_at).getTime() < 15 * 60 * 1000; return <Link key={device.id} to="/hotspot" className="absolute z-10 -translate-x-1/2 text-left" style={{ left: `${18 + ((index * 37) % 68)}%`, top: `${28 + ((index * 53) % 45)}%` }}><span className={`mx-auto block size-4 rounded-full border-2 border-white/80 shadow-[0_0_18px_5px] ${online ? "bg-emerald-400 shadow-emerald-400/70" : "bg-red-400 shadow-red-400/70"}`} /><span className="mt-2 block rounded bg-black/60 px-2 py-1 text-[11px] text-white">{device.router_identity}<small className="block text-[10px] text-slate-400">TX {((Number(device.tx_bytes ?? 0)) / 1000000).toFixed(1)} MB · RX {((Number(device.rx_bytes ?? 0)) / 1000000).toFixed(1)} MB</small></span></Link>; })}{!hotspotDevices.isLoading && !hotspotDevices.data?.length && <div className="absolute inset-0 grid place-items-center text-sm text-muted-foreground">Nenhuma RB cadastrada.</div>}</div></CardContent></Card></div>}
 
       <div className="mt-10">
         <RealtimeHeatmap />
@@ -526,11 +528,12 @@ interface DashboardModule {
   order?: number | undefined;
 }
 
-function ModuleCard({ module, isLoading, onHotspotClick }: { module: DashboardModule; isLoading: boolean; onHotspotClick?: () => void }) {
+function ModuleCard({ module, isLoading, onHotspotClick, onHotspotHover }: { module: DashboardModule; isLoading: boolean; onHotspotClick?: () => void; onHotspotHover?: (hovering: boolean) => void }) {
   return (
     <Link
       to={module.to as never}
       onClick={onHotspotClick ? (event) => { event.preventDefault(); onHotspotClick(); } : undefined}
+      onMouseEnter={onHotspotHover ? () => onHotspotHover(true) : undefined}
       className="group block h-full rounded-3xl outline-none focus-visible:ring-2 focus-visible:ring-primary"
     >
       <Card className="glass-panel flex h-full flex-col text-center transition-all duration-300 group-hover:-translate-y-2 group-hover:border-primary/50 group-hover:shadow-glow rounded-3xl cursor-pointer">
