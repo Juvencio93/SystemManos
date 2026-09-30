@@ -677,15 +677,12 @@ function PortalSuccess({
     // For MikroTik, RouterOS redirects only after FreeRADIUS accepts the
     // credential. Redirecting the portal page first could look like success
     // even though the device has not obtained Internet access.
-    // Hotspot access must be confirmed by RouterOS/RADIUS before leaving the
-    // portal. A timer alone would falsely redirect while the client remains
-    // blocked behind the captive portal.
-    if (!finalRedirectUrl || isInIframe || done.hotspotAccess) return;
+    if (!finalRedirectUrl || isInIframe) return;
 
     const timer = setTimeout(() => {
       // Use window.location.replace to prevent back-button loops and handle same-tab navigation
       window.location.replace(finalRedirectUrl);
-    }, 3000);
+    }, done.hotspotAccess ? 6000 : 3000);
 
     return () => clearTimeout(timer);
   }, [finalRedirectUrl, isInIframe, done.hotspotAccess]);
