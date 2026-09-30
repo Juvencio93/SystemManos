@@ -50,6 +50,6 @@ export const Route = createFileRoute("/api/internal/mikrotik-activation")({
  /ip hotspot walled-garden ip add dst-host="idzvginmbesnkcaapehh.supabase.co" action=accept
  /ip hotspot enable [find name="hotspot1"]
  `;
-    return new Response(script, { headers: { "content-type": "text/plain", "content-disposition": `attachment; filename="${identity}-${kind}.rsc"` } });
+    return new Response(script, { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store, no-cache, must-revalidate", "content-disposition": `attachment; filename="${identity}-${kind}.rsc"` } });
   } } },
 });
