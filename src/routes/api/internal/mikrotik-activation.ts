@@ -14,7 +14,7 @@ export const Route = createFileRoute("/api/internal/mikrotik-activation")({
  /system scheduler add name="MANOS-HEARTBEAT" interval=30s disabled=no on-event={
   :local heartbeatToken "${token}"
   :local routerIdentity [/system identity get name]
-  :local wanIpRaw [/ip address get [find interface="ether1" dynamic=yes] address]
+  :local wanIpRaw [/ip address get [find interface="bridge-wan" dynamic=yes] address]
   :local wanIp $wanIpRaw
   :if ([:find $wanIpRaw "/"] != nil) do={:set wanIp [:pick $wanIpRaw 0 [:find $wanIpRaw "/"]]}
   :local routerVersion [/system resource get version]
@@ -36,9 +36,9 @@ export const Route = createFileRoute("/api/internal/mikrotik-activation")({
 ` : `:local routerIdentity "${identity}"
  :local radiusHost "***REMOVED***"
  :local radiusSecret "***REMOVED***"
- :if ([:len [/interface bridge port find bridge="bridge-lan" interface="ether5"]] > 0) do={/interface bridge port remove [find bridge="bridge-lan" interface="ether5"]}
+ :if ([:len [/interface bridge port find bridge="bridge-lan" interface="ether4"]] > 0) do={/interface bridge port remove [find bridge="bridge-lan" interface="ether4"]}
  :if ([:len [/interface bridge find name="bridge-livre"]] = 0) do={/interface bridge add name=bridge-livre protocol-mode=rstp}
- :if ([:len [/interface bridge port find bridge="bridge-livre" interface="ether5"]] = 0) do={/interface bridge port add bridge=bridge-livre interface=ether5}
+ :if ([:len [/interface bridge port find bridge="bridge-livre" interface="ether4"]] = 0) do={/interface bridge port add bridge=bridge-livre interface=ether4}
  :if ([:len [/ip address find address="192.168.89.1/24"]] = 0) do={/ip address add address=192.168.89.1/24 interface=bridge-livre}
  :if ([:len [/ip pool find name="pool-livre"]] = 0) do={/ip pool add name=pool-livre ranges=192.168.89.10-192.168.89.254}
  :if ([:len [/ip dhcp-server find name="dhcp-livre"]] = 0) do={/ip dhcp-server add name=dhcp-livre interface=bridge-livre address-pool=pool-livre lease-time=1h disabled=no}

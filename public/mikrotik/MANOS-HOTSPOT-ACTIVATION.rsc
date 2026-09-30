@@ -1,4 +1,6 @@
 # Manos Tech - activation template (RouterOS v7)
+# ether4 is the free 192.168.89.0/24 network; ether5 is the direct provider
+# network extension through bridge-wan and must not receive a private DHCP/NAT.
 # Replace only the three values below before importing.
 :local routerIdentity "MT-IDENTIDADE"
 :local radiusSecret "COLE_O_SEGREDO_RADIUS_AQUI"
@@ -10,5 +12,5 @@
 /ip hotspot profile set [find name="hsprof1"] use-radius=yes radius-accounting=yes login-by=http-chap,http-pap html-directory=flash/hotspot html-directory-override=flash/hotspot
 /ip hotspot enable [find name="hotspot1"]
 
-# Heartbeat: replace MANOS_HEARTBEAT_TOKEN with the token issued for this installation.
-/system scheduler add name="MANOS-HEARTBEAT" interval=5m on-event="/tool fetch http-method=post http-header-field=\"Content-Type: application/json,X-Manos-Heartbeat: MANOS_HEARTBEAT_TOKEN\" http-data=\"{\\\"routerIdentity\\\":\\\"MT-IDENTIDADE\\\",\\\"mac\\\":\\\"[ /interface ethernet get ether1 mac-address ]\\\",\\\"ip\\\":\\\"[ /ip address get [find interface=ether1] address ]\\\",\\\"version\\\":\\\"[ /system resource get version ]\\\",\\\"activeSessions\\\":\\\"[ /ip hotspot active print count-only ]\\\",\\\"rxBytes\\\":\\\"[ /interface get ether1 rx-byte ]\\\",\\\"txBytes\\\":\\\"[ /interface get ether1 tx-byte ]\\\"}\" url=\"https://manostech-system.com.br/api/internal/hotspot-heartbeat\" keep-result=no"
+# Heartbeat is issued as a personalized file by the panel. Use the 30-second
+# heartbeat download instead of this generic template in a real installation.
