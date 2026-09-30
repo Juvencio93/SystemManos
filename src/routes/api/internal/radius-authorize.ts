@@ -45,6 +45,14 @@ export const Route = createFileRoute("/api/internal/radius-authorize")({
         const routerIdentity = typeof fields["NAS-Identifier"] === "string" ? fields["NAS-Identifier"] : null;
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        if (routerIdentity) {
+          const { data: device } = await (supabaseAdmin as any)
+            .from("hotspot_devices")
+            .select("status")
+            .eq("router_identity", routerIdentity)
+            .maybeSingle();
+          if (device?.status === "blocked") return unauthorized();
+        }
         const grant = await authorizeHotspotAccess(supabaseAdmin, { username, mac });
         if (!grant) return unauthorized();
         await markRouterHomologated(supabaseAdmin, routerIdentity);
