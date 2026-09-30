@@ -320,7 +320,7 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
   const [hotspotExpanded, setHotspotExpanded] = useState(false);
   const [hotspotHovering, setHotspotHovering] = useState(false);
   const hotspotOpen = hotspotExpanded || hotspotHovering;
-  const hotspotDevices = useQuery({ queryKey: ["dashboard-hotspot-devices"], enabled: hotspotOpen, refetchInterval: 30000, queryFn: async () => { const { data, error } = await (supabase as any).from("hotspot_devices").select("id,router_identity,last_seen_at,last_seen_ip,router_version,active_sessions,rx_bytes,tx_bytes").order("last_seen_at", { ascending: false }); if (error) throw error; return data ?? []; } });
+  const hotspotDevices = useQuery({ queryKey: ["dashboard-hotspot-devices"], enabled: hotspotOpen, refetchInterval: 30000, queryFn: async () => { const { data, error } = await (supabase as any).from("hotspot_devices").select("id,router_identity,last_seen_at,last_seen_ip,router_version,active_sessions,rx_bytes,tx_bytes,latency_ms,packet_loss_pct,status").order("last_seen_at", { ascending: false }); if (error) throw error; return data ?? []; } });
   const fetchInsights = useServerFn(getInsights);
   const fetchOpAnalysis = useServerFn(getLatestOperationalAnalysis);
 
