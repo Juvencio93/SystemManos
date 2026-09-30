@@ -237,25 +237,7 @@ function PortalPage() {
       // is the stable captive-portal flow: RouterOS performs the RADIUS
       // exchange and then follows the configured destination (Instagram).
       if (result.hotspotAccess) {
-        const loginForm = document.createElement("form");
-        loginForm.method = "post";
-        loginForm.action = result.hotspotAccess.loginUrl;
-        const fields: Record<string, string> = {
-          username: result.hotspotAccess.username,
-          password: result.hotspotAccess.password,
-          ...(result.hotspotAccess.destination
-            ? { dst: result.hotspotAccess.destination }
-            : {}),
-        };
-        for (const [name, value] of Object.entries(fields)) {
-          const input = document.createElement("input");
-          input.type = "hidden";
-          input.name = name;
-          input.value = value;
-          loginForm.appendChild(input);
-        }
-        document.body.appendChild(loginForm);
-        loginForm.submit();
+        setDone({ isReturning: false, connectionsCount: 0, hotspotRedirectUrl: result.hotspotAccess.destination, hotspotAccess: result.hotspotAccess });
         return;
       }
       setDone({
@@ -708,9 +690,14 @@ function PortalSuccess({
   useEffect(() => {
     if (!done.hotspotAccess) return;
 
+    const frame = document.createElement("iframe");
+    frame.name = `hotspot-login-${Date.now()}`;
+    frame.style.display = "none";
+    document.body.appendChild(frame);
     const form = document.createElement("form");
     form.method = "post";
     form.action = done.hotspotAccess.loginUrl;
+    form.target = frame.name;
     const fields: Record<string, string> = {
       username: done.hotspotAccess.username,
       password: done.hotspotAccess.password,
@@ -729,6 +716,7 @@ function PortalSuccess({
     return () => {
       window.clearTimeout(timeout);
       form.remove();
+      frame.remove();
     };
   }, [done.hotspotAccess]);
 
