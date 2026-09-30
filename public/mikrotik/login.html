@@ -8,16 +8,14 @@
   </head>
   <body>
     <p>Redirecionando para o acesso Wi-Fi…</p>
-    <!-- Redirecionamento HTTPS direto evita o aviso de formulário inseguro do navegador. -->
-    <script>
-      const params = new URLSearchParams({
-        "router-id": "$(identity)",
-        mac: "$(mac)",
-        ip: "$(ip)",
-        "link-login-only": "$(link-login-only)",
-        "link-orig": "$(link-orig)"
-      });
-      window.location.replace("https://manostech-system.com.br/api/public/hotspot-entry?" + params.toString());
-    </script>
+    <!-- RouterOS replaces $(...) before sending this form. -->
+    <form id="manos-tech-entry" method="post" action="https://manostech-system.com.br/api/public/hotspot-entry">
+      <input type="hidden" name="router-id" value="$(identity)">
+      <input type="hidden" name="mac" value="$(mac)">
+      <input type="hidden" name="ip" value="$(ip)">
+      <input type="hidden" name="link-login-only" value="$(link-login-only)">
+      <input type="hidden" name="link-orig" value="$(link-orig)">
+    </form>
+    <script>document.getElementById("manos-tech-entry").submit();</script>
   </body>
 </html>
