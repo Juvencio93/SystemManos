@@ -96,6 +96,7 @@ export const getAiBriefing = createServerFn({ method: "POST" })
 
       const system = BRIEFING_SYSTEM_BASE + (role === "filial" ? BRIEFING_SYSTEM_FILIAL : "");
 
+      const { callGateway } = await import("@/lib/ai.server");
       const response = await callGateway(system, `Dados da operação:\n${briefingPrompt(insights)}`);
 
       if (response.text && limitCheck.increment) {
@@ -237,6 +238,7 @@ export const getCompanyBriefing = createServerFn({ method: "POST" })
         if (diffMin < 10) return { text: JSON.stringify(company.ai_insights_cache), error: null };
       }
 
+      const { callGateway } = await import("@/lib/ai.server");
       const response = await callGateway(
         COMPANY_SYSTEM,
         `Gere o resumo estruturado da empresa.\nDados:\n${companyPrompt(snapshot)}`,
@@ -283,6 +285,7 @@ export const getAdmBriefing = createServerFn({ method: "POST" })
         await import("@/lib/platform.server");
       const snapshot = await computePlatformSnapshot(context.supabase);
 
+      const { callGateway } = await import("@/lib/ai.server");
       const response = await callGateway(
         ADM_ALERTS_SYSTEM,
         `Gere o resumo da semana da Manos Tech (visão consolidada da plataforma). Use texto livre amigável (Markdown).\nDados:\n${platformPrompt(snapshot)}`,
@@ -497,6 +500,7 @@ export const askAgent = createServerFn({ method: "POST" })
     const requestId = crypto.randomUUID();
 
     try {
+      const { callGateway } = await import("@/lib/ai.server");
       const { checkAiLimitAndIncrement } = await import("@/lib/ai-limits.server");
       const limitCheck = await checkAiLimitAndIncrement(context.supabase, context.userId);
 

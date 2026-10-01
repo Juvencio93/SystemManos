@@ -37,6 +37,7 @@ import { Route as AuthenticatedFinanceiroEmAtrasoRouteImport } from './routes/_a
 import { Route as AuthenticatedFinanceiroFaturamentoRouteImport } from './routes/_authenticated/financeiro/faturamento'
 import { Route as AuthenticatedMarketingCampaignIdRouteImport } from './routes/_authenticated/marketing.$campaignId'
 import { Route as ApiInternalHotspotCommandRouteImport } from './routes/api/internal/hotspot-command'
+import { Route as ApiInternalHotspotDeviceStatusRouteImport } from './routes/api/internal/hotspot-device-status'
 import { Route as ApiInternalHotspotFilesRouteImport } from './routes/api/internal/hotspot-files'
 import { Route as ApiInternalHotspotHealthRouteImport } from './routes/api/internal/hotspot-health'
 import { Route as ApiInternalHotspotHeartbeatRouteImport } from './routes/api/internal/hotspot-heartbeat'
@@ -205,6 +206,12 @@ const ApiInternalHotspotCommandRoute =
     path: '/api/internal/hotspot-command',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiInternalHotspotDeviceStatusRoute =
+  ApiInternalHotspotDeviceStatusRouteImport.update({
+    id: '/api/internal/hotspot-device-status',
+    path: '/api/internal/hotspot-device-status',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiInternalHotspotFilesRoute = ApiInternalHotspotFilesRouteImport.update({
   id: '/api/internal/hotspot-files',
   path: '/api/internal/hotspot-files',
@@ -320,6 +327,7 @@ export interface FileRoutesByFullPath {
   '/financeiro/faturamento': typeof AuthenticatedFinanceiroFaturamentoRoute
   '/marketing/$campaignId': typeof AuthenticatedMarketingCampaignIdRoute
   '/api/internal/hotspot-command': typeof ApiInternalHotspotCommandRoute
+  '/api/internal/hotspot-device-status': typeof ApiInternalHotspotDeviceStatusRoute
   '/api/internal/hotspot-files': typeof ApiInternalHotspotFilesRoute
   '/api/internal/hotspot-health': typeof ApiInternalHotspotHealthRoute
   '/api/internal/hotspot-heartbeat': typeof ApiInternalHotspotHeartbeatRoute
@@ -364,6 +372,7 @@ export interface FileRoutesByTo {
   '/financeiro/faturamento': typeof AuthenticatedFinanceiroFaturamentoRoute
   '/marketing/$campaignId': typeof AuthenticatedMarketingCampaignIdRoute
   '/api/internal/hotspot-command': typeof ApiInternalHotspotCommandRoute
+  '/api/internal/hotspot-device-status': typeof ApiInternalHotspotDeviceStatusRoute
   '/api/internal/hotspot-files': typeof ApiInternalHotspotFilesRoute
   '/api/internal/hotspot-health': typeof ApiInternalHotspotHealthRoute
   '/api/internal/hotspot-heartbeat': typeof ApiInternalHotspotHeartbeatRoute
@@ -411,6 +420,7 @@ export interface FileRoutesById {
   '/_authenticated/financeiro/faturamento': typeof AuthenticatedFinanceiroFaturamentoRoute
   '/_authenticated/marketing/$campaignId': typeof AuthenticatedMarketingCampaignIdRoute
   '/api/internal/hotspot-command': typeof ApiInternalHotspotCommandRoute
+  '/api/internal/hotspot-device-status': typeof ApiInternalHotspotDeviceStatusRoute
   '/api/internal/hotspot-files': typeof ApiInternalHotspotFilesRoute
   '/api/internal/hotspot-health': typeof ApiInternalHotspotHealthRoute
   '/api/internal/hotspot-heartbeat': typeof ApiInternalHotspotHeartbeatRoute
@@ -458,6 +468,7 @@ export interface FileRouteTypes {
     | '/financeiro/faturamento'
     | '/marketing/$campaignId'
     | '/api/internal/hotspot-command'
+    | '/api/internal/hotspot-device-status'
     | '/api/internal/hotspot-files'
     | '/api/internal/hotspot-health'
     | '/api/internal/hotspot-heartbeat'
@@ -502,6 +513,7 @@ export interface FileRouteTypes {
     | '/financeiro/faturamento'
     | '/marketing/$campaignId'
     | '/api/internal/hotspot-command'
+    | '/api/internal/hotspot-device-status'
     | '/api/internal/hotspot-files'
     | '/api/internal/hotspot-health'
     | '/api/internal/hotspot-heartbeat'
@@ -548,6 +560,7 @@ export interface FileRouteTypes {
     | '/_authenticated/financeiro/faturamento'
     | '/_authenticated/marketing/$campaignId'
     | '/api/internal/hotspot-command'
+    | '/api/internal/hotspot-device-status'
     | '/api/internal/hotspot-files'
     | '/api/internal/hotspot-health'
     | '/api/internal/hotspot-heartbeat'
@@ -574,6 +587,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   PortalSlugRoute: typeof PortalSlugRoute
   ApiInternalHotspotCommandRoute: typeof ApiInternalHotspotCommandRoute
+  ApiInternalHotspotDeviceStatusRoute: typeof ApiInternalHotspotDeviceStatusRoute
   ApiInternalHotspotFilesRoute: typeof ApiInternalHotspotFilesRoute
   ApiInternalHotspotHealthRoute: typeof ApiInternalHotspotHealthRoute
   ApiInternalHotspotHeartbeatRoute: typeof ApiInternalHotspotHeartbeatRoute
@@ -789,6 +803,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiInternalHotspotCommandRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/internal/hotspot-device-status': {
+      id: '/api/internal/hotspot-device-status'
+      path: '/api/internal/hotspot-device-status'
+      fullPath: '/api/internal/hotspot-device-status'
+      preLoaderRoute: typeof ApiInternalHotspotDeviceStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/internal/hotspot-files': {
       id: '/api/internal/hotspot-files'
       path: '/api/internal/hotspot-files'
@@ -982,6 +1003,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   PortalSlugRoute: PortalSlugRoute,
   ApiInternalHotspotCommandRoute: ApiInternalHotspotCommandRoute,
+  ApiInternalHotspotDeviceStatusRoute: ApiInternalHotspotDeviceStatusRoute,
   ApiInternalHotspotFilesRoute: ApiInternalHotspotFilesRoute,
   ApiInternalHotspotHealthRoute: ApiInternalHotspotHealthRoute,
   ApiInternalHotspotHeartbeatRoute: ApiInternalHotspotHeartbeatRoute,
@@ -1001,3 +1023,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

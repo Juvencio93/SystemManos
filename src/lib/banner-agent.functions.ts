@@ -596,7 +596,7 @@ export const askBannerAgent = createServerFn({ method: "POST" })
                 needsMoreInfo: false,
                 question: null,
                 promptOptions: safeBannerOptions(requiredOfferFacts, {
-                  segment: snapshot.business_segment ?? undefined,
+                  ...(snapshot.business_segment ? { segment: snapshot.business_segment } : {}),
                   hasVisualEvidence: initialResearch?.hasVisualEvidence === true,
                 }),
                 reminder: "As opções preservam os itens e o valor informados.",
@@ -615,7 +615,7 @@ export const askBannerAgent = createServerFn({ method: "POST" })
                 needsMoreInfo: false,
                 question: null,
                 promptOptions: safeBannerOptions(requiredOfferFacts, {
-                  segment: snapshot.business_segment ?? undefined,
+                  ...(snapshot.business_segment ? { segment: snapshot.business_segment } : {}),
                   hasVisualEvidence: initialResearch?.hasVisualEvidence === true,
                 }),
                 reminder: "As opções preservam os itens e o valor informados.",
@@ -652,7 +652,7 @@ export const askBannerAgent = createServerFn({ method: "POST" })
                 needsMoreInfo: false,
                 question: null,
                 promptOptions: safeBannerOptions(requiredOfferFacts, {
-                  segment: snapshot.business_segment ?? undefined,
+                  ...(snapshot.business_segment ? { segment: snapshot.business_segment } : {}),
                   hasVisualEvidence: initialResearch?.hasVisualEvidence === true,
                 }),
                 reminder: "As opções preservam os itens e o valor informados.",
@@ -668,7 +668,7 @@ export const askBannerAgent = createServerFn({ method: "POST" })
           normalized = {
             ...normalized,
             promptOptions: enrichBannerPromptOptions(normalized.promptOptions, requiredOfferFacts, {
-              segment: snapshot.business_segment ?? undefined,
+              ...(snapshot.business_segment ? { segment: snapshot.business_segment } : {}),
               hasVisualEvidence: initialResearch?.hasVisualEvidence === true,
             }),
           };

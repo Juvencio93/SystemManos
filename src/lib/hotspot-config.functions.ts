@@ -23,8 +23,11 @@ export const getMikrotikActivationDownload = createServerFn({ method: "GET" })
     const { data: device } = await deviceQuery.maybeSingle();
     const secret = process.env["HOTSPOT_CREDENTIAL_SECRET"]?.trim();
     if (!device?.router_identity || !secret) throw new Error("Ativação personalizada indisponível.");
+    if (data.fileKind === "activation" && (!process.env["MIKROTIK_RADIUS_SECRET"]?.trim() || !process.env["MIKROTIK_RADIUS_HOST"]?.trim())) {
+      throw new Error("A integração RADIUS ainda não está configurada no servidor.");
+    }
     const exp = String(Date.now() + 10 * 60 * 1000);
-    const sig = createHmac("sha256", secret).update(`${device.router_identity}.${exp}`).digest("hex");
+    const sig = createHmac("sha256", secret).update(`${device.router_identity}.${exp}.${data.fileKind}`).digest("hex");
     return `/api/internal/mikrotik-activation?router=${encodeURIComponent(device.router_identity)}&exp=${exp}&sig=${sig}&kind=${data.fileKind}`;
   });
 
@@ -339,7 +342,9 @@ export const cancelHotspotHomologation = createServerFn({ method: "POST" })
     const now = new Date().toISOString();
     const { error } = await supabaseAdmin.from("hotspot_configs").update({ status: "awaiting_homologation", is_active: false, updated_at: now }).eq("id", configId);
     if (error) throw new Error("Não foi possível cancelar a homologação.");
+    const { data: devices } = await (supabaseAdmin as any).from("hotspot_devices").select("id,status").eq("hotspot_config_id", configId);
     await (supabaseAdmin as any).from("hotspot_devices").update({ status: "awaiting_homologation", updated_at: now }).eq("hotspot_config_id", configId);
+    if (devices?.length) await (supabaseAdmin as any).from("hotspot_device_audit").insert(devices.map((device: any) => ({ device_id: device.id, action: "cancel_homologation", previous_status: device.status, new_status: "awaiting_homologation", actor_id: context.userId, created_at: now })));
     return { success: true };
   });
 
@@ -355,11 +360,13 @@ export const activateHotspotHomologation = createServerFn({ method: "POST" })
       .update({ status: "operational", is_active: true, updated_at: now })
       .eq("id", configId);
     if (error) throw new Error("Não foi possível ativar a homologação.");
+    const { data: devices } = await (supabaseAdmin as any).from("hotspot_devices").select("id,status").eq("hotspot_config_id", configId);
     const { error: deviceError } = await (supabaseAdmin as any)
       .from("hotspot_devices")
       .update({ status: "operational", updated_at: now })
       .eq("hotspot_config_id", configId);
     if (deviceError) throw new Error("Não foi possível ativar o equipamento.");
+    if (devices?.length) await (supabaseAdmin as any).from("hotspot_device_audit").insert(devices.map((device: any) => ({ device_id: device.id, action: "activate_homologation", previous_status: device.status, new_status: "operational", actor_id: context.userId, created_at: now })));
     return { success: true };
   });
 
@@ -370,8 +377,12 @@ export const setHotspotBlocked = createServerFn({ method: "POST" })
     const configId = await getScopedConfigId(context.userId, data);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const now = new Date().toISOString();
-    const { error } = await supabaseAdmin.from("hotspot_configs").update({ status: data.blocked ? "blocked" : "awaiting_homologation", is_active: false, updated_at: now }).eq("id", configId);
+    const { data: config, error: configError } = await supabaseAdmin.from("hotspot_configs").select("status,is_active").eq("id", configId).single();
+    if (configError) throw new Error("Não foi possível localizar a política do equipamento.");
+    const nextStatus = data.blocked ? "blocked" : config.status === "operational" && config.is_active ? "operational" : "awaiting_homologation";
+    const { data: devices } = await (supabaseAdmin as any).from("hotspot_devices").select("id,status").eq("hotspot_config_id", configId);
+    const { error } = await (supabaseAdmin as any).from("hotspot_devices").update({ status: nextStatus, router_status_requested_at: now, router_status_applied_at: null, updated_at: now }).eq("hotspot_config_id", configId);
     if (error) throw new Error("Não foi possível atualizar o bloqueio.");
-    await (supabaseAdmin as any).from("hotspot_devices").update({ status: data.blocked ? "blocked" : "awaiting_homologation", updated_at: now }).eq("hotspot_config_id", configId);
+    if (devices?.length) await (supabaseAdmin as any).from("hotspot_device_audit").insert(devices.map((device: any) => ({ device_id: device.id, action: data.blocked ? "block_device" : "unblock_device", previous_status: device.status, new_status: nextStatus, actor_id: context.userId, created_at: now })));
     return { success: true };
   });

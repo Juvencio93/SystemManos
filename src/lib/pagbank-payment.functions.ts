@@ -3,7 +3,33 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const api = (environment: string) => environment === "sandbox" ? "https://sandbox.api.pagseguro.com" : "https://api.pagseguro.com";
-async function pagbank(token: string, environment: string, path: string, body?: unknown) { const r = await fetch(`${api(environment)}${path}`, { method: body ? "POST" : "GET", headers: { Authorization: `Bearer ${token}`, Accept: "application/json", ...(body ? { "Content-Type": "application/json" } : {}) }, body: body ? JSON.stringify(body) : undefined }); const text = await r.text(); const json = (() => { try { return JSON.parse(text); } catch { return text; } })(); if (!r.ok) throw new Error((json as any)?.error_messages?.[0]?.description || (json as any)?.message || `PagBank retornou erro ${r.status}.`); return json; }
+async function pagbank(token: string, environment: string, path: string, body?: unknown) {
+  const init: RequestInit = {
+    method: body ? "POST" : "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+      ...(body ? { "Content-Type": "application/json" } : {}),
+    },
+  };
+  if (body) init.body = JSON.stringify(body);
+  const r = await fetch(`${api(environment)}${path}`, init);
+  const text = await r.text();
+  const json = (() => {
+    try {
+      return JSON.parse(text);
+    } catch {
+      return text;
+    }
+  })();
+  if (!r.ok)
+    throw new Error(
+      (json as any)?.error_messages?.[0]?.description ||
+        (json as any)?.message ||
+        `PagBank retornou erro ${r.status}.`,
+    );
+  return json;
+}
 const ownerScope = (query: any, ownerType: string, ownerId: string | null) => ownerId ? query.eq("owner_type", ownerType).eq("owner_id", ownerId) : query.eq("owner_type", ownerType).is("owner_id", null);
 
 export const getOrCreatePagBankPix = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).validator((input: unknown) => z.object({ chargeId: z.string().uuid() }).parse(input)).handler(async ({ context, data }) => {

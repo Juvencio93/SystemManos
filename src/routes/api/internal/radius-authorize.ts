@@ -46,12 +46,14 @@ export const Route = createFileRoute("/api/internal/radius-authorize")({
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         if (routerIdentity) {
-          const { data: device } = await (supabaseAdmin as any)
+          const { data: device, error: deviceError } = await (supabaseAdmin as any)
             .from("hotspot_devices")
             .select("status")
             .eq("router_identity", routerIdentity)
             .maybeSingle();
-          if (device?.status === "blocked") return unauthorized();
+          // Do not issue grants to an unknown, removed or blocked router when
+          // FreeRADIUS identifies the requesting NAS.
+          if (deviceError || !device || device.status === "blocked") return unauthorized();
         }
         const grant = await authorizeHotspotAccess(supabaseAdmin, { username, mac });
         if (!grant) return unauthorized();

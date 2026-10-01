@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/select";
 import { countries, defaultCountry } from "@/lib/countries";
 import { getPortal, submitPortalLead } from "@/lib/portal.functions";
-import { defaultPortalAppearance, type PortalAppearance } from "@/lib/campaign-appearance";
+import { defaultPortalAppearance, type PortalAppearance, type PortalVisualStyle } from "@/lib/campaign-appearance";
 import { portalTheme } from "@/lib/portal-theme";
 import { portalLayoutFor, portalLayoutMaxWidth } from "@/components/app/portal/portal-layouts";
 
@@ -292,7 +292,7 @@ function PortalPage() {
   }
 
   const theme = portalTheme(portal.appearance);
-  const style = portal.appearance.visualStyle;
+  const style = portal.appearance.visualStyle as PortalVisualStyle;
   const Layout = portalLayoutFor(style);
 
   const logoMaxClass =
@@ -371,7 +371,9 @@ function PortalPage() {
       />
     ) : null;
 
-  const quickInfoItems = portal.appearance.quickInfo.filter(Boolean);
+  const quickInfoItems = (portal.appearance.quickInfo as unknown[]).filter(
+    (info: unknown): info is string => typeof info === "string" && Boolean(info),
+  );
   const quickInfo =
     quickInfoItems.length > 0 ? (
       <div

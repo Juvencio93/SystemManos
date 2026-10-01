@@ -731,6 +731,8 @@ export type Database = {
           id: string
           method: string | null
           notes: string | null
+          pagbank_last_event_id: string | null
+          pagbank_order_id: string | null
           paid_at: string | null
           payment_provider: string
           pix_payload: string | null
@@ -759,6 +761,8 @@ export type Database = {
           id?: string
           method?: string | null
           notes?: string | null
+          pagbank_last_event_id?: string | null
+          pagbank_order_id?: string | null
           paid_at?: string | null
           payment_provider?: string
           pix_payload?: string | null
@@ -787,6 +791,8 @@ export type Database = {
           id?: string
           method?: string | null
           notes?: string | null
+          pagbank_last_event_id?: string | null
+          pagbank_order_id?: string | null
           paid_at?: string | null
           payment_provider?: string
           pix_payload?: string | null
@@ -1444,6 +1450,216 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hotspot_devices: {
+        Row: {
+          active_sessions: number
+          ap_mac: string | null
+          branch_id: string | null
+          company_id: string
+          created_at: string
+          hotspot_config_id: string
+          id: string
+          last_homologated_at: string | null
+          last_homologation_result: Json | null
+          last_seen_at: string | null
+          last_seen_ip: unknown
+          last_seen_uptime: string | null
+          latency_ms: number | null
+          packet_loss_pct: number | null
+          reboot_applied_at: string | null
+          reboot_requested_at: string | null
+          router_applied_status: string | null
+          router_identity: string
+          router_status_applied_at: string | null
+          router_status_requested_at: string | null
+          router_version: string | null
+          rx_bytes: number
+          status: string
+          sync_applied_at: string | null
+          sync_requested_at: string | null
+          tx_bytes: number
+          updated_at: string
+        }
+        Insert: {
+          active_sessions?: number
+          ap_mac?: string | null
+          branch_id?: string | null
+          company_id: string
+          created_at?: string
+          hotspot_config_id: string
+          id?: string
+          last_homologated_at?: string | null
+          last_homologation_result?: Json | null
+          last_seen_at?: string | null
+          last_seen_ip?: unknown
+          last_seen_uptime?: string | null
+          latency_ms?: number | null
+          packet_loss_pct?: number | null
+          reboot_applied_at?: string | null
+          reboot_requested_at?: string | null
+          router_applied_status?: string | null
+          router_identity: string
+          router_status_applied_at?: string | null
+          router_status_requested_at?: string | null
+          router_version?: string | null
+          rx_bytes?: number
+          status?: string
+          sync_applied_at?: string | null
+          sync_requested_at?: string | null
+          tx_bytes?: number
+          updated_at?: string
+        }
+        Update: {
+          active_sessions?: number
+          ap_mac?: string | null
+          branch_id?: string | null
+          company_id?: string
+          created_at?: string
+          hotspot_config_id?: string
+          id?: string
+          last_homologated_at?: string | null
+          last_homologation_result?: Json | null
+          last_seen_at?: string | null
+          last_seen_ip?: unknown
+          last_seen_uptime?: string | null
+          latency_ms?: number | null
+          packet_loss_pct?: number | null
+          reboot_applied_at?: string | null
+          reboot_requested_at?: string | null
+          router_applied_status?: string | null
+          router_identity?: string
+          router_status_applied_at?: string | null
+          router_status_requested_at?: string | null
+          router_version?: string | null
+          rx_bytes?: number
+          status?: string
+          sync_applied_at?: string | null
+          sync_requested_at?: string | null
+          tx_bytes?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hotspot_devices_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hotspot_devices_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hotspot_devices_hotspot_config_id_fkey"
+            columns: ["hotspot_config_id"]
+            isOneToOne: true
+            referencedRelation: "hotspot_configs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hotspot_device_audit: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          device_id: string
+          id: string
+          new_status: string
+          previous_status: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          device_id: string
+          id?: string
+          new_status: string
+          previous_status?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          device_id?: string
+          id?: string
+          new_status?: string
+          previous_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hotspot_device_audit_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "hotspot_devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hotspot_access_grants: {
+        Row: {
+          company_id: string
+          created_at: string
+          expires_at: string
+          id: string
+          last_authenticated_at: string | null
+          mac_address: string
+          pending_checkin: Json | null
+          portal_target_id: string
+          portal_target_kind: string
+          revoked_at: string | null
+          username: string
+          visitor_id: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          last_authenticated_at?: string | null
+          mac_address: string
+          pending_checkin?: Json | null
+          portal_target_id: string
+          portal_target_kind: string
+          revoked_at?: string | null
+          username: string
+          visitor_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          last_authenticated_at?: string | null
+          mac_address?: string
+          pending_checkin?: Json | null
+          portal_target_id?: string
+          portal_target_kind?: string
+          revoked_at?: string | null
+          username?: string
+          visitor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hotspot_access_grants_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hotspot_access_grants_visitor_id_fkey"
+            columns: ["visitor_id"]
+            isOneToOne: false
+            referencedRelation: "visitors"
             referencedColumns: ["id"]
           },
         ]

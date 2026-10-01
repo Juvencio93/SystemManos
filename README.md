@@ -62,6 +62,32 @@ configuration, so both workflows remain compatible.
 Only variables prefixed with `VITE_` may be exposed to browser code. Administrative
 Supabase keys, payment keys, AI keys, and internal secrets must remain unprefixed.
 
+## MikroTik Hotspot server variables
+
+The personalized RB installer requires these server-only variables:
+
+- `HOTSPOT_CREDENTIAL_SECRET`: at least 32 random characters; signs download links and derives a distinct heartbeat token for each router.
+- `MIKROTIK_RADIUS_HOST`: the RADIUS server host/IP reachable by the RBs.
+- `MIKROTIK_RADIUS_SECRET`: the shared secret configured for the MikroTik NAS clients on the FreeRADIUS host.
+- `RADIUS_API_TOKEN`: authenticates the FreeRADIUS-to-Manos Tech HTTP lookup. Never put it on a router.
+- `HOTSPOT_LEGACY_HEARTBEAT_TOKEN`: temporary compatibility credential for RBs that still run the old heartbeat file. Remove it after every RB has imported a newly generated heartbeat file.
+
+The former RADIUS secret was embedded in an older activation template. Rotate it
+on the FreeRADIUS server and in Vercel before using a new personalized activation
+file. During heartbeat migration, set the legacy token to the old installed
+heartbeat value, replace each RB's heartbeat with the newly generated file, then
+remove the legacy token and rotate `RADIUS_API_TOKEN` independently on both
+FreeRADIUS and Vercel. Keep all of these values out of Git and browser code.
+
+The base RB layout keeps `ether1` and `ether5` as a transparent provider bridge,
+uses `ether2`/`ether3` for the HotSpot network `192.168.88.0/24`, and assigns
+`ether4` to the free/staff network `192.168.89.0/24`. Blocking applies to the
+two routed RB networks and deliberately does not filter bridged `ether5` traffic.
+Heartbeat TX/RX are cumulative `bytes-in`/`bytes-out` from currently active
+HotSpot sessions, not WAN port throughput or a byte delta per 30-second poll.
+Router reboot and firewall changes are shown as pending until a later heartbeat
+confirms the RouterOS state.
+
 ## Running on another Node.js host
 
 The project also retains portable Nitro output:

@@ -93,7 +93,7 @@ export const Route = createFileRoute("/_authenticated/empresas/$companyId")({
   component: CompanyDetailPage,
   errorComponent: ({ error }) => (
     <div role="alert" className="text-sm text-destructive">
-      {error.message}
+      {error instanceof Error ? error.message : String(error)}
     </div>
   ),
   notFoundComponent: () => <p className="text-sm text-muted-foreground">Empresa não encontrada.</p>,

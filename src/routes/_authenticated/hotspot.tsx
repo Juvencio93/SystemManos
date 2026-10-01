@@ -15,6 +15,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { getMikrotikActivationDownload } from "@/lib/hotspot-config.functions";
 import { useAccess } from "@/hooks/use-access";
 import { HotspotNetworkMap } from "@/components/app/hotspot-network-map";
+import { hotspotActionError, postHotspotAction } from "@/lib/hotspot-client";
 
 export const Route = createFileRoute("/_authenticated/hotspot")({
   head: () => ({ meta: [{ title: "Hotspot | Manos Tech" }] }),
@@ -30,8 +31,8 @@ function HotspotPage() {
   const portalItems = (portalsQuery.data?.items ?? []) as PortalItem[];
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<any>(null);
-  const clientsQuery = useQuery({ queryKey: ["hotspot-approved-clients", access?.role, access?.resellerId, access?.companyId, access?.branchId], enabled: canManageHotspot, refetchInterval: 60000, queryFn: async () => {
-    let query = (supabase as any).from("hotspot_devices").select("id,router_identity,ap_mac,status,company_id,branch_id,updated_at,last_seen_at,last_seen_ip,router_version,active_sessions,rx_bytes,tx_bytes,latency_ms,packet_loss_pct,sync_requested_at,sync_applied_at");
+  const clientsQuery = useQuery({ queryKey: ["hotspot-approved-clients", access?.role, access?.resellerId, access?.companyId, access?.branchId], enabled: canManageHotspot, refetchInterval: 30000, queryFn: async () => {
+    let query = (supabase as any).from("hotspot_devices").select("id,router_identity,ap_mac,status,company_id,branch_id,updated_at,last_seen_at,last_seen_ip,last_seen_uptime,router_version,active_sessions,rx_bytes,tx_bytes,latency_ms,packet_loss_pct,sync_requested_at,sync_applied_at,reboot_requested_at,reboot_applied_at,router_applied_status,router_status_applied_at");
     if (access?.role === "revenda" && access.resellerId) {
       const [{ data: companies }, { data: branches }] = await Promise.all([
         (supabase as any).from("companies").select("id").eq("reseller_id", access.resellerId),
@@ -65,7 +66,7 @@ function HotspotPage() {
   const [mapZoom, setMapZoom] = useState(1);
   const [heartbeatSeconds, setHeartbeatSeconds] = useState(30);
   useEffect(() => { const timer = window.setInterval(() => setHeartbeatSeconds((v) => v <= 1 ? 30 : v - 1), 1000); return () => window.clearInterval(timer); }, []);
-  const isOnline = (lastSeen?: string) => Boolean(lastSeen && Date.now() - new Date(lastSeen).getTime() < 15 * 60 * 1000);
+  const isOnline = (lastSeen?: string) => Boolean(lastSeen && Date.now() - new Date(lastSeen).getTime() < 90 * 1000);
   const filteredClients = clients.reduce<any[]>((items, client) => {
     const text = `${client.router_identity ?? ""} ${client.ap_mac ?? ""}`.toLowerCase();
     if (text.includes(search.toLowerCase()) && (statusFilter === "all" || client.status === statusFilter)) items.push(client);
@@ -82,15 +83,15 @@ function HotspotPage() {
   const statusLabel = (s: string) => s === "operational" ? "Homologado" : s === "blocked" ? "Bloqueado" : "Pendente";
   const statusClass = (s: string) => s === "operational" ? "border-emerald-400/40 text-emerald-300" : s === "blocked" ? "border-red-400/40 text-red-300" : "border-amber-400/40 text-amber-300";
   if (access && !canManageHotspot) {
-    return <div className="container max-w-3xl py-10"><Card className="border-amber-400/30"><CardContent className="p-6"><PageHeader title="Acesso restrito" description="O gerenciamento de equipamentos, homologação e arquivos Hotspot é exclusivo para administradores e revendas." /></CardContent></Card></div>;
+    return <div className="container max-w-3xl py-10"><Card className="border-amber-400/30"><CardContent className="p-6"><PageHeader title="Acesso restrito" subtitle="O gerenciamento de equipamentos, homologação e arquivos Hotspot é exclusivo para administradores e revendas." /></CardContent></Card></div>;
   }
-  async function changeStatus(status: string) {
-    if (!selected) return;
-    await (supabase as any).from("hotspot_devices").update({ status, updated_at: new Date().toISOString() }).eq("id", selected.id);
-    const { data: authData } = await supabase.auth.getUser();
-    await (supabase as any).from("hotspot_device_audit").insert({ device_id: selected.id, action: status === "operational" ? "activate_homologation" : status === "blocked" ? "block_device" : "cancel_homologation", previous_status: selected.status, new_status: status, actor_id: authData.user?.id ?? null });
-    await clientsQuery.refetch();
-    setSelected(null);
+    async function changeStatus(status: string) {
+      if (!selected) return;
+      const response = await postHotspotAction("/api/internal/hotspot-device-status", { routerIdentity: selected.router_identity, blocked: status === "blocked" });
+      const actionError = await hotspotActionError(response, "Não foi possível alterar o bloqueio.");
+      if (actionError) { window.alert(actionError); return; }
+      await clientsQuery.refetch();
+      setSelected(null);
   }
   async function downloadActivation(client: any) {
     const path = await getActivation({ data: { kind: client.branch_id ? "branch" : "company", targetId: client.branch_id ?? client.company_id, fileKind: "activation" } });
@@ -100,16 +101,19 @@ function HotspotPage() {
     const path = await getActivation({ data: { kind: client.branch_id ? "branch" : "company", targetId: client.branch_id ?? client.company_id, fileKind: "heartbeat" } });
     window.location.href = path;
   }
-  async function requestSync(client: any) {
-    const response = await fetch("/api/internal/hotspot-sync", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ routerIdentity: client.router_identity }) });
-    setSyncMessage(response.ok ? `Sincronização solicitada para ${client.router_identity}.` : "Não foi possível solicitar a sincronização.");
-    await clientsQuery.refetch();
-  }
-  async function requestReboot(client: any) {
-    if (!window.confirm(`Confirmar reinicialização da RB ${client.router_identity}? A conexão ficará indisponível por alguns minutos.`)) return;
-    const response = await fetch("/api/internal/hotspot-reboot", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ routerIdentity: client.router_identity }) });
-    setSyncMessage(response.ok ? `Reinicialização solicitada para ${client.router_identity}.` : "Não foi possível solicitar a reinicialização.");
-    if (response.ok) setSelected(null);
+    async function requestSync(client: any) {
+      const response = await postHotspotAction("/api/internal/hotspot-sync", { routerIdentity: client.router_identity });
+      setSyncMessage(response.ok ? `Sincronização solicitada para ${client.router_identity}.` : "Não foi possível solicitar a sincronização.");
+      await clientsQuery.refetch();
+    }
+    async function requestReboot(client: any) {
+      if (!window.confirm(`Confirmar reinicialização da RB ${client.router_identity}? A conexão ficará indisponível por alguns minutos.`)) return;
+      const response = await postHotspotAction("/api/internal/hotspot-reboot", { routerIdentity: client.router_identity });
+      const actionError = await hotspotActionError(response, "Não foi possível solicitar a reinicialização.");
+      if (actionError) { setSyncMessage(actionError); return; }
+      setSyncMessage(`Reinício solicitado para ${client.router_identity}; aguardando execução e retorno da RB.`);
+      await clientsQuery.refetch();
+      setSelected(null);
   }
   function exportCsv() {
     const header = "Identidade,MAC,Status,IP,RouterOS,Última comunicação\n";
@@ -123,8 +127,8 @@ function HotspotPage() {
   }
   return (
     <div className="container max-w-5xl space-y-8 py-10">
-      <PageHeader title="Hotspot" description="Manuais e arquivos oficiais para instalação e atualização das RBs." />
-      <HotspotNetworkMap devices={clients} onBlock={async (device) => { await (supabase as any).from("hotspot_devices").update({ status: "blocked", updated_at: new Date().toISOString() }).eq("id", device.id); await clientsQuery.refetch(); }} onReboot={(device) => void requestReboot(device)} />
+      <PageHeader title="Hotspot" subtitle="Manuais e arquivos oficiais para instalação e atualização das RBs." />
+        <HotspotNetworkMap devices={clients} onBlock={async (device, blocked) => { const response = await postHotspotAction("/api/internal/hotspot-device-status", { routerIdentity: device.router_identity, blocked }); const actionError = await hotspotActionError(response, "Não foi possível alterar o bloqueio."); if (actionError) { setSyncMessage(actionError); return; } await clientsQuery.refetch(); }} onReboot={(device) => void requestReboot(device)} />
       <div className="-mt-2 grid gap-3 sm:grid-cols-5">
         <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Dispositivos cadastrados</p><p className="mt-1 text-2xl font-bold">{clients.length}</p></CardContent></Card>
         <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Homologados</p><p className="mt-1 text-2xl font-bold text-emerald-400">{clients.reduce((n, c) => n + (c.status === "operational" ? 1 : 0), 0)}</p></CardContent></Card>

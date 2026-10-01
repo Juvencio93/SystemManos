@@ -333,60 +333,8 @@ export function HotspotConfigDialog({
               nesta etapa.
             </p> : null}
 
-            {false ? <Accordion type="single" collapsible className="rounded-xl border border-primary/25 px-3">
-              {form.vendor === "mikrotik_hotspot" ? (
-                <AccordionItem value="mikrotik-kit" className="border-b">
-                  <AccordionTrigger className="text-sm text-primary hover:no-underline">
-                    Hotspot
-                  </AccordionTrigger>
-                  <AccordionContent className="space-y-3 pb-4 text-xs text-muted-foreground">
-                    <p>
-                      Use o mesmo kit-base e o mesmo <code>login.html</code> em todas as RBs. A plataforma
-                      identifica esta unidade pela identidade exclusiva do RouterOS.
-                    </p>
-                    {provisioningQuery.isLoading ? (
-                      <p className="flex items-center gap-2"><Loader2 className="size-3 animate-spin" /> Gerando identidade…</p>
-                    ) : provisioningQuery.data ? (
-                      <div className="rounded-lg bg-muted/40 p-3">
-                        <p className="font-medium text-foreground">Identidade desta RB</p>
-                        <code className="mt-1 block break-all text-foreground">{provisioningQuery.data.routerIdentity}</code>
-                        <p className="mt-2">No arquivo de ativação desta unidade, a única identificação pública é essa. Chaves WireGuard, RADIUS e certificado são emitidos separadamente e não aparecem aqui.</p>
-                      </div>
-                    ) : (
-                      <p>Salve a configuração MikroTik e reabra esta janela para gerar a identidade do equipamento.</p>
-                    )}
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
-                        <p className="font-semibold text-primary">Arquivos atualizados</p>
-                        <p className="text-muted-foreground">29/09/2026 às 09:00</p>
-                      </div>
-                      <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
-                        <p className="font-semibold text-primary">Manual atualizado</p>
-                        <p className="text-muted-foreground">29/09/2026 às 09:00</p>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button type="button" size="sm" variant="outline" asChild>
-                        <a href="/mikrotik/MANOS-HOTSPOT-BASE.rsc" download>Baixar kit-base .rsc</a>
-                      </Button>
-                      <Button variant="outline" asChild>
-                        <a href="/mikrotik/MANOS-HOTSPOT-ACTIVATION.rsc" download>Baixar ativação RADIUS .rsc</a>
-                      </Button>
-                      <Button type="button" size="sm" variant="outline" asChild>
-                        <a href="/mikrotik/login.html" download>Baixar login.html universal</a>
-                      </Button>
-                      <Button type="button" size="sm" variant="outline" asChild>
-                        <a href="/mikrotik/alogin.html" download>Baixar alogin.html universal</a>
-                      </Button>
-                      <Button type="button" size="sm" variant="outline" asChild>
-                        <a href="/mikrotik/guia-instalacao-mikrotik-manos-tech-v2.pdf" target="_blank" rel="noreferrer">
-                          Abrir manual Hotspot
-                        </a>
-                      </Button>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              ) : null}
+            {configQuery.data?.config && !isClientPolicyView ? (
+              <Accordion type="single" collapsible className="rounded-xl border border-primary/25 px-3">
               <AccordionItem value="real-test" className="border-0">
                 <AccordionTrigger className="text-sm text-primary hover:no-underline">
                   Preparar teste real do portal cativo
@@ -438,7 +386,8 @@ export function HotspotConfigDialog({
                   </div>
                 </AccordionContent>
               </AccordionItem>
-            </Accordion> : null}
+              </Accordion>
+            ) : null}
           </div>
         )}
 

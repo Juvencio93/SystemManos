@@ -24,12 +24,12 @@ export const getPortals = createServerFn({ method: "GET" })
 
     const { data: roles } = await supabase
       .from("user_roles")
-      .select("role, company_id, branch_id")
+      .select("role, company_id, branch_id, reseller_id")
       .eq("user_id", userId);
 
     if (!roles || roles.length === 0) return { items: [], role: null };
 
-    const ROLE_PRIORITY = ["adm", "matriz", "filial"];
+    const ROLE_PRIORITY = ["adm", "matriz", "filial", "revenda"];
     const sorted = [...roles].sort(
       (a, b) => ROLE_PRIORITY.indexOf(a.role) - ROLE_PRIORITY.indexOf(b.role),
     );

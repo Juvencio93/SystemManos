@@ -1,4 +1,63 @@
-export type HeartbeatInput = { routerIdentity?: string; mac?: string; ip?: string; version?: string; activeSessions?: string | number; rxBytes?: string | number; txBytes?: string | number; latencyMs?: string | number; packetLossPct?: string | number };
-export function validateHeartbeat(input: HeartbeatInput | null | undefined) { return Boolean(input?.routerIdentity?.trim()); }
-export function heartbeatUpdate(input: HeartbeatInput, now: string, syncRequested = false) { return { ap_mac: input.mac, last_seen_at: now, last_seen_ip: input.ip ?? null, router_version: input.version ?? null, active_sessions: Number(input.activeSessions ?? 0), rx_bytes: Number(input.rxBytes ?? 0), tx_bytes: Number(input.txBytes ?? 0), latency_ms: input.latencyMs == null ? null : Number(input.latencyMs), packet_loss_pct: input.packetLossPct == null ? null : Number(input.packetLossPct), ...(syncRequested ? { sync_applied_at: now } : {}), updated_at: now }; }
+export type HeartbeatInput = {
+  routerIdentity?: string;
+  mac?: string;
+  ip?: string;
+  version?: string;
+  uptime?: string;
+  rebootCommandId?: string;
+  firewallBlocked?: string | boolean;
+  activeSessions?: string | number;
+  rxBytes?: string | number;
+  txBytes?: string | number;
+  latencyMs?: string | number;
+  packetLossPct?: string | number;
+};
+
+function finiteNumber(value: string | number | undefined, min: number, max: number) {
+  if (value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number >= min && number <= max ? number : null;
+}
+
+export function routerUptimeSeconds(value: string | undefined) {
+  if (!value) return null;
+  const units: Record<string, number> = { w: 604800, d: 86400, h: 3600, m: 60, s: 1 };
+  let seconds = 0;
+  const matches = [...value.matchAll(/(\d+)([wdhms])/g)];
+  if (!matches.length || matches.map((match) => match[0]).join("") !== value) return null;
+  for (const match of matches) seconds += Number(match[1]) * (units[match[2]!] ?? 0);
+  return seconds;
+}
+
+export function validateHeartbeat(input: HeartbeatInput | null | undefined) {
+  if (!input?.routerIdentity?.trim()) return false;
+  if (input.rebootCommandId && !/^\d{13}$/.test(input.rebootCommandId)) return false;
+  if (input.firewallBlocked !== undefined && input.firewallBlocked !== "" && ![true, false, "yes", "no"].includes(input.firewallBlocked)) return false;
+  if (input.uptime && routerUptimeSeconds(input.uptime) === null) return false;
+  if (input.latencyMs !== undefined && input.latencyMs !== "" && finiteNumber(input.latencyMs, 0, 3_600_000) === null) return false;
+  if (input.packetLossPct !== undefined && input.packetLossPct !== "" && finiteNumber(input.packetLossPct, 0, 100) === null) return false;
+  if (input.activeSessions !== undefined && finiteNumber(input.activeSessions, 0, 1_000_000) === null) return false;
+  if (input.rxBytes !== undefined && finiteNumber(input.rxBytes, 0, Number.MAX_SAFE_INTEGER) === null) return false;
+  if (input.txBytes !== undefined && finiteNumber(input.txBytes, 0, Number.MAX_SAFE_INTEGER) === null) return false;
+  return true;
+}
+
+export function heartbeatUpdate(input: HeartbeatInput, now: string, syncRequestedAt?: string | null) {
+  return {
+    ap_mac: input.mac,
+    last_seen_at: now,
+    last_seen_ip: input.ip ?? null,
+    router_version: input.version ?? null,
+    last_seen_uptime: input.uptime ?? null,
+    active_sessions: finiteNumber(input.activeSessions, 0, 1_000_000) ?? 0,
+    rx_bytes: finiteNumber(input.rxBytes, 0, Number.MAX_SAFE_INTEGER) ?? 0,
+    tx_bytes: finiteNumber(input.txBytes, 0, Number.MAX_SAFE_INTEGER) ?? 0,
+    latency_ms: finiteNumber(input.latencyMs, 0, 3_600_000),
+    packet_loss_pct: finiteNumber(input.packetLossPct, 0, 100),
+    // Store the request's own timestamp as the acknowledgement. If a newer
+    // request races this heartbeat, it will still differ and remain pending.
+    ...(syncRequestedAt ? { sync_applied_at: syncRequestedAt } : {}),
+    updated_at: now,
+  };
+}
 export function validateSyncRequest(input: { routerIdentity?: string } | null | undefined) { return Boolean(input?.routerIdentity?.trim()); }
