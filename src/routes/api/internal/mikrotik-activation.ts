@@ -24,11 +24,13 @@ export const Route = createFileRoute("/api/internal/mikrotik-activation")({
   :local txBytes 0
   :local pingReplies [/ping 1.1.1.1 count=3]
   :local packetLossPct (100 - (($pingReplies * 100) / 3))
+  :local latencyMs ""
+  :do { :local pingDetails [/ping 1.1.1.1 count=3 as-value]; :set latencyMs ($pingDetails->"avg-rtt") } on-error={}
   :foreach activeId in=[/ip hotspot active find] do={
     :set rxBytes ($rxBytes + [/ip hotspot active get $activeId bytes-in])
     :set txBytes ($txBytes + [/ip hotspot active get $activeId bytes-out])
   }
-  :local heartbeatUrl ("https://manostech-system.com.br/api/internal/hotspot-heartbeat?routerIdentity=" . $routerIdentity . "&ip=" . $wanIp . "&version=" . $routerVersion . "&mac=" . $routerMac . "&activeSessions=" . $sessions . "&rxBytes=" . $rxBytes . "&txBytes=" . $txBytes . "&packetLossPct=" . $packetLossPct)
+  :local heartbeatUrl ("https://manostech-system.com.br/api/internal/hotspot-heartbeat?routerIdentity=" . $routerIdentity . "&ip=" . $wanIp . "&version=" . $routerVersion . "&mac=" . $routerMac . "&activeSessions=" . $sessions . "&rxBytes=" . $rxBytes . "&txBytes=" . $txBytes . "&packetLossPct=" . $packetLossPct . "&latencyMs=" . $latencyMs)
   /tool fetch url=$heartbeatUrl http-method=post http-header-field=("X-Manos-Heartbeat: " . $heartbeatToken) keep-result=no
   :local commandUrl ("https://manostech-system.com.br/api/internal/hotspot-command?routerIdentity=" . $routerIdentity)
   /tool fetch url=$commandUrl http-header-field=("X-Manos-Heartbeat: " . $heartbeatToken) dst-path="flash/manos-command.rsc" keep-result=no
