@@ -395,7 +395,7 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
           <ModuleCard key={module.label} module={module} isLoading={insights.isLoading} onHotspotClick={module.label === "Hotspot" ? () => setHotspotExpanded((value) => !value) : undefined} onHotspotHover={module.label === "Hotspot" ? setHotspotHovering : undefined} />
         ))}
       </div>
-      {hotspotOpen && <NetworkMapPanel devices={hotspotDevices.data ?? []} isLoading={hotspotDevices.isLoading} overlay onClose={() => { setHotspotHovering(false); setHotspotExpanded(false); }} onMouseLeave={() => hotspotHovering && setHotspotHovering(false)} />}
+      {hotspotOpen && <NetworkMapPanel devices={hotspotDevices.data ?? []} isLoading={hotspotDevices.isLoading} overlay={hotspotHovering} onClose={() => { setHotspotHovering(false); setHotspotExpanded(false); }} onMouseLeave={() => hotspotHovering && setHotspotHovering(false)} />}
 
       <div className="mt-10">
         <RealtimeHeatmap />
