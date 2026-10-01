@@ -7,5 +7,23 @@ const files = [
   "/mikrotik/guia-instalacao-mikrotik-manos-tech-v2.pdf",
 ];
 export const Route = createFileRoute("/api/internal/hotspot-files")({
-  server: { handlers: { GET: async ({ request }) => { const origin = new URL(request.url).origin; const result = await Promise.all(files.map(async (path) => { try { const response = await fetch(`${origin}${path}`, { method: "HEAD", cache: "no-store" }); return { path, available: response.ok, size: response.headers.get("content-length"), lastModified: response.headers.get("last-modified") }; } catch { return { path, available: false, size: null, lastModified: null }; } })); const assetDates = result.map((file) => file.lastModified ? new Date(file.lastModified).getTime() : 0).filter((time) => Number.isFinite(time) && time > 0); const publishedAt = assetDates.length ? new Date(Math.max(...assetDates)).toISOString() : null; return Response.json({ files: result, publishedAt }); } } },
+  server: { handlers: { GET: async ({ request }) => {
+    const origin = new URL(request.url).origin;
+    const result = await Promise.all(files.map(async (path) => {
+      try {
+        const response = await fetch(`${origin}${path}`, { method: "HEAD", cache: "no-store" });
+        return { path, available: response.ok, size: response.headers.get("content-length") };
+      } catch {
+        return { path, available: false, size: null };
+      }
+    }));
+    let manifest: { kitUpdatedAt?: string | null; manualUpdatedAt?: string | null } = {};
+    try {
+      const response = await fetch(`${origin}/mikrotik/kit-manifest.json`, { cache: "no-store" });
+      if (response.ok) manifest = await response.json();
+    } catch {
+      // Availability continues to work even if the release metadata is unavailable.
+    }
+    return Response.json({ files: result, kitUpdatedAt: manifest.kitUpdatedAt ?? null, manualUpdatedAt: manifest.manualUpdatedAt ?? null });
+  } } },
 });

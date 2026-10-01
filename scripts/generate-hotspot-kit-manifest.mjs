@@ -1,0 +1,36 @@
+import { execFileSync } from "node:child_process";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+const root = process.cwd();
+const kitFiles = [
+  "public/mikrotik/MANOS-HOTSPOT-BASE.rsc",
+  "public/mikrotik/login.html",
+  "public/mikrotik/alogin.html",
+];
+const manualFiles = ["public/mikrotik/guia-instalacao-mikrotik-manos-tech-v2.pdf"];
+
+function latestCommitDate(files) {
+  const timestamps = files.map((file) => {
+    try {
+      return Date.parse(execFileSync("git", ["log", "-1", "--format=%cI", "--", file], { cwd: root, encoding: "utf8" }).trim());
+    } catch {
+      return 0;
+    }
+  }).filter(Number.isFinite);
+  return timestamps.length ? new Date(Math.max(...timestamps)).toISOString() : null;
+}
+
+const output = resolve(root, "public/mikrotik/kit-manifest.json");
+let previousManifest = {};
+try {
+  previousManifest = JSON.parse(readFileSync(output, "utf8"));
+} catch {
+  // The first release has no manifest to preserve.
+}
+const manifest = {
+  kitUpdatedAt: latestCommitDate(kitFiles) ?? previousManifest.kitUpdatedAt ?? null,
+  manualUpdatedAt: latestCommitDate(manualFiles) ?? previousManifest.manualUpdatedAt ?? null,
+};
+mkdirSync(resolve(root, "public/mikrotik"), { recursive: true });
+writeFileSync(output, `${JSON.stringify(manifest, null, 2)}\n`);

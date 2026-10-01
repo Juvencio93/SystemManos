@@ -54,7 +54,7 @@ function HotspotPage() {
     if (error) throw error; return (data ?? []) as any[];
   }});
   const healthQuery = useQuery({ queryKey: ["hotspot-health"], enabled: canManageHotspot, refetchInterval: 60000, queryFn: async () => { const response = await fetch("/api/internal/hotspot-health"); if (!response.ok) throw new Error("Falha no diagnóstico"); return response.json() as Promise<{ radiusConfigured: boolean; heartbeatConfigured: boolean; reason: string; checkedAt: string }>; } });
-  const filesQuery = useQuery({ queryKey: ["hotspot-files"], enabled: canManageHotspot, refetchInterval: 60000, queryFn: async () => (await fetch("/api/internal/hotspot-files")).json() as Promise<{ files: { path: string; available: boolean }[]; publishedAt: string | null }> });
+  const filesQuery = useQuery({ queryKey: ["hotspot-files"], enabled: canManageHotspot, refetchInterval: 60000, queryFn: async () => (await fetch("/api/internal/hotspot-files")).json() as Promise<{ files: { path: string; available: boolean }[]; kitUpdatedAt: string | null; manualUpdatedAt: string | null }> });
   const clients = clientsQuery.data ?? [];
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -78,7 +78,9 @@ function HotspotPage() {
   const trafficBytes = clients.reduce((sum, c) => sum + Number(c.rx_bytes ?? 0) + Number(c.tx_bytes ?? 0), 0);
   const auditItems = (auditQuery.data ?? []).reduce<any[]>((items, item) => { const t = new Date(item.created_at).getTime(); if (`${item.action} ${item.device_id}`.toLowerCase().includes(auditSearch.toLowerCase()) && (!auditFrom || t >= new Date(auditFrom).getTime()) && (!auditTo || t <= new Date(`${auditTo}T23:59:59`).getTime())) items.push(item); return items; }, []);
   const formatBytes = (n: number) => n > 1_000_000_000 ? `${(n / 1_000_000_000).toFixed(1)} GB` : `${(n / 1_000_000).toFixed(1)} MB`;
-  const filesCheckedAt = filesQuery.data?.publishedAt ? new Date(filesQuery.data.publishedAt).toLocaleString("pt-BR") : "Data da última publicação indisponível";
+  const formatReleaseDate = (value?: string | null) => value ? new Date(value).toLocaleString("pt-BR") : "Data da última atualização indisponível";
+  const kitUpdatedAt = formatReleaseDate(filesQuery.data?.kitUpdatedAt);
+  const manualUpdatedAt = formatReleaseDate(filesQuery.data?.manualUpdatedAt);
   const visible = useMemo(() => filteredClients.slice((page - 1) * 10, page * 10), [filteredClients, page]);
   const statusLabel = (s: string) => s === "operational" ? "Homologado" : s === "blocked" ? "Bloqueado" : "Pendente";
   const statusClass = (s: string) => s === "operational" ? "border-emerald-400/40 text-emerald-300" : s === "blocked" ? "border-red-400/40 text-red-300" : "border-amber-400/40 text-amber-300";
@@ -156,8 +158,8 @@ function HotspotPage() {
         {expandedSection === "kit" && <CardContent className="space-y-5">
           <p className="text-sm text-muted-foreground">Use os arquivos abaixo em todas as RBs. A plataforma identifica cada equipamento pela identidade exclusiva do RouterOS.</p>
           <div className="grid gap-3 sm:grid-cols-2">
-            <button type="button" onClick={() => setExpandedKitCard(expandedKitCard === "files" ? null : "files")} className="rounded-lg border border-primary/25 bg-primary/5 p-3 text-left text-sm transition hover:border-primary/60"><p className="font-semibold text-primary">Arquivos atualizados <span className="float-right">{expandedKitCard === "files" ? "−" : "+"}</span></p><p className="text-muted-foreground">{filesCheckedAt}</p>{expandedKitCard === "files" && <p className="mt-2 border-t border-primary/15 pt-2 text-xs text-muted-foreground">Kit-base, ativação personalizada, Heartbeat, login.html e alogin.html disponíveis para download.</p>}</button>
-            <button type="button" onClick={() => setExpandedKitCard(expandedKitCard === "manual" ? null : "manual")} className="rounded-lg border border-primary/25 bg-primary/5 p-3 text-left text-sm transition hover:border-primary/60"><p className="font-semibold text-primary">Manual atualizado <span className="float-right">{expandedKitCard === "manual" ? "−" : "+"}</span></p><p className="text-muted-foreground">{filesCheckedAt}</p>{expandedKitCard === "manual" && <p className="mt-2 border-t border-primary/15 pt-2 text-xs text-muted-foreground">Procedimento completo de reset HTML, importação dos arquivos, validação de rede, Hotspot, RADIUS e Heartbeat.</p>}</button>
+            <button type="button" onClick={() => setExpandedKitCard(expandedKitCard === "files" ? null : "files")} className="rounded-lg border border-primary/25 bg-primary/5 p-3 text-left text-sm transition hover:border-primary/60"><p className="font-semibold text-primary">Arquivos atualizados <span className="float-right">{expandedKitCard === "files" ? "−" : "+"}</span></p><p className="text-muted-foreground">{kitUpdatedAt}</p>{expandedKitCard === "files" && <p className="mt-2 border-t border-primary/15 pt-2 text-xs text-muted-foreground">Kit-base, ativação personalizada, Heartbeat, login.html e alogin.html disponíveis para download.</p>}</button>
+            <button type="button" onClick={() => setExpandedKitCard(expandedKitCard === "manual" ? null : "manual")} className="rounded-lg border border-primary/25 bg-primary/5 p-3 text-left text-sm transition hover:border-primary/60"><p className="font-semibold text-primary">Manual atualizado <span className="float-right">{expandedKitCard === "manual" ? "−" : "+"}</span></p><p className="text-muted-foreground">{manualUpdatedAt}</p>{expandedKitCard === "manual" && <p className="mt-2 border-t border-primary/15 pt-2 text-xs text-muted-foreground">Procedimento completo de reset HTML, importação dos arquivos, validação de rede, Hotspot, RADIUS e Heartbeat.</p>}</button>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" asChild><a href="/mikrotik/MANOS-HOTSPOT-BASE.rsc" download><Download className="size-4" /> Kit-base .rsc</a></Button>
