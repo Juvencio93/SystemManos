@@ -2,7 +2,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo, ReactNode, useEffect, lazy, Suspense } from "react";
-import { createPortal } from "react-dom";
 import { ArrowRight } from "lucide-react";
 
 
@@ -396,7 +395,7 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
           <ModuleCard key={module.label} module={module} isLoading={insights.isLoading} onHotspotClick={module.label === "Hotspot" ? () => setHotspotExpanded((value) => !value) : undefined} onHotspotHover={module.label === "Hotspot" ? setHotspotHovering : undefined} />
         ))}
       </div>
-      {hotspotOpen && typeof document !== "undefined" && createPortal(<NetworkMapPanel devices={hotspotDevices.data ?? []} isLoading={hotspotDevices.isLoading} overlay onClose={() => { setHotspotHovering(false); setHotspotExpanded(false); }} onMouseLeave={() => hotspotHovering && setHotspotHovering(false)} />, document.body)}
+      {hotspotOpen && <NetworkMapPanel devices={hotspotDevices.data ?? []} isLoading={hotspotDevices.isLoading} overlay onClose={() => { setHotspotHovering(false); setHotspotExpanded(false); }} onMouseLeave={() => hotspotHovering && setHotspotHovering(false)} />}
 
       <div className="mt-10">
         <RealtimeHeatmap />
