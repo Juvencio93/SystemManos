@@ -150,7 +150,15 @@ function PortalPage() {
     connectionsCount: number;
     hotspotRedirectUrl?: string | null;
     hotspotAccess?: { loginUrl: string; username: string; password: string; destination: string | null } | null;
+    checkinBlocked?: boolean;
+    blockedUntil?: string | null;
   } | null>(null);
+  const [clock, setClock] = useState(Date.now());
+  useEffect(() => {
+    if (!done?.checkinBlocked) return;
+    const timer = window.setInterval(() => setClock(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [done?.checkinBlocked]);
   const [countryKey, setCountryKey] = useState(`${defaultCountry.code}|${defaultCountry.name}`);
   const [form, setForm] = useState({
     fullName: "",
@@ -237,6 +245,10 @@ function PortalPage() {
       });
     },
     onSuccess: (result) => {
+      if (result.checkinBlocked) {
+        setDone({ isReturning: false, connectionsCount: 0, checkinBlocked: true, blockedUntil: result.blockedUntil });
+        return;
+      }
       // HotSpot authentication must be submitted directly to RouterOS. This
       // is the stable captive-portal flow: RouterOS performs the RADIUS
       // exchange and then follows the configured destination (Instagram).
@@ -288,7 +300,12 @@ function PortalPage() {
   if (!portal) return <PortalUnavailable />;
 
   if (done) {
-    return <PortalSuccess portal={portal} done={done} />;
+
+  const remainingSeconds = done.checkinBlocked && done.blockedUntil
+    ? Math.max(0, Math.ceil((new Date(done.blockedUntil).getTime() - clock) / 1000))
+    : 0;
+  const remainingLabel = `${Math.floor(remainingSeconds / 60)}:${String(remainingSeconds % 60).padStart(2, "0")}`;
+    return <PortalSuccess portal={portal} done={done} remainingSeconds={remainingSeconds} />;
   }
 
   const theme = portalTheme(portal.appearance);
@@ -655,14 +672,19 @@ function PortalPage() {
 function PortalSuccess({
   portal,
   done,
+  remainingSeconds,
 }: {
   portal: NonNullable<ReturnType<typeof Route.useLoaderData>>;
   done: {
     connectionsCount: number;
     hotspotRedirectUrl?: string | null;
     hotspotAccess?: { loginUrl: string; username: string; password: string; destination: string | null } | null;
+    checkinBlocked?: boolean;
+    blockedUntil?: string | null;
   };
+  remainingSeconds: number;
 }) {
+  const remainingLabel = `${Math.floor(remainingSeconds / 60)}:${String(remainingSeconds % 60).padStart(2, "0")}`;
   const sameName = portal.name.toLowerCase() === portal.companyName.toLowerCase();
   const finalRedirectUrl = useMemo(() => normalizeUrl(portal.redirectUrl), [portal.redirectUrl]);
   const isSocial = useMemo(() => isSocialUrl(finalRedirectUrl), [finalRedirectUrl]);
@@ -733,15 +755,17 @@ function PortalSuccess({
       <Card className={`overflow-hidden ${theme.cardClass}`} style={theme.cardStyle}>
         <CardContent className="space-y-6 p-10 text-center">
           <div className="mx-auto flex size-20 items-center justify-center rounded-full bg-primary/10 ring-1 ring-primary/20">
-            <CheckCircle2 className="size-10 text-primary" />
+            {done.checkinBlocked ? <ShieldCheck className="size-10 text-primary" /> : <CheckCircle2 className="size-10 text-primary" />}
           </div>
 
           <div className="space-y-3">
             <h1 className="font-display text-4xl font-bold tracking-tight text-white">
-              {done.hotspotAccess ? "Confirmando acesso..." : "Check-in concluído!"}
+              {done.checkinBlocked ? "Limite de check-ins atingido" : done.hotspotAccess ? "Confirmando acesso..." : "Check-in concluído!"}
             </h1>
             <p className="text-sm leading-relaxed text-[color:var(--portal-muted)]">
-              {done.hotspotAccess
+              {done.checkinBlocked
+                ? "Este dispositivo atingiu o limite de check-ins. Aguarde o prazo abaixo para tentar novamente."
+                : done.hotspotAccess
                 ? isAuthorizingHotspot
                   ? "Aguardando a confirmação segura da rede Wi-Fi..."
                   : "A rede ainda não confirmou o acesso. Toque no botão abaixo para tentar novamente."
@@ -762,14 +786,16 @@ function PortalSuccess({
 
           <div className="flex items-center justify-center gap-2 text-sm font-semibold text-primary">
             <div className="size-1.5 animate-pulse rounded-full bg-primary" />
-            {done.hotspotAccess
+            {done.checkinBlocked
+              ? remainingSeconds > 0 ? `Nova tentativa disponível em ${remainingLabel}` : "Você já pode tentar novamente."
+              : done.hotspotAccess
               ? "Seu cadastro será registrado somente após a conexão ser liberada."
               : done.connectionsCount === 1
               ? "Primeiro acesso registrado."
               : `Este é o seu ${done.connectionsCount}º acesso aqui.`}
           </div>
 
-          {done.hotspotAccess ? (
+          {!done.checkinBlocked && done.hotspotAccess ? (
             <form method="post" target="hotspot-login-frame" action={done.hotspotAccess.loginUrl}>
               <input type="hidden" name="username" value={done.hotspotAccess.username} />
               <input type="hidden" name="password" value={done.hotspotAccess.password} />
@@ -779,7 +805,7 @@ function PortalSuccess({
                 {isAuthorizingHotspot ? "Liberando Wi-Fi..." : "Concluir acesso ao Wi-Fi"}
               </Button>
             </form>
-          ) : done.hotspotRedirectUrl && (
+          ) : !done.checkinBlocked && done.hotspotRedirectUrl && (
             <Button
               asChild
               className="h-12 w-full gap-2"
@@ -790,7 +816,7 @@ function PortalSuccess({
             </Button>
           )}
 
-          {finalRedirectUrl && (
+          {!done.checkinBlocked && finalRedirectUrl && (
             <div className="space-y-4 pt-4">
               {!isInIframe && (
                 <div className="flex items-center justify-center gap-2 text-[10px] font-medium uppercase tracking-widest text-[color:var(--portal-muted)]">

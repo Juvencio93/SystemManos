@@ -208,6 +208,16 @@ export async function authorizeHotspotAccess(
       ...(pending.apMac ? { apMac: pending.apMac } : {}),
     });
 
+    const countedMac = normalizeMacAddress(data.mac_address);
+    if (countedMac) {
+      const { error: countError } = await (admin as any).rpc("record_hotspot_mac_checkin", {
+        p_grant_id: data.id,
+        p_target_id: data.portal_target_id,
+        p_mac_address: countedMac,
+      });
+      if (countError) throw new Error("Não foi possível registrar o check-in do dispositivo.");
+    }
+
     const { error: finalizeError } = await (admin as any)
       .from("hotspot_access_grants")
       .update({

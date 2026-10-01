@@ -133,7 +133,7 @@ export const submitPortalLead = createServerFn({ method: "POST" })
     if (hotspotData.mac && hotspotData.ip && target.kind !== "event") {
       let hotspotQuery = supabaseAdmin
         .from("hotspot_configs")
-        .select("vendor, config")
+        .select("vendor, config, checkin_limit, checkin_block_minutes")
         .eq("company_id", target.companyId);
 
       hotspotQuery =
@@ -142,10 +142,21 @@ export const submitPortalLead = createServerFn({ method: "POST" })
           : hotspotQuery.is("branch_id", null);
 
       const { data: hotspot } = (await hotspotQuery.maybeSingle()) as {
-        data: { vendor: HotspotVendor; config: Json } | null;
+        data: { vendor: HotspotVendor; config: Json; checkin_limit?: number | null; checkin_block_minutes?: number | null } | null;
       };
 
       if (hotspot?.vendor === "mikrotik_hotspot" || hotspot?.vendor === "mikrotik") {
+        const mac = hotspotData.mac.replace(/[^a-fA-F0-9]/g, "").toUpperCase().match(/.{2}/g)?.join(":");
+        if (!mac) throw new Error("Não foi possível identificar o dispositivo no HotSpot.");
+        const { data: limitState, error: limitError } = await (supabaseAdmin as any).rpc(
+          "check_hotspot_mac_checkin_limit",
+          { p_target_id: target.id, p_mac_address: mac, p_limit: hotspot.checkin_limit ?? 3, p_block_minutes: hotspot.checkin_block_minutes ?? 30 },
+        );
+        if (limitError) throw new Error("Não foi possível validar o limite de check-ins.");
+        const limit = Array.isArray(limitState) ? limitState[0] : limitState;
+        if (limit?.blocked) {
+          return { ok: true as const, isReturning: false, visitorId: null, connectionsCount: 0, hotspotReturnUrl: null, hotspotAccess: null, checkinBlocked: true, blockedUntil: limit.blocked_until };
+        }
         const loginUrl = safeHotspotLoginUrl(hotspotData.hotspotLoginOnly);
         if (!loginUrl) {
           throw new Error("Não foi possível confirmar o endereço local do HotSpot.");
@@ -213,6 +224,6 @@ export const submitPortalLead = createServerFn({ method: "POST" })
         });
 
     const hotspotReturnUrl = hotspotAccess?.loginUrl ?? (hotspotData.hotspotLoginOnly || hotspotData.hotspotLogin || null);
-    return { ...leadResult, hotspotReturnUrl, hotspotAccess };
+    return { ...leadResult, hotspotReturnUrl, hotspotAccess, checkinBlocked: false, blockedUntil: null };
   });
 

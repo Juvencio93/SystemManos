@@ -38,6 +38,8 @@ type FormState = {
   idleTimeoutMinutes: string;
   downloadMbps: string;
   uploadMbps: string;
+  checkinLimit: string;
+  checkinBlockMinutes: string;
 };
 
 const EMPTY_FORM: FormState = {
@@ -49,6 +51,8 @@ const EMPTY_FORM: FormState = {
   idleTimeoutMinutes: "2",
   downloadMbps: "10",
   uploadMbps: "3",
+  checkinLimit: "3",
+  checkinBlockMinutes: "30",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -104,6 +108,7 @@ export function HotspotConfigDialog({
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const { data: access } = useAccess();
   const isClientPolicyView = access?.role === "matriz" || access?.role === "filial";
+  const canEditGuestPolicy = access?.role !== "filial";
   const queryClient = useQueryClient();
   const fetchConfig = useServerFn(getHotspotConfig);
   const fetchProvisioning = useServerFn(getMikrotikProvisioning);
@@ -136,6 +141,8 @@ export function HotspotConfigDialog({
       idleTimeoutMinutes: String((config.idleTimeoutSeconds ?? 120) / 60),
       downloadMbps: String((config.downloadKbps ?? 10_000) / 1_000),
       uploadMbps: String((config.uploadKbps ?? 3_000) / 1_000),
+      checkinLimit: String(config.checkinLimit ?? 3),
+      checkinBlockMinutes: String(config.checkinBlockMinutes ?? 30),
     });
   }, [configQuery.data]);
 
@@ -168,6 +175,8 @@ export function HotspotConfigDialog({
           idleTimeoutSeconds: Math.round(Number(form.idleTimeoutMinutes) * 60),
           downloadKbps: Math.round(Number(form.downloadMbps) * 1_000),
           uploadKbps: Math.round(Number(form.uploadMbps) * 1_000),
+          checkinLimit: Math.round(Number(form.checkinLimit)),
+          checkinBlockMinutes: Math.round(Number(form.checkinBlockMinutes)),
           limitSource: "system",
         },
       }),
@@ -309,22 +318,30 @@ export function HotspotConfigDialog({
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="grid gap-2">
                     <Label htmlFor={`session-timeout-${targetId}`}>Tempo máximo por check-in (minutos)</Label>
-                    <Input id={`session-timeout-${targetId}`} type="number" min="1" max="1440" value={form.sessionTimeoutMinutes} onChange={(event) => set("sessionTimeoutMinutes", event.target.value)} />
+                    <Input disabled={!canEditGuestPolicy} id={`session-timeout-${targetId}`} type="number" min="1" max="1440" value={form.sessionTimeoutMinutes} onChange={(event) => set("sessionTimeoutMinutes", event.target.value)} />
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor={`idle-timeout-${targetId}`}>Inatividade máxima (minutos)</Label>
-                    <Input id={`idle-timeout-${targetId}`} type="number" min="1" max="1440" value={form.idleTimeoutMinutes} onChange={(event) => set("idleTimeoutMinutes", event.target.value)} />
+                    <Input disabled={!canEditGuestPolicy} id={`idle-timeout-${targetId}`} type="number" min="1" max="1440" value={form.idleTimeoutMinutes} onChange={(event) => set("idleTimeoutMinutes", event.target.value)} />
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor={`download-rate-${targetId}`}>Velocidade por visitante — download (Mbps)</Label>
-                    <Input id={`download-rate-${targetId}`} type="number" min="1" max="1000" value={form.downloadMbps} onChange={(event) => set("downloadMbps", event.target.value)} />
+                    <Input disabled={!canEditGuestPolicy} id={`download-rate-${targetId}`} type="number" min="1" max="1000" value={form.downloadMbps} onChange={(event) => set("downloadMbps", event.target.value)} />
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor={`upload-rate-${targetId}`}>Velocidade por visitante — upload (Mbps)</Label>
-                    <Input id={`upload-rate-${targetId}`} type="number" min="1" max="1000" value={form.uploadMbps} onChange={(event) => set("uploadMbps", event.target.value)} />
+                    <Input disabled={!canEditGuestPolicy} id={`upload-rate-${targetId}`} type="number" min="1" max="1000" value={form.uploadMbps} onChange={(event) => set("uploadMbps", event.target.value)} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor={`checkin-limit-${targetId}`}>Limite de check-ins por dispositivo</Label>
+                    <Input disabled={!canEditGuestPolicy} id={`checkin-limit-${targetId}`} type="number" min="0" max="50" value={form.checkinLimit} onChange={(event) => set("checkinLimit", event.target.value)} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor={`checkin-block-${targetId}`}>Bloqueio temporário após o limite (minutos)</Label>
+                    <Input disabled={!canEditGuestPolicy} id={`checkin-block-${targetId}`} type="number" min="1" max="1440" value={form.checkinBlockMinutes} onChange={(event) => set("checkinBlockMinutes", event.target.value)} />
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">Padrão: 10 min de sessão, 2 min sem tráfego e 10 Mbps ↓ / 3 Mbps ↑ por visitante.</p>
+                <p className="text-xs text-muted-foreground">Padrão: 10 min de sessão, 2 min sem tráfego, 10 Mbps ↓ / 3 Mbps ↑ e 3 check-ins por dispositivo. Use 0 para desativar o limite.</p>
               </div>
             ) : null}
 

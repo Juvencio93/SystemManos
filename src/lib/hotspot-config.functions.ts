@@ -58,6 +58,8 @@ const saveSchema = targetSchema.extend({
   idleTimeoutSeconds: nullablePositiveInteger(60, 86400),
   downloadKbps: nullablePositiveInteger(64, 1000000),
   uploadKbps: nullablePositiveInteger(64, 1000000),
+  checkinLimit: nullablePositiveInteger(0, 50),
+  checkinBlockMinutes: nullablePositiveInteger(1, 1440),
   limitSource: z.enum(["equipment", "system"]),
   routerIdentity: z.string().trim().regex(/^MT-[A-Z0-9-]{6,48}$/).optional().or(z.literal("")),
 });
@@ -73,7 +75,7 @@ const ROLE_PRIORITY = ["adm", "matriz", "filial", "revenda"] as const;
 async function resolveScope(
   userId: string,
   target: z.infer<typeof targetSchema>,
-): Promise<{ companyId: string; branchId: string | null }> {
+): Promise<{ companyId: string; branchId: string | null; role: UserRoleRow["role"] }> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
   let companyId = target.targetId;
@@ -132,7 +134,7 @@ async function resolveScope(
     throw new Error("Sem permissão para gerenciar este equipamento.");
   }
 
-  return { companyId, branchId };
+  return { companyId, branchId, role: primaryRole.role };
 }
 
 function toPublicConfig(row: HotspotConfigRow | null) {
@@ -149,6 +151,8 @@ function toPublicConfig(row: HotspotConfigRow | null) {
     idleTimeoutSeconds: row.idle_timeout_seconds,
     downloadKbps: row.download_kbps,
     uploadKbps: row.upload_kbps,
+    checkinLimit: (row as any).checkin_limit,
+    checkinBlockMinutes: (row as any).checkin_block_minutes,
     limitSource: row.limit_source,
     isActive: row.is_active,
     lastTestedAt: row.last_tested_at,
@@ -166,7 +170,7 @@ export const getHotspotConfig = createServerFn({ method: "GET" })
     let query = supabaseAdmin
       .from("hotspot_configs")
       .select(
-        "id, vendor, display_name, ssid, ap_mac, integration_mode, status, session_timeout_seconds, idle_timeout_seconds, download_kbps, upload_kbps, limit_source, is_active, last_tested_at, last_test_status",
+        "id, vendor, display_name, ssid, ap_mac, integration_mode, status, session_timeout_seconds, idle_timeout_seconds, download_kbps, upload_kbps, checkin_limit, checkin_block_minutes, limit_source, is_active, last_tested_at, last_test_status",
       )
       .eq("company_id", scope.companyId);
     query = scope.branchId ? query.eq("branch_id", scope.branchId) : query.is("branch_id", null);
@@ -222,6 +226,7 @@ export const saveHotspotConfig = createServerFn({ method: "POST" })
   .validator((data: unknown) => saveSchema.parse(data))
   .handler(async ({ data, context }) => {
     const scope = await resolveScope(context.userId, data);
+    if (scope.role === "filial") throw new Error("A política de visitantes é definida pela Matriz.");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const statusByVendor = {
@@ -231,7 +236,7 @@ export const saveHotspotConfig = createServerFn({ method: "POST" })
       intelbras_hotspot300_legacy: "awaiting_homologation",
     } as const;
 
-    const record: Database["public"]["Tables"]["hotspot_configs"]["Insert"] = {
+    const record: Database["public"]["Tables"]["hotspot_configs"]["Insert"] & Record<string, unknown> = {
       company_id: scope.companyId,
       branch_id: scope.branchId,
       vendor: data.vendor,
@@ -244,6 +249,8 @@ export const saveHotspotConfig = createServerFn({ method: "POST" })
       idle_timeout_seconds: data.idleTimeoutSeconds,
       download_kbps: data.downloadKbps,
       upload_kbps: data.uploadKbps,
+      checkin_limit: data.checkinLimit ?? 3,
+      checkin_block_minutes: data.checkinBlockMinutes ?? 30,
       limit_source: data.limitSource,
       config: {},
       is_active: false,
