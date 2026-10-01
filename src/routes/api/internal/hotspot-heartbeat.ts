@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { heartbeatUpdate, routerUptimeSeconds, validateHeartbeat, type HeartbeatInput } from "@/lib/hotspot-protocol";
+import { heartbeatUpdate, routerUptimeSeconds, sanitizeRouterOsHeartbeat, validateHeartbeat, type HeartbeatInput } from "@/lib/hotspot-protocol";
 import { hasHotspotRouterAuth } from "@/lib/hotspot-router-auth";
 
 export const Route = createFileRoute("/api/internal/hotspot-heartbeat")({
@@ -15,13 +15,15 @@ export const Route = createFileRoute("/api/internal/hotspot-heartbeat")({
         else if (request.headers.get("content-type")?.includes("application/x-www-form-urlencoded")) {
           body = Object.fromEntries(new URLSearchParams(await request.text())) as HeartbeatInput;
         } else body = await request.json().catch(() => null) as HeartbeatInput | null;
-        if (!body || !validateHeartbeat(body)) return new Response("Invalid heartbeat", { status: 400 });
-        if (!hasHotspotRouterAuth(request, body.routerIdentity!)) return new Response("Unauthorized", { status: 401 });
+        if (!body) return new Response("Invalid heartbeat", { status: 400 });
+        const heartbeat = sanitizeRouterOsHeartbeat(body);
+        if (!validateHeartbeat(heartbeat)) return new Response("Invalid heartbeat", { status: 400 });
+        if (!hasHotspotRouterAuth(request, heartbeat.routerIdentity!)) return new Response("Unauthorized", { status: 401 });
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { data: current, error: lookupError } = await (supabaseAdmin as any)
           .from("hotspot_devices")
           .select("id,status,router_applied_status,router_status_requested_at,router_status_applied_at,sync_requested_at,sync_applied_at,reboot_requested_at,reboot_applied_at,last_seen_uptime")
-          .eq("router_identity", body.routerIdentity)
+          .eq("router_identity", heartbeat.routerIdentity)
           .maybeSingle();
         if (lookupError) return new Response("Could not read device", { status: 500 });
         if (!current) return new Response("Device not found", { status: 404 });
@@ -31,7 +33,7 @@ export const Route = createFileRoute("/api/internal/hotspot-heartbeat")({
         const syncPending = Boolean(current.sync_requested_at &&
           current.sync_applied_at !== current.sync_requested_at);
         const previousUptime = routerUptimeSeconds(current.last_seen_uptime ?? undefined);
-        const reportedUptime = routerUptimeSeconds(body.uptime);
+        const reportedUptime = routerUptimeSeconds(heartbeat.uptime);
         const pendingCommandId = current.reboot_requested_at ? String(Date.parse(current.reboot_requested_at)) : null;
         const rebootConfirmed = Boolean(
           pendingCommandId &&
@@ -41,14 +43,14 @@ export const Route = createFileRoute("/api/internal/hotspot-heartbeat")({
             reportedUptime !== null &&
             reportedUptime < previousUptime,
         );
-        const reportedFirewallStatus = body.firewallBlocked === true || body.firewallBlocked === "yes" ? "blocked" : "unblocked";
-        const firewallConfirmed = body.firewallBlocked !== undefined && body.firewallBlocked !== "" &&
-          (body.firewallBlocked === true || body.firewallBlocked === false || body.firewallBlocked === "yes" || body.firewallBlocked === "no");
+        const reportedFirewallStatus = heartbeat.firewallBlocked === true || heartbeat.firewallBlocked === "yes" ? "blocked" : "unblocked";
+        const firewallConfirmed = heartbeat.firewallBlocked !== undefined && heartbeat.firewallBlocked !== "" &&
+          (heartbeat.firewallBlocked === true || heartbeat.firewallBlocked === false || heartbeat.firewallBlocked === "yes" || heartbeat.firewallBlocked === "no");
         const firewallMatchesRequest = firewallConfirmed &&
           reportedFirewallStatus === (current.status === "blocked" ? "blocked" : "unblocked");
         const firewallStateChanged = firewallConfirmed && current.router_applied_status !== reportedFirewallStatus;
         const update = {
-          ...heartbeatUpdate(body, now, syncPending ? current.sync_requested_at : null),
+          ...heartbeatUpdate(heartbeat, now, syncPending ? current.sync_requested_at : null),
           ...(rebootConfirmed ? { reboot_requested_at: null, reboot_applied_at: now } : {}),
           ...(firewallStateChanged ? { router_applied_status: reportedFirewallStatus } : {}),
           ...(routerStatusPending && firewallMatchesRequest ? { router_status_applied_at: now } : {}),

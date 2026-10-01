@@ -42,6 +42,43 @@ export function validateHeartbeat(input: HeartbeatInput | null | undefined) {
   return true;
 }
 
+/**
+ * RouterOS releases do not always serialize telemetry identically (notably
+ * uptime and ping values). A valid, authenticated router must not lose its
+ * heartbeat merely because one optional metric has an unfamiliar format.
+ * Drop only malformed optional telemetry; identity and control fields keep
+ * their strict validation in validateHeartbeat.
+ */
+export function sanitizeRouterOsHeartbeat(input: HeartbeatInput): HeartbeatInput {
+  const sanitized: HeartbeatInput = { ...input };
+
+  if (sanitized.uptime && routerUptimeSeconds(sanitized.uptime) === null) delete sanitized.uptime;
+
+  const optionalNumbers: Array<keyof Pick<HeartbeatInput, "latencyMs" | "packetLossPct" | "activeSessions" | "rxBytes" | "txBytes">> = [
+    "latencyMs",
+    "packetLossPct",
+    "activeSessions",
+    "rxBytes",
+    "txBytes",
+  ];
+  for (const field of optionalNumbers) {
+    const value = sanitized[field];
+    const bounds: Record<typeof field, readonly [number, number]> = {
+      latencyMs: [0, 3_600_000],
+      packetLossPct: [0, 100],
+      activeSessions: [0, 1_000_000],
+      rxBytes: [0, Number.MAX_SAFE_INTEGER],
+      txBytes: [0, Number.MAX_SAFE_INTEGER],
+    };
+    if (value !== undefined && value !== "" && finiteNumber(value, ...bounds[field]) === null) delete sanitized[field];
+  }
+
+  if (sanitized.firewallBlocked !== undefined && sanitized.firewallBlocked !== "" && ![true, false, "yes", "no"].includes(sanitized.firewallBlocked)) {
+    delete sanitized.firewallBlocked;
+  }
+  return sanitized;
+}
+
 export function heartbeatUpdate(input: HeartbeatInput, now: string, syncRequestedAt?: string | null) {
   return {
     ap_mac: input.mac,

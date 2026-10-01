@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { heartbeatUpdate, routerUptimeSeconds, validateHeartbeat, validateSyncRequest } from "./hotspot-protocol";
+import { heartbeatUpdate, routerUptimeSeconds, sanitizeRouterOsHeartbeat, validateHeartbeat, validateSyncRequest } from "./hotspot-protocol";
 describe("hotspot protocol", () => {
   it("validates identity, finite telemetry, firewall state, and reboot acknowledgements", () => {
     expect(validateHeartbeat({})).toBe(false);
@@ -18,5 +18,15 @@ describe("hotspot protocol", () => {
     expect(heartbeatUpdate({ routerIdentity: "RB" }, "2026-09-29T12:00:00.000Z", null)).not.toHaveProperty("sync_applied_at");
     expect(routerUptimeSeconds("1w2d3h4m5s")).toBe(788645);
     expect(routerUptimeSeconds("not uptime")).toBeNull();
+  });
+
+  it("drops malformed optional telemetry without discarding the router heartbeat", () => {
+    expect(sanitizeRouterOsHeartbeat({
+      routerIdentity: "MT-BOTECO",
+      uptime: "unknown",
+      latencyMs: "17ms",
+      packetLossPct: "n/a",
+      activeSessions: "1",
+    })).toEqual({ routerIdentity: "MT-BOTECO", activeSessions: "1" });
   });
 });
