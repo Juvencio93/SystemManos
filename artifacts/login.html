@@ -9,21 +9,15 @@
   <body>
     <p>Redirecionando para o acesso Wi-Fi…</p>
 
-    <!-- MikroTik substitutes every $(...) field before serving this page. -->
+    <!-- RouterOS replaces $(...) before sending this form. -->
     <form id="manos-tech-entry" method="post" action="https://manostech-system.com.br/api/public/hotspot-entry">
-      <!-- Universal file: the platform maps this unique RouterOS identity to
-           the correct company, branch and campaign. Do not hard-code a slug. -->
       <input type="hidden" name="router-id" value="$(identity)">
       <input type="hidden" name="mac" value="$(mac)">
       <input type="hidden" name="ip" value="$(ip)">
-      <input type="hidden" name="link-login" value="$(link-login)">
       <input type="hidden" name="link-login-only" value="$(link-login-only)">
       <input type="hidden" name="link-orig" value="$(link-orig)">
-      <input type="hidden" name="link-orig-esc" value="$(link-orig-esc)">
     </form>
 
-    <script>
-      document.getElementById("manos-tech-entry").submit();
-    </script>
+    <script>document.getElementById("manos-tech-entry").submit();</script>
   </body>
 </html>

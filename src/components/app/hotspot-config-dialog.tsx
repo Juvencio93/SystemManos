@@ -358,8 +358,9 @@ export function HotspotConfigDialog({
                       </Button>
                     </div>
                     <p>
-                      O login.html deve enviar por POST os campos <code>slug</code>, <code>mac</code>,
-                      <code>ip</code>, <code>link-login</code>, <code>link-login-only</code> e <code>link-orig</code>.
+                      O login.html universal deve enviar por POST os campos <code>router-id</code>, <code>mac</code>,
+                      <code>ip</code>, <code>link-login-only</code> e <code>link-orig</code>. O sistema resolve o
+                      portal correto pela identidade da RB; não informe slug de campanha no arquivo.
                       Após o check-in, o portal devolve o visitante ao HotSpot para autenticação.
                     </p>
                   </div>
