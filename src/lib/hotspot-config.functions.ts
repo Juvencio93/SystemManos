@@ -283,11 +283,11 @@ export const saveHotspotConfig = createServerFn({ method: "POST" })
     const result = existing
       ? await supabaseAdmin
           .from("hotspot_configs")
-          .update(record)
+          .update(record as any)
           .eq("id", existing.id)
           .select("*")
           .single()
-      : await supabaseAdmin.from("hotspot_configs").insert(record).select("*").single();
+      : await (supabaseAdmin as any).from("hotspot_configs").insert(record).select("*").single();
 
     if (result.error || !result.data) {
       throw new Error("Não foi possível salvar a configuração do equipamento.");
