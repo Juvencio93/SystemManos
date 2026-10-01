@@ -11,7 +11,20 @@ export const Route = createFileRoute("/api/internal/hotspot-heartbeat")({
         const headerMac = request.headers.get("x-manos-mac");
         let body: HeartbeatInput | null;
         if (Object.keys(queryBody).length > 0) body = queryBody as HeartbeatInput;
-        else if (headerIdentity) body = { routerIdentity: headerIdentity, ...(headerMac ? { mac: headerMac } : {}) };
+        else if (headerIdentity) body = {
+          routerIdentity: headerIdentity,
+          ...(headerMac ? { mac: headerMac } : {}),
+          ip: request.headers.get("x-manos-ip") ?? undefined,
+          version: request.headers.get("x-manos-version") ?? undefined,
+          uptime: request.headers.get("x-manos-uptime") ?? undefined,
+          activeSessions: request.headers.get("x-manos-sessions") ?? undefined,
+          rxBytes: request.headers.get("x-manos-rx-bytes") ?? undefined,
+          txBytes: request.headers.get("x-manos-tx-bytes") ?? undefined,
+          latencyMs: request.headers.get("x-manos-latency-ms") ?? undefined,
+          packetLossPct: request.headers.get("x-manos-packet-loss") ?? undefined,
+          firewallBlocked: request.headers.get("x-manos-firewall") ?? undefined,
+          rebootCommandId: request.headers.get("x-manos-reboot-command") ?? undefined,
+        };
         else if (request.headers.get("content-type")?.includes("application/x-www-form-urlencoded")) {
           body = Object.fromEntries(new URLSearchParams(await request.text())) as HeartbeatInput;
         } else body = await request.json().catch(() => null) as HeartbeatInput | null;

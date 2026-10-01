@@ -63,9 +63,13 @@ function heartbeatScript(identity: string, token: string) {
   :if ([:pick $rebootComment 0 [:len $rebootPrefix]] = $rebootPrefix) do={
     :set rebootCommandId [:pick $rebootComment [:len $rebootPrefix] [:len $rebootComment]]
   }
-  :local heartbeatUrl ("${baseUrl}/api/internal/hotspot-heartbeat?routerIdentity=" . $routerIdentity . "&ip=" . $wanIp . "&version=" . $routerVersion . "&mac=" . $routerMac . "&uptime=" . $uptime . "&activeSessions=" . $sessions . "&rxBytes=" . $rxBytes . "&txBytes=" . $txBytes . "&latencyMs=" . $latencyMs . "&packetLossPct=" . $packetLossPct . "&firewallBlocked=" . $firewallBlocked . "&rebootCommandId=" . $rebootCommandId)
+  # RouterOS can truncate a POST URL assembled with many query parameters.
+  # Send telemetry as headers instead, so the heartbeat remains valid even
+  # when the installed RouterOS formats version or uptime differently.
+  :local heartbeatUrl "${baseUrl}/api/internal/hotspot-heartbeat"
+  :local heartbeatHeaders ("X-Manos-Heartbeat: " . $heartbeatToken . ",X-Manos-Router: " . $routerIdentity . ",X-Manos-Mac: " . $routerMac . ",X-Manos-IP: " . $wanIp . ",X-Manos-Version: " . $routerVersion . ",X-Manos-Uptime: " . $uptime . ",X-Manos-Sessions: " . $sessions . ",X-Manos-RX-Bytes: " . $rxBytes . ",X-Manos-TX-Bytes: " . $txBytes . ",X-Manos-Latency-MS: " . $latencyMs . ",X-Manos-Packet-Loss: " . $packetLossPct . ",X-Manos-Firewall: " . $firewallBlocked . ",X-Manos-Reboot-Command: " . $rebootCommandId)
   :do {
-    /tool fetch url=$heartbeatUrl http-method=post http-header-field=("X-Manos-Heartbeat: " . $heartbeatToken) check-certificate=yes keep-result=no
+    /tool fetch url=$heartbeatUrl http-method=post http-header-field=$heartbeatHeaders check-certificate=yes keep-result=no
   } on-error={ :log warning "Manos Tech heartbeat failed" }
   :local commandFile "flash/manos-command.rsc"
   :local commandFileId [/file find where name=$commandFile]
