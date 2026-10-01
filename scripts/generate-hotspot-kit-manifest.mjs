@@ -17,7 +17,7 @@ function latestCommitDate(files) {
     } catch {
       return 0;
     }
-  }).filter(Number.isFinite);
+  }).filter((timestamp) => Number.isFinite(timestamp) && timestamp > 0);
   return timestamps.length ? new Date(Math.max(...timestamps)).toISOString() : null;
 }
 
