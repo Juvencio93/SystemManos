@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { BookOpen, Download, Router, ChevronLeft, ChevronRight } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/app/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -61,6 +61,9 @@ function HotspotPage() {
   const [syncMessage, setSyncMessage] = useState("");
   const [expandedKitCard, setExpandedKitCard] = useState<"files" | "manual" | null>(null);
   const [expandedSection, setExpandedSection] = useState<"kit" | "audit" | null>(null);
+  const [mapZoom, setMapZoom] = useState(1);
+  const [heartbeatSeconds, setHeartbeatSeconds] = useState(30);
+  useEffect(() => { const timer = window.setInterval(() => setHeartbeatSeconds((v) => v <= 1 ? 30 : v - 1), 1000); return () => window.clearInterval(timer); }, []);
   const isOnline = (lastSeen?: string) => Boolean(lastSeen && Date.now() - new Date(lastSeen).getTime() < 15 * 60 * 1000);
   const filteredClients = clients.reduce<any[]>((items, client) => {
     const text = `${client.router_identity ?? ""} ${client.ap_mac ?? ""}`.toLowerCase();
@@ -128,17 +131,18 @@ function HotspotPage() {
         <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Tráfego total</p><p className="mt-1 text-2xl font-bold">{formatBytes(trafficBytes)}</p></CardContent></Card>
       </div>
       <Card className="overflow-hidden border-primary/20 bg-[#071017]">
-        <CardHeader className="flex flex-row items-start justify-between gap-4 border-b border-white/5">
+        <CardHeader className="gap-3 border-b border-white/5">
           <div><CardTitle className="flex items-center gap-2"><Router className="size-5 text-primary" /> Mapa da rede</CardTitle><p className="mt-1 text-xs text-muted-foreground">Visão operacional das RBs cadastradas</p></div>
-          <div className="flex flex-wrap gap-3 text-[11px] text-muted-foreground"><span className="flex items-center gap-1"><i className="size-2 rounded-full bg-emerald-400" />Online</span><span className="flex items-center gap-1"><i className="size-2 rounded-full bg-amber-300" />Instável</span><span className="flex items-center gap-1"><i className="size-2 rounded-full bg-red-400" />Offline</span></div>
+          <div className="flex flex-wrap items-center gap-2"><Input className="min-w-[220px] flex-1" placeholder="Buscar RB ou MAC" value={search} onChange={(e) => setSearch(e.target.value)} /><Button size="sm" variant="outline" onClick={() => setMapZoom(1)}>Centralizar</Button><Button size="sm" variant="outline" onClick={() => setMapZoom((v) => Math.min(1.4, v + .1))}>Zoom +</Button><span className="text-xs text-muted-foreground">Heartbeat em {heartbeatSeconds}s</span></div>
+          <div className="flex flex-wrap gap-3 text-[11px] text-muted-foreground"><span className="flex items-center gap-1"><i className="size-2 rounded-full bg-emerald-400" />Online {clients.filter((c) => isOnline(c.last_seen_at)).length}</span><span className="flex items-center gap-1"><i className="size-2 rounded-full bg-amber-300" />Instável</span><span className="flex items-center gap-1"><i className="size-2 rounded-full bg-red-400" />Offline {offlineCount}</span></div>
         </CardHeader>
-        <CardContent className="p-0"><div className="relative min-h-[min(58vh,520px)] overflow-hidden bg-[radial-gradient(circle_at_center,#12303a_0,transparent_58%),linear-gradient(135deg,#071017,#0b1820)]">
+        <CardContent className="p-0"><div className="relative min-h-[min(58vh,520px)] overflow-hidden bg-[radial-gradient(circle_at_center,#12303a_0,transparent_58%),linear-gradient(135deg,#071017,#0b1820)]"><div className="absolute left-3 top-1/2 z-20 flex -translate-y-1/2 flex-col gap-2 rounded-xl border border-white/10 bg-slate-950/90 p-3 text-xs"><span>Latência: —</span><span>Perda: —</span><span className="text-emerald-300">Online: {clients.filter((c) => isOnline(c.last_seen_at)).length}</span><span className="text-red-300">Offline: {offlineCount}</span></div><div style={{ transform: `scale(${mapZoom})`, transformOrigin: "center" }}>
           <div className="absolute inset-0 opacity-20 [background-image:linear-gradient(rgba(120,190,200,.25)_1px,transparent_1px),linear-gradient(90deg,rgba(120,190,200,.25)_1px,transparent_1px)] [background-size:42px_42px]" />
           <div className="absolute right-3 top-3 z-20 rounded-md border border-white/10 bg-black/30 px-3 py-2 text-[11px]"><span className="text-emerald-400">● Online</span><span className="ml-3 text-amber-400">● Instável</span><span className="ml-3 text-red-400">● Offline</span></div>
           <svg className="absolute inset-0 size-full" aria-hidden="true">{clients.map((client, index) => <line key={`connection-${client.id}`} x1="50%" y1="50%" x2={`${18 + ((index * 37) % 68)}%`} y2={`${28 + ((index * 53) % 45)}%`} stroke="rgba(34,211,238,.28)" strokeWidth="1" strokeDasharray="5 5" />)}</svg>
           {clients.map((client, index) => { const online = isOnline(client.last_seen_at); const unstable = online && client.last_seen_at ? Date.now() - new Date(client.last_seen_at).getTime() > 5 * 60 * 1000 : false; const city = portalItems.find((item) => item.id === (client.branch_id ?? client.company_id))?.city ?? "Cidade não cadastrada"; const color = online ? (unstable ? "bg-amber-300 shadow-amber-300/70" : "bg-emerald-400 shadow-emerald-400/70") : "bg-red-400 shadow-red-400/70"; return <button key={client.id} onClick={() => setSelected(client)} className="absolute z-10 -translate-x-1/2 -translate-y-1/2 text-left" style={{ left: `${18 + ((index * 37) % 68)}%`, top: `${28 + ((index * 53) % 45)}%` }}><span className={`mx-auto block size-4 rounded-full border-2 border-white/80 shadow-[0_0_18px_5px] ${color}`} /><span className="mt-2 block max-w-36 truncate rounded bg-black/60 px-2 py-1 text-[11px] text-white backdrop-blur">{client.router_identity ?? "RB"}<small className="block text-[10px] text-slate-400">{city} · TX {formatBytes(Number(client.tx_bytes ?? 0))} · RX {formatBytes(Number(client.rx_bytes ?? 0))}</small></span></button>; })}
           {!clients.length && <div className="absolute inset-0 grid place-items-center text-sm text-muted-foreground">Nenhuma RB cadastrada para exibir no mapa.</div>}
-        </div></CardContent>
+        </div></div></CardContent>
       </Card>
       <Card className="glass-panel border-primary/20"><CardHeader><CardTitle>Cadastro e políticas das RBs</CardTitle></CardHeader><CardContent className="grid gap-3 sm:grid-cols-2">{portalItems.map((item) => item.kind === "Evento" ? null : <div key={item.id} className="rounded-lg border border-border p-3"><p className="font-medium">{item.name}</p><p className="mb-3 text-xs text-muted-foreground">Política RADIUS e homologação do Hotspot</p><HotspotConfigDialog kind={item.kind === "Sede" ? "company" : "branch"} targetId={item.id} unitName={item.name} portalSlug={item.slug} baseUrl={typeof window !== "undefined" ? window.location.origin : ""} /></div>)}</CardContent></Card>
       <Card className="glass-panel border-primary/20">
