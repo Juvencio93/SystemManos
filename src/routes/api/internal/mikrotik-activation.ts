@@ -86,11 +86,11 @@ function heartbeatScript(identity: string, token: string) {
   /system script set [find where name="MANOS-HEARTBEAT"] policy=ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source={${scriptSource}}
 }
 :if ([:len [/system scheduler find where name="MANOS-HEARTBEAT"]] = 0) do={
-  /system scheduler add name="MANOS-HEARTBEAT" interval=30s on-event="MANOS-HEARTBEAT" policy=ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon disabled=no
+  /system scheduler add name="MANOS-HEARTBEAT" interval=5s on-event="MANOS-HEARTBEAT" policy=ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon disabled=no
 } else={
-  /system scheduler set [find where name="MANOS-HEARTBEAT"] interval=30s on-event="MANOS-HEARTBEAT" policy=ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon disabled=no
+  /system scheduler set [find where name="MANOS-HEARTBEAT"] interval=5s on-event="MANOS-HEARTBEAT" policy=ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon disabled=no
 }
-:log info "Manos Tech heartbeat configured (30s)"
+:log info "Manos Tech heartbeat configured (5s)"
 `;
 }
 

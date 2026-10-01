@@ -31,7 +31,7 @@ function HotspotPage() {
   const portalItems = (portalsQuery.data?.items ?? []) as PortalItem[];
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<any>(null);
-  const clientsQuery = useQuery({ queryKey: ["hotspot-approved-clients", access?.role, access?.resellerId, access?.companyId, access?.branchId], enabled: canManageHotspot, refetchInterval: 30000, queryFn: async () => {
+  const clientsQuery = useQuery({ queryKey: ["hotspot-approved-clients", access?.role, access?.resellerId, access?.companyId, access?.branchId], enabled: canManageHotspot, refetchInterval: 5000, queryFn: async () => {
     let query = (supabase as any).from("hotspot_devices").select("id,router_identity,ap_mac,status,company_id,branch_id,updated_at,last_seen_at,last_seen_ip,last_seen_uptime,router_version,active_sessions,rx_bytes,tx_bytes,latency_ms,packet_loss_pct,sync_requested_at,sync_applied_at,reboot_requested_at,reboot_applied_at,router_applied_status,router_status_applied_at");
     if (access?.role === "revenda" && access.resellerId) {
       const [{ data: companies }, { data: branches }] = await Promise.all([
@@ -64,8 +64,8 @@ function HotspotPage() {
   const [expandedKitCard, setExpandedKitCard] = useState<"files" | "manual" | null>(null);
   const [expandedSection, setExpandedSection] = useState<"kit" | "audit" | null>(null);
   const [mapZoom, setMapZoom] = useState(1);
-  const [heartbeatSeconds, setHeartbeatSeconds] = useState(30);
-  useEffect(() => { const timer = window.setInterval(() => setHeartbeatSeconds((v) => v <= 1 ? 30 : v - 1), 1000); return () => window.clearInterval(timer); }, []);
+  const [heartbeatSeconds, setHeartbeatSeconds] = useState(5);
+  useEffect(() => { const timer = window.setInterval(() => setHeartbeatSeconds((v) => v <= 1 ? 5 : v - 1), 1000); return () => window.clearInterval(timer); }, []);
   const isOnline = (lastSeen?: string) => Boolean(lastSeen && Date.now() - new Date(lastSeen).getTime() < 90 * 1000);
   const filteredClients = clients.reduce<any[]>((items, client) => {
     const text = `${client.router_identity ?? ""} ${client.ap_mac ?? ""}`.toLowerCase();
