@@ -14,6 +14,7 @@ import { HotspotConfigDialog } from "@/components/app/hotspot-config-dialog";
 import { useServerFn } from "@tanstack/react-start";
 import { getMikrotikActivationDownload } from "@/lib/hotspot-config.functions";
 import { useAccess } from "@/hooks/use-access";
+import { HotspotNetworkMap } from "@/components/app/hotspot-network-map";
 
 export const Route = createFileRoute("/_authenticated/hotspot")({
   head: () => ({ meta: [{ title: "Hotspot | Manos Tech" }] }),
@@ -123,6 +124,7 @@ function HotspotPage() {
   return (
     <div className="container max-w-5xl space-y-8 py-10">
       <PageHeader title="Hotspot" description="Manuais e arquivos oficiais para instalação e atualização das RBs." />
+      <HotspotNetworkMap devices={clients} onBlock={async (device) => { await (supabase as any).from("hotspot_devices").update({ status: "blocked", updated_at: new Date().toISOString() }).eq("id", device.id); await clientsQuery.refetch(); }} onReboot={(device) => void requestReboot(device)} />
       <div className="-mt-2 grid gap-3 sm:grid-cols-5">
         <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Dispositivos cadastrados</p><p className="mt-1 text-2xl font-bold">{clients.length}</p></CardContent></Card>
         <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Homologados</p><p className="mt-1 text-2xl font-bold text-emerald-400">{clients.reduce((n, c) => n + (c.status === "operational" ? 1 : 0), 0)}</p></CardContent></Card>
@@ -130,7 +132,7 @@ function HotspotPage() {
         <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Sessões ativas</p><p className="mt-1 text-2xl font-bold">{activeSessions}</p></CardContent></Card>
         <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Tráfego total</p><p className="mt-1 text-2xl font-bold">{formatBytes(trafficBytes)}</p></CardContent></Card>
       </div>
-      <Card className="overflow-hidden border-primary/20 bg-[#071017]">
+      <Card className="hidden overflow-hidden border-primary/20 bg-[#071017]">
         <CardHeader className="gap-3 border-b border-white/5">
           <div><CardTitle className="flex items-center gap-2"><Router className="size-5 text-primary" /> Mapa da rede</CardTitle><p className="mt-1 text-xs text-muted-foreground">Visão operacional das RBs cadastradas</p></div>
           <div className="flex flex-wrap items-center gap-2"><Input className="min-w-[220px] flex-1" placeholder="Buscar RB ou MAC" value={search} onChange={(e) => setSearch(e.target.value)} /><Button size="sm" variant="outline" onClick={() => setMapZoom(1)}>Centralizar</Button><Button size="sm" variant="outline" onClick={() => setMapZoom((v) => Math.min(1.4, v + .1))}>Zoom +</Button><span className="text-xs text-muted-foreground">Heartbeat em {heartbeatSeconds}s</span></div>
