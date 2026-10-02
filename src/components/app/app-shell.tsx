@@ -200,7 +200,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
-          {access?.userId ? <HotspotNotificationCenter userId={access.userId} /> : null}
+          {access?.userId && (role === "adm" || role === "revenda") ? (
+            <HotspotNotificationCenter userId={access.userId} />
+          ) : null}
           <Button variant="ghost" size="sm" className="shrink-0" onClick={handleSignOut}>
             <LogOut className="size-4" />
             <span className="hidden sm:inline">Sair</span>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Bell, CheckCheck, Router } from "lucide-react";
+import { AlertTriangle, Bell, CheckCheck, Router, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -8,10 +8,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { buildHotspotAlerts } from "@/lib/hotspot-events";
 
 const STORAGE_PREFIX = "manos-hotspot-alerts-read:";
+const DISMISSED_STORAGE_PREFIX = "manos-hotspot-alerts-dismissed:";
 
 export function HotspotNotificationCenter({ userId }: { userId: string }) {
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const storageKey = `${STORAGE_PREFIX}${userId}`;
+  const dismissedStorageKey = `${DISMISSED_STORAGE_PREFIX}${userId}`;
 
   useEffect(() => {
     try {
@@ -20,6 +23,16 @@ export function HotspotNotificationCenter({ userId }: { userId: string }) {
       setReadIds(new Set());
     }
   }, [storageKey]);
+
+  useEffect(() => {
+    try {
+      setDismissedIds(
+        new Set(JSON.parse(window.localStorage.getItem(dismissedStorageKey) ?? "[]")),
+      );
+    } catch {
+      setDismissedIds(new Set());
+    }
+  }, [dismissedStorageKey]);
 
   const query = useQuery({
     queryKey: ["hotspot-attention-alerts", userId],
@@ -47,7 +60,14 @@ export function HotspotNotificationCenter({ userId }: { userId: string }) {
   });
 
   const alerts = useMemo(() => query.data ?? [], [query.data]);
-  const unread = useMemo(() => alerts.filter((alert) => !readIds.has(alert.id)), [alerts, readIds]);
+  const visibleAlerts = useMemo(
+    () => alerts.filter((alert) => !dismissedIds.has(alert.id)),
+    [alerts, dismissedIds],
+  );
+  const unread = useMemo(
+    () => visibleAlerts.filter((alert) => !readIds.has(alert.id)),
+    [visibleAlerts, readIds],
+  );
 
   function persistRead(next: Set<string>) {
     setReadIds(next);
@@ -59,7 +79,13 @@ export function HotspotNotificationCenter({ userId }: { userId: string }) {
   }
 
   function markAllRead() {
-    persistRead(new Set([...readIds, ...alerts.map((alert) => alert.id)]));
+    persistRead(new Set([...readIds, ...visibleAlerts.map((alert) => alert.id)]));
+  }
+
+  function clearNotifications() {
+    const next = new Set([...dismissedIds, ...visibleAlerts.map((alert) => alert.id)]);
+    setDismissedIds(next);
+    window.localStorage.setItem(dismissedStorageKey, JSON.stringify([...next].slice(-200)));
   }
 
   return (
@@ -85,17 +111,29 @@ export function HotspotNotificationCenter({ userId }: { userId: string }) {
             <p className="font-semibold">Notificações</p>
             <p className="text-xs text-muted-foreground">Somente situações que exigem atenção</p>
           </div>
-          {unread.length ? (
-            <Button variant="ghost" size="sm" onClick={markAllRead}>
-              <CheckCheck className="size-4" /> Marcar lidas
-            </Button>
-          ) : null}
+          <div className="flex items-center gap-1">
+            {unread.length ? (
+              <Button variant="ghost" size="sm" onClick={markAllRead}>
+                <CheckCheck className="size-4" /> Marcar lidas
+              </Button>
+            ) : null}
+            {visibleAlerts.length ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearNotifications}
+                aria-label="Limpar notificações"
+              >
+                <Trash2 className="size-4" /> Limpar
+              </Button>
+            ) : null}
+          </div>
         </div>
         <div className="max-h-[min(65vh,430px)] overflow-y-auto p-2">
           {query.isLoading ? (
             <p className="p-4 text-sm text-muted-foreground">Verificando as RBs…</p>
           ) : null}
-          {!query.isLoading && !alerts.length ? (
+          {!query.isLoading && !visibleAlerts.length ? (
             <div className="px-4 py-8 text-center">
               <Router className="mx-auto mb-2 size-6 text-emerald-400" />
               <p className="text-sm font-medium">Nenhum alerta importante</p>
@@ -104,7 +142,7 @@ export function HotspotNotificationCenter({ userId }: { userId: string }) {
               </p>
             </div>
           ) : null}
-          {alerts.map((alert) => {
+          {visibleAlerts.map((alert) => {
             const isRead = readIds.has(alert.id);
             return (
               <button
