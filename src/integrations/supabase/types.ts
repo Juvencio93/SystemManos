@@ -1468,7 +1468,10 @@ export type Database = {
           last_seen_at: string | null
           last_seen_ip: unknown
           last_seen_uptime: string | null
+          latitude: number | null
           latency_ms: number | null
+          longitude: number | null
+          maps_url: string | null
           packet_loss_pct: number | null
           reboot_applied_at: string | null
           reboot_requested_at: string | null
@@ -1497,7 +1500,10 @@ export type Database = {
           last_seen_at?: string | null
           last_seen_ip?: unknown
           last_seen_uptime?: string | null
+          latitude?: number | null
           latency_ms?: number | null
+          longitude?: number | null
+          maps_url?: string | null
           packet_loss_pct?: number | null
           reboot_applied_at?: string | null
           reboot_requested_at?: string | null
@@ -1526,7 +1532,10 @@ export type Database = {
           last_seen_at?: string | null
           last_seen_ip?: unknown
           last_seen_uptime?: string | null
+          latitude?: number | null
           latency_ms?: number | null
+          longitude?: number | null
+          maps_url?: string | null
           packet_loss_pct?: number | null
           reboot_applied_at?: string | null
           reboot_requested_at?: string | null

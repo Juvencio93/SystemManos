@@ -1,22 +1,321 @@
-import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { LocateFixed, Maximize2, Wifi, X } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useMemo, useState } from "react";
+import { ExternalLink, LocateFixed, MapPin, Wifi, X } from "lucide-react";
+
+import {
+  HotspotGeographicMap,
+  type GeographicDevice,
+} from "@/components/app/hotspot-geographic-map";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { hotspotEventLabel } from "@/lib/hotspot-events";
 
-type Props = { devices: any[]; isLoading?: boolean; onBlock?: (device: any, blocked: boolean) => Promise<void> | void; onReboot?: (device: any) => Promise<void> | void };
+type Device = GeographicDevice & {
+  status?: string | null;
+  address?: string | null;
+  neighborhood?: string | null;
+  location_state?: string | null;
+  last_seen_at?: string | null;
+  last_seen_ip?: string | null;
+  router_version?: string | null;
+  active_sessions?: number | null;
+  tx_bytes?: number | null;
+  rx_bytes?: number | null;
+  latency_ms?: number | null;
+  packet_loss_pct?: number | null;
+  reboot_requested_at?: string | null;
+  reboot_applied_at?: string | null;
+};
 
-// Deliberately mirrors the Dashboard map without changing the Dashboard itself.
+type Props = {
+  devices: Device[];
+  isLoading?: boolean;
+  onBlock?: (device: Device, blocked: boolean) => Promise<void> | void;
+  onReboot?: (device: Device) => Promise<void> | void;
+};
+
+function stateOf(device: Device): GeographicDevice["state"] {
+  const lastSeen = device.last_seen_at ? new Date(device.last_seen_at).getTime() : 0;
+  if (!lastSeen || Date.now() - lastSeen > 15 * 60_000) return "offline";
+  if (Number(device.packet_loss_pct ?? 0) >= 20 || Number(device.latency_ms ?? 0) >= 250)
+    return "unstable";
+  return "online";
+}
+
+function locationLabel(device: Device) {
+  return [device.address, device.neighborhood, device.city, device.location_state]
+    .filter(Boolean)
+    .join(", ");
+}
+
+function googleMapsUrl(device: Device) {
+  if (device.maps_url) return device.maps_url;
+  const latitude = Number(device.latitude);
+  const longitude = Number(device.longitude);
+  const query =
+    Number.isFinite(latitude) && Number.isFinite(longitude) && latitude && longitude
+      ? `${latitude},${longitude}`
+      : locationLabel(device);
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query || device.router_identity)}`;
+}
+
 export function HotspotNetworkMap({ devices, isLoading = false, onBlock, onReboot }: Props) {
-  const [filter, setFilter] = useState("all"), [search, setSearch] = useState(""), [zoom, setZoom] = useState(1), [selected, setSelected] = useState<any | null>(null), [seconds, setSeconds] = useState(5);
-  useEffect(() => { const timer = window.setInterval(() => setSeconds(value => value <= 1 ? 5 : value - 1), 1000); return () => window.clearInterval(timer); }, []);
-  const audit = useQuery({ queryKey: ["hotspot-menu-map-audit", selected?.id], enabled: Boolean(selected?.id), queryFn: async () => { const { data, error } = await (supabase as any).from("hotspot_device_audit").select("id,action,created_at").eq("device_id", selected.id).order("created_at", { ascending: false }).limit(8); if (error) throw error; return data ?? []; } });
-  const now = Date.now(), stateOf = (device: any) => { const age = device.last_seen_at ? now - new Date(device.last_seen_at).getTime() : Infinity; return age < 90_000 ? "online" : age < 300_000 ? "unstable" : "offline"; };
-  const visible = devices.filter(device => (filter === "all" || stateOf(device) === filter) && String(device.router_identity ?? "").toLowerCase().includes(search.toLowerCase()));
-  const counts = devices.reduce((total, device) => { total[stateOf(device)] += 1; return total; }, { online: 0, unstable: 0, offline: 0 } as Record<string, number>);
-  const changeBlock = async () => { if (!selected) return; const blocked = selected.status === "blocked"; if (!window.confirm(`${blocked ? "Desbloquear" : "Bloquear"} a RB ${selected.router_identity}?`)) return; await onBlock?.(selected, !blocked); setSelected({ ...selected, status: blocked ? "operational" : "blocked" }); };
-  const reboot = async () => { if (!selected || !window.confirm(`Solicitar reinício seguro da RB ${selected.router_identity}?`)) return; await onReboot?.(selected); setSelected({ ...selected, reboot_requested_at: new Date().toISOString(), reboot_applied_at: null }); };
-  return <div className="mt-6"><div className="mb-2 flex w-full flex-col gap-1 rounded-lg border border-white/10 bg-black/20 p-3 text-xs sm:w-40"><span className="flex justify-between text-muted-foreground">Latência <b className="text-foreground">{selected?.latency_ms == null ? "—" : `${selected.latency_ms} ms`}</b></span><span className="flex justify-between text-muted-foreground">Perda <b className="text-foreground">{selected?.packet_loss_pct == null ? "—" : `${selected.packet_loss_pct}%`}</b></span><span className="flex justify-between text-muted-foreground">Online <b className="text-emerald-300">{counts.online}</b></span><span className="flex justify-between text-muted-foreground">Offline <b className="text-red-300">{counts.offline}</b></span></div><Card className="relative w-full overflow-visible border-primary/30 bg-[#071017] shadow-2xl shadow-cyan-950/40"><CardHeader className="gap-4 border-b border-white/10 pb-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><CardTitle className="flex items-center gap-2"><Wifi className="size-5 text-primary" /> Mapa da rede</CardTitle><p className="mt-1 text-xs text-muted-foreground">Heartbeat em {seconds}s · atualização automática a cada 5s</p></div><div className="flex gap-2"><Button variant="outline" size="icon" onClick={() => { setZoom(1); setSelected(null); }}><LocateFixed className="size-4" /></Button><Button variant="outline" size="icon" onClick={() => setZoom(value => Math.min(1.4, value + .1))}><Maximize2 className="size-4" /></Button></div></div><div className="flex flex-wrap items-center gap-2"><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar RB ou cidade" className="h-9 min-w-[190px] flex-1 rounded-md border border-white/10 bg-black/20 px-3 text-sm outline-none focus:border-primary" />{([["all", "Todas", "text-foreground"], ["online", `Online ${counts.online}`, "text-emerald-400"], ["unstable", `Instáveis ${counts.unstable}`, "text-amber-400"], ["offline", `Offline ${counts.offline}`, "text-red-400"]] as const).map(([key, label, color]) => <Button key={key} variant={filter === key ? "secondary" : "ghost"} size="sm" className={color} onClick={() => setFilter(key)}>{label}</Button>)}</div></CardHeader><CardContent className="p-3 sm:p-5"><div className="relative min-h-[min(58vh,520px)] overflow-hidden rounded-xl bg-[radial-gradient(circle_at_center,#12303a_0,transparent_58%),linear-gradient(135deg,#071017,#0b1820)]"><div className="absolute inset-0 opacity-20 [background-image:linear-gradient(rgba(120,190,200,.25)_1px,transparent_1px),linear-gradient(90deg,rgba(120,190,200,.25)_1px,transparent_1px)] [background-size:42px_42px]" /><div className="absolute right-3 top-3 z-20 flex gap-3 rounded-md border border-white/10 bg-black/30 px-3 py-2 text-[11px]"><span className="text-emerald-400">● Online</span><span className="text-amber-400">● Instável</span><span className="text-red-400">● Offline</span></div>{isLoading && <div className="absolute inset-0 grid place-items-center text-sm text-muted-foreground">Carregando status das RBs…</div>}{!isLoading && !visible.length && <div className="absolute inset-0 grid place-items-center text-sm text-muted-foreground">Nenhuma RB encontrada.</div>}<div className="absolute inset-0 origin-center transition-transform duration-300" style={{ transform: `scale(${zoom})` }}><svg className="absolute inset-0 size-full" aria-hidden="true">{visible.map((device, index) => <line key={`line-${device.id}`} x1="50%" y1="50%" x2={`${18 + ((index * 37) % 68)}%`} y2={`${28 + ((index * 53) % 45)}%`} stroke="rgba(34,211,238,.28)" strokeWidth="1" strokeDasharray="5 5" />)}</svg>{visible.map((device, index) => { const state = stateOf(device), color = state === "online" ? "bg-emerald-400 shadow-emerald-400/70" : state === "unstable" ? "bg-amber-400 shadow-amber-400/70" : "bg-red-400 shadow-red-400/70"; return <button type="button" key={device.id} onClick={() => setSelected(device)} className="absolute z-10 -translate-x-1/2 text-left transition-transform hover:scale-110" style={{ left: `${18 + ((index * 37) % 68)}%`, top: `${28 + ((index * 53) % 45)}%` }}><span className={`mx-auto block size-4 rounded-full border-2 border-white/80 shadow-[0_0_18px_5px] ${color}`} /><span className="mt-2 block rounded bg-black/70 px-2 py-1 text-[11px] text-white"><span className="font-medium">{device.router_identity}</span><small className="block text-[10px] text-slate-400">{state === "online" ? "Online" : state === "unstable" ? "Instável" : "Offline"} · TX {(Number(device.tx_bytes ?? 0) / 1000000).toFixed(1)} MB · RX {(Number(device.rx_bytes ?? 0) / 1000000).toFixed(1)} MB</small></span></button>; })}</div></div>{selected && <div className="mt-4 grid gap-4 rounded-xl border border-primary/20 bg-black/20 p-4 lg:grid-cols-[1.1fr_.9fr]"><div><div className="flex items-center justify-between"><div><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold">{selected.router_identity}</h3><Button size="sm" className="h-5 px-1.5 text-[9px]" variant={selected.status === "blocked" ? "default" : "destructive"} onClick={() => void changeBlock()}>{selected.status === "blocked" ? "Desbloquear" : "Bloquear"}</Button><Button size="sm" className="h-5 px-1.5 text-[9px]" variant="outline" onClick={() => void reboot()}>Reiniciar</Button></div><p className="text-xs text-muted-foreground">{stateOf(selected) === "online" ? "Online" : stateOf(selected) === "unstable" ? "Instável" : "Offline"} · última comunicação {selected.last_seen_at ? new Date(selected.last_seen_at).toLocaleString("pt-BR") : "nunca"}</p></div><Button variant="ghost" size="icon" onClick={() => setSelected(null)}><X className="size-4" /></Button></div><div className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground"><span>IP: <b className="text-foreground">{selected.last_seen_ip ?? "—"}</b></span><span>RouterOS: <b className="text-foreground">{selected.router_version ?? "—"}</b></span><span>Sessões: <b className="text-foreground">{selected.active_sessions ?? 0}</b></span><span>Qualidade: <b className="text-emerald-300">{stateOf(selected) === "online" ? "Boa" : "Sem comunicação"}</b></span><span>TX: <b className="text-foreground">{(Number(selected.tx_bytes ?? 0) / 1000000).toFixed(1)} MB</b></span><span>RX: <b className="text-foreground">{(Number(selected.rx_bytes ?? 0) / 1000000).toFixed(1)} MB</b></span></div></div><div><p className="mb-2 text-xs font-medium text-muted-foreground">Histórico recente</p><div className="max-h-24 space-y-1 overflow-auto text-[11px]">{(audit.data ?? []).map((item: any) => <div key={item.id} className="flex justify-between gap-2 text-muted-foreground"><span>{hotspotEventLabel(item.action)}</span><span>{new Date(item.created_at).toLocaleString("pt-BR")}</span></div>)}{!audit.data?.length && <span className="text-muted-foreground">Nenhum evento registrado.</span>}</div></div></div>}</CardContent></Card></div>;
+  const [selected, setSelected] = useState<Device | null>(null);
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<"all" | GeographicDevice["state"]>("all");
+  const [seconds, setSeconds] = useState(0);
+  const selectedId = selected?.id;
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setSeconds((value) => (value + 1) % 5), 1_000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    const updated = devices.find((device) => device.id === selectedId);
+    if (updated) setSelected({ ...updated, state: stateOf(updated) });
+  }, [devices, selectedId]);
+
+  const mappedDevices = useMemo(
+    () => devices.map((device) => ({ ...device, state: stateOf(device) })),
+    [devices],
+  );
+  const visible = mappedDevices.filter((device) => {
+    const matchesFilter = filter === "all" || device.state === filter;
+    const haystack =
+      `${device.router_identity} ${device.unit_name ?? ""} ${device.city ?? ""}`.toLocaleLowerCase(
+        "pt-BR",
+      );
+    return matchesFilter && haystack.includes(search.trim().toLocaleLowerCase("pt-BR"));
+  });
+  const counts = mappedDevices.reduce(
+    (total, device) => {
+      total[device.state] += 1;
+      return total;
+    },
+    { online: 0, unstable: 0, offline: 0 },
+  );
+
+  async function changeBlock() {
+    if (!selected) return;
+    const blocked = selected.status === "blocked";
+    if (
+      !window.confirm(`${blocked ? "Desbloquear" : "Bloquear"} a RB ${selected.router_identity}?`)
+    )
+      return;
+    await onBlock?.(selected, !blocked);
+    setSelected({ ...selected, status: blocked ? "operational" : "blocked" });
+  }
+
+  async function reboot() {
+    if (
+      !selected ||
+      !window.confirm(`Solicitar reinício seguro da RB ${selected.router_identity}?`)
+    )
+      return;
+    await onReboot?.(selected);
+    setSelected({
+      ...selected,
+      reboot_requested_at: new Date().toISOString(),
+      reboot_applied_at: null,
+    });
+  }
+
+  return (
+    <div className="mt-6">
+      <div className="mb-4 flex w-full flex-col gap-1 rounded-lg border border-white/10 bg-black/20 p-3 text-xs sm:w-40">
+        <span className="flex justify-between text-muted-foreground">
+          Latência{" "}
+          <b className="text-foreground">
+            {selected?.latency_ms == null ? "—" : `${selected.latency_ms} ms`}
+          </b>
+        </span>
+        <span className="flex justify-between text-muted-foreground">
+          Perda{" "}
+          <b className="text-foreground">
+            {selected?.packet_loss_pct == null ? "—" : `${selected.packet_loss_pct}%`}
+          </b>
+        </span>
+        <span className="flex justify-between text-muted-foreground">
+          Online <b className="text-emerald-300">{counts.online}</b>
+        </span>
+        <span className="flex justify-between text-muted-foreground">
+          Offline <b className="text-red-300">{counts.offline}</b>
+        </span>
+      </div>
+
+      <Card className="relative w-full overflow-hidden border-primary/30 bg-[#071017] shadow-2xl shadow-cyan-950/40">
+        <CardHeader className="gap-4 border-b border-white/10 pb-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Wifi className="size-5 text-primary" /> Mapa da rede
+              </CardTitle>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Heartbeat em {seconds}s · mapa operacional atualizado a cada 5s
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              title="Mostrar toda a rede"
+              onClick={() => setSelected(null)}
+            >
+              <LocateFixed className="size-4" />
+            </Button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Buscar RB ou cidade"
+              className="h-9 min-w-[190px] flex-1 rounded-md border border-white/10 bg-black/20 px-3 text-sm outline-none focus:border-primary"
+            />
+            {(
+              [
+                ["all", "Todas", "text-foreground"],
+                ["online", `Online ${counts.online}`, "text-emerald-400"],
+                ["unstable", `Instáveis ${counts.unstable}`, "text-amber-400"],
+                ["offline", `Offline ${counts.offline}`, "text-red-400"],
+              ] as const
+            ).map(([key, label, color]) => (
+              <Button
+                key={key}
+                variant={filter === key ? "secondary" : "ghost"}
+                size="sm"
+                className={color}
+                onClick={() => setFilter(key)}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-3 sm:p-5">
+          <div className="relative overflow-hidden rounded-xl border border-white/10">
+            {isLoading ? (
+              <div className="absolute inset-0 z-[500] grid place-items-center bg-[#071017]/80 text-sm text-muted-foreground">
+                Carregando localizações das RBs…
+              </div>
+            ) : null}
+            <div className="absolute right-3 top-3 z-[500] flex gap-3 rounded-md border border-white/10 bg-black/70 px-3 py-2 text-[11px] backdrop-blur">
+              <span className="text-cyan-300">● Sede</span>
+              <span className="text-emerald-400">● Online</span>
+              <span className="text-amber-400">● Instável</span>
+              <span className="text-red-400">● Offline</span>
+            </div>
+            <HotspotGeographicMap
+              devices={visible}
+              selectedId={selected?.id}
+              onSelect={(id) =>
+                setSelected(mappedDevices.find((device) => device.id === id) ?? null)
+              }
+            />
+          </div>
+
+          {!isLoading && !visible.length ? (
+            <p className="py-5 text-center text-sm text-muted-foreground">Nenhuma RB encontrada.</p>
+          ) : null}
+
+          {selected ? (
+            <div className="mt-4 grid gap-4 rounded-xl border border-primary/20 bg-black/20 p-4 lg:grid-cols-[1.1fr_.9fr]">
+              <div>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-semibold">{selected.router_identity}</h3>
+                      <Button
+                        size="sm"
+                        className="h-5 px-1.5 text-[9px]"
+                        variant={selected.status === "blocked" ? "default" : "destructive"}
+                        onClick={() => void changeBlock()}
+                      >
+                        {selected.status === "blocked" ? "Desbloquear" : "Bloquear"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="h-5 px-1.5 text-[9px]"
+                        variant="outline"
+                        onClick={() => void reboot()}
+                      >
+                        Reiniciar
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {selected.state === "online"
+                        ? "Online"
+                        : selected.state === "unstable"
+                          ? "Instável"
+                          : "Offline"}{" "}
+                      · última comunicação{" "}
+                      {selected.last_seen_at
+                        ? new Date(selected.last_seen_at).toLocaleString("pt-BR")
+                        : "nunca"}
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => setSelected(null)}>
+                    <X className="size-4" />
+                  </Button>
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                  <span>
+                    IP: <b className="text-foreground">{selected.last_seen_ip ?? "—"}</b>
+                  </span>
+                  <span>
+                    RouterOS: <b className="text-foreground">{selected.router_version ?? "—"}</b>
+                  </span>
+                  <span>
+                    Sessões: <b className="text-foreground">{selected.active_sessions ?? 0}</b>
+                  </span>
+                  <span>
+                    Qualidade:{" "}
+                    <b
+                      className={
+                        selected.state === "online" ? "text-emerald-300" : "text-amber-300"
+                      }
+                    >
+                      {selected.state === "online"
+                        ? "Boa"
+                        : selected.state === "unstable"
+                          ? "Instável"
+                          : "Sem comunicação"}
+                    </b>
+                  </span>
+                  <span>
+                    TX:{" "}
+                    <b className="text-foreground">
+                      {(Number(selected.tx_bytes ?? 0) / 1_000_000).toFixed(1)} MB
+                    </b>
+                  </span>
+                  <span>
+                    RX:{" "}
+                    <b className="text-foreground">
+                      {(Number(selected.rx_bytes ?? 0) / 1_000_000).toFixed(1)} MB
+                    </b>
+                  </span>
+                </div>
+                <p className="mt-4 flex items-start gap-2 text-xs text-muted-foreground">
+                  <MapPin className="mt-0.5 size-4 shrink-0 text-primary" />
+                  {locationLabel(selected) || "Endereço ainda não cadastrado para esta RB."}
+                </p>
+              </div>
+
+              <div className="overflow-hidden rounded-lg border border-white/10 bg-[#071017]">
+                <HotspotGeographicMap devices={[selected]} selectedId={selected.id} compact />
+                <a
+                  href={googleMapsUrl(selected)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-center gap-2 border-t border-white/10 px-3 py-2 text-xs font-medium text-primary hover:bg-white/5"
+                >
+                  Abrir localização no Google Maps <ExternalLink className="size-3.5" />
+                </a>
+              </div>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+    </div>
+  );
 }

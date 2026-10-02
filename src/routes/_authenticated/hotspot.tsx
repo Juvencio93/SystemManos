@@ -33,7 +33,7 @@ function HotspotPage() {
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<any>(null);
   const clientsQuery = useQuery({ queryKey: ["hotspot-approved-clients", access?.role, access?.resellerId, access?.companyId, access?.branchId], enabled: canManageHotspot, refetchInterval: 5000, queryFn: async () => {
-    let query = (supabase as any).from("hotspot_devices").select("id,router_identity,ap_mac,status,company_id,branch_id,updated_at,last_seen_at,last_seen_ip,last_seen_uptime,router_version,active_sessions,rx_bytes,tx_bytes,latency_ms,packet_loss_pct,sync_requested_at,sync_applied_at,reboot_requested_at,reboot_applied_at,router_applied_status,router_status_applied_at");
+    let query = (supabase as any).from("hotspot_devices").select("id,router_identity,ap_mac,status,company_id,branch_id,updated_at,last_seen_at,last_seen_ip,last_seen_uptime,router_version,active_sessions,rx_bytes,tx_bytes,latency_ms,packet_loss_pct,sync_requested_at,sync_applied_at,reboot_requested_at,reboot_applied_at,router_applied_status,router_status_applied_at,latitude,longitude,maps_url,companies(name,trade_name,address,neighborhood,city,state,zip_code),branches(name,trade_name,address,neighborhood,city,state,zip_code)");
     if (access?.role === "revenda" && access.resellerId) {
       const [{ data: companies }, { data: branches }] = await Promise.all([
         (supabase as any).from("companies").select("id").eq("reseller_id", access.resellerId),
@@ -48,7 +48,18 @@ function HotspotPage() {
     else if (access?.role === "filial" && access.branchId) query = query.eq("branch_id", access.branchId);
     const { data, error } = await query.order("last_seen_at", { ascending: false, nullsFirst: false });
     if (error) throw error;
-    return (data ?? []) as any[];
+    return (data ?? []).map((device: any) => {
+      const unit = device.branches ?? device.companies ?? {};
+      return {
+        ...device,
+        unit_name: unit.trade_name ?? unit.name ?? device.router_identity,
+        address: unit.address ?? null,
+        neighborhood: unit.neighborhood ?? null,
+        city: unit.city ?? null,
+        location_state: unit.state ?? null,
+        zip_code: unit.zip_code ?? null,
+      };
+    }) as any[];
   }});
   const auditQuery = useQuery({ queryKey: ["hotspot-audit"], enabled: canManageHotspot, refetchInterval: 60000, queryFn: async () => {
     const { data, error } = await (supabase as any).from("hotspot_device_audit").select("id,device_id,action,previous_status,new_status,created_at").order("created_at", { ascending: false }).limit(20);

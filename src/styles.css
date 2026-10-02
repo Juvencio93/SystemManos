@@ -1,6 +1,35 @@
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
+@import "leaflet/dist/leaflet.css";
+
+.leaflet-container {
+  background: #071017;
+  color: #e2e8f0;
+}
+
+.leaflet-control-zoom a,
+.leaflet-control-attribution,
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  border-color: rgba(148, 163, 184, 0.2);
+  background: rgba(5, 14, 20, 0.94);
+  color: #e2e8f0;
+}
+
+.leaflet-control-zoom a {
+  color: #e2e8f0;
+}
+
+.leaflet-control-zoom a:hover {
+  background: #10232e;
+  color: #22d3ee;
+}
+
+.hotspot-map-marker {
+  border: 0;
+  background: transparent;
+}
 
 @custom-variant dark (&:is(.dark *));
 
