@@ -45,6 +45,7 @@ import { Route as ApiInternalHotspotRebootRouteImport } from './routes/api/inter
 import { Route as ApiInternalHotspotSyncRouteImport } from './routes/api/internal/hotspot-sync'
 import { Route as ApiInternalMikrotikActivationRouteImport } from './routes/api/internal/mikrotik-activation'
 import { Route as ApiInternalRadiusAuthorizeRouteImport } from './routes/api/internal/radius-authorize'
+import { Route as ApiInternalRadiusConfigRouteImport } from './routes/api/internal/radius-config'
 import { Route as ApiPublicAsaasClientRouteImport } from './routes/api/public/asaas-client'
 import { Route as ApiPublicAsaasManagerRouteImport } from './routes/api/public/asaas-manager'
 import { Route as ApiPublicAsaasWebhookRouteImport } from './routes/api/public/asaas-webhook'
@@ -252,6 +253,11 @@ const ApiInternalRadiusAuthorizeRoute =
     path: '/api/internal/radius-authorize',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiInternalRadiusConfigRoute = ApiInternalRadiusConfigRouteImport.update({
+  id: '/api/internal/radius-config',
+  path: '/api/internal/radius-config',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicAsaasClientRoute = ApiPublicAsaasClientRouteImport.update({
   id: '/api/public/asaas-client',
   path: '/api/public/asaas-client',
@@ -335,6 +341,7 @@ export interface FileRoutesByFullPath {
   '/api/internal/hotspot-sync': typeof ApiInternalHotspotSyncRoute
   '/api/internal/mikrotik-activation': typeof ApiInternalMikrotikActivationRoute
   '/api/internal/radius-authorize': typeof ApiInternalRadiusAuthorizeRoute
+  '/api/internal/radius-config': typeof ApiInternalRadiusConfigRoute
   '/api/public/asaas-client': typeof ApiPublicAsaasClientRoute
   '/api/public/asaas-manager': typeof ApiPublicAsaasManagerRoute
   '/api/public/asaas-webhook': typeof ApiPublicAsaasWebhookRoute
@@ -380,6 +387,7 @@ export interface FileRoutesByTo {
   '/api/internal/hotspot-sync': typeof ApiInternalHotspotSyncRoute
   '/api/internal/mikrotik-activation': typeof ApiInternalMikrotikActivationRoute
   '/api/internal/radius-authorize': typeof ApiInternalRadiusAuthorizeRoute
+  '/api/internal/radius-config': typeof ApiInternalRadiusConfigRoute
   '/api/public/asaas-client': typeof ApiPublicAsaasClientRoute
   '/api/public/asaas-manager': typeof ApiPublicAsaasManagerRoute
   '/api/public/asaas-webhook': typeof ApiPublicAsaasWebhookRoute
@@ -428,6 +436,7 @@ export interface FileRoutesById {
   '/api/internal/hotspot-sync': typeof ApiInternalHotspotSyncRoute
   '/api/internal/mikrotik-activation': typeof ApiInternalMikrotikActivationRoute
   '/api/internal/radius-authorize': typeof ApiInternalRadiusAuthorizeRoute
+  '/api/internal/radius-config': typeof ApiInternalRadiusConfigRoute
   '/api/public/asaas-client': typeof ApiPublicAsaasClientRoute
   '/api/public/asaas-manager': typeof ApiPublicAsaasManagerRoute
   '/api/public/asaas-webhook': typeof ApiPublicAsaasWebhookRoute
@@ -476,6 +485,7 @@ export interface FileRouteTypes {
     | '/api/internal/hotspot-sync'
     | '/api/internal/mikrotik-activation'
     | '/api/internal/radius-authorize'
+    | '/api/internal/radius-config'
     | '/api/public/asaas-client'
     | '/api/public/asaas-manager'
     | '/api/public/asaas-webhook'
@@ -521,6 +531,7 @@ export interface FileRouteTypes {
     | '/api/internal/hotspot-sync'
     | '/api/internal/mikrotik-activation'
     | '/api/internal/radius-authorize'
+    | '/api/internal/radius-config'
     | '/api/public/asaas-client'
     | '/api/public/asaas-manager'
     | '/api/public/asaas-webhook'
@@ -568,6 +579,7 @@ export interface FileRouteTypes {
     | '/api/internal/hotspot-sync'
     | '/api/internal/mikrotik-activation'
     | '/api/internal/radius-authorize'
+    | '/api/internal/radius-config'
     | '/api/public/asaas-client'
     | '/api/public/asaas-manager'
     | '/api/public/asaas-webhook'
@@ -595,6 +607,7 @@ export interface RootRouteChildren {
   ApiInternalHotspotSyncRoute: typeof ApiInternalHotspotSyncRoute
   ApiInternalMikrotikActivationRoute: typeof ApiInternalMikrotikActivationRoute
   ApiInternalRadiusAuthorizeRoute: typeof ApiInternalRadiusAuthorizeRoute
+  ApiInternalRadiusConfigRoute: typeof ApiInternalRadiusConfigRoute
   ApiPublicAsaasClientRoute: typeof ApiPublicAsaasClientRoute
   ApiPublicAsaasManagerRoute: typeof ApiPublicAsaasManagerRoute
   ApiPublicAsaasWebhookRoute: typeof ApiPublicAsaasWebhookRoute
@@ -859,6 +872,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiInternalRadiusAuthorizeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/internal/radius-config': {
+      id: '/api/internal/radius-config'
+      path: '/api/internal/radius-config'
+      fullPath: '/api/internal/radius-config'
+      preLoaderRoute: typeof ApiInternalRadiusConfigRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/asaas-client': {
       id: '/api/public/asaas-client'
       path: '/api/public/asaas-client'
@@ -1011,6 +1031,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiInternalHotspotSyncRoute: ApiInternalHotspotSyncRoute,
   ApiInternalMikrotikActivationRoute: ApiInternalMikrotikActivationRoute,
   ApiInternalRadiusAuthorizeRoute: ApiInternalRadiusAuthorizeRoute,
+  ApiInternalRadiusConfigRoute: ApiInternalRadiusConfigRoute,
   ApiPublicAsaasClientRoute: ApiPublicAsaasClientRoute,
   ApiPublicAsaasManagerRoute: ApiPublicAsaasManagerRoute,
   ApiPublicAsaasWebhookRoute: ApiPublicAsaasWebhookRoute,

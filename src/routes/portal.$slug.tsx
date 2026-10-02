@@ -4,6 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useMemo, useState, useEffect } from "react";
 import {
   CheckCircle2,
+  Loader2,
   Radar,
   ShieldCheck,
   Unlock,
@@ -701,9 +702,9 @@ function PortalSuccess({
   const [isInIframe, setIsInIframe] = useState(false);
   // A HotSpot login points at the router's private HTTP address.  Do not send
   // it through an iframe from this HTTPS page: current browsers can block that
-  // as mixed content, leaving the visitor on the success page without ever
-  // producing a RADIUS request.  The explicit top-level form below is the
-  // RouterOS-compatible hand-off.
+  // as mixed content. Navigate the top-level portal page to the router's local
+  // login trampoline; login.html then submits the short-lived credentials to
+  // RouterOS, which releases access and follows the campaign destination.
 
   useEffect(() => {
     // Detect if we are inside an iframe
@@ -714,6 +715,18 @@ function PortalSuccess({
       setIsInIframe(true);
     }
   }, []);
+
+  useEffect(() => {
+    if (done.checkinBlocked || !routerLoginUrl) return;
+
+    // The check-in was submitted by the visitor; from here on the RouterOS
+    // authentication hand-off must be automatic, with no second tap required.
+    const timer = window.setTimeout(() => {
+      window.location.replace(routerLoginUrl);
+    }, 700);
+
+    return () => clearTimeout(timer);
+  }, [done.checkinBlocked, routerLoginUrl]);
 
   useEffect(() => {
     // For MikroTik, RouterOS redirects only after FreeRADIUS accepts the
@@ -741,13 +754,13 @@ function PortalSuccess({
 
           <div className="space-y-3">
             <h1 className="font-display text-4xl font-bold tracking-tight text-white">
-              {done.checkinBlocked ? "Limite de check-ins atingido" : done.hotspotAccess ? "Conclua seu acesso ao Wi-Fi" : "Check-in concluído!"}
+              {done.checkinBlocked ? "Limite de check-ins atingido" : done.hotspotAccess ? "Confirmando acesso..." : "Check-in concluído!"}
             </h1>
             <p className="text-sm leading-relaxed text-[color:var(--portal-muted)]">
               {done.checkinBlocked
                 ? "Este dispositivo atingiu o limite de check-ins. Aguarde o prazo abaixo para tentar novamente."
                 : done.hotspotAccess
-                ? "Toque no botão abaixo para a RB autenticar seu dispositivo e liberar a conexão."
+                ? "Aguarde enquanto a rede autentica seu dispositivo e libera a conexão."
                 : done.hotspotRedirectUrl
                 ? "Seu cadastro foi registrado. Volte ao HotSpot para concluir a autenticação do Wi-Fi."
                 : "Seu cadastro foi registrado com sucesso."}
@@ -768,28 +781,11 @@ function PortalSuccess({
             {done.checkinBlocked
               ? remainingSeconds > 0 ? `Nova tentativa disponível em ${remainingLabel}` : "Você já pode tentar novamente."
               : done.hotspotAccess
-              ? "Seu cadastro será registrado somente após a conexão ser liberada."
+              ? "Seu acesso está sendo liberado automaticamente."
               : done.connectionsCount === 1
               ? "Primeiro acesso registrado."
               : `Este é o seu ${done.connectionsCount}º acesso aqui.`}
           </div>
-
-          {!done.checkinBlocked && done.hotspotAccess ? (
-            <Button asChild className="h-12 w-full gap-2">
-              <a href={routerLoginUrl ?? done.hotspotAccess.loginUrl}>
-                <Wifi className="size-4" /> Concluir acesso ao Wi-Fi
-              </a>
-            </Button>
-          ) : !done.checkinBlocked && done.hotspotRedirectUrl && (
-            <Button
-              asChild
-              className="h-12 w-full gap-2"
-            >
-              <a href={done.hotspotRedirectUrl}>
-                <Wifi className="size-4" /> Concluir acesso ao Wi-Fi
-              </a>
-            </Button>
-          )}
 
           {!done.checkinBlocked && finalRedirectUrl && (
             <div className="space-y-4 pt-4">
