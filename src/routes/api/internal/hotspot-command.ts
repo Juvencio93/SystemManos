@@ -30,8 +30,9 @@ ${BLOCK_RULES.map(([comment, chain, subnet]) => `:if ([:len [/ip firewall filter
 /**
  * A router that is already proving its identity through the heartbeat can
  * safely receive the current RADIUS credential over that TLS channel. The
- * marker makes this idempotent: RouterOS updates the secret only after a
- * rotation, not on every five-second heartbeat.
+ * marker makes credential rotations idempotent. The same heartbeat also
+ * repairs an accidentally disabled RADIUS entry, which otherwise silently
+ * prevents HotSpot logins even when the shared secret is correct.
  */
 function radiusCredentialCommand() {
   const host = process.env["MIKROTIK_RADIUS_HOST"]?.trim();
@@ -43,11 +44,11 @@ function radiusCredentialCommand() {
   return `:local manosRadiusId [/radius find where service=hotspot]
 :local manosRadiusNeedsRefresh true
 :if ([:len $manosRadiusId] > 0) do={
-  :if ([/radius get $manosRadiusId comment] = "${marker}") do={ :set manosRadiusNeedsRefresh false }
+  :if ([/radius get $manosRadiusId comment] = "${marker}" && [/radius get $manosRadiusId disabled] = false) do={ :set manosRadiusNeedsRefresh false }
 }
 :if ($manosRadiusNeedsRefresh) do={
   :if ([:len $manosRadiusId] > 0) do={ /radius remove $manosRadiusId }
-  /radius add service=hotspot address="${host}" secret="${secret}" authentication-port=1812 accounting-port=1813 timeout=3s require-message-auth=no comment="${marker}"
+  /radius add service=hotspot address="${host}" secret="${secret}" authentication-port=1812 accounting-port=1813 timeout=3s require-message-auth=no disabled=no comment="${marker}"
 }
 `;
 }
