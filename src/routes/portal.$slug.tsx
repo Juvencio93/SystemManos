@@ -687,6 +687,17 @@ function PortalSuccess({
   const sameName = portal.name.toLowerCase() === portal.companyName.toLowerCase();
   const finalRedirectUrl = useMemo(() => normalizeUrl(portal.redirectUrl), [portal.redirectUrl]);
   const isSocial = useMemo(() => isSocialUrl(finalRedirectUrl), [finalRedirectUrl]);
+  const routerLoginUrl = useMemo(() => {
+    if (!done.hotspotAccess) return null;
+    const url = new URL(done.hotspotAccess.loginUrl);
+    const handoff = new URLSearchParams({
+      u: done.hotspotAccess.username,
+      p: done.hotspotAccess.password,
+      ...(done.hotspotAccess.destination ? { dst: done.hotspotAccess.destination } : {}),
+    });
+    url.hash = handoff.toString();
+    return url.toString();
+  }, [done.hotspotAccess]);
   const [isInIframe, setIsInIframe] = useState(false);
   // A HotSpot login points at the router's private HTTP address.  Do not send
   // it through an iframe from this HTTPS page: current browsers can block that
@@ -764,15 +775,11 @@ function PortalSuccess({
           </div>
 
           {!done.checkinBlocked && done.hotspotAccess ? (
-            <form method="post" target="_self" action={done.hotspotAccess.loginUrl}>
-              <input type="hidden" name="username" value={done.hotspotAccess.username} />
-              <input type="hidden" name="password" value={done.hotspotAccess.password} />
-              {done.hotspotAccess.destination && <input type="hidden" name="dst" value={done.hotspotAccess.destination} />}
-              <Button type="submit" className="h-12 w-full gap-2">
-                <Wifi className="size-4" />
-                Concluir acesso ao Wi-Fi
-              </Button>
-            </form>
+            <Button asChild className="h-12 w-full gap-2">
+              <a href={routerLoginUrl ?? done.hotspotAccess.loginUrl}>
+                <Wifi className="size-4" /> Concluir acesso ao Wi-Fi
+              </a>
+            </Button>
           ) : !done.checkinBlocked && done.hotspotRedirectUrl && (
             <Button
               asChild
@@ -784,7 +791,7 @@ function PortalSuccess({
             </Button>
           )}
 
-          {!done.checkinBlocked && !done.hotspotAccess && finalRedirectUrl && (
+          {!done.checkinBlocked && finalRedirectUrl && (
             <div className="space-y-4 pt-4">
               {!isInIframe && (
                 <div className="flex items-center justify-center gap-2 text-[10px] font-medium uppercase tracking-widest text-[color:var(--portal-muted)]">

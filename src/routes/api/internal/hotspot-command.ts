@@ -27,6 +27,20 @@ ${BLOCK_RULES.map(([comment, chain, subnet]) => `:if ([:len [/ip firewall filter
 `;
 }
 
+function hotspotLoginFileSyncCommand() {
+  // Upgrade the on-router login page once. This keeps the credentials POST
+  // same-origin with RouterOS and retries on later heartbeats if a fetch fails.
+  return `:if ([:len [/file find where name="flash/manos-login-v2.marker"]] = 0) do={
+  :do {
+    :local manosLoginFetch [/tool fetch url="https://manostech-system.com.br/mikrotik/login.html" mode=https dst-path="flash/hotspot/login.html" check-certificate=yes as-value]
+    :if (($manosLoginFetch->"status") = "finished") do={
+      /tool fetch url="https://manostech-system.com.br/mikrotik/manos-login-v2.marker" mode=https dst-path="flash/manos-login-v2.marker" check-certificate=yes
+    }
+  } on-error={ :log warning "Manos Tech login page update failed; will retry" }
+}
+`;
+}
+
 /**
  * A router that is already proving its identity through the heartbeat can
  * safely receive the current RADIUS credential over that TLS channel. The
@@ -97,9 +111,9 @@ export const Route = createFileRoute("/api/internal/hotspot-command")({
         }
 
         if (device.router_status_requested_at && device.router_status_applied_at !== device.router_status_requested_at) {
-          return new Response(`${radiusCredentialCommand()}${statusCommand(device.status === "blocked")}\n${firewallStateScript()}`, { headers });
+          return new Response(`${radiusCredentialCommand()}${hotspotLoginFileSyncCommand()}${statusCommand(device.status === "blocked")}\n${firewallStateScript()}`, { headers });
         }
-        return new Response(`${radiusCredentialCommand()}${statusCommand(device.status === "blocked")}`, { headers });
+        return new Response(`${radiusCredentialCommand()}${hotspotLoginFileSyncCommand()}${statusCommand(device.status === "blocked")}`, { headers });
       },
     },
   },

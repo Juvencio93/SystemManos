@@ -7,7 +7,7 @@
     <title>Conectando ao Wi-Fi</title>
   </head>
   <body>
-    <p>Redirecionando para o acesso Wi-Fi…</p>
+    <p id="manos-tech-message">Redirecionando para o acesso Wi-Fi…</p>
     <!-- RouterOS replaces $(...) before sending this form. -->
     <form id="manos-tech-entry" method="post" action="https://manostech-system.com.br/api/public/hotspot-entry">
       <input type="hidden" name="router-id" value="$(identity)">
@@ -16,6 +16,32 @@
       <input type="hidden" name="link-login-only" value="$(link-login-only)">
       <input type="hidden" name="link-orig" value="$(link-orig)">
     </form>
-    <script>document.getElementById("manos-tech-entry").submit();</script>
+    <!-- MANOS-LOCAL-LOGIN-V2 -->
+    <form id="manos-tech-router-login" method="post" action="$(link-login-only)" style="display:none">
+      <input type="hidden" name="username">
+      <input type="hidden" name="password">
+      <input type="hidden" name="dst">
+    </form>
+    <script>
+      (function () {
+        // The external portal is HTTPS while RouterOS serves this local page
+        // over HTTP. Returning to this page first keeps the credential POST
+        // same-origin and avoids browsers blocking HTTPS-to-HTTP form submits.
+        var handoff = new URLSearchParams(window.location.hash.slice(1));
+        var username = handoff.get("u");
+        var password = handoff.get("p");
+        if (username && password) {
+          window.history.replaceState(null, "", window.location.pathname + window.location.search);
+          var login = document.getElementById("manos-tech-router-login");
+          login.elements.namedItem("username").value = username;
+          login.elements.namedItem("password").value = password;
+          login.elements.namedItem("dst").value = handoff.get("dst") || "";
+          document.getElementById("manos-tech-message").textContent = "Concluindo acesso ao Wi-Fi…";
+          login.submit();
+          return;
+        }
+        document.getElementById("manos-tech-entry").submit();
+      })();
+    </script>
   </body>
 </html>
