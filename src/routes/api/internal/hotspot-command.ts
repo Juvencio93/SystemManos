@@ -52,20 +52,16 @@ function radiusCredentialCommand() {
   const host = process.env["MIKROTIK_RADIUS_HOST"]?.trim();
   const secret = process.env["MIKROTIK_RADIUS_SECRET"]?.trim();
   if (!host || !/^[A-Za-z0-9.-]{1,253}$/.test(host) || !secret || !/^[A-Za-z0-9_-]{16,128}$/.test(secret)) return "";
-  // Recreate once for this credential revision. Some RouterOS releases keep
-  // the previous RADIUS shared secret in the live client after a field update.
-  const marker = `MANOS-RADIUS-${createHash("sha256").update(secret).digest("hex").slice(0, 16)}-V3`;
-  return `:local manosRadiusId [/radius find where service=hotspot]
-:local manosRadiusNeedsRefresh true
-:if ([:len $manosRadiusId] > 0) do={
-  :if ([/radius get $manosRadiusId comment] = "${marker}") do={
-    /radius set $manosRadiusId disabled=no
-    :set manosRadiusNeedsRefresh false
-  }
-}
-:if ($manosRadiusNeedsRefresh) do={
-  :if ([:len $manosRadiusId] > 0) do={ /radius remove $manosRadiusId }
+  // Keep the managed RouterOS entry in sync with the canonical server values.
+  const marker = `MANOS-RADIUS-${createHash("sha256").update(secret).digest("hex").slice(0, 16)}-V4`;
+  // The comment is only a version marker; it cannot prove the router's hidden
+  // secret field still matches. Re-apply every managed setting on heartbeat,
+  // and only touch entries owned by Manos Tech (never unrelated RADIUS peers).
+  return `:local manosRadiusId [/radius find where service=hotspot comment~"^MANOS-RADIUS"]
+:if ([:len $manosRadiusId] = 0) do={
   /radius add service=hotspot address="${host}" secret="${secret}" authentication-port=1812 accounting-port=1813 timeout=3s require-message-auth=no disabled=no comment="${marker}"
+} else={
+  /radius set $manosRadiusId service=hotspot address="${host}" secret="${secret}" authentication-port=1812 accounting-port=1813 timeout=3s require-message-auth=no disabled=no comment="${marker}"
 }
 `;
 }
