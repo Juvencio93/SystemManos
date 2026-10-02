@@ -39,7 +39,7 @@ function radiusCredentialCommand() {
   if (!host || !/^[A-Za-z0-9.-]{1,253}$/.test(host) || !secret || !/^[A-Za-z0-9_-]{16,128}$/.test(secret)) return "";
   // Recreate once for this credential revision. Some RouterOS releases keep
   // the previous RADIUS shared secret in the live client after a field update.
-  const marker = `MANOS-RADIUS-${createHash("sha256").update(secret).digest("hex").slice(0, 16)}-V2`;
+  const marker = `MANOS-RADIUS-${createHash("sha256").update(secret).digest("hex").slice(0, 16)}-V3`;
   return `:local manosRadiusId [/radius find where service=hotspot]
 :local manosRadiusNeedsRefresh true
 :if ([:len $manosRadiusId] > 0) do={
@@ -47,7 +47,7 @@ function radiusCredentialCommand() {
 }
 :if ($manosRadiusNeedsRefresh) do={
   :if ([:len $manosRadiusId] > 0) do={ /radius remove $manosRadiusId }
-  /radius add service=hotspot address=${host} secret=${secret} authentication-port=1812 accounting-port=1813 timeout=3s require-message-auth=no comment="${marker}"
+  /radius add service=hotspot address="${host}" secret="${secret}" authentication-port=1812 accounting-port=1813 timeout=3s require-message-auth=no comment="${marker}"
 }
 `;
 }
