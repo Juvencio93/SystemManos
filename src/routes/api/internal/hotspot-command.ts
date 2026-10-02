@@ -44,7 +44,10 @@ function radiusCredentialCommand() {
   return `:local manosRadiusId [/radius find where service=hotspot]
 :local manosRadiusNeedsRefresh true
 :if ([:len $manosRadiusId] > 0) do={
-  :if ([/radius get $manosRadiusId comment] = "${marker}" && [/radius get $manosRadiusId disabled] = false) do={ :set manosRadiusNeedsRefresh false }
+  :if ([/radius get $manosRadiusId comment] = "${marker}") do={
+    /radius set $manosRadiusId disabled=no
+    :set manosRadiusNeedsRefresh false
+  }
 }
 :if ($manosRadiusNeedsRefresh) do={
   :if ([:len $manosRadiusId] > 0) do={ /radius remove $manosRadiusId }
