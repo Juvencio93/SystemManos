@@ -1123,7 +1123,7 @@ function CampaignsPage() {
                               if (f.size > MAX_BANNER_FILE_BYTES) {
                                 const sizeMB = (f.size / (1024 * 1024)).toFixed(2);
                                 toast.error(
-                                  `A imagem possui ${sizeMB} MB. O limite é de 10 MB por imagem.`,
+                                  `A imagem possui ${sizeMB} MB. O limite é de 15 MB por imagem.`,
                                 );
                                 return false;
                               }
@@ -1139,7 +1139,7 @@ function CampaignsPage() {
                               status: "uploading",
                               pendingCount: validFiles.length,
                               totalCount: validFiles.length,
-                              message: `Enviando imagem 1 de ${validFiles.length}...`,
+                              message: `Otimizando e enviando imagem 1 de ${validFiles.length}...`,
                             });
 
                             const newPaths: string[] = [];
@@ -1149,7 +1149,7 @@ function CampaignsPage() {
                               current++;
                               setUploading((prev) => ({
                                 ...prev,
-                                message: `Enviando imagem ${current} de ${validFiles.length}...`,
+                                message: `Otimizando e enviando imagem ${current} de ${validFiles.length}...`,
                                 pendingCount: validFiles.length - current + 1,
                               }));
 
@@ -1202,7 +1202,7 @@ function CampaignsPage() {
                       </label>
                     </div>
                     <p className="text-[10px] text-muted-foreground italic">
-                      Máximo 10 MB por imagem.
+                      Máximo 15 MB por imagem. O sistema otimiza automaticamente para WebP.
                     </p>
                   </div>
                 </section>

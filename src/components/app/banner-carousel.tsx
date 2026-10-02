@@ -17,6 +17,7 @@ export function BannerCarousel({
 }) {
   const [index, setIndex] = useState(0);
   const [progressKey, setProgressKey] = useState(0);
+  const [loadedUrls, setLoadedUrls] = useState<Set<string>>(() => new Set());
   const touchStart = useRef<number | null>(null);
 
   const select = useCallback(
@@ -36,6 +37,13 @@ export function BannerCarousel({
   useEffect(() => {
     if (index >= urls.length) setIndex(0);
   }, [index, urls.length]);
+
+  useEffect(() => {
+    if (urls.length < 2) return;
+    const nextImage = new Image();
+    nextImage.decoding = "async";
+    nextImage.src = urls[(index + 1) % urls.length] ?? "";
+  }, [index, urls]);
 
   if (urls.length === 0) return null;
 
@@ -68,11 +76,25 @@ export function BannerCarousel({
         >
           {urls.map((url, currentIndex) => (
             <div key={`${url}-${currentIndex}`} className="relative aspect-[16/9] w-full shrink-0">
+              {!loadedUrls.has(url) && (
+                <div className="absolute inset-0 animate-pulse bg-[color:var(--portal-surface-alt)]" />
+              )}
               <img
                 src={url}
                 alt={currentIndex === index ? alt : ""}
                 loading={currentIndex === 0 ? "eager" : "lazy"}
-                className="h-full w-full object-cover"
+                fetchPriority={currentIndex === 0 ? "high" : "auto"}
+                decoding="async"
+                sizes="(max-width: 768px) 100vw, 960px"
+                onLoad={() =>
+                  setLoadedUrls((current) => {
+                    if (current.has(url)) return current;
+                    const next = new Set(current);
+                    next.add(url);
+                    return next;
+                  })
+                }
+                className={`h-full w-full object-cover transition-opacity duration-300 ${loadedUrls.has(url) ? "opacity-100" : "opacity-0"}`}
               />
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-black/10" />
             </div>
@@ -104,7 +126,11 @@ export function BannerCarousel({
           <div className="absolute inset-x-0 bottom-0 h-1 bg-black/25">
             <div
               key={progressKey}
-              className={appearance.autoplayEnabled ? "h-full origin-left animate-[portal-progress_linear_forwards]" : "h-full w-full"}
+              className={
+                appearance.autoplayEnabled
+                  ? "h-full origin-left animate-[portal-progress_linear_forwards]"
+                  : "h-full w-full"
+              }
               style={progressStyle}
             />
           </div>

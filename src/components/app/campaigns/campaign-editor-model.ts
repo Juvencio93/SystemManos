@@ -17,10 +17,54 @@ export const campaignSchema = z.object({
 
 export const MAX_BANNER_FILE_BYTES = 15 * 1024 * 1024;
 export const MAX_OTHER_FILE_BYTES = 5 * 1024 * 1024;
+const BANNER_MAX_WIDTH = 1600;
+const BANNER_MAX_HEIGHT = 900;
+const BANNER_WEBP_QUALITY = 0.8;
+
+async function decodeImage(file: File) {
+  if (typeof createImageBitmap === "function") return createImageBitmap(file);
+  const url = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    image.decoding = "async";
+    image.src = url;
+    await image.decode();
+    return image;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function optimizeBanner(file: File) {
+  const image = await decodeImage(file);
+  const sourceWidth = image.width;
+  const sourceHeight = image.height;
+  const scale = Math.min(1, BANNER_MAX_WIDTH / sourceWidth, BANNER_MAX_HEIGHT / sourceHeight);
+  const width = Math.max(1, Math.round(sourceWidth * scale));
+  const height = Math.max(1, Math.round(sourceHeight * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Não foi possível otimizar o banner neste navegador.");
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  context.drawImage(image, 0, 0, width, height);
+  if ("close" in image && typeof image.close === "function") image.close();
+  const blob = await new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob(
+      (result) => (result ? resolve(result) : reject(new Error("Falha ao converter o banner."))),
+      "image/webp",
+      BANNER_WEBP_QUALITY,
+    ),
+  );
+  const baseName = file.name.replace(/\.[^.]+$/, "") || "banner";
+  return new File([blob], `${baseName}.webp`, { type: "image/webp", lastModified: Date.now() });
+}
 
 async function uploadImage(path: string, file: File) {
   const { error } = await supabase.storage.from("campaign-assets").upload(path, file, {
-    cacheControl: "3600",
+    cacheControl: "31536000",
     upsert: true,
     contentType: file.type,
   });
@@ -37,10 +81,11 @@ export async function uploadCampaignAsset(companyId: string, kind: "logo" | "ban
     );
   }
 
-  const ext = file.name.split(".").pop()?.toLowerCase() ?? "png";
+  const uploadFile = kind === "banner" ? await optimizeBanner(file) : file;
+  const ext = uploadFile.name.split(".").pop()?.toLowerCase() ?? "png";
   const path = `${companyId}/${kind}/${crypto.randomUUID()}.${ext}`;
   try {
-    await uploadImage(path, file);
+    await uploadImage(path, uploadFile);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (message.includes("maximum allowed size") || message.includes("413")) {
@@ -65,10 +110,11 @@ export async function uploadSponsorAsset(
       `A imagem possui ${(file.size / (1024 * 1024)).toFixed(2)} MB. O limite é de ${(limit / (1024 * 1024)).toFixed(0)} MB.`,
     );
   }
-  const ext = file.name.split(".").pop()?.toLowerCase() ?? "png";
+  const uploadFile = kind === "sponsor-banner" ? await optimizeBanner(file) : file;
+  const ext = uploadFile.name.split(".").pop()?.toLowerCase() ?? "png";
   const path = `${companyId}/${kind}/${crypto.randomUUID()}.${ext}`;
   try {
-    await uploadImage(path, file);
+    await uploadImage(path, uploadFile);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`Erro no armazenamento (${file.name}): ${message}`);
@@ -137,4 +183,3 @@ export interface EditingCampaignState {
   logoUrl: string | null;
   bannerUrls: string[];
 }
-
