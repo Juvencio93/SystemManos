@@ -4,7 +4,6 @@ import { useMutation } from "@tanstack/react-query";
 import { useMemo, useState, useEffect } from "react";
 import {
   CheckCircle2,
-  Loader2,
   Radar,
   ShieldCheck,
   Unlock,
@@ -689,7 +688,11 @@ function PortalSuccess({
   const finalRedirectUrl = useMemo(() => normalizeUrl(portal.redirectUrl), [portal.redirectUrl]);
   const isSocial = useMemo(() => isSocialUrl(finalRedirectUrl), [finalRedirectUrl]);
   const [isInIframe, setIsInIframe] = useState(false);
-  const [isAuthorizingHotspot, setIsAuthorizingHotspot] = useState(Boolean(done.hotspotAccess));
+  // A HotSpot login points at the router's private HTTP address.  Do not send
+  // it through an iframe from this HTTPS page: current browsers can block that
+  // as mixed content, leaving the visitor on the success page without ever
+  // producing a RADIUS request.  The explicit top-level form below is the
+  // RouterOS-compatible hand-off.
 
   useEffect(() => {
     // Detect if we are inside an iframe
@@ -705,48 +708,15 @@ function PortalSuccess({
     // For MikroTik, RouterOS redirects only after FreeRADIUS accepts the
     // credential. Redirecting the portal page first could look like success
     // even though the device has not obtained Internet access.
-    if (!finalRedirectUrl || isInIframe) return;
+    if (!finalRedirectUrl || isInIframe || done.hotspotAccess) return;
 
     const timer = setTimeout(() => {
       // Use window.location.replace to prevent back-button loops and handle same-tab navigation
       window.location.replace(finalRedirectUrl);
-    }, done.hotspotAccess ? 6000 : 3000);
+    }, 3000);
 
     return () => clearTimeout(timer);
   }, [finalRedirectUrl, isInIframe, done.hotspotAccess]);
-
-  useEffect(() => {
-    if (!done.hotspotAccess) return;
-
-    const frame = document.createElement("iframe");
-    frame.name = "hotspot-login-frame";
-    frame.style.display = "none";
-    document.body.appendChild(frame);
-    const form = document.createElement("form");
-    form.method = "post";
-    form.action = done.hotspotAccess.loginUrl;
-    form.target = frame.name;
-    const fields: Record<string, string> = {
-      username: done.hotspotAccess.username,
-      password: done.hotspotAccess.password,
-      ...(done.hotspotAccess.destination ? { dst: done.hotspotAccess.destination } : {}),
-    };
-    for (const [name, value] of Object.entries(fields)) {
-      const input = document.createElement("input");
-      input.type = "hidden";
-      input.name = name;
-      input.value = value;
-      form.appendChild(input);
-    }
-    document.body.appendChild(form);
-    form.submit();
-    const timeout = window.setTimeout(() => setIsAuthorizingHotspot(false), 5_000);
-    return () => {
-      window.clearTimeout(timeout);
-      form.remove();
-      frame.remove();
-    };
-  }, [done.hotspotAccess]);
 
   const theme = portalTheme(portal.appearance);
 
@@ -760,15 +730,13 @@ function PortalSuccess({
 
           <div className="space-y-3">
             <h1 className="font-display text-4xl font-bold tracking-tight text-white">
-              {done.checkinBlocked ? "Limite de check-ins atingido" : done.hotspotAccess ? "Confirmando acesso..." : "Check-in concluído!"}
+              {done.checkinBlocked ? "Limite de check-ins atingido" : done.hotspotAccess ? "Conclua seu acesso ao Wi-Fi" : "Check-in concluído!"}
             </h1>
             <p className="text-sm leading-relaxed text-[color:var(--portal-muted)]">
               {done.checkinBlocked
                 ? "Este dispositivo atingiu o limite de check-ins. Aguarde o prazo abaixo para tentar novamente."
                 : done.hotspotAccess
-                ? isAuthorizingHotspot
-                  ? "Aguardando a confirmação segura da rede Wi-Fi..."
-                  : "A rede ainda não confirmou o acesso. Toque no botão abaixo para tentar novamente."
+                ? "Toque no botão abaixo para a RB autenticar seu dispositivo e liberar a conexão."
                 : done.hotspotRedirectUrl
                 ? "Seu cadastro foi registrado. Volte ao HotSpot para concluir a autenticação do Wi-Fi."
                 : "Seu cadastro foi registrado com sucesso."}
@@ -796,13 +764,13 @@ function PortalSuccess({
           </div>
 
           {!done.checkinBlocked && done.hotspotAccess ? (
-            <form method="post" target="hotspot-login-frame" action={done.hotspotAccess.loginUrl}>
+            <form method="post" target="_self" action={done.hotspotAccess.loginUrl}>
               <input type="hidden" name="username" value={done.hotspotAccess.username} />
               <input type="hidden" name="password" value={done.hotspotAccess.password} />
               {done.hotspotAccess.destination && <input type="hidden" name="dst" value={done.hotspotAccess.destination} />}
               <Button type="submit" className="h-12 w-full gap-2">
-                {isAuthorizingHotspot ? <Loader2 className="size-4 animate-spin" /> : <Wifi className="size-4" />}
-                {isAuthorizingHotspot ? "Liberando Wi-Fi..." : "Concluir acesso ao Wi-Fi"}
+                <Wifi className="size-4" />
+                Concluir acesso ao Wi-Fi
               </Button>
             </form>
           ) : !done.checkinBlocked && done.hotspotRedirectUrl && (
@@ -816,7 +784,7 @@ function PortalSuccess({
             </Button>
           )}
 
-          {!done.checkinBlocked && finalRedirectUrl && (
+          {!done.checkinBlocked && !done.hotspotAccess && finalRedirectUrl && (
             <div className="space-y-4 pt-4">
               {!isInIframe && (
                 <div className="flex items-center justify-center gap-2 text-[10px] font-medium uppercase tracking-widest text-[color:var(--portal-muted)]">
