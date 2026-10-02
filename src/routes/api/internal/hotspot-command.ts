@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { createHash } from "node:crypto";
 import { hasHotspotRouterAuth } from "@/lib/hotspot-router-auth";
 
 const headers = { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store, no-cache, must-revalidate" };
@@ -23,6 +24,26 @@ function statusCommand(blocked: boolean) {
   return `# Quarantine all RB-routed networks. ether5 remains a transparent provider-LAN bridge.
 /ip firewall filter remove [find where comment="MANOS-BLOCK-ETHER5"]
 ${BLOCK_RULES.map(([comment, chain, subnet]) => `:if ([:len [/ip firewall filter find where comment="${comment}"]] = 0) do={/ip firewall filter add chain=${chain} src-address=${subnet} action=drop place-before=0 comment="${comment}"} else={/ip firewall filter set [find where comment="${comment}"] disabled=no; /ip firewall filter move [find where comment="${comment}"] destination=0}`).join("\n")}
+`;
+}
+
+/**
+ * A router that is already proving its identity through the heartbeat can
+ * safely receive the current RADIUS credential over that TLS channel. The
+ * marker makes this idempotent: RouterOS updates the secret only after a
+ * rotation, not on every five-second heartbeat.
+ */
+function radiusCredentialCommand() {
+  const host = process.env["MIKROTIK_RADIUS_HOST"]?.trim();
+  const secret = process.env["MIKROTIK_RADIUS_SECRET"]?.trim();
+  if (!host || !/^[A-Za-z0-9.-]{1,253}$/.test(host) || !secret || !/^[A-Za-z0-9_-]{16,128}$/.test(secret)) return "";
+  const marker = `MANOS-RADIUS-${createHash("sha256").update(secret).digest("hex").slice(0, 16)}`;
+  return `:local manosRadiusId [/radius find where service=hotspot]
+:if ([:len $manosRadiusId] > 0) do={
+  :if ([/radius get $manosRadiusId comment] != "${marker}") do={
+    /radius set $manosRadiusId address=${host} secret=${secret} authentication-port=1812 accounting-port=1813 timeout=3s require-message-auth=no comment="${marker}"
+  }
+}
 `;
 }
 
@@ -67,9 +88,9 @@ export const Route = createFileRoute("/api/internal/hotspot-command")({
         }
 
         if (device.router_status_requested_at && device.router_status_applied_at !== device.router_status_requested_at) {
-          return new Response(`${statusCommand(device.status === "blocked")}\n${firewallStateScript()}`, { headers });
+          return new Response(`${radiusCredentialCommand()}${statusCommand(device.status === "blocked")}\n${firewallStateScript()}`, { headers });
         }
-        return new Response(statusCommand(device.status === "blocked"), { headers });
+        return new Response(`${radiusCredentialCommand()}${statusCommand(device.status === "blocked")}`, { headers });
       },
     },
   },
