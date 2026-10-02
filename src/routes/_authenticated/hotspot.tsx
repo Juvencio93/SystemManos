@@ -16,6 +16,7 @@ import { getMikrotikActivationDownload } from "@/lib/hotspot-config.functions";
 import { useAccess } from "@/hooks/use-access";
 import { HotspotNetworkMap } from "@/components/app/hotspot-network-map";
 import { hotspotActionError, postHotspotAction } from "@/lib/hotspot-client";
+import { hotspotEventLabel } from "@/lib/hotspot-events";
 
 export const Route = createFileRoute("/_authenticated/hotspot")({
   head: () => ({ meta: [{ title: "Hotspot | Manos Tech" }] }),
@@ -76,7 +77,7 @@ function HotspotPage() {
   const offlineCount = clients.reduce((count, client) => count + (isOnline(client.last_seen_at) ? 0 : 1), 0);
   const activeSessions = clients.reduce((sum, c) => sum + Number(c.active_sessions ?? 0), 0);
   const trafficBytes = clients.reduce((sum, c) => sum + Number(c.rx_bytes ?? 0) + Number(c.tx_bytes ?? 0), 0);
-  const auditItems = (auditQuery.data ?? []).reduce<any[]>((items, item) => { const t = new Date(item.created_at).getTime(); if (`${item.action} ${item.device_id}`.toLowerCase().includes(auditSearch.toLowerCase()) && (!auditFrom || t >= new Date(auditFrom).getTime()) && (!auditTo || t <= new Date(`${auditTo}T23:59:59`).getTime())) items.push(item); return items; }, []);
+  const auditItems = (auditQuery.data ?? []).reduce<any[]>((items, item) => { const t = new Date(item.created_at).getTime(); if (`${hotspotEventLabel(item.action)} ${item.action} ${item.device_id}`.toLowerCase().includes(auditSearch.toLowerCase()) && (!auditFrom || t >= new Date(auditFrom).getTime()) && (!auditTo || t <= new Date(`${auditTo}T23:59:59`).getTime())) items.push(item); return items; }, []);
   const formatBytes = (n: number) => n > 1_000_000_000 ? `${(n / 1_000_000_000).toFixed(1)} GB` : `${(n / 1_000_000).toFixed(1)} MB`;
   const formatReleaseDate = (value?: string | null) => value ? new Date(value).toLocaleString("pt-BR") : "Data da última atualização indisponível";
   const kitUpdatedAt = formatReleaseDate(filesQuery.data?.kitUpdatedAt);
@@ -124,7 +125,7 @@ function HotspotPage() {
     const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "hotspot-dispositivos.csv"; a.click(); URL.revokeObjectURL(url);
   }
   function exportAuditCsv() {
-    const csv = "Ação,Dispositivo,Status anterior,Novo status,Data\n" + auditItems.map((i) => [i.action, i.device_id, i.previous_status, i.new_status, i.created_at].map((v) => `"${String(v ?? "").replaceAll('"', '""')}"`).join(",")).join("\n");
+    const csv = "Ação,Dispositivo,Status anterior,Novo status,Data\n" + auditItems.map((i) => [hotspotEventLabel(i.action), i.device_id, i.previous_status, i.new_status, i.created_at].map((v) => `"${String(v ?? "").replaceAll('"', '""')}"`).join(",")).join("\n");
     const url = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" })); const a = document.createElement("a"); a.href = url; a.download = "hotspot-auditoria.csv"; a.click(); URL.revokeObjectURL(url);
   }
   return (
@@ -169,7 +170,7 @@ function HotspotPage() {
           </div>
         </CardContent>}
       </Card>
-      <Card className="glass-panel border-primary/20"><CardHeader className="flex flex-row items-center justify-between"><button type="button" onClick={() => setExpandedSection(expandedSection === "audit" ? null : "audit")} className="flex flex-1 items-center text-left"><CardTitle>Histórico recente</CardTitle><span className="ml-auto text-primary">{expandedSection === "audit" ? "−" : "+"}</span></button>{expandedSection === "audit" && <Button variant="outline" size="sm" onClick={exportAuditCsv}>Exportar histórico</Button>}</CardHeader>{expandedSection === "audit" && <CardContent className="space-y-2"><Input placeholder="Filtrar histórico por ação ou dispositivo" value={auditSearch} onChange={(e) => setAuditSearch(e.target.value)} /><div className="flex gap-2"><Input type="date" value={auditFrom} onChange={(e) => setAuditFrom(e.target.value)} /><Input type="date" value={auditTo} onChange={(e) => setAuditTo(e.target.value)} /></div>{auditItems.map((item) => <div key={item.id} className="flex items-center justify-between rounded border border-border p-2 text-xs"><span>{item.action} · dispositivo {String(item.device_id).slice(0, 8)}</span><span className="text-muted-foreground">{new Date(item.created_at).toLocaleString("pt-BR")}</span></div>)}{!auditItems.length && <p className="text-sm text-muted-foreground">Nenhuma ação encontrada.</p>}</CardContent>}</Card>
+      <Card className="glass-panel border-primary/20"><CardHeader className="flex flex-row items-center justify-between"><button type="button" onClick={() => setExpandedSection(expandedSection === "audit" ? null : "audit")} className="flex flex-1 items-center text-left"><CardTitle>Histórico recente</CardTitle><span className="ml-auto text-primary">{expandedSection === "audit" ? "−" : "+"}</span></button>{expandedSection === "audit" && <Button variant="outline" size="sm" onClick={exportAuditCsv}>Exportar histórico</Button>}</CardHeader>{expandedSection === "audit" && <CardContent className="space-y-2"><Input placeholder="Filtrar histórico por ação ou dispositivo" value={auditSearch} onChange={(e) => setAuditSearch(e.target.value)} /><div className="flex gap-2"><Input type="date" value={auditFrom} onChange={(e) => setAuditFrom(e.target.value)} /><Input type="date" value={auditTo} onChange={(e) => setAuditTo(e.target.value)} /></div>{auditItems.map((item) => <div key={item.id} className="flex items-center justify-between rounded border border-border p-2 text-xs"><span>{hotspotEventLabel(item.action)} · dispositivo {String(item.device_id).slice(0, 8)}</span><span className="text-muted-foreground">{new Date(item.created_at).toLocaleString("pt-BR")}</span></div>)}{!auditItems.length && <p className="text-sm text-muted-foreground">Nenhuma ação encontrada.</p>}</CardContent>}</Card>
       {offlineCount > 0 && <Card className="border-amber-400/30 bg-amber-400/5"><CardContent className="p-4 text-sm"><p className="font-semibold text-amber-300">Atenção operacional</p><p className="text-muted-foreground">{offlineCount} dispositivo(s) não enviaram heartbeat nos últimos 15 minutos. Verifique a conexão da RB e o RADIUS.</p></CardContent></Card>}
       {syncMessage && <Card className="border-primary/30 bg-primary/5"><CardContent className="p-4 text-sm text-primary">{syncMessage}</CardContent></Card>}
       <Card className="glass-panel border-primary/20">

@@ -23,6 +23,7 @@ import {
 
 import { useEffect, useState, type ReactNode } from "react";
 import { usePresence } from "@/components/app/chat/ChatPresenceProvider";
+import { HotspotNotificationCenter } from "@/components/app/hotspot-notification-center";
 
 import defaultLogo from "@/assets/manos-tech-logo-institutional.png";
 import { Badge } from "@/components/ui/badge";
@@ -198,10 +199,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Link>
         </div>
 
-        <Button variant="ghost" size="sm" className="shrink-0" onClick={handleSignOut}>
-          <LogOut className="size-4" />
-          <span className="hidden sm:inline">Sair</span>
-        </Button>
+        <div className="flex shrink-0 items-center gap-1">
+          {access?.userId ? <HotspotNotificationCenter userId={access.userId} /> : null}
+          <Button variant="ghost" size="sm" className="shrink-0" onClick={handleSignOut}>
+            <LogOut className="size-4" />
+            <span className="hidden sm:inline">Sair</span>
+          </Button>
+        </div>
       </header>
 
       <main className="mx-auto w-full min-w-0 max-w-7xl flex-1 p-4 sm:p-6 md:p-8 overflow-hidden">
