@@ -400,7 +400,7 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
   const [hotspotExpanded, setHotspotExpanded] = useState(false);
   const [hotspotHovering, setHotspotHovering] = useState(false);
   const hotspotOpen = hotspotExpanded || hotspotHovering;
-  const hotspotDevices = useQuery({ queryKey: ["dashboard-hotspot-devices", access?.role, access?.companyId, access?.branchId, access?.resellerId], enabled: hotspotOpen, refetchInterval: 5000, queryFn: async () => {
+  const hotspotDevices = useQuery({ queryKey: ["dashboard-hotspot-devices", access?.role, access?.companyId, access?.branchId, access?.resellerId], enabled: Boolean(access?.userId), refetchInterval: 5000, refetchIntervalInBackground: true, queryFn: async () => {
     let query = (supabase as any).from("hotspot_devices").select("id,router_identity,last_seen_at,last_seen_ip,last_seen_uptime,router_version,active_sessions,rx_bytes,tx_bytes,latency_ms,packet_loss_pct,status,company_id,branch_id,reboot_requested_at,reboot_applied_at,router_applied_status,router_status_applied_at,latitude,longitude,maps_url,companies(name,trade_name,address,neighborhood,city,state,zip_code),branches(name,trade_name,address,neighborhood,city,state,zip_code)");
     if (access?.role === "revenda" && access.resellerId) {
       const [{ data: companies }, { data: branches }] = await Promise.all([
@@ -429,6 +429,10 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
       };
     });
   } });
+  const connectedClients = (hotspotDevices.data ?? []).reduce(
+    (total, device) => total + Math.max(0, Number(device.active_sessions ?? 0)),
+    0,
+  );
   const fetchInsights = useServerFn(getInsights);
   const fetchOpAnalysis = useServerFn(getLatestOperationalAnalysis);
 
@@ -482,7 +486,7 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
     },
     { to: "/financeiro", label: "Financeiro", icon: Wallet, order: 5 },
     { to: "/relatorios", label: "Relatórios", icon: FileBarChart, order: 6 },
-    { to: "/hotspot", label: "Hotspot", icon: Wifi, count: undefined, countLabel: "Mapa da rede e status das RBs", order: 5.5 },
+    { to: "/hotspot", label: "Hotspot", icon: Wifi, count: connectedClients, countLabel: "clientes conectados agora", order: 5.5 },
   ].sort((a, b) => a.order - b.order);
 
   return (
@@ -499,7 +503,7 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
 
       <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {modules.map((module) => (
-          <ModuleCard key={module.label} module={module} isLoading={insights.isLoading} {...(module.label === "Hotspot" ? { onHotspotClick: () => setHotspotExpanded((value) => !value), onHotspotHover: setHotspotHovering } : {})} />
+          <ModuleCard key={module.label} module={module} isLoading={module.label === "Hotspot" ? hotspotDevices.isLoading : insights.isLoading} {...(module.label === "Hotspot" ? { onHotspotClick: () => setHotspotExpanded((value) => !value), onHotspotHover: setHotspotHovering } : {})} />
         ))}
       </div>
       {hotspotOpen && <NetworkMapPanel devices={hotspotDevices.data ?? []} isLoading={hotspotDevices.isLoading} overlay={hotspotHovering} onClose={() => { setHotspotHovering(false); setHotspotExpanded(false); }} onMouseLeave={() => hotspotHovering && setHotspotHovering(false)} />}
