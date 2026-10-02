@@ -40,6 +40,7 @@ import {
 } from "recharts";
 
 import { AiAgentCard } from "@/components/app/ai-agent-card";
+import { HotspotNetworkMap } from "@/components/app/hotspot-network-map";
 const RealtimeHeatmapLazy = lazy(() =>
   import("@/components/app/dashboard/RealtimeHeatmap").then((m) => ({ default: m.RealtimeHeatmap })),
 );
@@ -274,6 +275,66 @@ function ResellerDashboard({ access }: { access: AccessInfo | null }) {
 }
 
 function NetworkMapPanel({ devices, isLoading, overlay, onClose, onMouseLeave }: { devices: any[]; isLoading: boolean; overlay: boolean; onClose: () => void; onMouseLeave: () => void }) {
+  useEffect(() => {
+    if (!overlay) return;
+    const { overflow: rootOverflow } = document.documentElement.style;
+    const { overflow: bodyOverflow } = document.body.style;
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.documentElement.style.overflow = rootOverflow;
+      document.body.style.overflow = bodyOverflow;
+    };
+  }, [overlay]);
+
+  const changeStatus = async (device: any, blocked: boolean) => {
+    const response = await postHotspotAction("/api/internal/hotspot-device-status", {
+      routerIdentity: device.router_identity,
+      blocked,
+    });
+    const error = await hotspotActionError(response, "Não foi possível alterar o bloqueio.");
+    if (error) window.alert(error);
+  };
+
+  const requestReboot = async (device: any) => {
+    const response = await postHotspotAction("/api/internal/hotspot-reboot", {
+      routerIdentity: device.router_identity,
+    });
+    const error = await hotspotActionError(response, "Não foi possível solicitar o reinício.");
+    if (error) window.alert(error);
+  };
+
+  return (
+    <div
+      className={
+        overlay
+          ? "fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 p-3 backdrop-blur-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:p-6"
+          : "mt-6"
+      }
+      onMouseLeave={onMouseLeave}
+    >
+      <div className={overlay ? "relative mx-auto w-full max-w-7xl" : "relative"}>
+        <Button
+          variant="outline"
+          size="icon"
+          aria-label="Fechar mapa"
+          className="absolute right-4 top-4 z-[1000] rounded-full bg-background/90"
+          onClick={onClose}
+        >
+          <X className="size-4" />
+        </Button>
+        <HotspotNetworkMap
+          devices={devices}
+          isLoading={isLoading}
+          onBlock={changeStatus}
+          onReboot={requestReboot}
+        />
+      </div>
+    </div>
+  );
+}
+
+function LegacyNetworkMapPanel({ devices, isLoading, overlay, onClose, onMouseLeave }: { devices: any[]; isLoading: boolean; overlay: boolean; onClose: () => void; onMouseLeave: () => void }) {
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [zoom, setZoom] = useState(1);
@@ -340,7 +401,7 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
   const [hotspotHovering, setHotspotHovering] = useState(false);
   const hotspotOpen = hotspotExpanded || hotspotHovering;
   const hotspotDevices = useQuery({ queryKey: ["dashboard-hotspot-devices", access?.role, access?.companyId, access?.branchId, access?.resellerId], enabled: hotspotOpen, refetchInterval: 5000, queryFn: async () => {
-    let query = (supabase as any).from("hotspot_devices").select("id,router_identity,last_seen_at,last_seen_ip,last_seen_uptime,router_version,active_sessions,rx_bytes,tx_bytes,latency_ms,packet_loss_pct,status,company_id,branch_id,reboot_requested_at,reboot_applied_at,router_applied_status,router_status_applied_at");
+    let query = (supabase as any).from("hotspot_devices").select("id,router_identity,last_seen_at,last_seen_ip,last_seen_uptime,router_version,active_sessions,rx_bytes,tx_bytes,latency_ms,packet_loss_pct,status,company_id,branch_id,reboot_requested_at,reboot_applied_at,router_applied_status,router_status_applied_at,latitude,longitude,maps_url,companies(name,trade_name,address,neighborhood,city,state,zip_code),branches(name,trade_name,address,neighborhood,city,state,zip_code)");
     if (access?.role === "revenda" && access.resellerId) {
       const [{ data: companies }, { data: branches }] = await Promise.all([
         (supabase as any).from("companies").select("id").eq("reseller_id", access.resellerId),
@@ -355,7 +416,18 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
     else if (access?.role !== "adm") return [];
     const { data, error } = await query.order("last_seen_at", { ascending: false });
     if (error) throw error;
-    return data ?? [];
+    return (data ?? []).map((device: any) => {
+      const unit = device.branches ?? device.companies ?? {};
+      return {
+        ...device,
+        unit_name: unit.trade_name ?? unit.name ?? device.router_identity,
+        address: unit.address ?? null,
+        neighborhood: unit.neighborhood ?? null,
+        city: unit.city ?? null,
+        location_state: unit.state ?? null,
+        zip_code: unit.zip_code ?? null,
+      };
+    });
   } });
   const fetchInsights = useServerFn(getInsights);
   const fetchOpAnalysis = useServerFn(getLatestOperationalAnalysis);
