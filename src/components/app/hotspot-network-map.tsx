@@ -33,11 +33,27 @@ type Props = {
 };
 
 function stateOf(device: Device): GeographicDevice["state"] {
+  if (isRebootPending(device)) return "unstable";
   const lastSeen = device.last_seen_at ? new Date(device.last_seen_at).getTime() : 0;
-  if (!lastSeen || Date.now() - lastSeen > 15 * 60_000) return "offline";
+  if (!lastSeen || Date.now() - lastSeen > 15_000) return "offline";
   if (Number(device.packet_loss_pct ?? 0) >= 20 || Number(device.latency_ms ?? 0) >= 250)
     return "unstable";
   return "online";
+}
+
+function isRebootPending(device: Device) {
+  if (!device.reboot_requested_at) return false;
+  const requestedAt = new Date(device.reboot_requested_at).getTime();
+  const appliedAt = device.reboot_applied_at
+    ? new Date(device.reboot_applied_at).getTime()
+    : 0;
+  return Number.isFinite(requestedAt) && requestedAt > appliedAt;
+}
+
+function stateLabel(device: Device) {
+  if (isRebootPending(device)) return "Reiniciando";
+  const state = stateOf(device);
+  return state === "online" ? "Online" : state === "unstable" ? "Instável" : "Offline";
 }
 
 function locationLabel(device: Device) {
@@ -73,11 +89,11 @@ export function HotspotNetworkMap({ devices, isLoading = false, onBlock, onReboo
     if (!selectedId) return;
     const updated = devices.find((device) => device.id === selectedId);
     if (updated) setSelected({ ...updated, state: stateOf(updated) });
-  }, [devices, selectedId]);
+  }, [devices, seconds, selectedId]);
 
   const mappedDevices = useMemo(
     () => devices.map((device) => ({ ...device, state: stateOf(device) })),
-    [devices],
+    [devices, seconds],
   );
   const visible = mappedDevices.filter((device) => {
     const matchesFilter = filter === "all" || device.state === filter;
@@ -115,6 +131,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, onBlock, onReboo
     await onReboot?.(selected);
     setSelected({
       ...selected,
+      state: "unstable",
       reboot_requested_at: new Date().toISOString(),
       reboot_applied_at: null,
     });
@@ -174,7 +191,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, onBlock, onReboo
               [
                 ["all", "Todas", "text-foreground"],
                 ["online", `Online ${counts.online}`, "text-emerald-400"],
-                ["unstable", `Instáveis ${counts.unstable}`, "text-amber-400"],
+                ["unstable", `Instáveis/Reiniciando ${counts.unstable}`, "text-amber-400"],
                 ["offline", `Offline ${counts.offline}`, "text-red-400"],
               ] as const
             ).map(([key, label, color]) => (
@@ -201,7 +218,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, onBlock, onReboo
             <div className="absolute right-3 top-3 z-[500] flex gap-3 rounded-md border border-white/10 bg-black/70 px-3 py-2 text-[11px] backdrop-blur">
               <span className="text-cyan-300">● Sede</span>
               <span className="text-emerald-400">● Online</span>
-              <span className="text-amber-400">● Instável</span>
+              <span className="text-amber-400">● Instável/Reiniciando</span>
               <span className="text-red-400">● Offline</span>
             </div>
             <HotspotGeographicMap
@@ -242,11 +259,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, onBlock, onReboo
                       </Button>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {selected.state === "online"
-                        ? "Online"
-                        : selected.state === "unstable"
-                          ? "Instável"
-                          : "Offline"}{" "}
+                      {stateLabel(selected)}{" "}
                       · última comunicação{" "}
                       {selected.last_seen_at
                         ? new Date(selected.last_seen_at).toLocaleString("pt-BR")
@@ -275,11 +288,13 @@ export function HotspotNetworkMap({ devices, isLoading = false, onBlock, onReboo
                         selected.state === "online" ? "text-emerald-300" : "text-amber-300"
                       }
                     >
-                      {selected.state === "online"
-                        ? "Boa"
-                        : selected.state === "unstable"
-                          ? "Instável"
-                          : "Sem comunicação"}
+                      {isRebootPending(selected)
+                        ? "Reiniciando"
+                        : selected.state === "online"
+                          ? "Boa"
+                          : selected.state === "unstable"
+                            ? "Instável"
+                            : "Sem comunicação"}
                     </b>
                   </span>
                   <span>
