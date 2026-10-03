@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Bell, CheckCheck, Router, Trash2 } from "lucide-react";
+import { AlertTriangle, Bell, CheckCheck, CircleCheck, Router, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -48,7 +48,7 @@ export function HotspotNotificationCenter({ userId }: { userId: string }) {
           supabase
             .from("hotspot_device_audit")
             .select("id,device_id,action,created_at")
-            .eq("action", "router_status_mismatch")
+            .in("action", ["router_status_mismatch", "reboot_completed"])
             .gte("created_at", new Date(Date.now() - 24 * 60 * 60_000).toISOString())
             .order("created_at", { ascending: false })
             .limit(30),
@@ -109,7 +109,7 @@ export function HotspotNotificationCenter({ userId }: { userId: string }) {
         <div className="flex items-center justify-between border-b border-border p-4">
           <div>
             <p className="font-semibold">Notificações</p>
-            <p className="text-xs text-muted-foreground">Somente situações que exigem atenção</p>
+            <p className="text-xs text-muted-foreground">Eventos importantes das RBs</p>
           </div>
           <div className="flex items-center gap-1">
             {unread.length ? (
@@ -152,9 +152,19 @@ export function HotspotNotificationCenter({ userId }: { userId: string }) {
                 className={`mb-1 flex w-full gap-3 rounded-lg p-3 text-left transition-colors hover:bg-muted/70 ${isRead ? "opacity-60" : "bg-muted/40"}`}
               >
                 <span
-                  className={`mt-0.5 grid size-8 shrink-0 place-items-center rounded-full ${alert.severity === "critical" ? "bg-destructive/15 text-destructive" : "bg-amber-400/15 text-amber-400"}`}
+                  className={`mt-0.5 grid size-8 shrink-0 place-items-center rounded-full ${
+                    alert.severity === "critical"
+                      ? "bg-destructive/15 text-destructive"
+                      : alert.severity === "success"
+                        ? "bg-emerald-400/15 text-emerald-400"
+                        : "bg-amber-400/15 text-amber-400"
+                  }`}
                 >
-                  <AlertTriangle className="size-4" />
+                  {alert.severity === "success" ? (
+                    <CircleCheck className="size-4" />
+                  ) : (
+                    <AlertTriangle className="size-4" />
+                  )}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-start justify-between gap-2">

@@ -17,7 +17,7 @@ export function hotspotEventLabel(action: string) {
   return HOTSPOT_EVENT_LABELS[action] ?? action.replaceAll("_", " ");
 }
 
-export type HotspotAlertSeverity = "critical" | "warning";
+export type HotspotAlertSeverity = "critical" | "warning" | "success";
 
 export type HotspotAlert = {
   id: string;
@@ -113,26 +113,39 @@ export function buildHotspotAlerts(devices: AlertDevice[], audits: AlertAudit[],
   }
 
   for (const audit of audits) {
-    if (
-      audit.action !== "router_status_mismatch" ||
-      ageInMs(audit.created_at, now) > 24 * 60 * 60_000
-    )
-      continue;
+    if (ageInMs(audit.created_at, now) > 24 * 60 * 60_000) continue;
     const device = byId.get(audit.device_id);
     const identity = device?.router_identity || "RB sem identificação";
-    alerts.push({
-      id: `audit:${audit.id}`,
-      severity: "warning",
-      title: `Status divergente em ${identity}`,
-      description: "A RB informou um estado diferente do solicitado pelo sistema.",
-      createdAt: audit.created_at,
-      deviceId: audit.device_id,
-      routerIdentity: identity,
-    });
+    if (audit.action === "router_status_mismatch") {
+      alerts.push({
+        id: `audit:${audit.id}`,
+        severity: "warning",
+        title: `Status divergente em ${identity}`,
+        description: "A RB informou um estado diferente do solicitado pelo sistema.",
+        createdAt: audit.created_at,
+        deviceId: audit.device_id,
+        routerIdentity: identity,
+      });
+    } else if (audit.action === "reboot_completed") {
+      alerts.push({
+        id: `audit:${audit.id}`,
+        severity: "success",
+        title: `${identity} foi reiniciada`,
+        description: "A RB voltou online e confirmou a reinicialização.",
+        createdAt: audit.created_at,
+        deviceId: audit.device_id,
+        routerIdentity: identity,
+      });
+    }
   }
 
+  const severityRank: Record<HotspotAlertSeverity, number> = {
+    critical: 0,
+    warning: 1,
+    success: 2,
+  };
   return alerts.sort((a, b) => {
-    if (a.severity !== b.severity) return a.severity === "critical" ? -1 : 1;
+    if (a.severity !== b.severity) return severityRank[a.severity] - severityRank[b.severity];
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 }
