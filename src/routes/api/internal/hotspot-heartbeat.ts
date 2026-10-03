@@ -35,7 +35,7 @@ export const Route = createFileRoute("/api/internal/hotspot-heartbeat")({
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { data: current, error: lookupError } = await (supabaseAdmin as any)
           .from("hotspot_devices")
-          .select("id,status,router_applied_status,router_status_requested_at,router_status_applied_at,sync_requested_at,sync_applied_at,reboot_requested_at,reboot_applied_at,last_seen_uptime")
+          .select("id,status,router_applied_status,router_status_requested_at,router_status_applied_at,sync_requested_at,sync_applied_at,reboot_requested_at,reboot_applied_at,last_seen_at,last_seen_uptime")
           .eq("router_identity", heartbeat.routerIdentity)
           .maybeSingle();
         if (lookupError) return new Response("Could not read device", { status: 500 });
@@ -48,13 +48,20 @@ export const Route = createFileRoute("/api/internal/hotspot-heartbeat")({
         const previousUptime = routerUptimeSeconds(current.last_seen_uptime ?? undefined);
         const reportedUptime = routerUptimeSeconds(heartbeat.uptime);
         const pendingCommandId = current.reboot_requested_at ? String(Date.parse(current.reboot_requested_at)) : null;
+        const heartbeatGapMs = current.last_seen_at
+          ? Date.now() - Date.parse(current.last_seen_at)
+          : 0;
         const rebootConfirmed = Boolean(
           pendingCommandId &&
             body.rebootCommandId === pendingCommandId &&
             current.reboot_applied_at == null &&
-            previousUptime !== null &&
-            reportedUptime !== null &&
-            reportedUptime < previousUptime,
+            ((previousUptime !== null &&
+              reportedUptime !== null &&
+              reportedUptime < previousUptime) ||
+              // Older installed heartbeat scripts did not always report
+              // uptime. A normal 5-second heartbeat does not produce this
+              // gap; a successful RouterOS boot does.
+              heartbeatGapMs >= 12_000),
         );
         const reportedFirewallStatus = heartbeat.firewallBlocked === true || heartbeat.firewallBlocked === "yes" ? "blocked" : "unblocked";
         const firewallConfirmed = heartbeat.firewallBlocked !== undefined && heartbeat.firewallBlocked !== "" &&

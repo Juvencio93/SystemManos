@@ -86,9 +86,26 @@ export const Route = createFileRoute("/api/internal/hotspot-command")({
 
         if (device.reboot_requested_at) {
           const expectedCommandId = String(Date.parse(device.reboot_requested_at));
-          // The router persists this marker in the heartbeat scheduler before
-          // rebooting; do not dispatch a second reboot while it is reconnecting.
-          if (commandIdFromRouter === expectedCommandId) return noOp();
+
+          // A marker proves that a command was received, but not that RouterOS
+          // actually rebooted. The old flow stopped forever after writing the
+          // marker when the reboot itself failed. Retry at a controlled pace
+          // until a post-boot heartbeat confirms the restart.
+          const { data: lastDispatch } = await (supabaseAdmin as any)
+            .from("hotspot_device_audit")
+            .select("created_at")
+            .eq("device_id", device.id)
+            .eq("action", "reboot_dispatched")
+            .gte("created_at", device.reboot_requested_at)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (
+            lastDispatch?.created_at &&
+            Date.now() - Date.parse(lastDispatch.created_at) < 30_000
+          ) {
+            return noOp();
+          }
 
           const { error: auditError } = await (supabaseAdmin as any).from("hotspot_device_audit").insert({
             action: "reboot_dispatched",
@@ -98,7 +115,9 @@ export const Route = createFileRoute("/api/internal/hotspot-command")({
           });
           if (auditError) return new Response("Could not audit reboot dispatch", { status: 500 });
 
-          const command = `/system script set [find where name="MANOS-HEARTBEAT"] comment="MANOS-REBOOT-${expectedCommandId}"\n/system reboot\n`;
+          // Run the reboot outside the imported command file. This lets the
+          // import finish cleanly before RouterOS terminates the current job.
+          const command = `/system script set [find where name="MANOS-HEARTBEAT"] comment="MANOS-REBOOT-${expectedCommandId}"\n:execute {:delay 2s; /system reboot}\n`;
           return new Response(command, { headers });
         }
 
