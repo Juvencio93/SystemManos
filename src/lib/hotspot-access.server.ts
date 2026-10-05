@@ -233,22 +233,66 @@ export async function authorizeHotspotAccess(
     }
   }
 
-  let policyQuery = (admin as any)
-    .from("hotspot_configs")
-    .select("session_timeout_seconds, idle_timeout_seconds, download_kbps, upload_kbps")
-    .eq("company_id", data.company_id);
+  const policyFields = "session_timeout_seconds, idle_timeout_seconds, download_kbps, upload_kbps";
+  const companyPolicyQuery = () =>
+    (admin as any)
+      .from("hotspot_configs")
+      .select(policyFields)
+      .eq("company_id", data.company_id)
+      .is("branch_id", null)
+      .maybeSingle();
 
-  // Branch settings take precedence; company settings are the fallback for a
-  // company portal and for events.
+  let configuredPolicy: {
+    session_timeout_seconds: number | null;
+    idle_timeout_seconds: number | null;
+    download_kbps: number | null;
+    upload_kbps: number | null;
+  } | null = null;
+
   if (data.portal_target_kind === "branch") {
-    policyQuery = policyQuery.eq("branch_id", data.portal_target_id);
-  } else {
-    policyQuery = policyQuery.is("branch_id", null);
-  }
+    const { data: branchPolicy, error: branchPolicyError } = await (admin as any)
+      .from("hotspot_configs")
+      .select(policyFields)
+      .eq("company_id", data.company_id)
+      .eq("branch_id", data.portal_target_id)
+      .maybeSingle();
 
-  const { data: configuredPolicy, error: policyError } = await policyQuery.maybeSingle();
-  if (policyError) {
-    console.error("[authorizeHotspotAccess] Could not load hotspot policy", policyError);
+    if (branchPolicyError) {
+      console.error("[authorizeHotspotAccess] Could not load branch hotspot policy", branchPolicyError);
+    }
+
+    // Branch-specific values take precedence; missing values inherit the
+    // company's policy. This also covers older branch rows without rate limits.
+    const needsCompanyFallback =
+      !branchPolicy ||
+      branchPolicy.session_timeout_seconds == null ||
+      branchPolicy.idle_timeout_seconds == null ||
+      branchPolicy.download_kbps == null ||
+      branchPolicy.upload_kbps == null;
+
+    let companyPolicy = null;
+    if (needsCompanyFallback) {
+      const { data, error } = await companyPolicyQuery();
+      if (error) {
+        console.error("[authorizeHotspotAccess] Could not load company hotspot fallback", error);
+      }
+      companyPolicy = data;
+    }
+
+    configuredPolicy = {
+      session_timeout_seconds:
+        branchPolicy?.session_timeout_seconds ?? companyPolicy?.session_timeout_seconds ?? null,
+      idle_timeout_seconds:
+        branchPolicy?.idle_timeout_seconds ?? companyPolicy?.idle_timeout_seconds ?? null,
+      download_kbps: branchPolicy?.download_kbps ?? companyPolicy?.download_kbps ?? null,
+      upload_kbps: branchPolicy?.upload_kbps ?? companyPolicy?.upload_kbps ?? null,
+    };
+  } else {
+    const { data, error } = await companyPolicyQuery();
+    if (error) {
+      console.error("[authorizeHotspotAccess] Could not load hotspot policy", error);
+    }
+    configuredPolicy = data;
   }
 
   return {
