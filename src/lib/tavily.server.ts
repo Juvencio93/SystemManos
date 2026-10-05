@@ -29,7 +29,7 @@ const VISUAL_EVIDENCE_TERMS =
   /\b(?:ambiente|interior|fachada|sal[aã]o|balc[aã]o|vitrine|mesa|madeira|cer[aâ]mica|ilumina[çc][aã]o|decora[çc][aã]o|arquitetura|paredes?|janelas?|lumin[aá]rias?|cadeiras?|bancos?|cores?|tons?|paleta|texturas?|materiais?|pedra|tijolo|metal|vidro|minimalista|r[uú]stic[oa]|industrial|contempor[aâ]neo|cl[aá]ssico|colorido|elegante)\b/iu;
 
 const NON_VISUAL_OR_SENSITIVE_TERMS =
-  /\b(?:cnpj|cpf|receita\s+federal|informa[cç][õo]es?\s+(?:de\s+)?registro|dados?\s+cadastrais?|situa[cç][aã]o\s+cadastral|capital\s+social|natureza\s+jur[ií]dica|porte\s+(?:da\s+)?empresa|simples\s+nacional|regime\s+tribut[aá]rio|data\s+da\s+abertura|s[oó]ci[oa]s?|administrador(?:es)?|telefone(?:s)?|whats?app|e-?mail|contatos?|logradouro|bairro|munic[ií]pio|cep|cnae|inscri[cç][aã]o|atividade\s+principal|atividade\s+econ[oô]mica|compartilhar|fa[cç]a\s+sua\s+busca|faq|pricing|excel\s+add-?in|bulk\s+lookup|member\s+search)\b/iu;
+  /\b(?:cnpj|cpf|receita\s+federal|informa[cç][õo]es?\s+(?:de\s+)?registro|dados?\s+cadastrais?|situa[cç][aã]o\s+cadastral|capital\s+social|natureza\s+jur[ií]dica|porte\s+(?:da\s+)?empresa|simples\s+nacional|regime\s+tribut[aá]rio|data\s+da\s+abertura|s[oó]ci[oa]s?|administrador(?:es)?|telefone(?:s)?|whats?app|e-?mail|contatos?|logradouro|bairro|munic[ií]pio|cep|cnae|inscri[cç][aã]o|atividade\s+principal|atividade\s+econ[oô]mica|compartilhar|fa[cç]a\s+sua\s+busca|faq|pricing|excel\s+add-?in|bulk\s+lookup|member\s+search|outras\s+empresas|empresas\s+(?:relacionadas|semelhantes|pr[oó]ximas)|(?:ltda|eireli|s\/a|s\.a\.|\bme\b))\b/iu;
 
 /** Keep only source sentences that actually support an art-direction detail.
  * Search identity alone must never be treated as proof of a physical setting. */

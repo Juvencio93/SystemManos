@@ -717,6 +717,11 @@ export function resolvePendingBannerQuestion(
   if (brief.pendingQuestion === "business_compatibility_confirmation") {
     if (confirmationIntent(message) === "positive")
       return { ...brief, compatibilityConfirmed: true, pendingQuestion: undefined };
+    if (confirmationIntent(message) === "negative")
+      return {
+        pendingQuestion: "subject",
+        compatibilityConfirmed: false,
+      };
     return brief;
   }
   if (brief.pendingQuestion === "offer_scope_confirmation") {

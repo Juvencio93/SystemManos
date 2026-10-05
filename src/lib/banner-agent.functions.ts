@@ -23,7 +23,10 @@ import {
   validatePromptCommercialCopy,
   validatePromptTemporalFacts,
 } from "@/lib/banner-brief";
-import { classifyBannerCompatibility } from "@/lib/banner-compatibility";
+import {
+  classifyBannerCompatibility,
+  compatibilityConfirmationQuestion,
+} from "@/lib/banner-compatibility";
 import type { BannerConversationBrief } from "@/lib/banner-brief";
 
 const BannerMessageSchema = z.object({
@@ -262,6 +265,45 @@ export const askBannerAgent = createServerFn({ method: "POST" })
         .filter(Boolean)
         .join("\n\n");
 
+      // Check an explicitly mismatched offer against the company record before
+      // spending a Tavily lookup or asking the model to draft campaign copy.
+      const preflightUserMessages = data.messages
+        .filter((message: BannerMessage) => message.role === "user")
+        .map((message: BannerMessage) => message.content);
+      const preflightBrief = resolveBannerConversationTurn(data.brief, preflightUserMessages).brief;
+      const preflightCompatibility = classifyBannerCompatibility(
+        {
+          name: registeredBannerContext?.name ?? snapshot.name,
+          segment: registeredBannerContext?.segment ?? snapshot.business_segment,
+          description:
+            registeredBannerContext?.description ?? snapshot.business_description,
+          location: [snapshot.city, snapshot.state].filter(Boolean).join(", "),
+        },
+        preflightBrief.subject,
+      );
+      if (
+        preflightCompatibility.classification === "STRONG_MISMATCH" &&
+        !preflightBrief.compatibilityConfirmed
+      ) {
+        return {
+          success: true,
+          data: {
+            needsMoreInfo: true,
+            question: compatibilityConfirmationQuestion({
+              name: registeredBannerContext?.name ?? snapshot.name,
+              segment: registeredBannerContext?.segment ?? snapshot.business_segment,
+            }),
+            promptOptions: null,
+            reminder: null,
+            brief: {
+              ...preflightBrief,
+              pendingQuestion: "business_compatibility_confirmation" as const,
+            },
+          },
+          error: null,
+        };
+      }
+
       // A pesquisa externa faz parte da leitura inicial de CADA turno. Assim,
       // mesmo a primeira pergunta do assistente nasce depois de ele consultar
       // cadastro + fontes públicas da empresa, em vez de tratar o negócio como
@@ -328,20 +370,20 @@ export const askBannerAgent = createServerFn({ method: "POST" })
         (comboWithPrice || !priceIntent || (afterState.hasConfirmedScope && !turn.nextQuestion));
       const compatibility = classifyBannerCompatibility(
         {
-          name: snapshot.name,
-          segment: snapshot.business_segment,
-          description: snapshot.business_description,
-          location: [snapshot.city, snapshot.state].filter(Boolean).join(", "),
+          name: registeredBannerContext?.name ?? snapshot.name,
+          segment: registeredBannerContext?.segment ?? snapshot.business_segment,
+          description:
+            registeredBannerContext?.description ?? snapshot.business_description,
+          location: [registeredBannerContext?.city ?? snapshot.city, registeredBannerContext?.state ?? snapshot.state]
+            .filter(Boolean)
+            .join(", "),
         },
         activeBrief.subject,
       );
-      if (compatibility.classification === "STRONG_MISMATCH") {
+      if (compatibility.classification === "STRONG_MISMATCH" && !activeBrief.compatibilityConfirmed) {
         const brief = {
           ...activeBrief,
-          // An incompatible registered business is not a confirmation step.
-          // Keep the subject open so the user can replace it with a request
-          // that belongs to the company currently selected in the system.
-          pendingQuestion: "subject" as const,
+          pendingQuestion: "business_compatibility_confirmation" as const,
         };
         console.info("[BannerAgent] business compatibility", {
           classification: compatibility.classification,
@@ -351,7 +393,10 @@ export const askBannerAgent = createServerFn({ method: "POST" })
           success: true,
           data: {
             needsMoreInfo: true,
-            question: `Não consigo criar um banner de ${activeBrief.subject} porque o cadastro de ${snapshot.name} indica ${snapshot.business_segment}. Envie uma promoção relacionada ao ramo cadastrado.`,
+            question: compatibilityConfirmationQuestion({
+              name: registeredBannerContext?.name ?? snapshot.name,
+              segment: registeredBannerContext?.segment ?? snapshot.business_segment,
+            }),
             promptOptions: null,
             reminder: null,
             brief,

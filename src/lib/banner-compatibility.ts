@@ -50,6 +50,34 @@ function namesAutomotiveService(value: string) {
   );
 }
 
+const CLEAR_BUSINESS_DOMAINS = [
+  {
+    name: "padaria/confeitaria",
+    profile: /\b(?:padaria|panificadora|panifica[cç][aã]o|confeitaria)\b/iu,
+    subject: /\b(?:p[aã]o\s+franc[eê]s|p[aã]o\s+de\s+queijo|bolo|torta|doces?|confeitaria|caf[eé])\b/iu,
+  },
+  {
+    name: "restaurante/bar",
+    profile: /\b(?:restaurante|bar|boteco|bistr[oô]|buffet|gastronomia)\b/iu,
+    subject: /\b(?:feijoada|churrasco|marmita|prato\s+feito|almo[cç]o\s+executivo|jantar\s+executivo|petiscos?)\b/iu,
+  },
+  {
+    name: "construção",
+    profile: /\b(?:construtora|constru[cç][aã]o|materiais?\s+de\s+constru[cç][aã]o|engenharia\s+civil)\b/iu,
+    subject: /\b(?:cimento|tijolos?|telhas?|reforma|obra|material\s+de\s+constru[cç][aã]o|engenharia\s+civil)\b/iu,
+  },
+  {
+    name: "saúde",
+    profile: /\b(?:cl[ií]nica|consult[oó]rio|hospital|odontologia|dentista|farm[aá]cia)\b/iu,
+    subject: /\b(?:consulta\s+m[eé]dica|avalia[cç][aã]o\s+odontol[oó]gica|aparelho\s+ortod[oô]ntico|exame\s+cl[ií]nico|medicamento)\b/iu,
+  },
+  {
+    name: "beleza",
+    profile: /\b(?:sal[aã]o\s+de\s+beleza|barbearia|manicure|est[eé]tica|cabeleireir[oa])\b/iu,
+    subject: /\b(?:corte\s+de\s+cabelo|manicure|pedicure|design\s+de\s+sobrancelha|procedimento\s+est[eé]tico)\b/iu,
+  },
+] as const;
+
 export function classifyBannerCompatibility(
   company: BannerCompanyContext,
   subject: string | undefined,
@@ -73,6 +101,15 @@ export function classifyBannerCompatibility(
       classification: "DIRECT_MATCH",
       reason: "O assunto encontra evidência no cadastro completo.",
     };
+
+  const companyDomain = CLEAR_BUSINESS_DOMAINS.find((domain) => domain.profile.test(profile));
+  const requestedDomain = CLEAR_BUSINESS_DOMAINS.find((domain) => domain.subject.test(subject));
+  if (companyDomain && requestedDomain && companyDomain.name !== requestedDomain.name) {
+    return {
+      classification: "STRONG_MISMATCH",
+      reason: `O cadastro indica ${companyDomain.name}, enquanto o pedido descreve uma oferta de ${requestedDomain.name}.`,
+    };
+  }
 
   if (namesAutomotiveService(subject) && !namesAutomotiveService(profile)) {
     return {

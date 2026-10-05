@@ -5,6 +5,7 @@ import {
   createBrief,
   deriveConversationCommercialState,
   extractOfferItems,
+  resolvePendingBannerQuestion,
   formatBRL,
   formatOfferPrice,
   keepGroundedPhysicalElements,
@@ -98,6 +99,17 @@ describe("banner briefing engine", () => {
     expect(
       validatePromptCommercialCopy("Banner da Feijoada. Exibir exatamente GRÁTIS.", required),
     ).toContainEqual(expect.objectContaining({ reason: "MISSING_COMMERCIAL_COPY" }));
+  });
+  it("clears an incompatible offer when the user rejects the business mismatch", () => {
+    expect(
+      resolvePendingBannerQuestion(
+        {
+          ...extractBannerTurnFacts("Feijoada por conta da casa"),
+          pendingQuestion: "business_compatibility_confirmation",
+        },
+        "Não",
+      ),
+    ).toEqual({ pendingQuestion: "subject", compatibilityConfirmed: false });
   });
   it("removes test framing before extracting combo products and price", () => {
     const facts = extractBannerTurnFacts(

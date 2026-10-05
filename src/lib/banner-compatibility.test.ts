@@ -37,6 +37,18 @@ describe("banner business compatibility", () => {
     ).toMatch(/Esse banner é mesmo/i);
   });
 
+  it("asks for confirmation when a bakery account requests a restaurant-only main dish", () => {
+    expect(
+      classifyBannerCompatibility(
+        {
+          name: "Efraim Padaria e Confeitaria LTDA",
+          segment: "Fabricação de produtos de panificação industrial",
+        },
+        "Feijoada",
+      ).classification,
+    ).toBe("STRONG_MISMATCH");
+  });
+
   it("treats profile evidence as a direct match regardless of its field", () => {
     expect(
       classifyBannerCompatibility(

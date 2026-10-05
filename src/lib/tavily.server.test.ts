@@ -18,6 +18,14 @@ describe("Tavily visual evidence filter", () => {
     expect(extractVisualEvidence(registryDump)).toEqual([]);
   });
 
+  it("does not turn unrelated company listings into visual references", () => {
+    expect(
+      extractVisualEvidence(
+        "Comercio de materiais de construção e Construtora Rodrigues LTDA - ME",
+      ),
+    ).toEqual([]);
+  });
+
   it("keeps short, concrete visual descriptions while dropping adjacent personal data", () => {
     const content =
       "A fachada tem tons terracota e madeira clara, com iluminação quente. CNPJ 33.148.655/0001-60; telefone (47) 98476-5015.";
