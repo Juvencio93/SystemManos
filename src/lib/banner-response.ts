@@ -160,15 +160,15 @@ export function parseBannerResponse(raw: string): BannerResponseParseResult {
 export function safeBriefingFallbackQuestion(lastUserMessage: string) {
   const subject = lastUserMessage.replace(/\s+/g, " ").trim().slice(0, 300);
   if (!subject)
-    return "Tive um problema ao organizar as informações. Pode me dizer qual produto, serviço ou condição deseja destacar?";
+    return "O que você gostaria de divulgar? Pode ser um produto, serviço ou uma condição especial.";
   if (/^\s*(?:sim|isso|correto|exato|perfeito|ok|certo)\b[.!]?\s*$/iu.test(subject))
-    return "Perfeito, entendi a confirmação. Vou considerar essa informação na promoção.";
+    return "Certo, vou considerar isso na promoção.";
   if (
     /^\s*(?:combo|oferta\s+completa|completa|completo|combo\s+completo)\s*[.!]?\s*$/iu.test(subject) ||
     /^\s*(?:sim|isso|correto|exato|confirmo|pode\s+ser)\b.*\b(?:combo|oferta completa|completa|completo)\b/iu.test(subject)
   )
-    return "Perfeito! Vou considerar os itens como um combo na mesma promoção.";
+    return "Combinado! Vou tratar esses itens como uma única oferta.";
   if (/\b(?:r\$\s*\d|\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila|money|kg|quilo|kilo|quilograma))\b/iu.test(subject))
-    return `Entendi o valor informado em “${subject}”. Ele corresponde à oferta completa ou a cada item separadamente?`;
-  return `Entendi que você quer trabalhar com “${subject}”. Só tive um problema ao organizar essas informações. Os itens fazem parte da mesma promoção?`;
+    return `Sobre “${subject}”: esse valor vale para a oferta toda ou para cada item?`;
+  return `Certo, vou considerar “${subject}”. Esses itens fazem parte da mesma promoção?`;
 }

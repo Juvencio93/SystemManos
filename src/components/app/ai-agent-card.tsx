@@ -1180,6 +1180,7 @@ function ClientAiAgentCard({
 const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) => void }, any>((_props, ref) => {
   const ask = useServerFn(askBannerAgent);
   const queryClient = useQueryClient();
+  const { data: access } = useAccess();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [input, setInput] = useState("");
@@ -1204,7 +1205,23 @@ const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) => void 
     const userMessage = (customMessage || input).trim();
     if (!userMessage || isProcessing) return;
 
-    const newMessages = [...messages, { role: "user" as const, content: userMessage }];
+    const greetingName = access?.displayName?.trim() || access?.fullName?.trim();
+    const openingGreeting =
+      messages.length === 0
+        ? [
+            {
+              role: "assistant" as const,
+              content: greetingName
+                ? `Oi, tudo bom, ${greetingName}? Me conta o que você quer divulgar que eu preparo duas ideias bem caprichadas.`
+                : "Oi, tudo bom? Me conta o que você quer divulgar que eu preparo duas ideias bem caprichadas.",
+            },
+          ]
+        : [];
+    const newMessages = [
+      ...messages,
+      ...openingGreeting,
+      { role: "user" as const, content: userMessage },
+    ];
     setMessages(newMessages);
     setInput("");
     setIsProcessing(true);

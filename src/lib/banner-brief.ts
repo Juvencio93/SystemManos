@@ -886,11 +886,11 @@ export function nextCommercialQuestion(
   const activeBrief = brief ?? rebuildBannerConversationBrief({}, messages);
   if (activeBrief.pendingQuestion === "offer_scope_correction") {
     return activeBrief.price !== undefined
-      ? `Entendi. O ${activeBrief.commercialCondition ?? formatOfferPrice(activeBrief.price)} vale só para qual item da oferta?`
-      : "Entendi. O valor vale só para qual item da oferta?";
+      ? `Só pra eu acertar: essa condição de ${activeBrief.commercialCondition ?? formatOfferPrice(activeBrief.price)} vale só para qual item?`
+      : "Só pra eu acertar: essa condição vale só para qual item?";
   }
   if (activeBrief.commercialCondition && !activeBrief.freeCopyConfirmed) {
-    return "Você prefere mostrar no banner “Grátis” ou “Por conta da casa”?";
+    return "Como você prefere escrever essa cortesia no banner: “Grátis” ou “Por conta da casa”?";
   }
   const state = commercialStateFromBrief(activeBrief, messages);
   const comboAlreadyNamed =
@@ -902,15 +902,13 @@ export function nextCommercialQuestion(
     TEMPORAL_COMMERCIAL_REQUEST.test(conversation) ||
     /\b(?:festival|feira|evento|edi[çc][aã]o\s+especial)\b/iu.test(activeBrief.subject ?? "");
   if (!state.hasSubject)
-    return "Entendi 😊 Qual produto, serviço ou condição você quer destacar no banner?";
+    return "O que você gostaria de divulgar? Pode ser um produto, serviço ou uma condição especial.";
   if (activeBrief.priceCandidate !== undefined)
-    return `Você quer usar ${formatBRL(activeBrief.priceCandidate)} como o valor da oferta no banner?`;
+    return `Só confirmando: você quer destacar ${formatBRL(activeBrief.priceCandidate)} como o valor da oferta?`;
   if (!state.hasPrice && EXPLICIT_PRICE_INTENT.test(conversation))
-    return "Qual valor devo destacar nessa promoção?";
+    return "Qual valor exato você quer destacar nessa promoção?";
   if (temporal && !state.hasValidity) {
-    const label = /\bfestival\b/iu.test(activeBrief.subject ?? "")
-      ? "Esse festival"
-      : "Essa promoção";
+    const isFestival = /\bfestival\b/iu.test(activeBrief.subject ?? "");
     if (/promo(?:ç|c)[aã]o\s+(?:da|de|para)\s+semana/iu.test(conversation)) {
       const today = new Intl.DateTimeFormat("pt-BR", {
         weekday: "long",
@@ -918,7 +916,9 @@ export function nextCommercialQuestion(
       }).format(new Date());
       return `Hoje é ${today}. Você quer considerar a semana desde segunda-feira, começar na próxima semana ou deixar essa promoção válida independentemente do dia?`;
     }
-    return `${label} é válida até quando ou em quais dias?`;
+    return isFestival
+      ? "Esse festival acontece em um dia específico, durante a semana toda ou em outro período?"
+      : "E essa promoção vale até quando ou em quais dias?";
   }
   if (
     state.hasPrice &&
@@ -933,8 +933,9 @@ export function nextCommercialQuestion(
     const price = activeBrief.price !== undefined
       ? activeBrief.commercialCondition ?? formatOfferPrice(activeBrief.price)
       : "Esse valor";
-    if (items.length === 2) return `${price} são pelo ${items[0]} com ${items[1]} juntos?`;
-    return `${price} vale pelo combo todo ou por item?`;
+    if (items.length === 2)
+      return `${price} é pelos dois itens juntos — ${items[0]} e ${items[1]} — ou cada um tem esse valor?`;
+    return `${price} vale para a oferta toda ou para cada item?`;
   }
   return null;
 }

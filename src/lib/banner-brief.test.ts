@@ -174,7 +174,7 @@ describe("banner briefing engine", () => {
   });
   it("asks when an ordinary promotion with a free offer is valid", () => {
     const messages = ["Quero criar um banner de promoção", "Feijoda por conta da casa"];
-    expect(nextCommercialQuestion(messages)).toContain("é válida até quando ou em quais dias");
+    expect(nextCommercialQuestion(messages)).toContain("vale até quando ou em quais dias");
     expect(nextCommercialQuestion([...messages, "Válida somente neste sábado"])).toBeNull();
   });
 

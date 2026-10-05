@@ -66,7 +66,7 @@ describe("banner agent production turn orchestrator", () => {
     let brief = {};
     let messages = ["Criar uma imagem promoção da semana"];
     let turn = resolveBannerConversationTurn(brief, messages);
-    expect(turn.nextQuestion).toMatch(/produto, serviço ou condição/i);
+    expect(turn.nextQuestion).toMatch(/divulgar.*produto.*servi[çc]o/i);
 
     brief = turn.brief;
     messages = [...messages, "Bolo de cenoura com cobertura de chocolate e café passado"];
@@ -97,7 +97,7 @@ describe("banner agent production turn orchestrator", () => {
   it("resolves a natural answer to the pending subject question without repeating it", () => {
     const firstTurn = resolveBannerConversationTurn({}, ["Como criar um banner de promoção"]);
     expect(firstTurn.brief.pendingQuestion).toBe("subject");
-    expect(firstTurn.nextQuestion).toMatch(/produto, serviço ou condição/i);
+    expect(firstTurn.nextQuestion).toMatch(/divulgar.*produto.*servi[çc]o/i);
 
     const secondTurn = resolveBannerConversationTurn(firstTurn.brief, [
       "Como criar um banner de promoção",
@@ -116,7 +116,7 @@ describe("banner agent production turn orchestrator", () => {
     expect(secondTurn.brief.pendingQuestion).toBe("price_confirmation");
     expect(
       secondTurn.nextQuestion === null ||
-        !/produto, serviço ou condição/i.test(secondTurn.nextQuestion),
+        !/divulgar.*produto.*servi[çc]o/i.test(secondTurn.nextQuestion),
     ).toBe(true);
   });
 
