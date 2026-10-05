@@ -409,24 +409,34 @@ export const askBannerAgent = createServerFn({ method: "POST" })
           error: briefingDecision.error || "Erro na comunicação com a IA.",
         };
       }
-      const decision = parseBannerResponse(briefingDecision.text);
-      if (!decision.ok) {
-        logBannerParseFailure(briefingDecision.requestId, "briefing_decision", decision);
-        const lastUserMessage =
-          [...data.messages].reverse().find((message) => message.role === "user")?.content ?? "";
-        return {
-          success: true,
-          data: {
-            needsMoreInfo: true,
-            question: turn.nextQuestion ?? safeBriefingFallbackQuestion(lastUserMessage),
-            promptOptions: null,
-            reminder: null,
-          },
-          error: null,
-        };
+      const parsedDecision = parseBannerResponse(briefingDecision.text);
+      const decision = parsedDecision.ok ? parsedDecision : null;
+      if (!decision) {
+        logBannerParseFailure(briefingDecision.requestId, "briefing_decision", parsedDecision);
+        // The deterministic brief is authoritative when it already contains
+        // everything required. A malformed/irrelevant model reply must not
+        // send the user back into a redundant clarification loop.
+        if (deterministicComplete) {
+          console.warn("[BannerAgent] complete brief; ignoring invalid decision response", {
+            requestId: briefingDecision.requestId,
+          });
+        } else {
+          const lastUserMessage =
+            [...data.messages].reverse().find((message) => message.role === "user")?.content ?? "";
+          return {
+            success: true,
+            data: {
+              needsMoreInfo: true,
+              question: turn.nextQuestion ?? safeBriefingFallbackQuestion(lastUserMessage),
+              promptOptions: null,
+              reminder: null,
+            },
+            error: null,
+          };
+        }
       }
       if (
-        decision.data.needsMoreInfo &&
+        decision?.data.needsMoreInfo &&
         !deterministicComplete &&
         !answeredScopeWithCombo &&
         !isResolvedQuestion(decision.data.question, userMessages, activeBrief)
@@ -695,7 +705,7 @@ export const askBannerAgent = createServerFn({ method: "POST" })
         // Return validated data
         console.info("[BannerAgent] conversation decision", {
           ...requestTrace,
-          modelProposedQuestion: decision.data.question,
+          modelProposedQuestion: decision?.data.question ?? null,
           finalDecision: "generate_prompts",
           persistedState: activeBrief,
         });
