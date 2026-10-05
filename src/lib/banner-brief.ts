@@ -95,13 +95,14 @@ const EXPLICIT_VALIDITY =
   /\b(?:v[áa]lid[ao]|vig[êe]ncia|at[ée]\s+(?:[a-zá-ú]+|\d{1,2})|somente|apenas|todos?\s+os?|toda\s+(?:a\s+)?(?:quarta|quinta|sexta|segunda|ter[çc]a|semana)|durante\s+(?:a\s+)?semana|(?:segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo)(?:-feira)?s?\b|de\s+\w+\s+(?:a|at[ée])\s+\w+)/i;
 
 const TEMPORAL_COMMERCIAL_REQUEST =
-  /\b(?:promo[çc][ãa]o\s+(?:da|de|para)\s+semana|promo[çc][ãa]o\s+semanal|oferta\s+da\s+semana|evento|festival|happy\s*hour)\b/i;
+  /\b(?:promo[çc][ãa]o|oferta|desconto|cortesia|evento|festival|happy\s*hour)\b/iu;
 const INSTITUTIONAL_REQUEST = /\b(?:banner|imagem|arte)\s+institucional\b|\binstitucional\b/i;
+const EXPLICIT_PRICE_INTENT =
+  /\b(?:promo(?:ç|c)[aã]o|oferta|desconto|pre[cç]o|valor|por\s+apenas|happy\s*hour)\b/iu;
 
 /**
- * Commercial completeness is intentionally narrow: a period is necessary
- * only when the request itself establishes a temporary promotion/event.
- * Institutional and permanent communications remain free of this question.
+ * An explicit promotion/offer/event needs an end date or validity days before
+ * copy generation. Institutional messages do not ask for campaign validity.
  */
 export function commercialCompletenessQuestion(messages: readonly string[]) {
   const conversation = messages.join("\n");
@@ -109,7 +110,7 @@ export function commercialCompletenessQuestion(messages: readonly string[]) {
     return null;
   }
 
-  return "Fechado 😄 Até quando essa promoção é válida?";
+  return "Fechado 😄 Até quando ou em quais dias essa promoção é válida?";
 }
 
 export type VisualSceneContract = {
@@ -258,6 +259,7 @@ export function extractOfferItems(subject: string | undefined) {
           /^.*?\b(?:promo(?:[çc][aã]o)?|oferta)\s+(?:da\s+)?(?:semana|especial)\s*:\s*/iu,
           "",
         )
+        .replace(/^combo\s+com\s+/iu, "")
         .replace(/\s+(?:por\s+)?(?:r\$\s*)?\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila|money)\b.*$/iu, "")
         .replace(/^\s*(?:um(?:a)?|o|a|os|as)\s+/iu, "")
         .trim(),
@@ -280,12 +282,16 @@ const SCOPE_CONFIRMATION =
   /\b(?:mesma\s+(?:promo[çc][aã]o|oferta)|combo\s*(?:completo|inclui)?|oferta\s+completa|oferta\s+completa|inclui\s+(?:o|a|os|as)|valor\s+(?:do|da)\s+(?:combo|oferta)|isso|sim|correto|exato|pode\s+ser|perfeito)\b/i;
 
 const FREE_OFFER = /\b(?:gr[aá]tis|gratuita?|sem\s+custo|por\s+conta\s+da\s+casa)\b/iu;
-const PRICE_FACT = /(?:r\$\s*\d|\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila|money)\b|\b(?:valor|pre[cç]o)\b[^\d]{0,24}\d)/i;
+const NEGATED_FREE_OFFER =
+  /\b(?:n[aã]o|nunca|jamais)\s+(?:[eé]\s+)?(?:gr[aá]tis|gratuita?|sem\s+custo|por\s+conta\s+da\s+casa)\b/iu;
+const PRICE_FACT =
+  /(?:r\$\s*\d|\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila|money)\b|\b(?:valor|pre[cç]o)\b[^\d]{0,24}\d)/i;
 const BARE_PRICE = /^\s*\d{1,6}(?:[.,]\d{1,2})?\s*$/u;
 
 function extractPriceFact(message: string) {
-  if (FREE_OFFER.test(message)) return 0;
-  if (/\b\d+(?:[.,]\d{1,2})?\s*(?:(?:o|por)\s+)?(?:kg|quilo|kilo|quilograma)\b/iu.test(message)) return normalizePrice(message);
+  if (FREE_OFFER.test(message) && !NEGATED_FREE_OFFER.test(message)) return 0;
+  if (/\b\d+(?:[.,]\d{1,2})?\s*(?:(?:o|por)\s+)?(?:kg|quilo|kilo|quilograma)\b/iu.test(message))
+    return normalizePrice(message);
   if (!PRICE_FACT.test(message)) return undefined;
   return normalizePrice(message);
 }
@@ -300,7 +306,8 @@ function extractPriceUnit(message: string) {
 }
 
 function extractBarePriceCandidate(message: string) {
-  if (FREE_OFFER.test(message) || !BARE_PRICE.test(message)) return undefined;
+  if ((FREE_OFFER.test(message) && !NEGATED_FREE_OFFER.test(message)) || !BARE_PRICE.test(message))
+    return undefined;
   return normalizePrice(message);
 }
 
@@ -383,18 +390,49 @@ function extractTimeFact(message: string) {
 function extractCommercialCondition(message: string) {
   const percentage = message.match(/\b\d{1,3}\s*%\s*(?:de\s+)?desconto\b/iu);
   if (percentage) return percentage[0];
+  if (NEGATED_FREE_OFFER.test(message)) return undefined;
   return message.match(/\b(?:gr[aá]tis|gratuita?|sem\s+custo|por\s+conta\s+da\s+casa)\b/iu)?.[0];
 }
 
 function extractCommercialSubject(message: string) {
   if (/^\s*(?:o\s+)?(?:pre[cç]o|valor)\b/iu.test(message)) return undefined;
+
+  // A common promotion structure combines a purchased item with a courtesy
+  // item. Keep only those products in the structured subject; the full user
+  // message remains available to the model for the exact condition/copy.
+  const purchaseItem = message.match(
+    /\bna\s+compra\s+(?:de\s+)?(?:qualquer\s+)?([^,.!?;]+?)(?=[,.!?;]|$)/iu,
+  )?.[1]
+    ?.replace(/^\s*(?:qualquer|um(?:a)?|o|a|os|as)\s+/iu, "")
+    .trim();
+  const courtesyItem = message.match(
+    /\b(?:oferece|oferecer|ganhe|ganhar|ganha|receba|receber|recebe|leva|leve|d[aá]|d[eê])\s+(?:um|uma|o|a)\s+([^,.!?;]+?)\s+(?:de\s+)?(?:cortesia|gr[aá]tis|gratuit[oa]s?|sem\s+custo)\b/iu,
+  )?.[1]
+    ?.replace(/^\s*(?:qualquer|um(?:a)?|o|a|os|as)\s+/iu, "")
+    .trim();
+  if (purchaseItem && courtesyItem) return `${purchaseItem} e ${courtesyItem}`;
+
+  const messageCore = message
+    .replace(/^\s*teste(?:\s+(?:interno|local))?\s*[:—-]\s*/iu, "")
+    .replace(
+      /^\s*(?:(?:quero|preciso|gostaria\s+de)\s+)?criar\s+(?:duas?\s+)?(?:ideias?|op[cç][õo]es?)\s+(?:de\s+)?(?:um\s+)?(?:banner|arte|imagem)\s+(?:bem\s+)?diferentes?\s+para\s+[^:,.!?]+:\s*/iu,
+      "",
+    )
+    .replace(
+      /^\s*(?:crie?|criar)\s+(?:duas?\s+)?(?:ideias?|op[cç][õo]es?)\s+para\s+divulgar\s+que\s*/iu,
+      "",
+    )
+    .replace(
+      /[.!?]\s*(?:deixe\s+claro|n[aã]o\s+invente|sem\s+inventar|quero\s+duas?|fa[cç]a\s+duas?)[\s\S]*$/iu,
+      "",
+    );
   if (
     /^\s*(?:(?:como\s+)?(?:criar|fazer|montar)\s+)?(?:um(?:a)?\s+)?(?:banner|arte|imagem)\s*(?:de\s+)?(?:uma?\s+)?(?:promo(?:ç|c)[aã]o|oferta)(?:\s+da\s+semana)?\s*$/iu.test(
       message,
     )
   )
     return undefined;
-  const normalized = message
+  const normalized = messageCore.replace(/[.!?]+\s*$/u, "").replace(/\s+/gu, " ")
     .replace(
       /^\s*(?:(?:quero|queria|preciso|gostaria(?:\s+de)?|vamos)\s+)?(?:criar|fazer|faz|montar|divulgar)\s*(?:um[ao]?\s+)?(?:banner|arte|imagem)?\s*(?:de|para|pro|pra|sobre)?\s*/iu,
       "",
@@ -410,15 +448,15 @@ function extractCommercialSubject(message: string) {
     // readable; standalone free-price expressions are conditions, not items.
     .replace(/\b(?:gr[aá]tis|sem\s+custo|por\s+conta\s+da\s+casa)\b/giu, "")
     .replace(
-      /(?:,|\s)+(?:na\s+|nesta\s+|nessa\s+|dessa\s+)?(?:segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo)(?:[-\s]?feira)?(?:\s+por\s+(?:pessoa|por[çc][aã]o|unidade|item))?\s*$/iu,
+      /(?:,|\s)+(?:na\s+|no\s+|nesta\s+|neste\s+|nessa\s+|nesse\s+|desta\s+|deste\s+|dessa\s+|desse\s+)?(?:segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo)(?:[-\s]?feira)?(?:\s+por\s+(?:pessoa|por[çc][aã]o|unidade|item))?\s*$/iu,
       "",
     )
     .replace(
-      /(?:,|\s)+(?:v[áa]lid[ao]\s+)?(?:at[ée]\s+\S+|somente\s+\S+|(?:(?:n[ao]|nessa|dessa|esta)\s+)?(?:segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo)(?:[-\s]?feira)?|(?:(?:neste|nesse|deste|esse)\s+)?fim\s+de\s+semana|durante\s+(?:janeiro|fevereiro|mar[çc]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro))(?:\s+(?:[àa]s|as)\s*\d{1,2}(?::\d{2}|h(?:\d{2})?)?)?\s*$/iu,
+      /(?:,|\s)+(?:v[áa]lid[ao]\s+)?(?:at[ée]\s+\S+|somente\s+\S+|(?:(?:n[ao]|nessa|dessa|esta|essa|neste|nesse|deste|desse|nesta|desta)\s+)?(?:segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo)(?:[-\s]?feira)?|(?:(?:neste|nesse|deste|desse|esse)\s+)?fim\s+de\s+semana|durante\s+(?:janeiro|fevereiro|mar[çc]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro))(?:\s+(?:[àa]s|as)\s*\d{1,2}(?::\d{2}|h(?:\d{2})?)?)?\s*$/iu,
       "",
     )
     .replace(
-      /^\s*(?:v[áa]lid[ao]\s+)?(?:at[ée]\s+\S+|somente\s+\S+|(?:(?:n[ao]|nessa|dessa|esta)\s+)?(?:segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo)(?:[-\s]?feira)?|(?:(?:neste|nesse|deste|esse)\s+)?fim\s+de\s+semana|durante\s+(?:janeiro|fevereiro|mar[çc]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro))\s*$/iu,
+      /^\s*(?:v[áa]lid[ao]\s+)?(?:at[ée]\s+\S+|somente\s+\S+|(?:(?:n[ao]|nessa|dessa|esta|essa|neste|nesse|deste|desse|nesta|desta)\s+)?(?:segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo)(?:[-\s]?feira)?|(?:(?:neste|nesse|deste|desse|esse)\s+)?fim\s+de\s+semana|durante\s+(?:janeiro|fevereiro|mar[çc]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro))\s*$/iu,
       "",
     )
     .replace(/\bpor\s*$/iu, "")
@@ -446,8 +484,7 @@ export function extractBannerTurnFacts(
   if (barePrice !== undefined) facts.priceCandidate = barePrice;
   const commercialCondition = extractCommercialCondition(message);
   if (commercialCondition) facts.commercialCondition = commercialCondition;
-  if (/^\s*(?:gr[aá]tis|por\s+conta\s+da\s+casa)\s*[.!]?\s*$/iu.test(message))
-    facts.freeCopyConfirmed = true;
+  if (FREE_OFFER.test(message) && !NEGATED_FREE_OFFER.test(message)) facts.freeCopyConfirmed = true;
   const validity = extractValidityFact(message);
   if (validity) facts.validity = validity;
   const weekdays = extractWeekdayFacts(message);
@@ -461,8 +498,12 @@ export function extractBannerTurnFacts(
   const unit = extractUnitFact(message);
   if (unit) facts.unit = unit;
   if (
-    /^\s*(?:combo|oferta\s+completa|completa|completo|combo\s+completo)\s*[.!]?\s*$/iu.test(message) ||
-    /^\s*(?:sim|isso|correto|exato|confirmo|pode\s+ser)\b.*\b(?:combo|oferta completa|completa|completo)\b/iu.test(message)
+    /^\s*(?:combo|oferta\s+completa|completa|completo|combo\s+completo)\s*[.!]?\s*$/iu.test(
+      message,
+    ) ||
+    /^\s*(?:sim|isso|correto|exato|confirmo|pode\s+ser)\b.*\b(?:combo|oferta completa|completa|completo)\b/iu.test(
+      message,
+    )
   ) {
     facts.scopeConfirmed = true;
   }
@@ -759,7 +800,9 @@ export function rebuildBannerConversationBrief(
     // as “Combo”. This prevents the price question from being reopened.
     if (
       /\b(?:combo|oferta\s+completa|completa|completo)\b/iu.test(latestMessage) &&
-      /^(?:\s*(?:sim|isso|correto|exato|confirmo|pode\s+ser)\b)?[\s,]*(?:ao|a|o|do|da)?[\s,]*(?:combo|oferta|oferta\s+completa|completa|completo)\b/iu.test(latestMessage) &&
+      /^(?:\s*(?:sim|isso|correto|exato|confirmo|pode\s+ser)\b)?[\s,]*(?:ao|a|o|do|da)?[\s,]*(?:combo|oferta|oferta\s+completa|completa|completo)\b/iu.test(
+        latestMessage,
+      ) &&
       resolved.price === undefined &&
       resolved.priceCandidate === undefined
     ) {
@@ -838,14 +881,15 @@ export function nextCommercialQuestion(
   const activeBrief = brief ?? rebuildBannerConversationBrief({}, messages);
   if (activeBrief.pendingQuestion === "offer_scope_correction") {
     return activeBrief.price !== undefined
-      ? `Entendi. O ${formatOfferPrice(activeBrief.price)} vale só para qual item da oferta?`
+      ? `Entendi. O ${activeBrief.commercialCondition ?? formatOfferPrice(activeBrief.price)} vale só para qual item da oferta?`
       : "Entendi. O valor vale só para qual item da oferta?";
   }
   if (activeBrief.commercialCondition && !activeBrief.freeCopyConfirmed) {
     return "Você prefere mostrar no banner “Grátis” ou “Por conta da casa”?";
   }
   const state = commercialStateFromBrief(activeBrief, messages);
-  const comboAlreadyNamed = /\bcombo\b/iu.test(activeBrief.subject ?? "") || /\bcombo\b/iu.test(conversation);
+  const comboAlreadyNamed =
+    /\bcombo\b/iu.test(activeBrief.subject ?? "") || /\bcombo\b/iu.test(conversation);
   if (comboAlreadyNamed && (state.hasPrice || activeBrief.priceCandidate !== undefined)) {
     return null;
   }
@@ -856,20 +900,34 @@ export function nextCommercialQuestion(
     return "Entendi 😊 Qual produto, serviço ou condição você quer destacar no banner?";
   if (activeBrief.priceCandidate !== undefined)
     return `Você quer usar ${formatBRL(activeBrief.priceCandidate)} como o valor da oferta no banner?`;
+  if (!state.hasPrice && EXPLICIT_PRICE_INTENT.test(conversation))
+    return "Qual valor devo destacar nessa promoção?";
   if (temporal && !state.hasValidity) {
-    const label = /\bfestival\b/iu.test(activeBrief.subject ?? "") ? "Esse festival" : "Essa promoção";
+    const label = /\bfestival\b/iu.test(activeBrief.subject ?? "")
+      ? "Esse festival"
+      : "Essa promoção";
     if (/promo(?:ç|c)[aã]o\s+(?:da|de|para)\s+semana/iu.test(conversation)) {
-      const today = new Intl.DateTimeFormat("pt-BR", { weekday: "long", timeZone: "America/Sao_Paulo" }).format(new Date());
+      const today = new Intl.DateTimeFormat("pt-BR", {
+        weekday: "long",
+        timeZone: "America/Sao_Paulo",
+      }).format(new Date());
       return `Hoje é ${today}. Você quer considerar a semana desde segunda-feira, começar na próxima semana ou deixar essa promoção válida independentemente do dia?`;
     }
-    return `${label} acontece em um dia específico, durante a semana ou em algum período definido?`;
+    return `${label} é válida até quando ou em quais dias?`;
   }
-  if (!state.hasPrice) return "Qual é o valor exato da oferta?";
-  if (!state.hasConfirmedScope && !state.isSingleService && !activeBrief.priceUnit && !comboAlreadyNamed) {
+  if (
+    state.hasPrice &&
+    !state.hasConfirmedScope &&
+    !state.isSingleService &&
+    !activeBrief.priceUnit &&
+    !comboAlreadyNamed
+  ) {
     const items = activeBrief.offerItems?.length
       ? activeBrief.offerItems
       : extractOfferItems(activeBrief.subject);
-    const price = activeBrief.price !== undefined ? formatOfferPrice(activeBrief.price) : "Esse valor";
+    const price = activeBrief.price !== undefined
+      ? activeBrief.commercialCondition ?? formatOfferPrice(activeBrief.price)
+      : "Esse valor";
     if (items.length === 2) return `${price} são pelo ${items[0]} com ${items[1]} juntos?`;
     return `${price} vale pelo combo todo ou por item?`;
   }
@@ -885,15 +943,26 @@ export function pendingQuestionForCommercialState(
   if (brief.pendingQuestion === "offer_scope_correction") return "offer_scope_correction" as const;
   if (brief.commercialCondition && !brief.freeCopyConfirmed) return undefined;
   const state = commercialStateFromBrief(brief, messages);
-  const comboAlreadyNamed = /\bcombo\b/iu.test(brief.subject ?? "") || /\bcombo\b/iu.test(conversation);
+  const comboAlreadyNamed =
+    /\bcombo\b/iu.test(brief.subject ?? "") || /\bcombo\b/iu.test(conversation);
   if (comboAlreadyNamed && (state.hasPrice || brief.priceCandidate !== undefined)) return undefined;
   const temporal =
     TEMPORAL_COMMERCIAL_REQUEST.test(conversation) ||
     /\b(?:festival|feira|evento|edi[çc][aã]o\s+especial)\b/iu.test(brief.subject ?? "");
   if (!state.hasSubject) return "subject" as const;
   if (temporal && !state.hasValidity) return undefined;
-  if (brief.priceCandidate !== undefined || !state.hasPrice) return "price_confirmation" as const;
-  if (!state.hasConfirmedScope && !state.isSingleService && !brief.priceUnit && !comboAlreadyNamed)
+  if (
+    brief.priceCandidate !== undefined ||
+    (!state.hasPrice && EXPLICIT_PRICE_INTENT.test(conversation))
+  )
+    return "price_confirmation" as const;
+  if (
+    state.hasPrice &&
+    !state.hasConfirmedScope &&
+    !state.isSingleService &&
+    !brief.priceUnit &&
+    !comboAlreadyNamed
+  )
     return "offer_scope_confirmation" as const;
   return undefined;
 }
@@ -901,6 +970,8 @@ export function pendingQuestionForCommercialState(
 export type RequiredOfferFacts = {
   items: string[];
   price?: number;
+  /** Exact benefit wording chosen by the user; zero price never rewrites it. */
+  commercialCopy?: string;
   priceUnit?: string;
   validity?: string;
   weekday?: string;
@@ -916,6 +987,7 @@ export type CommercialFactViolation = {
     | "MISSING_OFFER_ITEM"
     | "EXTRA_OFFER_ITEM"
     | "WRONG_PRICE"
+    | "MISSING_COMMERCIAL_COPY"
     | "MISSING_VALIDITY"
     | "MISSING_UNIT"
     | "INVENTED_RECURRENCE"
@@ -945,6 +1017,7 @@ export function requiredOfferFactsFromBrief(
   return {
     items: brief.offerItems?.length ? brief.offerItems : extractOfferItems(brief.subject),
     ...(brief.price !== undefined ? { price: brief.price } : {}),
+    ...(brief.commercialCondition ? { commercialCopy: brief.commercialCondition } : {}),
     ...(brief.priceUnit ? { priceUnit: brief.priceUnit } : {}),
     ...(brief.validity ? { validity: brief.validity } : {}),
     ...(brief.weekday ? { weekday: brief.weekday } : {}),
@@ -1020,7 +1093,10 @@ export function validateGeneratedCommercialFacts(
       detail: `Validade deve ser ${required.validity}`,
     });
   }
-  if (required.unit && normalizedCommercialUnit(facts.unit ?? "") !== normalizedCommercialUnit(required.unit)) {
+  if (
+    required.unit &&
+    normalizedCommercialUnit(facts.unit ?? "") !== normalizedCommercialUnit(required.unit)
+  ) {
     violations.push({ reason: "MISSING_UNIT", detail: `Unidade deve ser ${required.unit}` });
   }
   if (
@@ -1033,6 +1109,20 @@ export function validateGeneratedCommercialFacts(
     violations.push({ reason: "WRONG_SCOPE", detail: "Escopo comercial precisa ser confirmado" });
   }
   return violations;
+}
+
+/** Ensure the actual image prompt includes the benefit wording the user chose. */
+export function validatePromptCommercialCopy(prompt: string, required: RequiredOfferFacts) {
+  if (!required.commercialCopy) return [];
+  const promptWords = normalizedWords(prompt);
+  const copyWords = normalizedWords(required.commercialCopy);
+  if (!copyWords || promptWords.includes(copyWords)) return [];
+  return [
+    {
+      reason: "MISSING_COMMERCIAL_COPY" as const,
+      detail: `O prompt precisa manter a expressão comercial informada: ${required.commercialCopy}`,
+    },
+  ];
 }
 
 /** Reject weekly wording unless the user explicitly established a recurrence. */
@@ -1091,6 +1181,80 @@ export function validateSecondPromptCommercialDirection(
     ];
   }
   return [];
+}
+
+/** Reject near-copy pairs while ignoring shared brand and offer vocabulary. */
+export function validatePromptConceptSeparation(first: string, second: string) {
+  const photoLed = (value: string) =>
+    /\b(?:fotografia\s+(?:publicit[aá]ria|editorial|realista)\s+(?:(?:de|do)\s+)?produto|foto(?:grafia)?\s+de\s+produto\s+(?:como\s+)?(?:foco|protagonista)|still\s+life\s+fotogr[aá]fico|imagem\s+fotogr[aá]fica\s+(?:do\s+)?produto)\b/iu.test(
+      value,
+    );
+  const graphicLed = (value: string) =>
+    /\b(?:cartaz|p[oó]ster)\s+tipogr[aá]fico|\btipografia\s+(?:como\s+)?protagonista|\bdesign\s+gr[aá]fico\s+(?:como\s+)?(?:ideia|conceito|dire[cç][aã]o)\b/iu.test(
+      value,
+    );
+
+  // A changed camera angle is not a separate creative concept. Require an
+  // image-led photographic route and a design-led typographic route, while
+  // leaving their product-specific art direction to the model.
+  if (!((photoLed(first) && graphicLed(second)) || (graphicLed(first) && photoLed(second)))) {
+    return [
+      {
+        reason: "SIMILAR_PROMPT_CONCEPTS",
+        detail:
+          "As opções precisam seguir estratégias distintas: uma campanha conduzida pela fotografia do produto e outra por um conceito de cartaz/design tipográfico; trocar somente ângulo, luz ou enquadramento não basta.",
+      },
+    ];
+  }
+
+  const stopWords = new Set([
+    "para", "com", "sem", "uma", "um", "dos", "das", "que", "por", "mais", "sobre",
+    "usar", "use", "deve", "devera", "banner", "imagem", "opcao", "prompt", "profissional",
+    "publicitario", "publicitaria", "visual", "produto", "servico", "texto", "marca", "logo",
+    "exatamente", "confirmado", "confirmada", "confirmados",
+  ]);
+  const tokens = (value: string) =>
+    new Set(
+      normalizedWords(value)
+        .split(/\s+/u)
+        .filter((word) => word.length > 3 && !stopWords.has(word)),
+    );
+  const a = tokens(first);
+  const b = tokens(second);
+  const union = new Set([...a, ...b]);
+  if (union.size < 5) return [];
+  const overlap = [...a].filter((word) => b.has(word)).length / union.size;
+  return overlap >= 0.78
+    ? [
+        {
+          reason: "SIMILAR_PROMPT_CONCEPTS",
+          detail: "Os conceitos estão próximos demais; reescreva um com outra narrativa e composição.",
+        },
+      ]
+    : [];
+}
+
+export type PromptResearchLeakViolation = {
+  reason: "RESEARCH_DATA_LEAK";
+  detail: string;
+};
+
+/** Prevent public registry/contact data from search snippets reaching a prompt. */
+export function validatePromptNoRegistryData(prompt: string): PromptResearchLeakViolation[] {
+  const registryTerms =
+    /\b(?:cnpj|cpf|receita\s+federal|dados?\s+cadastrais?|informa[cç][õo]es?\s+de\s+registro|situa[cç][aã]o\s+cadastral|capital\s+social|natureza\s+jur[ií]dica|simples\s+nacional|regime\s+tribut[aá]rio|data\s+da\s+abertura|s[oó]ci[oa]s?|administrador(?:es)?|logradouro|cep|cnae|atividade\s+principal|contatos?\s+registrados?)\b/iu;
+  const contactOrIdentifier =
+    /\b[\w.+-]+@[\w.-]+\.[a-z]{2,}\b|\b\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}\b|\b\d{3}\.\d{3}\.\d{3}-\d{2}\b|(?:\+?55\s*)?\(?\d{2}\)?\s*9?\d{4}[-\s]?\d{4}\b/iu;
+
+  return registryTerms.test(prompt) || contactOrIdentifier.test(prompt)
+    ? [
+        {
+          reason: "RESEARCH_DATA_LEAK",
+          detail:
+            "O prompt contém informação cadastral, identificador ou contato que não é referência visual nem dado comercial autorizado.",
+        },
+      ]
+    : [];
 }
 
 export function isResolvedQuestion(

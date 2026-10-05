@@ -1,43 +1,59 @@
 import { describe, expect, it } from "vitest";
-import { extractVisualEvidence, needsCompanyEnvironmentResearch } from "./tavily.server";
+import { extractVisualEvidence, isIdentityMatch } from "./tavily.server";
 
-describe("needsCompanyEnvironmentResearch", () => {
-  it("searches when the company profile does not describe the environment", () => {
-    expect(
-      needsCompanyEnvironmentResearch({
-        name: "Restaurante Exemplo",
-        segment: "Restaurante",
-        description: "Especializado em frutos do mar",
-        city: "Balneário Camboriú",
-      }),
-    ).toBe(true);
+describe("Tavily visual evidence filter", () => {
+  it("discards a CNPJ registry dump even when it mentions logos or image labels", () => {
+    const registryDump = `
+      Sua atividade principal, conforme a Receita Federal, é fabricação de produtos de panificação.
+      ## Compartilhar Whatsapp Facebook Twitter Pinterest
+      # Efraim Padaria e Confeitaria LTDA - 33.148.655/0001-60
+      CNPJ: 33.148.655/0001-60
+      Capital Social: R$ 20.000,00
+      E-mail: ajuste@example.com. Telefone: (47) 98476-5015.
+      Partners and Administrators: member, sócio-administrador.
+      Rua Vicente Celestino, 630, Comasa, Joinville, SC, CEP 89228-400.
+      Image 1: Logo. Image 2: Logo. Logo CNPJ Biz.
+    `;
+
+    expect(extractVisualEvidence(registryDump)).toEqual([]);
   });
 
-  it("validates even a complete official profile before final prompt generation", () => {
-    expect(
-      needsCompanyEnvironmentResearch({
-        name: "Restaurante Exemplo",
-        description:
-          "Ambiente interno com madeira e iluminação quente. Site oficial: https://exemplo.com.br",
-        address: "Rua Exemplo, 100",
-      }),
-    ).toBe(true);
-  });
-});
+  it("keeps short, concrete visual descriptions while dropping adjacent personal data", () => {
+    const content =
+      "A fachada tem tons terracota e madeira clara, com iluminação quente. CNPJ 33.148.655/0001-60; telefone (47) 98476-5015.";
 
-describe("extractVisualEvidence", () => {
-  it("keeps only explicit, usable physical details from a public source", () => {
+    expect(extractVisualEvidence(content)).toEqual([
+      "A fachada tem tons terracota e madeira clara, com iluminação quente.",
+    ]);
+  });
+
+  it("does not treat bare image, brand, or logo labels as visual evidence", () => {
+    expect(extractVisualEvidence("Image 1: Logo. Marca registrada. Fotos da empresa.")).toEqual(
+      [],
+    );
+  });
+
+  it("recognizes a matching social profile by the exact trade-name handle without a city in its snippet", () => {
+    const profile = {
+      name: "Boteco do Barão",
+      tradeName: "Boteco do Barão",
+      city: "Camboriú",
+    };
     expect(
-      extractVisualEvidence(
-        "A Campos atende em Camboriú. O salão tem mesas de madeira clara e iluminação quente no fim da tarde. Confira nosso cardápio.",
+      isIdentityMatch(
+        "Boteco do Barão (@botecodobarao) • Instagram photos and videos",
+        "Fotos e vídeos recentes",
+        profile,
+        "https://www.instagram.com/botecodobarao/",
       ),
-    ).toEqual(["O salão tem mesas de madeira clara e iluminação quente no fim da tarde."]);
-  });
-
-  it("does not turn identity or marketing copy into evidence of a physical setting", () => {
+    ).toBe(true);
     expect(
-      extractVisualEvidence("A melhor padaria da cidade, com produtos feitos todos os dias."),
-    ).toEqual([]);
+      isIdentityMatch(
+        "Bar do Centro",
+        "Fotos e vídeos recentes",
+        profile,
+        "https://www.instagram.com/outrobar/",
+      ),
+    ).toBe(false);
   });
 });
-

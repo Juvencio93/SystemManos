@@ -17,6 +17,9 @@ import {
   shouldResearch,
   requiredOfferFactsFromBrief,
   validateGeneratedCommercialFacts,
+  validatePromptConceptSeparation,
+  validatePromptNoRegistryData,
+  validatePromptCommercialCopy,
   validatePromptVisualGrounding,
   extractBannerTurnFacts,
   validatePromptTemporalFacts,
@@ -51,6 +54,62 @@ describe("banner briefing engine", () => {
   ])("normalizes %s", (input, expected) => expect(normalizePrice(input)).toBe(expected));
   it("formats a zero-value offer as grátis", () => {
     expect(formatOfferPrice(0)).toBe("GRÁTIS");
+  });
+  it("understands free offers embedded in a sentence without asking redundant questions", () => {
+    const messages = [
+      "Quero um banner para avaliação gratuita durante setembro, por conta da casa",
+    ];
+    expect(extractBannerTurnFacts(messages[0] ?? "")).toMatchObject({
+      price: 0,
+      freeCopyConfirmed: true,
+    });
+    expect(nextCommercialQuestion(messages)).toBeNull();
+  });
+  it("extracts the actual products from a courtesy-with-purchase request, not the user's instructions", () => {
+    const facts = extractBannerTurnFacts(
+      "Teste interno: crie duas ideias para divulgar que neste sábado a Efraim Padaria oferece um café cortesia na compra de qualquer pão francês. Deixe claro que o café é grátis e não invente preço.",
+    );
+
+    expect(facts).toMatchObject({
+      subject: "pão francês e café",
+      price: 0,
+      commercialCondition: "grátis",
+      weekday: "sábado",
+      freeCopyConfirmed: true,
+    });
+    expect(extractOfferItems(facts.subject)).toEqual(["pão francês", "café"]);
+  });
+  it("treats 'por conta da casa' as zero price without replacing the banner wording", () => {
+    const facts = extractBannerTurnFacts("Feijoda por conta da casa");
+    expect(facts).toMatchObject({
+      subject: "Feijoda",
+      price: 0,
+      commercialCondition: "por conta da casa",
+      freeCopyConfirmed: true,
+    });
+    const required = requiredOfferFactsFromBrief(facts);
+    expect(required.commercialCopy).toBe("por conta da casa");
+    expect(
+      validatePromptCommercialCopy(
+        "Banner da Feijoada. Manter exatamente a expressão POR CONTA DA CASA.",
+        required,
+      ),
+    ).toEqual([]);
+    expect(
+      validatePromptCommercialCopy("Banner da Feijoada. Exibir exatamente GRÁTIS.", required),
+    ).toContainEqual(expect.objectContaining({ reason: "MISSING_COMMERCIAL_COPY" }));
+  });
+  it("removes test framing before extracting combo products and price", () => {
+    const facts = extractBannerTurnFacts(
+      "Teste interno: criar duas opções de banner bem diferentes para a Efraim Padaria: combo com 2 cafés e 1 pão de queijo por R$ 18,90 neste sábado.",
+    );
+
+    expect(facts.subject).toBe("combo com 2 cafés e 1 pão de queijo");
+    expect(extractOfferItems(facts.subject)).toEqual(["2 cafés", "1 pão de queijo"]);
+    expect(facts).toMatchObject({ price: 18.9, weekday: "sábado" });
+  });
+  it("does not reinterpret a negated free claim as a zero-price offer", () => {
+    expect(extractBannerTurnFacts("A avaliação não é gratuita")).not.toHaveProperty("price", 0);
   });
   it("formats informal price input once, without a redundant currency word", () => {
     expect(formatBRL(normalizePrice("15 pila") ?? Number.NaN)).toBe("R$ 15,00");
@@ -90,7 +149,7 @@ describe("banner briefing engine", () => {
         "Criar uma imagem para promoção da semana",
         "Bolo de cenoura com cobertura de chocolate e café passado por 15 pila",
       ]),
-    ).toContain("Até quando essa promoção é válida?");
+    ).toContain("Até quando ou em quais dias essa promoção é válida?");
     expect(
       commercialCompletenessQuestion(["Quero um banner institucional apresentando a clínica"]),
     ).toBeNull();
@@ -100,6 +159,11 @@ describe("banner briefing engine", () => {
         "Festival de pizza somente quarta-feira, R$ 35,00 por pessoa",
       ]),
     ).toBeNull();
+  });
+  it("asks when an ordinary promotion with a free offer is valid", () => {
+    const messages = ["Quero criar um banner de promoção", "Feijoda por conta da casa"];
+    expect(nextCommercialQuestion(messages)).toContain("é válida até quando ou em quais dias");
+    expect(nextCommercialQuestion([...messages, "Válida somente neste sábado"])).toBeNull();
   });
 
   it("drops any unverified physical decoration by origin, not by object-name blacklist", () => {
@@ -169,9 +233,7 @@ describe("banner briefing engine", () => {
       validateSecondPromptCommercialDirection(
         "produto em destaque acima; faixa inferior escura de largura total com texto centralizado e preço",
       ),
-    ).toEqual([
-      expect.objectContaining({ reason: "GENERIC_OPTION_2_LAYOUT" }),
-    ]);
+    ).toEqual([expect.objectContaining({ reason: "GENERIC_OPTION_2_LAYOUT" })]);
     expect(
       validateSecondPromptCommercialDirection(
         "grade assimétrica de doze colunas, produto em macro à esquerda e bloco tipográfico alinhado à margem direita, preço integrado ao título",
@@ -183,6 +245,40 @@ describe("banner briefing engine", () => {
         true,
       ),
     ).toEqual([]);
+  });
+
+  it("rejects near-identical prompt concepts but accepts different visual narratives", () => {
+    const first =
+      "Fotografia editorial de produto como protagonista, composição em macro, luz lateral, fundo escuro e tipografia serifada.";
+    expect(validatePromptConceptSeparation(first, first)).toContainEqual(
+      expect.objectContaining({ reason: "SIMILAR_PROMPT_CONCEPTS" }),
+    );
+    expect(
+      validatePromptConceptSeparation(
+        "Fotografia publicitária do produto como protagonista, enquadramento próximo e luz lateral quente.",
+        "Cartaz tipográfico de design gráfico, tipografia como protagonista, produto fotográfico como apoio e formas planas no fundo.",
+      ),
+    ).toEqual([]);
+    expect(
+      validatePromptConceptSeparation(
+        first,
+        "Fotografia editorial em vista zenital, grade modular, luz difusa, fundo claro e tipografia sem serifa.",
+      ),
+    ).toContainEqual(expect.objectContaining({ reason: "SIMILAR_PROMPT_CONCEPTS" }));
+  });
+
+  it("blocks registry/contact data from generated prompts without rejecting ordinary offer text", () => {
+    expect(
+      validatePromptNoRegistryData(
+        "Banner para EFRAIM PADARIA: CNPJ 33.148.655/0001-60; Capital Social R$ 20.000,00; sócio administrador.",
+      ),
+    ).toContainEqual(expect.objectContaining({ reason: "RESEARCH_DATA_LEAK" }));
+    expect(
+      validatePromptNoRegistryData("Exibir café GRÁTIS na compra de pão francês neste sábado."),
+    ).toEqual([]);
+    expect(
+      validatePromptNoRegistryData("Contato: contato@exemplo.com, telefone (47) 98476-5015."),
+    ).toContainEqual(expect.objectContaining({ reason: "RESEARCH_DATA_LEAK" }));
   });
 
   it("retains service, price and semantic validity without making CTA or scope mandatory", () => {
@@ -213,6 +309,13 @@ describe("banner briefing engine", () => {
     expect(
       nextCommercialQuestion(["Quero um banner institucional apresentando a empresa"]),
     ).toBeNull();
+  });
+
+  it("does not ask for a price unless the request calls for a promotion or price highlight", () => {
+    expect(nextCommercialQuestion(["Quero um banner para divulgar bolo de cenoura"])).toBeNull();
+    expect(nextCommercialQuestion(["Quero um banner de promoção para bolo de cenoura"])).toContain(
+      "Qual valor",
+    );
   });
 
   it("builds required commercial facts from confirmed offer identities", () => {
