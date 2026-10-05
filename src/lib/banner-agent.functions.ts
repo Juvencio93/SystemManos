@@ -529,15 +529,38 @@ export const askBannerAgent = createServerFn({ method: "POST" })
         const parsedResponse = parseBannerResponse(aiResponse.text);
         if (!parsedResponse.ok) {
           logBannerParseFailure(aiResponse.requestId, "prompt_generation", parsedResponse);
-          const lastUserMessage =
-            [...data.messages].reverse().find((message) => message.role === "user")?.content ?? "";
+          const fallbackOptions = safeBannerOptions(requiredOfferFacts, {
+            ...(snapshot.business_segment ? { segment: snapshot.business_segment } : {}),
+            visualGuidance,
+            visualResearchNotice,
+          });
+          const limitCheck = await checkAiLimitAndIncrement(context.supabase, context.userId);
+          if (!limitCheck.allowed) {
+            return {
+              success: false,
+              data: null,
+              error: limitCheck.error || "Limite de IA atingido.",
+            };
+          }
+          if (limitCheck.increment) {
+            const commit = await limitCheck.increment();
+            if (!commit.allowed) {
+              return {
+                success: false,
+                data: null,
+                error: commit.error || "Erro ao processar cota.",
+              };
+            }
+          }
           return {
             success: true,
             data: {
-              needsMoreInfo: true,
-              question: safeBriefingFallbackQuestion(lastUserMessage),
-              promptOptions: null,
-              reminder: null,
+              needsMoreInfo: false,
+              question: null,
+              promptOptions: fallbackOptions,
+              reminder:
+                "A IA não estruturou a resposta automaticamente; preparei duas opções seguras com os dados confirmados.",
+              brief: activeBrief,
             },
             error: null,
           };
