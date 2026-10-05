@@ -1191,7 +1191,7 @@ export function validateSecondPromptCommercialDirection(
 /** Reject near-copy pairs while ignoring shared brand and offer vocabulary. */
 export function validatePromptConceptSeparation(first: string, second: string) {
   const photoLed = (value: string) =>
-    /\b(?:fotografia\s+(?:publicit[aá]ria|editorial|realista)\s+(?:(?:de|do)\s+)?produto|foto(?:grafia)?\s+de\s+produto\s+(?:como\s+)?(?:foco|protagonista)|still\s+life\s+fotogr[aá]fico|imagem\s+fotogr[aá]fica\s+(?:do\s+)?produto)\b/iu.test(
+    /\b(?:fotografia\s+(?:publicit[aá]ria|editorial|realista)(?:\s+realista)?\s+(?:(?:de|do)\s+)?produto|foto(?:grafia)?\s+de\s+produto\s+(?:como\s+)?(?:foco|protagonista)|still\s+life\s+fotogr[aá]fico|imagem\s+fotogr[aá]fica\s+(?:do\s+)?produto)\b/iu.test(
       value,
     );
   const graphicLed = (value: string) =>
@@ -1199,15 +1199,50 @@ export function validatePromptConceptSeparation(first: string, second: string) {
       value,
     );
 
-  // A changed camera angle is not a separate creative concept. Require an
-  // image-led photographic route and a design-led typographic route, while
-  // leaving their product-specific art direction to the model.
+  // A changed camera angle alone is not a separate creative concept. Require
+  // opposing routes plus explicit, observable differences in three art-
+  // direction axes so the prompts cannot collapse into the same layout.
   if (!((photoLed(first) && graphicLed(second)) || (graphicLed(first) && photoLed(second)))) {
     return [
       {
         reason: "SIMILAR_PROMPT_CONCEPTS",
         detail:
           "As opções precisam seguir estratégias distintas: uma campanha conduzida pela fotografia do produto e outra por um conceito de cartaz/design tipográfico; trocar somente ângulo, luz ou enquadramento não basta.",
+      },
+    ];
+  }
+
+  const normalizedFirst = normalizedWords(first);
+  const normalizedSecond = normalizedWords(second);
+  const axes = [
+    {
+      first: /\b(?:macro|close[- ]up|enquadramento\s+proximo|plano\s+fechado|detalhe\s+ampliado|tres\s+quartos)\b/u,
+      second: /\b(?:zenital|vista\s+de\s+cima|vista\s+superior|top[- ]down|plano\s+aberto|visao\s+ampla|visao\s+geral)\b/u,
+    },
+    {
+      first: /\b(?:ponto\s+focal|assimetric[ao]|area\s+negativa|espaco\s+negativo|produto\s+dominante|produto\s+ocupa)\b/u,
+      second: /\b(?:grade\s+(?:modular|editorial|geometrica)|composicao\s+modular|layout\s+geometrico|tipografia\s+integrada\s+a\s+grade)\b/u,
+    },
+    {
+      first: /\b(?:luz\s+(?:lateral|direcional|recortada|dram[aá]tica)|iluminacao\s+(?:lateral|direcional|dram[aá]tica)|contraluz)\b/u,
+      second: /\b(?:luz\s+(?:difusa|uniforme|frontal)|iluminacao\s+(?:difusa|uniforme|frontal)|luz\s+suave\s+e\s+uniforme)\b/u,
+    },
+    {
+      first: /\b(?:texto|tipografia)\s+(?:discreto|discreta|secund[aá]rio|secund[aá]ria|em\s+segundo\s+plano)|hierarquia\s+visual\s+liderada\s+pela\s+imagem\b/u,
+      second: /\b(?:tipografia|texto)\s+(?:como\s+)?(?:protagonista|elemento\s+principal)|hierarquia\s+tipogr[aá]fica\s+dominante|texto\s+conduz\s+a\s+leitura\b/u,
+    },
+  ] as const;
+  const divergentAxes = axes.filter(
+    (axis) =>
+      (axis.first.test(normalizedFirst) && axis.second.test(normalizedSecond)) ||
+      (axis.second.test(normalizedFirst) && axis.first.test(normalizedSecond)),
+  );
+  if (divergentAxes.length < 3) {
+    return [
+      {
+        reason: "SIMILAR_PROMPT_CONCEPTS",
+        detail:
+          "As opções devem declarar diferenças concretas em pelo menos três eixos entre enquadramento, composição, iluminação e hierarquia tipográfica. Especifique escolhas opostas para cada direção; não basta trocar adjetivos ou apenas a imagem.",
       },
     ];
   }

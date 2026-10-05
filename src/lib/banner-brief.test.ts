@@ -267,10 +267,16 @@ describe("banner briefing engine", () => {
     );
     expect(
       validatePromptConceptSeparation(
-        "Fotografia publicitária do produto como protagonista, enquadramento próximo e luz lateral quente.",
-        "Cartaz tipográfico de design gráfico, tipografia como protagonista, produto fotográfico como apoio e formas planas no fundo.",
+        "Fotografia publicitária do produto como protagonista, enquadramento próximo em três quartos, composição assimétrica com área negativa, luz lateral direcional e tipografia secundária.",
+        "Cartaz tipográfico de design gráfico, tipografia como protagonista, produto fotográfico como apoio, vista zenital aberta em grade modular, luz difusa uniforme e texto conduz a leitura.",
       ),
     ).toEqual([]);
+    expect(
+      validatePromptConceptSeparation(
+        "Fotografia publicitária do produto como protagonista, enquadramento próximo em três quartos e luz lateral direcional.",
+        "Cartaz tipográfico de design gráfico, tipografia como protagonista e luz difusa uniforme.",
+      ),
+    ).toContainEqual(expect.objectContaining({ reason: "SIMILAR_PROMPT_CONCEPTS" }));
     expect(
       validatePromptConceptSeparation(
         first,
