@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import { resolveBusinessArea } from "@/lib/business-profile";
 
 /** The IDs are resolved from the authenticated role, never from request input. */
 export async function loadBannerContext(
@@ -42,6 +43,11 @@ export async function loadBannerContext(
   const name =
     unit?.trade_name || unit?.name || company.trade_name || company.name;
   const description = company.business_description || "";
+  const businessArea = resolveBusinessArea(
+    company.business_segment,
+    company.segment,
+    company.cnae_description,
+  );
   // Explicit public URLs in About the business are useful even without dedicated social fields.
   const publicLinks = Array.from(
     new Set([
@@ -59,8 +65,7 @@ export async function loadBannerContext(
     name,
     tradeName: unit?.trade_name || company.trade_name,
     legalName: unit?.legal_name || company.legal_name,
-    segment:
-      company.business_segment || company.segment || company.cnae_description,
+    segment: businessArea,
     description,
     marketingGoal: company.wifi_marketing_goal,
     // A branch never inherits the headquarters' address as its own.

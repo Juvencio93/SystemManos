@@ -29,6 +29,22 @@ describe("banner response contract", () => {
     expect(conversation[2]?.content).toContain("CAFÉ PASSADO");
   });
 
+  it("preserves a general semantic business mismatch decision", () => {
+    const parsed = parseBannerResponse(
+      JSON.stringify({
+        needsMoreInfo: true,
+        question: "Esse pedido é para a empresa cadastrada?",
+        promptOptions: null,
+        reminder: null,
+        businessMismatch: true,
+      }),
+    );
+    expect(parsed).toMatchObject({
+      ok: true,
+      data: { needsMoreInfo: true, businessMismatch: true },
+    });
+  });
+
   it.each([
     "bolo de cenoura com chocolate e café",
     "bolo cenoura + café passado",

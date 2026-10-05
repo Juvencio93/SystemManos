@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Database, Json } from "@/integrations/supabase/types";
 import { CompanySnapshot, CompanySnapshotSchema } from "./utils/date-utils";
+import { resolveBusinessArea } from "@/lib/business-profile";
 
 const MANUAL_OPERATION_CONFIG = {
   salaryReference: 1621,
@@ -310,7 +311,9 @@ export async function computeCompanySnapshot(
     name: getCompanyDisplayName(company),
     trade_name: company.trade_name,
     legal_name: company.legal_name,
-    business_segment: company.business_segment || "não informado",
+    business_segment:
+      resolveBusinessArea(company.business_segment, company.segment, company.cnae_description) ||
+      "não informado",
     business_description: company.business_description || "não informada",
     wifi_marketing_goal: company.wifi_marketing_goal || "não informado",
     city: company.city,

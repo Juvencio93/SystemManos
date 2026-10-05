@@ -33,8 +33,11 @@ describe("banner business compatibility", () => {
     );
     expect(result.classification).toBe("STRONG_MISMATCH");
     expect(
-      compatibilityConfirmationQuestion({ name: "Panificadora Campos", segment: "Panificação" }),
-    ).toMatch(/Esse banner é mesmo/i);
+      compatibilityConfirmationQuestion(
+        { name: "Panificadora Campos", segment: "Outro" },
+        "feijoada",
+      ),
+    ).toMatch(/padaria ou confeitaria.*restaurante ou bar/i);
   });
 
   it("asks for confirmation when a bakery account requests a restaurant-only main dish", () => {

@@ -25,12 +25,14 @@ export const BannerResponseSchema = z.discriminatedUnion("needsMoreInfo", [
     question: z.string().trim().min(1),
     promptOptions: z.null(),
     reminder: z.string().nullable(),
+    businessMismatch: z.boolean().optional(),
   }),
   z.object({
     needsMoreInfo: z.literal(false),
     question: z.null(),
     promptOptions: z.array(BannerPromptOptionSchema).length(2),
     reminder: z.string().nullable(),
+    businessMismatch: z.boolean().optional(),
   }),
 ]);
 
