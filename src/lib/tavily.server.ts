@@ -26,7 +26,7 @@ export type CompanyEnvironmentResearch = {
 };
 
 const VISUAL_EVIDENCE_TERMS =
-  /\b(?:ambiente|interior|fachada|sal[aã]o|balc[aã]o|vitrine|mesa|madeira|cer[aâ]mica|ilumina[çc][aã]o|decora[çc][aã]o|arquitetura|paredes?|janelas?|lumin[aá]rias?|cadeiras?|bancos?|cores?|tons?|paleta|texturas?|materiais?|pedra|tijolo|metal|vidro|minimalista|r[uú]stic[oa]|industrial|contempor[aâ]neo|cl[aá]ssico|colorido|elegante)\b/iu;
+  /\b(?:ambiente|interior|fachada|sal[aã]o|balc[aã]o|vitrine|mesa|madeira|cer[aâ]mica|ilumina[çc][aã]o|decora[çc][aã]o|arquitetura|paredes?|janelas?|lumin[aá]rias?|cadeiras?|bancos?|cores?|tons?|paleta|texturas?|materiais?|pedra|tijolo|metal|vidro|minimalista|r[uú]stic[oa]|industrial|contempor[aâ]neo|cl[aá]ssico|colorido|elegante|logotipo|logo|tipografia|fonte|identidade\s+visual|fotografia|amarelo|vermelho|azul|verde|preto|branco|creme|dourado)\b/giu;
 
 const NON_VISUAL_OR_SENSITIVE_TERMS =
   /\b(?:cnpj|cpf|receita\s+federal|informa[cç][õo]es?\s+(?:de\s+)?registro|dados?\s+cadastrais?|situa[cç][aã]o\s+cadastral|capital\s+social|natureza\s+jur[ií]dica|porte\s+(?:da\s+)?empresa|simples\s+nacional|regime\s+tribut[aá]rio|data\s+da\s+abertura|s[oó]ci[oa]s?|administrador(?:es)?|telefone(?:s)?|whats?app|e-?mail|contatos?|logradouro|bairro|munic[ií]pio|cep|cnae|inscri[cç][aã]o|atividade\s+principal|atividade\s+econ[oô]mica|compartilhar|fa[cç]a\s+sua\s+busca|faq|pricing|excel\s+add-?in|bulk\s+lookup|member\s+search|outras\s+empresas|empresas\s+(?:relacionadas|semelhantes|pr[oó]ximas)|(?:ltda|eireli|s\/a|s\.a\.|\bme\b))\b/iu;
@@ -45,7 +45,7 @@ export function extractVisualEvidence(text: string) {
         sentence.length <= 280 &&
         !NON_VISUAL_OR_SENSITIVE_TERMS.test(sentence) &&
         !/https?:\/\/|\b[\w.+-]+@[\w.-]+\.[a-z]{2,}\b/iu.test(sentence) &&
-        VISUAL_EVIDENCE_TERMS.test(sentence),
+        (sentence.match(VISUAL_EVIDENCE_TERMS) ?? []).length >= 2,
     )
     .slice(0, 3);
 }
@@ -185,7 +185,7 @@ export async function searchCompanyEnvironment(
     location,
     profile.segment,
     ...publicLinks.slice(0, 5),
-    "site oficial fotos fachada interior identidade visual cores decoração ambiente",
+    "site oficial Instagram fotos posts artes promocionais identidade visual paleta tipografia texturas fachada interior decoração ambiente",
   ]
     .filter(Boolean)
     .join(" ");
@@ -195,7 +195,7 @@ export async function searchCompanyEnvironment(
     const socialQuery = [
       `"${identity}"`,
       location,
-      "Instagram Facebook TikTok fotos ambiente fachada salão identidade visual decoração",
+      "Instagram Facebook TikTok feed posts campanhas artes promocionais fotos ambiente fachada identidade visual paleta tipografia texturas",
     ]
       .filter(Boolean)
       .join(" ");
