@@ -101,6 +101,33 @@
   /ip firewall filter add chain=input src-address=192.168.88.0/24 protocol=udp dst-port=161 action=drop place-before=0 comment="MANOS-GUEST-BLOCK-MANAGEMENT-UDP"
 }
 
+# Protect the router itself from traffic arriving at the provider bridge. DHCP
+# replies and established traffic (RADIUS, DNS, NTP and Heartbeat) stay allowed.
+:if ([:len [/ip firewall filter find comment="MANOS-WAN-DROP-INPUT"]] = 0) do={
+  /ip firewall filter add chain=input in-interface=bridge-wan action=drop comment="MANOS-WAN-DROP-INPUT"
+}
+:local manosFirstRule [:pick [/ip firewall filter find] 0]
+:local manosRule [:pick [/ip firewall filter find where comment="MANOS-WAN-DROP-INPUT"] 0]
+:if ($manosRule != $manosFirstRule) do={ /ip firewall filter move $manosRule destination=$manosFirstRule }
+:if ([:len [/ip firewall filter find comment="MANOS-WAN-ALLOW-DHCP"]] = 0) do={
+  /ip firewall filter add chain=input in-interface=bridge-wan protocol=udp src-port=67 dst-port=68 action=accept comment="MANOS-WAN-ALLOW-DHCP"
+}
+:set manosFirstRule [:pick [/ip firewall filter find] 0]
+:set manosRule [:pick [/ip firewall filter find where comment="MANOS-WAN-ALLOW-DHCP"] 0]
+:if ($manosRule != $manosFirstRule) do={ /ip firewall filter move $manosRule destination=$manosFirstRule }
+:if ([:len [/ip firewall filter find comment="MANOS-WAN-DROP-INVALID"]] = 0) do={
+  /ip firewall filter add chain=input connection-state=invalid action=drop comment="MANOS-WAN-DROP-INVALID"
+}
+:set manosFirstRule [:pick [/ip firewall filter find] 0]
+:set manosRule [:pick [/ip firewall filter find where comment="MANOS-WAN-DROP-INVALID"] 0]
+:if ($manosRule != $manosFirstRule) do={ /ip firewall filter move $manosRule destination=$manosFirstRule }
+:if ([:len [/ip firewall filter find comment="MANOS-WAN-ALLOW-ESTABLISHED"]] = 0) do={
+  /ip firewall filter add chain=input in-interface=bridge-wan connection-state=established,related,untracked action=accept comment="MANOS-WAN-ALLOW-ESTABLISHED"
+}
+:set manosFirstRule [:pick [/ip firewall filter find] 0]
+:set manosRule [:pick [/ip firewall filter find where comment="MANOS-WAN-ALLOW-ESTABLISHED"] 0]
+:if ($manosRule != $manosFirstRule) do={ /ip firewall filter move $manosRule destination=$manosFirstRule }
+
 # Shared 60/60 Mbps cap for ether4 only. The guest (.88) and WAN bridge
 # (ether1/ether5) are outside this queue.
 :if ([:len [/queue simple find name="MANOS-ETHER4-TOTAL"]] = 0) do={

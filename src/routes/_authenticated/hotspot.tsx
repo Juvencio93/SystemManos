@@ -228,6 +228,11 @@ function HotspotPage() {
             <p className="text-muted-foreground">Bloqueia visitantes da faixa do provedor e dos serviços de administração IP da RB. Não altera ether4, ether5, impressoras, RADIUS, filas ou Heartbeat.</p>
             <Button variant="outline" asChild><a href="/mikrotik/MANOS-HOTSPOT-FIREWALL-UPDATE.rsc" download><Download className="size-4" /> Baixar proteção do HotSpot .rsc</a></Button>
           </div>
+          <div className="space-y-2 rounded-lg border border-amber-300/25 bg-amber-300/5 p-4 text-sm">
+            <p className="font-semibold">Proteção de entrada pela WAN</p>
+            <p className="text-muted-foreground">Bloqueia acesso à própria RB vindo da bridge-wan, preservando DHCP do provedor e respostas de RADIUS, DNS, NTP e Heartbeat. Aplique em Safe Mode pela ether4 ou acesso local; não pela ether5. Não bloqueia equipamentos conectados na ether5 entre si.</p>
+            <Button variant="outline" asChild><a href="/mikrotik/MANOS-WAN-FIREWALL-UPDATE.rsc" download><Download className="size-4" /> Baixar proteção WAN .rsc</a></Button>
+          </div>
           <div className="space-y-2 rounded-lg border border-border p-4 text-sm">
             <p className="font-semibold">Recuperação da página do HotSpot</p>
             <p className="text-muted-foreground">Use somente se for necessário restaurar manualmente a página de login na pasta <code>flash/hotspot</code>. A sincronização normal atualiza esses arquivos automaticamente.</p>
