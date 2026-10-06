@@ -223,7 +223,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, onBlock, onReboo
             </div>
             <HotspotGeographicMap
               devices={visible}
-              selectedId={selected?.id}
+              selectedId={selected?.id ?? null}
               onSelect={(id) =>
                 setSelected(mappedDevices.find((device) => device.id === id) ?? null)
               }

@@ -430,7 +430,8 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
     });
   } });
   const connectedClients = (hotspotDevices.data ?? []).reduce(
-    (total, device) => total + Math.max(0, Number(device.active_sessions ?? 0)),
+    (total: number, device: { active_sessions?: string | number | null }) =>
+      total + Math.max(0, Number(device.active_sessions ?? 0)),
     0,
   );
   const fetchInsights = useServerFn(getInsights);
