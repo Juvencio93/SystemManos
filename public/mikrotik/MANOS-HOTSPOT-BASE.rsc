@@ -68,6 +68,22 @@
 :if ([:len [/ip firewall nat find comment="MANOS-NAT-ETHER5-LIVRE"]] > 0) do={/ip firewall nat remove [find comment="MANOS-NAT-ETHER5-LIVRE"]}
 :if ([:len [/ip firewall filter find comment="MANOS-BLOCK-ETHER5"]] > 0) do={/ip firewall filter remove [find comment="MANOS-BLOCK-ETHER5"]}
 
+# Keep HotSpot guests and the employee network separate. These rules affect
+# only traffic routed between the two private Manos networks; internet access
+# through bridge-wan and the ether1/ether5 provider bridge remains unchanged.
+:if ([:len [/ip firewall filter find comment="MANOS-ISOLATE-HOTSPOT-LIVRE"]] = 0) do={
+  /ip firewall filter add chain=forward src-address=192.168.88.0/24 dst-address=192.168.89.0/24 action=drop place-before=0 comment="MANOS-ISOLATE-HOTSPOT-LIVRE"
+} else={
+  /ip firewall filter set [find comment="MANOS-ISOLATE-HOTSPOT-LIVRE"] chain=forward src-address=192.168.88.0/24 dst-address=192.168.89.0/24 action=drop disabled=no
+  /ip firewall filter move [find comment="MANOS-ISOLATE-HOTSPOT-LIVRE"] destination=0
+}
+:if ([:len [/ip firewall filter find comment="MANOS-ISOLATE-LIVRE-HOTSPOT"]] = 0) do={
+  /ip firewall filter add chain=forward src-address=192.168.89.0/24 dst-address=192.168.88.0/24 action=drop place-before=0 comment="MANOS-ISOLATE-LIVRE-HOTSPOT"
+} else={
+  /ip firewall filter set [find comment="MANOS-ISOLATE-LIVRE-HOTSPOT"] chain=forward src-address=192.168.89.0/24 dst-address=192.168.88.0/24 action=drop disabled=no
+  /ip firewall filter move [find comment="MANOS-ISOLATE-LIVRE-HOTSPOT"] destination=0
+}
+
 # Shared 60/60 Mbps cap for ether4 only. The guest (.88) and WAN bridge
 # (ether1/ether5) are outside this queue.
 :if ([:len [/queue simple find name="MANOS-ETHER4-TOTAL"]] = 0) do={

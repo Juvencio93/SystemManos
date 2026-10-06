@@ -12,6 +12,10 @@ const BLOCK_RULES = [
   ["MANOS-BLOCK-LIVRE-INPUT", "input", "192.168.89.0/24"],
 ] as const;
 
+function radiusMarker(secret: string) {
+  return `MANOS-RADIUS-${createHash("sha256").update(secret).digest("hex").slice(0, 16)}-V5`;
+}
+
 function firewallStateScript() {
   const tests = BLOCK_RULES.map(([comment]) => `:if ([:len [/ip firewall filter find where comment="${comment}" disabled=no]] > 0) do={ :set blockedRuleCount ($blockedRuleCount + 1) }`).join("\n");
   return `:local blockedRuleCount 0\n${tests}\n:local firewallState "no"\n:if ($blockedRuleCount = 4) do={ :set firewallState "yes" }\n:local expectedComment ("MANOS-FW-" . $firewallState)\n:local schedulerId [/system scheduler find where name="MANOS-HEARTBEAT"]\n:if ([:len $schedulerId] > 0 && [/system scheduler get $schedulerId comment] != $expectedComment) do={ /system scheduler set $schedulerId comment=$expectedComment }\n`;
@@ -69,15 +73,21 @@ function radiusCredentialCommand() {
   const host = process.env["MIKROTIK_RADIUS_HOST"]?.trim();
   const secret = process.env["MIKROTIK_RADIUS_SECRET"]?.trim();
   if (!host || !/^[A-Za-z0-9.-]{1,253}$/.test(host) || !secret || !/^[A-Za-z0-9_-]{16,128}$/.test(secret)) return "";
-  // Keep the managed RouterOS entry in sync with the canonical server values.
-  const marker = `MANOS-RADIUS-${createHash("sha256").update(secret).digest("hex").slice(0, 16)}-V4`;
-  // The comment is only a version marker; it cannot prove the router's hidden
-  // secret field still matches. Re-apply every managed setting on heartbeat,
-  // and only touch entries owned by Manos Tech (never unrelated RADIUS peers).
+  const marker = radiusMarker(secret);
+  // RouterOS never returns the RADIUS secret. The version marker is therefore
+  // the proof that this managed secret was last applied. A marker change (for
+  // example, after a credential rotation) causes one update; normal 5-second
+  // telemetry cycles only read the configuration and do not rewrite it.
   return `:local manosRadiusId [/radius find where service=hotspot comment~"^MANOS-RADIUS"]
-:if ([:len $manosRadiusId] = 0) do={
+:local manosRadiusNeedsUpdate true
+:if ([:len $manosRadiusId] > 0) do={
+  :local manosRadiusItem [:pick $manosRadiusId 0]
+  :if (([/radius get $manosRadiusItem comment] = "${marker}") && ([/radius get $manosRadiusItem address] = "${host}") && ([/radius get $manosRadiusItem disabled] = false)) do={ :set manosRadiusNeedsUpdate false }
+}
+:if ($manosRadiusNeedsUpdate && [:len $manosRadiusId] = 0) do={
   /radius add service=hotspot address="${host}" secret="${secret}" authentication-port=1812 accounting-port=1813 timeout=3s require-message-auth=no disabled=no comment="${marker}"
-} else={
+}
+:if ($manosRadiusNeedsUpdate && [:len $manosRadiusId] > 0) do={
   /radius set $manosRadiusId service=hotspot address="${host}" secret="${secret}" authentication-port=1812 accounting-port=1813 timeout=3s require-message-auth=no disabled=no comment="${marker}"
 }
 `;

@@ -1,8 +1,12 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { createFileRoute } from "@tanstack/react-router";
 import { hotspotRouterToken } from "@/lib/hotspot-router-auth";
 
 const baseUrl = "https://manostech-system.com.br";
+
+function radiusMarker(secret: string) {
+  return `MANOS-RADIUS-${createHash("sha256").update(secret).digest("hex").slice(0, 16)}-V5`;
+}
 
 function authorizedDownload(identity: string, exp: string, kind: string, sig: string, secret: string) {
   if (!/^MT-[A-Z0-9-]{6,48}$/.test(identity) || !/^\d{13}$/.test(exp) || Number(exp) < Date.now() || !["activation", "heartbeat"].includes(kind)) return false;
@@ -107,9 +111,9 @@ function activationScript(identity: string, radiusHost: string, radiusSecret: st
 :if ([:len [/ip hotspot profile find where name="hsprof1"]] = 0) do={ :error "MANOS base not installed: hsprof1 is missing" }
 /system identity set name=$routerIdentity
 :if ([:len [/radius find where service=hotspot]] = 0) do={
-  /radius add service=hotspot address=$radiusHost secret=$radiusSecret authentication-port=1812 accounting-port=1813 timeout=3s require-message-auth=no disabled=no comment="MANOS-RADIUS"
+  /radius add service=hotspot address=$radiusHost secret=$radiusSecret authentication-port=1812 accounting-port=1813 timeout=3s require-message-auth=no disabled=no comment="${radiusMarker(radiusSecret)}"
 } else={
-  /radius set [find where service=hotspot] address=$radiusHost secret=$radiusSecret authentication-port=1812 accounting-port=1813 timeout=3s require-message-auth=no disabled=no comment="MANOS-RADIUS"
+  /radius set [find where service=hotspot] address=$radiusHost secret=$radiusSecret authentication-port=1812 accounting-port=1813 timeout=3s require-message-auth=no disabled=no comment="${radiusMarker(radiusSecret)}"
 }
 /ip hotspot profile set [find where name="hsprof1"] use-radius=yes radius-accounting=yes login-by=http-chap,http-pap html-directory=flash/hotspot html-directory-override=flash/hotspot
 /ip hotspot set [find where name="hotspot1"] idle-timeout=none keepalive-timeout=none login-timeout=none disabled=no

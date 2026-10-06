@@ -18,6 +18,7 @@ import { HotspotNetworkMap } from "@/components/app/hotspot-network-map";
 import { hotspotActionError, postHotspotAction } from "@/lib/hotspot-client";
 import { hotspotEventLabel } from "@/lib/hotspot-events";
 import { MikrotikPreflight } from "@/components/app/mikrotik-preflight";
+import { MikrotikPostflight } from "@/components/app/mikrotik-postflight";
 
 export const Route = createFileRoute("/_authenticated/hotspot")({
   head: () => ({ meta: [{ title: "Hotspot | Manos Tech" }] }),
@@ -105,7 +106,7 @@ function HotspotPage() {
     const requested = Date.parse(client.sync_requested_at);
     const applied = client.sync_applied_at ? Date.parse(client.sync_applied_at) : 0;
     if (applied >= requested) return " · sincronização confirmada pela RB";
-    if (Date.now() - requested >= 3 * 60_000) return " · sincronização sem confirmação";
+    if (Date.now() - requested >= 3 * 60_000) return " · falhou: RB não confirmou a sincronização";
     return " · aguardando confirmação da RB";
   };
   if (access && !canManageHotspot) {
@@ -206,11 +207,13 @@ function HotspotPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" asChild><a href="/mikrotik/MANOS-HOTSPOT-BASE.rsc" download><Download className="size-4" /> Kit-base .rsc</a></Button>
+            <Button variant="outline" asChild><a href="/mikrotik/MANOS-POSTFLIGHT.rsc" download><Download className="size-4" /> Conferência .rsc</a></Button>
             <Button variant="outline" asChild><a href="/mikrotik/login.html" download><Download className="size-4" /> login.html</a></Button>
             <Button variant="outline" asChild><a href="/mikrotik/alogin.html" download><Download className="size-4" /> alogin.html</a></Button>
             <Button variant="outline" asChild><a href="/mikrotik/guia-instalacao-mikrotik-manos-tech-v2.pdf" target="_blank" rel="noreferrer"><BookOpen className="size-4" /> Abrir manual</a></Button>
           </div>
           <MikrotikPreflight />
+          <MikrotikPostflight />
         </CardContent>}
       </Card>
       <Card className="glass-panel border-primary/20">
