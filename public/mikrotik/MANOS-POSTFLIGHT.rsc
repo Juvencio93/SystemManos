@@ -1,6 +1,6 @@
 # Manos Tech - leitura apos a instalacao. Nao altera a configuracao.
 :put "MANOS-POSTFLIGHT|BEGIN|1"
-:put "MANOS-POSTFLIGHT|VERSION|3"
+:put "MANOS-POSTFLIGHT|VERSION|4"
 :foreach port in={"ether1";"ether2";"ether3";"ether4";"ether5"} do={
   :local bridge "none"
   :local memberships [/interface bridge port find where interface=$port]
@@ -39,5 +39,14 @@
     :if (![/ip firewall filter get $ruleId disabled]) do={ :set active true }
   }
   :put ("MANOS-POSTFLIGHT|SECURITY|" . $rule . "|" . $active)
+}
+:foreach rule in={"MANOS-WAN-ALLOW-ESTABLISHED";"MANOS-WAN-DROP-INVALID";"MANOS-WAN-ALLOW-DHCP";"MANOS-WAN-DROP-INPUT"} do={
+  :local rules [/ip firewall filter find where comment=$rule]
+  :local active false
+  :if ([:len $rules] > 0) do={
+    :local ruleId [:pick $rules 0]
+    :if (![/ip firewall filter get $ruleId disabled]) do={ :set active true }
+  }
+  :put ("MANOS-POSTFLIGHT|WAN-FIREWALL|" . $rule . "|" . $active)
 }
 :put "MANOS-POSTFLIGHT|END|1"

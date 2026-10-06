@@ -48,6 +48,10 @@ export function analyzeMikrotikPostflight(output: string): MikrotikPostflightRep
     const active = fields.find((row) => row[1] === "SECURITY" && row[2] === rule)?.[3];
     findings.push(active === "true" ? { level: "ok", message: `Proteção ${rule} ativa.` } : { level: "warning", message: `Proteção ${rule} ainda não foi aplicada.` });
   }
+  for (const rule of ["MANOS-WAN-ALLOW-ESTABLISHED", "MANOS-WAN-DROP-INVALID", "MANOS-WAN-ALLOW-DHCP", "MANOS-WAN-DROP-INPUT"]) {
+    const active = fields.find((row) => row[1] === "WAN-FIREWALL" && row[2] === rule)?.[3];
+    findings.push(active === "true" ? { level: "ok", message: `Proteção WAN ${rule} ativa.` } : { level: "warning", message: `Proteção WAN ${rule} ainda não foi aplicada.` });
+  }
   findings.push({ level: "warning", message: "Faça um teste de navegação no visitante e um teste de velocidade no dispositivo conectado; a RB não mede a velocidade percebida pelo cliente." });
   return { valid: true, findings };
 }
