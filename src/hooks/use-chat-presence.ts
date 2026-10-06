@@ -187,8 +187,9 @@ export function useChatPresence() {
     };
 
     // Activity Listeners
-    const activityEvents = ['pointerdown', 'keydown', 'touchstart', 'scroll'];
+    const activityEvents = ['pointerdown', 'keydown', 'touchstart'];
     activityEvents.forEach(ev => window.addEventListener(ev, handleUserActivity));
+    window.addEventListener('scroll', handleUserActivity, { passive: true });
 
     const handleSync = async () => {
       const state = channel.presenceState();
@@ -326,6 +327,7 @@ export function useChatPresence() {
     return () => {
       if (activityTimeoutRef.current) clearTimeout(activityTimeoutRef.current);
       activityEvents.forEach(ev => window.removeEventListener(ev, handleUserActivity));
+      window.removeEventListener('scroll', handleUserActivity);
       broadcastChannelRef.current?.close();
 
       void channel.untrack();

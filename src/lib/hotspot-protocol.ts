@@ -1,16 +1,16 @@
 export type HeartbeatInput = {
-  routerIdentity?: string;
-  mac?: string;
-  ip?: string;
-  version?: string;
-  uptime?: string;
-  rebootCommandId?: string;
-  firewallBlocked?: string | boolean;
-  activeSessions?: string | number;
-  rxBytes?: string | number;
-  txBytes?: string | number;
-  latencyMs?: string | number;
-  packetLossPct?: string | number;
+  routerIdentity?: string | undefined;
+  mac?: string | undefined;
+  ip?: string | undefined;
+  version?: string | undefined;
+  uptime?: string | undefined;
+  rebootCommandId?: string | undefined;
+  firewallBlocked?: string | boolean | undefined;
+  activeSessions?: string | number | undefined;
+  rxBytes?: string | number | undefined;
+  txBytes?: string | number | undefined;
+  latencyMs?: string | number | undefined;
+  packetLossPct?: string | number | undefined;
 };
 
 function finiteNumber(value: string | number | undefined, min: number, max: number) {

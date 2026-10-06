@@ -443,7 +443,7 @@ export const askBannerAgent = createServerFn({ method: "POST" })
       }
       const parsedDecision = parseBannerResponse(briefingDecision.text);
       const decision = parsedDecision.ok ? parsedDecision : null;
-      if (!decision) {
+      if (!parsedDecision.ok) {
         logBannerParseFailure(briefingDecision.requestId, "briefing_decision", parsedDecision);
         // The deterministic brief is authoritative when it already contains
         // everything required. A malformed/irrelevant model reply must not
