@@ -256,6 +256,6 @@ export const cancelMatrizPayment = createServerFn({ method: "POST" })
         if (["PAID", "AUTHORIZED"].includes(remoteStatus)) throw new Error("Este pagamento PagBank já foi confirmado e não pode ser cancelado.");
       }
     }
-    await supabaseAdmin.from("company_charges").update({ status: "cancelado", asaas_pix_qr_code: null, asaas_pix_copy_paste: null, pix_payload: null, updated_at: new Date().toISOString() }).eq("id", data.chargeId);
+    await supabaseAdmin.from("company_charges").update({ status: "cancelado", asaas_payment_id: null, asaas_pix_qr_code: null, asaas_pix_copy_paste: null, pagbank_order_id: null, pagbank_last_event_id: null, pix_payload: null, external_id: null, updated_at: new Date().toISOString() }).eq("id", data.chargeId);
     return { success: true };
   });
