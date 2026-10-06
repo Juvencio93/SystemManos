@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { BookOpen, Download, Router, ChevronLeft, ChevronRight } from "lucide-react";
+import { BookOpen, Download, Router, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/app/page-header";
@@ -73,6 +73,8 @@ function HotspotPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [auditSearch, setAuditSearch] = useState("");
   const [auditFrom, setAuditFrom] = useState(""); const [auditTo, setAuditTo] = useState("");
+  const [cleaningAudit, setCleaningAudit] = useState(false);
+  const [auditCleanupMessage, setAuditCleanupMessage] = useState("");
   const [syncMessage, setSyncMessage] = useState("");
   const [expandedKitCard, setExpandedKitCard] = useState<"files" | "manual" | null>(null);
   const [expandedSection, setExpandedSection] = useState<"kit" | "audit" | null>(null);
@@ -149,6 +151,25 @@ function HotspotPage() {
     const csv = "Ação,Dispositivo,Status anterior,Novo status,Data\n" + auditItems.map((i) => [hotspotEventLabel(i.action), i.device_id, i.previous_status, i.new_status, i.created_at].map((v) => `"${String(v ?? "").replaceAll('"', '""')}"`).join(",")).join("\n");
     const url = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" })); const a = document.createElement("a"); a.href = url; a.download = "hotspot-auditoria.csv"; a.click(); URL.revokeObjectURL(url);
   }
+  async function cleanOldAudit() {
+    if (!window.confirm("Apagar permanentemente os registros de auditoria com mais de 30 dias? Os registros recentes serão mantidos.")) return;
+    setCleaningAudit(true);
+    setAuditCleanupMessage("");
+    try {
+      const response = await postHotspotAction("/api/internal/hotspot-audit-cleanup", {});
+      const actionError = await hotspotActionError(response, "Não foi possível limpar o histórico.");
+      if (actionError) { setAuditCleanupMessage(actionError); return; }
+      const result = await response.json() as { deleted: number };
+      await auditQuery.refetch();
+      setAuditCleanupMessage(result.deleted === 0
+        ? "Nenhum registro com mais de 30 dias para apagar."
+        : `${result.deleted} registro${result.deleted === 1 ? "" : "s"} antigo${result.deleted === 1 ? "" : "s"} apagado${result.deleted === 1 ? "" : "s"} do banco.`);
+    } catch (error) {
+      setAuditCleanupMessage(error instanceof Error ? error.message : "Não foi possível limpar o histórico.");
+    } finally {
+      setCleaningAudit(false);
+    }
+  }
   return (
     <div className="container max-w-5xl space-y-8 py-10">
       <PageHeader title="Hotspot" subtitle="Manuais e arquivos oficiais para instalação e atualização das RBs." />
@@ -192,7 +213,25 @@ function HotspotPage() {
           <MikrotikPreflight />
         </CardContent>}
       </Card>
-      <Card className="glass-panel border-primary/20"><CardHeader className="flex flex-row items-center justify-between"><button type="button" onClick={() => setExpandedSection(expandedSection === "audit" ? null : "audit")} className="flex flex-1 items-center text-left"><CardTitle>Histórico recente</CardTitle><span className="ml-auto text-primary">{expandedSection === "audit" ? "−" : "+"}</span></button>{expandedSection === "audit" && <Button variant="outline" size="sm" onClick={exportAuditCsv}>Exportar histórico</Button>}</CardHeader>{expandedSection === "audit" && <CardContent className="space-y-2"><Input placeholder="Filtrar histórico por ação ou dispositivo" value={auditSearch} onChange={(e) => setAuditSearch(e.target.value)} /><div className="flex gap-2"><Input type="date" value={auditFrom} onChange={(e) => setAuditFrom(e.target.value)} /><Input type="date" value={auditTo} onChange={(e) => setAuditTo(e.target.value)} /></div>{auditItems.map((item) => <div key={item.id} className="flex items-center justify-between rounded border border-border p-2 text-xs"><span>{hotspotEventLabel(item.action)} · dispositivo {String(item.device_id).slice(0, 8)}</span><span className="text-muted-foreground">{new Date(item.created_at).toLocaleString("pt-BR")}</span></div>)}{!auditItems.length && <p className="text-sm text-muted-foreground">Nenhuma ação encontrada.</p>}</CardContent>}</Card>
+      <Card className="glass-panel border-primary/20">
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
+          <button type="button" onClick={() => setExpandedSection(expandedSection === "audit" ? null : "audit")} className="flex min-w-0 flex-1 items-center text-left">
+            <CardTitle>Histórico recente</CardTitle><span className="ml-auto text-primary">{expandedSection === "audit" ? "−" : "+"}</span>
+          </button>
+          {expandedSection === "audit" && <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" onClick={exportAuditCsv}>Exportar histórico</Button>
+            {access?.role === "adm" && <Button variant="outline" size="sm" disabled={cleaningAudit} onClick={() => void cleanOldAudit()}><Trash2 className="size-4" /> {cleaningAudit ? "Limpando..." : "Limpar +30 dias"}</Button>}
+          </div>}
+        </CardHeader>
+        {expandedSection === "audit" && <CardContent className="space-y-2">
+          {access?.role === "adm" && <p className="text-xs text-muted-foreground">A limpeza apaga do banco apenas eventos com mais de 30 dias. Os eventos recentes continuam disponíveis.</p>}
+          {auditCleanupMessage && <p className="text-xs" role="status">{auditCleanupMessage}</p>}
+          <Input placeholder="Filtrar histórico por ação ou dispositivo" value={auditSearch} onChange={(e) => setAuditSearch(e.target.value)} />
+          <div className="flex gap-2"><Input type="date" value={auditFrom} onChange={(e) => setAuditFrom(e.target.value)} /><Input type="date" value={auditTo} onChange={(e) => setAuditTo(e.target.value)} /></div>
+          {auditItems.map((item) => <div key={item.id} className="flex items-center justify-between rounded border border-border p-2 text-xs"><span>{hotspotEventLabel(item.action)} · dispositivo {String(item.device_id).slice(0, 8)}</span><span className="text-muted-foreground">{new Date(item.created_at).toLocaleString("pt-BR")}</span></div>)}
+          {!auditItems.length && <p className="text-sm text-muted-foreground">Nenhuma ação encontrada.</p>}
+        </CardContent>}
+      </Card>
       {offlineCount > 0 && <Card className="border-amber-400/30 bg-amber-400/5"><CardContent className="p-4 text-sm"><p className="font-semibold text-amber-300">Atenção operacional</p><p className="text-muted-foreground">{offlineCount} dispositivo(s) perderam três heartbeats consecutivos. Verifique a conexão da RB e o RADIUS.</p></CardContent></Card>}
       {syncMessage && <Card className="border-primary/30 bg-primary/5"><CardContent className="p-4 text-sm text-primary">{syncMessage}</CardContent></Card>}
       <Card className="glass-panel border-primary/20">
