@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 
 import { supabase } from "@/integrations/supabase/client";
 
@@ -25,18 +25,36 @@ export type AccessInfo = {
 
 const ROLE_PRIORITY: AppRole[] = ["adm", "revenda", "matriz", "filial"];
 
-export function useAccess() {
-  const queryClient = useQueryClient();
+const authListeners = new WeakMap<
+  QueryClient,
+  { users: number; unsubscribe: () => void }
+>();
 
-  useEffect(() => {
+function subscribeToAccessChanges(queryClient: QueryClient) {
+  let listener = authListeners.get(queryClient);
+  if (!listener) {
     const { data } = supabase.auth.onAuthStateChange(() => {
       queryClient.invalidateQueries({ queryKey: ["access"] });
     });
+    listener = { users: 0, unsubscribe: () => data.subscription.unsubscribe() };
+    authListeners.set(queryClient, listener);
+  }
 
-    return () => {
-      data.subscription.unsubscribe();
-    };
-  }, [queryClient]);
+  listener.users += 1;
+  const activeListener = listener;
+  return () => {
+    activeListener.users -= 1;
+    if (activeListener.users === 0) {
+      activeListener.unsubscribe();
+      authListeners.delete(queryClient);
+    }
+  };
+}
+
+export function useAccess() {
+  const queryClient = useQueryClient();
+
+  useEffect(() => subscribeToAccessChanges(queryClient), [queryClient]);
 
   return useQuery<AccessInfo | null>({
     queryKey: ["access"],
@@ -60,18 +78,25 @@ export function useAccess() {
       const user = userData.user ?? sessionUser;
       if (!user) return null;
 
-      const [{ data: roles, error: rolesError }, { data: profile, error: profileError }] =
-        await Promise.all([
-          supabase
-            .from("user_roles")
-            .select("role, company_id, branch_id, reseller_id")
-            .eq("user_id", user.id),
-          supabase
-            .from("profiles")
-            .select("full_name, display_name, email")
-            .eq("id", user.id)
-            .maybeSingle(),
-        ]);
+      const [
+        { data: roles, error: rolesError },
+        { data: profile, error: profileError },
+        { data: pSettings },
+      ] = await Promise.all([
+        supabase
+          .from("user_roles")
+          .select("role, company_id, branch_id, reseller_id")
+          .eq("user_id", user.id),
+        supabase
+          .from("profiles")
+          .select("full_name, display_name, email")
+          .eq("id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("platform_settings")
+          .select("display_name, logo_url, logo_url_relatorios")
+          .maybeSingle(),
+      ]);
 
       if (rolesError) console.error("[useAccess] Roles error:", rolesError);
       if (profileError) console.error("[useAccess] Profile error:", profileError);
@@ -92,11 +117,6 @@ export function useAccess() {
       let platformLogoRelatorios: string | null = null;
 
       let activationLimit: number | null = null;
-      const { data: pSettings } = await supabase
-        .from("platform_settings")
-        .select("display_name, logo_url, logo_url_relatorios")
-        .maybeSingle();
-
       platformName = pSettings?.display_name ?? "Manos Tech";
       platformLogo = pSettings?.logo_url ?? null;
       platformLogoRelatorios = pSettings?.logo_url_relatorios ?? null;
