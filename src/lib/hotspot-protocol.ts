@@ -3,6 +3,7 @@ export type HeartbeatInput = {
   mac?: string | undefined;
   ip?: string | undefined;
   version?: string | undefined;
+  kitVersion?: string | undefined;
   uptime?: string | undefined;
   rebootCommandId?: string | undefined;
   firewallBlocked?: string | boolean | undefined;
@@ -34,6 +35,7 @@ export function validateHeartbeat(input: HeartbeatInput | null | undefined) {
   if (input.rebootCommandId && !/^\d{13}$/.test(input.rebootCommandId)) return false;
   if (input.firewallBlocked !== undefined && input.firewallBlocked !== "" && ![true, false, "yes", "no"].includes(input.firewallBlocked)) return false;
   if (input.uptime && routerUptimeSeconds(input.uptime) === null) return false;
+  if (input.kitVersion && !/^[A-Za-z0-9._-]{1,48}$/.test(input.kitVersion)) return false;
   if (input.latencyMs !== undefined && input.latencyMs !== "" && finiteNumber(input.latencyMs, 0, 3_600_000) === null) return false;
   if (input.packetLossPct !== undefined && input.packetLossPct !== "" && finiteNumber(input.packetLossPct, 0, 100) === null) return false;
   if (input.activeSessions !== undefined && finiteNumber(input.activeSessions, 0, 1_000_000) === null) return false;
@@ -85,6 +87,7 @@ export function heartbeatUpdate(input: HeartbeatInput, now: string) {
     last_seen_at: now,
     last_seen_ip: input.ip ?? null,
     router_version: input.version ?? null,
+    kit_version: input.kitVersion ?? null,
     last_seen_uptime: input.uptime ?? null,
     active_sessions: finiteNumber(input.activeSessions, 0, 1_000_000) ?? 0,
     rx_bytes: finiteNumber(input.rxBytes, 0, Number.MAX_SAFE_INTEGER) ?? 0,

@@ -1463,6 +1463,7 @@ export type Database = {
           created_at: string
           hotspot_config_id: string
           id: string
+          kit_version: string | null
           last_homologated_at: string | null
           last_homologation_result: Json | null
           last_seen_at: string | null
@@ -1495,6 +1496,7 @@ export type Database = {
           created_at?: string
           hotspot_config_id: string
           id?: string
+          kit_version?: string | null
           last_homologated_at?: string | null
           last_homologation_result?: Json | null
           last_seen_at?: string | null
@@ -1527,6 +1529,7 @@ export type Database = {
           created_at?: string
           hotspot_config_id?: string
           id?: string
+          kit_version?: string | null
           last_homologated_at?: string | null
           last_homologation_result?: Json | null
           last_seen_at?: string | null

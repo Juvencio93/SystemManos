@@ -15,6 +15,7 @@ function authorizedDownload(identity: string, exp: string, kind: string, sig: st
 }
 
 function heartbeatScript(identity: string, token: string) {
+  const kitVersion = "2026.10.06.3";
   const scriptSource = `
   :local routerIdentity "${identity}"
   :local heartbeatToken "${token}"
@@ -71,7 +72,7 @@ function heartbeatScript(identity: string, token: string) {
   # Send telemetry as headers instead, so the heartbeat remains valid even
   # when the installed RouterOS formats version or uptime differently.
   :local heartbeatUrl "${baseUrl}/api/internal/hotspot-heartbeat"
-  :local heartbeatHeaders ("X-Manos-Heartbeat: " . $heartbeatToken . ",X-Manos-Router: " . $routerIdentity . ",X-Manos-Mac: " . $routerMac . ",X-Manos-IP: " . $wanIp . ",X-Manos-Version: " . $routerVersion . ",X-Manos-Uptime: " . $uptime . ",X-Manos-Sessions: " . $sessions . ",X-Manos-RX-Bytes: " . $rxBytes . ",X-Manos-TX-Bytes: " . $txBytes . ",X-Manos-Latency-MS: " . $latencyMs . ",X-Manos-Packet-Loss: " . $packetLossPct . ",X-Manos-Firewall: " . $firewallBlocked . ",X-Manos-Reboot-Command: " . $rebootCommandId)
+  :local heartbeatHeaders ("X-Manos-Heartbeat: " . $heartbeatToken . ",X-Manos-Router: " . $routerIdentity . ",X-Manos-Mac: " . $routerMac . ",X-Manos-IP: " . $wanIp . ",X-Manos-Version: " . $routerVersion . ",X-Manos-Kit-Version: ${kitVersion}" . ",X-Manos-Uptime: " . $uptime . ",X-Manos-Sessions: " . $sessions . ",X-Manos-RX-Bytes: " . $rxBytes . ",X-Manos-TX-Bytes: " . $txBytes . ",X-Manos-Latency-MS: " . $latencyMs . ",X-Manos-Packet-Loss: " . $packetLossPct . ",X-Manos-Firewall: " . $firewallBlocked . ",X-Manos-Reboot-Command: " . $rebootCommandId)
   :do {
     /tool fetch url=$heartbeatUrl http-method=post http-header-field=$heartbeatHeaders check-certificate=yes keep-result=no
   } on-error={ :log warning "Manos Tech heartbeat failed" }

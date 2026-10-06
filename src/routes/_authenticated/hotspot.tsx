@@ -19,6 +19,7 @@ import { hotspotActionError, postHotspotAction } from "@/lib/hotspot-client";
 import { hotspotEventLabel } from "@/lib/hotspot-events";
 import { MikrotikPreflight } from "@/components/app/mikrotik-preflight";
 import { MikrotikPostflight } from "@/components/app/mikrotik-postflight";
+import { MikrotikSecurityAudit } from "@/components/app/mikrotik-security-audit";
 
 export const Route = createFileRoute("/_authenticated/hotspot")({
   head: () => ({ meta: [{ title: "Hotspot | Manos Tech" }] }),
@@ -35,7 +36,7 @@ function HotspotPage() {
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<any>(null);
   const clientsQuery = useQuery({ queryKey: ["hotspot-approved-clients", access?.role, access?.resellerId, access?.companyId, access?.branchId], enabled: canManageHotspot, refetchInterval: 5000, queryFn: async () => {
-    let query = (supabase as any).from("hotspot_devices").select("id,router_identity,ap_mac,status,company_id,branch_id,updated_at,last_seen_at,last_seen_ip,last_seen_uptime,router_version,active_sessions,rx_bytes,tx_bytes,latency_ms,packet_loss_pct,sync_requested_at,sync_applied_at,reboot_requested_at,reboot_applied_at,router_applied_status,router_status_applied_at,latitude,longitude,maps_url,companies(name,trade_name,address,neighborhood,city,state,zip_code),branches(name,trade_name,address,neighborhood,city,state,zip_code)");
+    let query = (supabase as any).from("hotspot_devices").select("id,router_identity,ap_mac,status,company_id,branch_id,updated_at,last_seen_at,last_seen_ip,last_seen_uptime,router_version,kit_version,active_sessions,rx_bytes,tx_bytes,latency_ms,packet_loss_pct,sync_requested_at,sync_applied_at,reboot_requested_at,reboot_applied_at,router_applied_status,router_status_applied_at,latitude,longitude,maps_url,companies(name,trade_name,address,neighborhood,city,state,zip_code),branches(name,trade_name,address,neighborhood,city,state,zip_code)");
     if (access?.role === "revenda" && access.resellerId) {
       const [{ data: companies }, { data: branches }] = await Promise.all([
         (supabase as any).from("companies").select("id").eq("reseller_id", access.resellerId),
@@ -217,7 +218,13 @@ function HotspotPage() {
             <Button variant="outline" asChild><a href="#clientes-ativos">Ir para Clientes ativos homologados</a></Button>
           </div>
           <MikrotikPostflight />
+          <MikrotikSecurityAudit />
           <div className="border-t border-border pt-5"><p className="mb-3 text-sm font-semibold text-muted-foreground">Arquivos de manutenção e recuperação</p>
+          <div className="space-y-2 rounded-lg border border-border p-4 text-sm">
+            <p className="font-semibold">Exportação antes de manutenção</p>
+            <p className="text-muted-foreground">Gera uma exportação local sem senhas em <code>flash/</code>. Execute pela ether4 ou localmente antes de alterar a rede e copie o arquivo para fora da RB.</p>
+            <Button variant="outline" asChild><a href="/mikrotik/MANOS-BACKUP-EXPORT.rsc" download><Download className="size-4" /> Baixar exportação de backup .rsc</a></Button>
+          </div>
           <div className="space-y-2 rounded-lg border border-amber-300/25 bg-amber-300/5 p-4 text-sm">
             <p className="font-semibold">Manutenção de RB já instalada</p>
             <p className="text-muted-foreground">Atualiza somente o isolamento entre visitantes e funcionários. Não use o kit-base em uma RB que já está funcionando.</p>
@@ -266,7 +273,7 @@ function HotspotPage() {
         <CardContent className="space-y-3">
           <p className="text-xs text-muted-foreground">Sincronizar confirma RADIUS, página de login e bloqueio na RB. Portas e faixas IP são verificadas antes da instalação pelo diagnóstico do kit.</p>
           <div className="flex flex-col gap-2 sm:flex-row"><Input placeholder="Buscar por identidade ou MAC" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} /><select className="rounded-md border border-input bg-background px-3 text-sm" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}><option value="all">Todos os status</option><option value="operational">Homologados</option><option value="awaiting_homologation">Pendentes</option><option value="blocked">Bloqueados</option></select><Button variant="outline" onClick={exportCsv}>Exportar CSV</Button></div>
-          {visible.map((client) => <div key={client.id} className="flex w-full items-center justify-between rounded-lg border border-border bg-muted/20 p-3"><button onClick={() => setSelected(client)} className="min-w-0 text-left hover:text-primary"><span className="font-medium">{client.router_identity ?? "RB sem identidade"}</span><span className="ml-3 text-xs text-muted-foreground">MAC: {client.ap_mac ?? "não informado"}</span><span className="mt-1 block text-xs text-muted-foreground"><span className={isOnline(client.last_seen_at) ? "font-semibold text-emerald-300" : "text-muted-foreground"}>{isOnline(client.last_seen_at) ? "● Online" : "○ Offline"}</span> · última comunicação: {client.last_seen_at ? new Date(client.last_seen_at).toLocaleString("pt-BR") : "nunca"} · IP: {client.last_seen_ip ?? "—"} · RouterOS: {client.router_version ?? "—"}{syncProgress(client)}</span></button><div className="flex items-center gap-2"><Badge variant="outline" className={statusClass(client.status)}>{statusLabel(client.status)}</Badge><Button size="sm" variant="outline" onClick={() => void downloadActivation(client)}>Ativação</Button><Button size="sm" variant="outline" onClick={() => void downloadHeartbeat(client)}>Heartbeat</Button><Button size="sm" variant="outline" onClick={() => void requestSync(client)}>Sincronizar</Button></div></div>)}
+          {visible.map((client) => <div key={client.id} className="flex w-full items-center justify-between rounded-lg border border-border bg-muted/20 p-3"><button onClick={() => setSelected(client)} className="min-w-0 text-left hover:text-primary"><span className="font-medium">{client.router_identity ?? "RB sem identidade"}</span><span className="ml-3 text-xs text-muted-foreground">MAC: {client.ap_mac ?? "não informado"}</span><span className="mt-1 block text-xs text-muted-foreground"><span className={isOnline(client.last_seen_at) ? "font-semibold text-emerald-300" : "text-muted-foreground"}>{isOnline(client.last_seen_at) ? "● Online" : "○ Offline"}</span> · última comunicação: {client.last_seen_at ? new Date(client.last_seen_at).toLocaleString("pt-BR") : "nunca"} · IP: {client.last_seen_ip ?? "—"} · RouterOS: {client.router_version ?? "—"} · Kit: {client.kit_version ?? "anterior"}{syncProgress(client)}</span></button><div className="flex items-center gap-2"><Badge variant="outline" className={statusClass(client.status)}>{statusLabel(client.status)}</Badge><Button size="sm" variant="outline" onClick={() => void downloadActivation(client)}>Ativação</Button><Button size="sm" variant="outline" onClick={() => void downloadHeartbeat(client)}>Heartbeat</Button><Button size="sm" variant="outline" onClick={() => void requestSync(client)}>Sincronizar</Button></div></div>)}
           {!clients.length && <p className="text-sm text-muted-foreground">Nenhum dispositivo cadastrado.</p>}
           <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground"><span>Página {page} de {totalPages}</span><div className="flex gap-2"><Button size="icon" variant="outline" disabled={page === 1} onClick={() => setPage((p) => p - 1)}><ChevronLeft className="size-4" /></Button><Button size="icon" variant="outline" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)}><ChevronRight className="size-4" /></Button></div></div>
         </CardContent>
