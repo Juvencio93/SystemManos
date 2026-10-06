@@ -251,7 +251,7 @@ function HotspotPage() {
           </div>}
         </CardHeader>
         {expandedSection === "audit" && <CardContent className="space-y-2">
-          {access?.role === "adm" && <p className="text-xs text-muted-foreground">A limpeza apaga do banco apenas eventos com mais de 30 dias. Os eventos recentes continuam disponíveis.</p>}
+          {access?.role === "adm" && <p className="text-xs text-muted-foreground">A limpeza automática diária apaga do banco apenas eventos com mais de 30 dias. Este botão permite antecipar a limpeza; os eventos recentes continuam disponíveis.</p>}
           {auditCleanupMessage && <p className="text-xs" role="status">{auditCleanupMessage}</p>}
           <Input placeholder="Filtrar histórico por ação ou dispositivo" value={auditSearch} onChange={(e) => setAuditSearch(e.target.value)} />
           <div className="flex gap-2"><Input type="date" value={auditFrom} onChange={(e) => setAuditFrom(e.target.value)} /><Input type="date" value={auditTo} onChange={(e) => setAuditTo(e.target.value)} /></div>
