@@ -900,6 +900,7 @@ export function nextCommercialQuestion(
   }
   const temporal =
     TEMPORAL_COMMERCIAL_REQUEST.test(conversation) ||
+    Boolean(activeBrief.commercialCondition || activeBrief.freeCopyConfirmed) ||
     /\b(?:festival|feira|evento|edi[çc][aã]o\s+especial)\b/iu.test(activeBrief.subject ?? "");
   if (!state.hasSubject)
     return "O que você gostaria de divulgar? Pode ser um produto, serviço ou uma condição especial.";
@@ -954,6 +955,7 @@ export function pendingQuestionForCommercialState(
   if (comboAlreadyNamed && (state.hasPrice || brief.priceCandidate !== undefined)) return undefined;
   const temporal =
     TEMPORAL_COMMERCIAL_REQUEST.test(conversation) ||
+    Boolean(brief.commercialCondition || brief.freeCopyConfirmed) ||
     /\b(?:festival|feira|evento|edi[çc][aã]o\s+especial)\b/iu.test(brief.subject ?? "");
   if (!state.hasSubject) return "subject" as const;
   if (temporal && !state.hasValidity) return undefined;
