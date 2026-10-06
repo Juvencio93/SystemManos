@@ -9,6 +9,8 @@ const kitFiles = [
   "public/mikrotik/MANOS-ISOLATION-UPDATE.rsc",
   "public/mikrotik/MANOS-HOTSPOT-FIREWALL-UPDATE.rsc",
   "public/mikrotik/MANOS-WAN-FIREWALL-UPDATE.rsc",
+  "public/mikrotik/MANOS-SECURITY-AUDIT.rsc",
+  "public/mikrotik/MANOS-BACKUP-EXPORT.rsc",
   "public/mikrotik/MANOS-HOTSPOT-BASE.rsc",
   "public/mikrotik/login.html",
   "public/mikrotik/alogin.html",

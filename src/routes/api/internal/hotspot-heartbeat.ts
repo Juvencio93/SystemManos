@@ -16,6 +16,7 @@ export const Route = createFileRoute("/api/internal/hotspot-heartbeat")({
           ...(headerMac ? { mac: headerMac } : {}),
           ip: request.headers.get("x-manos-ip") ?? undefined,
           version: request.headers.get("x-manos-version") ?? undefined,
+          kitVersion: request.headers.get("x-manos-kit-version") ?? undefined,
           uptime: request.headers.get("x-manos-uptime") ?? undefined,
           activeSessions: request.headers.get("x-manos-sessions") ?? undefined,
           rxBytes: request.headers.get("x-manos-rx-bytes") ?? undefined,
