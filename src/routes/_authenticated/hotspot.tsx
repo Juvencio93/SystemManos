@@ -219,6 +219,11 @@ function HotspotPage() {
           </div>
           <MikrotikPostflight />
           <MikrotikSecurityAudit />
+          <div className="space-y-2 rounded-lg border border-amber-300/25 bg-amber-300/5 p-4 text-sm">
+            <p className="font-semibold">Endurecimento de serviços da RB</p>
+            <p className="text-muted-foreground">Desativa somente FTP, Telnet, Bandwidth Test, API e API-SSL. Mantém WinBox, SSH, HotSpot, RADIUS, DHCP, WAN, ether4, ether5 e Heartbeat. Use pela ether4 ou localmente.</p>
+            <Button variant="outline" asChild><a href="/mikrotik/MANOS-MANAGEMENT-HARDENING.rsc" download><Download className="size-4" /> Baixar endurecimento de serviços .rsc</a></Button>
+          </div>
           <div className="border-t border-border pt-5"><p className="mb-3 text-sm font-semibold text-muted-foreground">Arquivos de manutenção e recuperação</p>
           <div className="space-y-2 rounded-lg border border-border p-4 text-sm">
             <p className="font-semibold">Exportação antes de manutenção</p>

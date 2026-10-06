@@ -7,6 +7,7 @@ const files = [
   "/mikrotik/MANOS-HOTSPOT-FIREWALL-UPDATE.rsc",
   "/mikrotik/MANOS-WAN-FIREWALL-UPDATE.rsc",
   "/mikrotik/MANOS-SECURITY-AUDIT.rsc",
+  "/mikrotik/MANOS-MANAGEMENT-HARDENING.rsc",
   "/mikrotik/MANOS-BACKUP-EXPORT.rsc",
   "/mikrotik/MANOS-HOTSPOT-BASE.rsc",
   "/mikrotik/login.html",
