@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 const files = [
   "/mikrotik/MANOS-PREFLIGHT.rsc",
   "/mikrotik/MANOS-POSTFLIGHT.rsc",
+  "/mikrotik/MANOS-ISOLATION-UPDATE.rsc",
   "/mikrotik/MANOS-HOTSPOT-BASE.rsc",
   "/mikrotik/login.html",
   "/mikrotik/alogin.html",
