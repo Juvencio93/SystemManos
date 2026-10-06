@@ -4,7 +4,14 @@ import { createPublicKey, verify } from "node:crypto";
 const api = (environment: string) => environment === "sandbox" ? "https://sandbox.api.pagseguro.com" : "https://api.pagseguro.com";
 function pem(base64: string) { const body = base64.match(/.{1,64}/g)?.join("\n") ?? base64; return `-----BEGIN PUBLIC KEY-----\n${body}\n-----END PUBLIC KEY-----`; }
 async function signatureValid(raw: string, signature: string, token: string, environment: string) {
-  const response = await fetch(`${api(environment)}/public-keys?type=webhook`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } }); const data = await response.json().catch(() => ({})); if (!response.ok || !data.public_key) return false;
+  const headers = { Authorization: `Bearer ${token}`, Accept: "application/json" };
+  let response = await fetch(`${api(environment)}/public-keys?type=webhook`, { headers });
+  let data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.public_key) {
+    response = await fetch(`${api(environment)}/public-keys/webhook`, { headers });
+    data = await response.json().catch(() => ({}));
+  }
+  if (!response.ok || !data.public_key) return false;
   try { return verify("sha256", Buffer.from(raw, "utf8"), createPublicKey(pem(data.public_key)), Buffer.from(signature, "base64")); } catch { return false; }
 }
 export const Route = createFileRoute("/api/public/pagbank-webhook-v1")({ server: { handlers: { POST: async ({ request }) => {
