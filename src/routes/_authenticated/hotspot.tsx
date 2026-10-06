@@ -79,7 +79,7 @@ function HotspotPage() {
   const [auditCleanupMessage, setAuditCleanupMessage] = useState("");
   const [syncMessage, setSyncMessage] = useState("");
   const [expandedKitCard, setExpandedKitCard] = useState<"files" | "manual" | null>(null);
-  const [expandedSection, setExpandedSection] = useState<"kit" | "audit" | null>(null);
+  const [expandedSection, setExpandedSection] = useState<"kit" | "maintenance" | "audit" | null>(null);
   const [mapZoom, setMapZoom] = useState(1);
   const [heartbeatSeconds, setHeartbeatSeconds] = useState(5);
   useEffect(() => { const timer = window.setInterval(() => setHeartbeatSeconds((v) => v <= 1 ? 5 : v - 1), 1000); return () => window.clearInterval(timer); }, []);
@@ -219,6 +219,12 @@ function HotspotPage() {
             <Button variant="outline" asChild><a href="#clientes-ativos">Ir para Clientes ativos homologados</a></Button>
             <p className="text-xs text-muted-foreground">Terminal: <code>/import file-name=MT-IDENTIDADE-activation.rsc</code>, depois <code>/import file-name=MT-IDENTIDADE-heartbeat.rsc</code>. Substitua <code>MT-IDENTIDADE</code> pelo nome do arquivo baixado.</p>
           </div>
+          <div className="space-y-2 rounded-lg border border-border p-4 text-sm">
+            <p className="font-semibold">Arquivos da página de login do HotSpot</p>
+            <p className="text-muted-foreground">A Ativação e o Heartbeat atualizam a página automaticamente. Mantenha estes arquivos disponíveis caso seja necessário restaurá-la durante a instalação.</p>
+            <div className="flex flex-wrap gap-2"><Button variant="outline" asChild><a href="/mikrotik/login.html" download><Download className="size-4" /> Baixar login.html</a></Button><Button variant="outline" asChild><a href="/mikrotik/alogin.html" download><Download className="size-4" /> Baixar alogin.html</a></Button></div>
+            <p className="text-xs text-muted-foreground">Files: envie <code>login.html</code> e <code>alogin.html</code> para <code>flash/hotspot/</code> somente se precisar restaurar a página manualmente.</p>
+          </div>
           <MikrotikPostflight />
           <div className="space-y-2 rounded-lg border border-amber-300/25 bg-amber-300/5 p-4 text-sm">
             <p className="font-semibold">6. Endurecimento de serviços da RB</p>
@@ -233,31 +239,16 @@ function HotspotPage() {
             <p className="text-xs text-muted-foreground">Terminal: <code>/import file-name=MANOS-BACKUP-EXPORT.rsc</code></p>
           </div>
           <MikrotikSecurityAudit />
-          <div className="border-t border-border pt-5"><p className="mb-1 text-sm font-semibold text-muted-foreground">Arquivos de manutenção e recuperação</p><p className="mb-3 text-xs text-muted-foreground">Use somente em RB já instalada, conforme a necessidade descrita em cada arquivo.</p>
-          <div className="space-y-2 rounded-lg border border-amber-300/25 bg-amber-300/5 p-4 text-sm">
-            <p className="font-semibold">1. Atualização de isolamento entre redes</p>
-            <p className="text-muted-foreground">Atualiza somente o isolamento entre visitantes e funcionários. Não use o kit-base em uma RB que já está funcionando.</p>
-            <Button variant="outline" asChild><a href="/mikrotik/MANOS-ISOLATION-UPDATE.rsc" download><Download className="size-4" /> Baixar atualização de isolamento .rsc</a></Button>
-            <p className="text-xs text-muted-foreground">Terminal: <code>/import file-name=MANOS-ISOLATION-UPDATE.rsc</code></p>
-          </div>
-          <div className="space-y-2 rounded-lg border border-amber-300/25 bg-amber-300/5 p-4 text-sm">
-            <p className="font-semibold">2. Proteção adicional do HotSpot</p>
-            <p className="text-muted-foreground">Bloqueia visitantes da faixa do provedor e dos serviços de administração IP da RB. Não altera ether4, ether5, impressoras, RADIUS, filas ou Heartbeat.</p>
-            <Button variant="outline" asChild><a href="/mikrotik/MANOS-HOTSPOT-FIREWALL-UPDATE.rsc" download><Download className="size-4" /> Baixar proteção do HotSpot .rsc</a></Button>
-            <p className="text-xs text-muted-foreground">Terminal: <code>/import file-name=MANOS-HOTSPOT-FIREWALL-UPDATE.rsc</code></p>
-          </div>
-          <div className="space-y-2 rounded-lg border border-amber-300/25 bg-amber-300/5 p-4 text-sm">
-            <p className="font-semibold">3. Proteção de entrada pela WAN</p>
-            <p className="text-muted-foreground">Bloqueia acesso à própria RB vindo da bridge-wan, preservando DHCP do provedor e respostas de RADIUS, DNS, NTP e Heartbeat. Aplique em Safe Mode pela ether4 ou acesso local; não pela ether5. Não bloqueia equipamentos conectados na ether5 entre si.</p>
-            <Button variant="outline" asChild><a href="/mikrotik/MANOS-WAN-FIREWALL-UPDATE.rsc" download><Download className="size-4" /> Baixar proteção WAN .rsc</a></Button>
-            <p className="text-xs text-muted-foreground">Terminal: <code>/import file-name=MANOS-WAN-FIREWALL-UPDATE.rsc</code></p>
-          </div>
-          <div className="space-y-2 rounded-lg border border-border p-4 text-sm">
-            <p className="font-semibold">4. Recuperação da página do HotSpot</p>
-            <p className="text-muted-foreground">Use somente se for necessário restaurar manualmente a página de login na pasta <code>flash/hotspot</code>. A sincronização normal atualiza esses arquivos automaticamente.</p>
-            <div className="flex flex-wrap gap-2"><Button variant="outline" asChild><a href="/mikrotik/login.html" download><Download className="size-4" /> Baixar login.html</a></Button><Button variant="outline" asChild><a href="/mikrotik/alogin.html" download><Download className="size-4" /> Baixar alogin.html</a></Button></div>
-            <p className="text-xs text-muted-foreground">Files: envie <code>login.html</code> e <code>alogin.html</code> para <code>flash/hotspot/</code>. Não há comando de importação para arquivos HTML.</p>
-          </div></div>
+        </CardContent>}
+      </Card>
+      <Card className="glass-panel border-amber-300/25">
+        <CardHeader><button type="button" onClick={() => setExpandedSection(expandedSection === "maintenance" ? null : "maintenance")} className="flex w-full items-center gap-2 text-left"><Router className="size-5 text-amber-300" /><CardTitle>Arquivos de manutenção e recuperação</CardTitle><span className="ml-auto text-amber-300">{expandedSection === "maintenance" ? "−" : "+"}</span></button></CardHeader>
+        {expandedSection === "maintenance" && <CardContent className="space-y-4"><p className="text-sm text-muted-foreground">Use somente em RB já instalada, conforme a necessidade descrita em cada arquivo. Gere um backup atualizado antes de importar qualquer atualização.</p>
+          <div className="space-y-2 rounded-lg border border-border p-4 text-sm"><p className="font-semibold">1. Exportação antes de manutenção</p><p className="text-muted-foreground">Gera uma exportação local sem senhas em <code>flash/</code>. Copie o arquivo para fora da RB antes de qualquer alteração.</p><Button variant="outline" asChild><a href="/mikrotik/MANOS-BACKUP-EXPORT.rsc" download><Download className="size-4" /> Baixar exportação de backup .rsc</a></Button><p className="text-xs text-muted-foreground">Terminal: <code>/import file-name=MANOS-BACKUP-EXPORT.rsc</code></p></div>
+          <div className="space-y-2 rounded-lg border border-amber-300/25 bg-amber-300/5 p-4 text-sm"><p className="font-semibold">2. Atualização de isolamento entre redes</p><p className="text-muted-foreground">Use em RB antiga que ainda não possui isolamento entre visitantes e funcionários. Não use o kit-base em uma RB que já está funcionando.</p><Button variant="outline" asChild><a href="/mikrotik/MANOS-ISOLATION-UPDATE.rsc" download><Download className="size-4" /> Baixar atualização de isolamento .rsc</a></Button><p className="text-xs text-muted-foreground">Terminal: <code>/import file-name=MANOS-ISOLATION-UPDATE.rsc</code></p></div>
+          <div className="space-y-2 rounded-lg border border-amber-300/25 bg-amber-300/5 p-4 text-sm"><p className="font-semibold">3. Proteção adicional do HotSpot</p><p className="text-muted-foreground">Use em RB antiga que ainda não bloqueia visitantes da faixa do provedor e dos serviços de administração IP da RB.</p><Button variant="outline" asChild><a href="/mikrotik/MANOS-HOTSPOT-FIREWALL-UPDATE.rsc" download><Download className="size-4" /> Baixar proteção do HotSpot .rsc</a></Button><p className="text-xs text-muted-foreground">Terminal: <code>/import file-name=MANOS-HOTSPOT-FIREWALL-UPDATE.rsc</code></p></div>
+          <div className="space-y-2 rounded-lg border border-amber-300/25 bg-amber-300/5 p-4 text-sm"><p className="font-semibold">4. Proteção de entrada pela WAN</p><p className="text-muted-foreground">Use em RB antiga que ainda não protege a própria RB contra acesso pela bridge-wan. Aplique em Safe Mode pela ether4 ou acesso local; não pela ether5.</p><Button variant="outline" asChild><a href="/mikrotik/MANOS-WAN-FIREWALL-UPDATE.rsc" download><Download className="size-4" /> Baixar proteção WAN .rsc</a></Button><p className="text-xs text-muted-foreground">Terminal: <code>/import file-name=MANOS-WAN-FIREWALL-UPDATE.rsc</code></p></div>
+          <div className="space-y-2 rounded-lg border border-border p-4 text-sm"><p className="font-semibold">5. Recuperação da página do HotSpot</p><p className="text-muted-foreground">Use somente se for necessário restaurar manualmente a página de login na pasta <code>flash/hotspot</code>. A sincronização normal atualiza esses arquivos automaticamente.</p><div className="flex flex-wrap gap-2"><Button variant="outline" asChild><a href="/mikrotik/login.html" download><Download className="size-4" /> Baixar login.html</a></Button><Button variant="outline" asChild><a href="/mikrotik/alogin.html" download><Download className="size-4" /> Baixar alogin.html</a></Button></div><p className="text-xs text-muted-foreground">Files: envie <code>login.html</code> e <code>alogin.html</code> para <code>flash/hotspot/</code>. Não há comando de importação para arquivos HTML.</p></div>
         </CardContent>}
       </Card>
       <Card className="glass-panel border-primary/20">
