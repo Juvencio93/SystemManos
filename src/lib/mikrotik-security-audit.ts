@@ -2,8 +2,8 @@ export type MikrotikSecurityFinding = { level: "warning" | "ok"; message: string
 
 export function analyzeMikrotikSecurityAudit(output: string) {
   const rows = output.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.startsWith("MANOS-SECURITY|"));
-  const begin = rows.find((row) => row === "MANOS-SECURITY|BEGIN|1" || row === "MANOS-SECURITY|BEGIN|2");
-  const end = rows.find((row) => row === "MANOS-SECURITY|END|1" || row === "MANOS-SECURITY|END|2");
+  const begin = rows.find((row) => ["MANOS-SECURITY|BEGIN|1", "MANOS-SECURITY|BEGIN|2", "MANOS-SECURITY|BEGIN|3"].includes(row));
+  const end = rows.find((row) => ["MANOS-SECURITY|END|1", "MANOS-SECURITY|END|2", "MANOS-SECURITY|END|3"].includes(row));
   if (!begin || !end) {
     return { valid: false, findings: [{ level: "warning" as const, message: "Cole a saída completa do diagnóstico, do BEGIN ao END." }] };
   }
