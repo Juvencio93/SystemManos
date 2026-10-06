@@ -1,7 +1,7 @@
 # Endurecimento seguro dos servicos IP da RB.
 # Nao altera HotSpot, RADIUS, DHCP, NAT, filas, ether4, ether5, bridge-wan ou Heartbeat.
 # Mantenha WinBox e SSH para manutencao local pela ether4.
-:foreach serviceName in={"ftp";"telnet";"btest";"api";"api-ssl"} do={
+:foreach serviceName in={"ftp";"telnet";"api";"api-ssl"} do={
   :local serviceId [/ip service find where name=$serviceName]
   :if ([:len $serviceId] > 0) do={
     :do {
@@ -12,4 +12,10 @@
     }
   }
 }
-:put "MANOS-MANAGEMENT-HARDENING|DONE|2"
+:do {
+  /tool bandwidth-server set enabled=no
+  :put "MANOS-MANAGEMENT-HARDENING|SERVICE|btest|disabled"
+} on-error={
+  :put "MANOS-MANAGEMENT-HARDENING|SERVICE|btest|unchanged"
+}
+:put "MANOS-MANAGEMENT-HARDENING|DONE|3"
