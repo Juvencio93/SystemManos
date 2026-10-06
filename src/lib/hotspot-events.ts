@@ -32,6 +32,8 @@ export type HotspotAlert = {
 type AlertDevice = {
   id: string;
   router_identity?: string | null;
+  status?: string | null;
+  router_applied_status?: string | null;
   last_seen_at?: string | null;
   packet_loss_pct?: number | null;
   router_status_requested_at?: string | null;
@@ -117,6 +119,8 @@ export function buildHotspotAlerts(devices: AlertDevice[], audits: AlertAudit[],
     const device = byId.get(audit.device_id);
     const identity = device?.router_identity || "RB sem identificação";
     if (audit.action === "router_status_mismatch") {
+      const expectedStatus = device?.status === "blocked" ? "blocked" : "unblocked";
+      if (device?.status && device.router_applied_status === expectedStatus) continue;
       alerts.push({
         id: `audit:${audit.id}`,
         severity: "warning",
