@@ -13,9 +13,9 @@ describe("hotspot protocol", () => {
     expect(validateSyncRequest({ routerIdentity: "RB" })).toBe(true);
   });
 
-  it("normalizes counters and retains uptime while acknowledging only the specific sync request", () => {
-    expect(heartbeatUpdate({ mac: "AA:BB", uptime: "3m5s", activeSessions: "3", rxBytes: "10", txBytes: 20 }, "2026-09-29T12:00:00.000Z", "2026-09-29T11:59:30.000Z")).toMatchObject({ ap_mac: "AA:BB", last_seen_uptime: "3m5s", active_sessions: 3, rx_bytes: 10, tx_bytes: 20, sync_applied_at: "2026-09-29T11:59:30.000Z" });
-    expect(heartbeatUpdate({ routerIdentity: "RB" }, "2026-09-29T12:00:00.000Z", null)).not.toHaveProperty("sync_applied_at");
+  it("normalizes counters and retains uptime without confirming synchronization", () => {
+    expect(heartbeatUpdate({ mac: "AA:BB", uptime: "3m5s", activeSessions: "3", rxBytes: "10", txBytes: 20 }, "2026-09-29T12:00:00.000Z")).toMatchObject({ ap_mac: "AA:BB", last_seen_uptime: "3m5s", active_sessions: 3, rx_bytes: 10, tx_bytes: 20 });
+    expect(heartbeatUpdate({ routerIdentity: "RB" }, "2026-09-29T12:00:00.000Z")).not.toHaveProperty("sync_applied_at");
     expect(routerUptimeSeconds("1w2d3h4m5s")).toBe(788645);
     expect(routerUptimeSeconds("not uptime")).toBeNull();
   });

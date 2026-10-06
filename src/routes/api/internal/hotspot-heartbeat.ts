@@ -35,7 +35,7 @@ export const Route = createFileRoute("/api/internal/hotspot-heartbeat")({
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { data: current, error: lookupError } = await (supabaseAdmin as any)
           .from("hotspot_devices")
-          .select("id,status,router_applied_status,router_status_requested_at,router_status_applied_at,sync_requested_at,sync_applied_at,reboot_requested_at,reboot_applied_at,last_seen_at,last_seen_uptime")
+          .select("id,status,router_applied_status,router_status_requested_at,router_status_applied_at,reboot_requested_at,reboot_applied_at,last_seen_at,last_seen_uptime")
           .eq("router_identity", heartbeat.routerIdentity)
           .maybeSingle();
         if (lookupError) return new Response("Could not read device", { status: 500 });
@@ -43,8 +43,6 @@ export const Route = createFileRoute("/api/internal/hotspot-heartbeat")({
         const now = new Date().toISOString();
         const routerStatusPending = Boolean(current.router_status_requested_at &&
           current.router_status_applied_at !== current.router_status_requested_at);
-        const syncPending = Boolean(current.sync_requested_at &&
-          current.sync_applied_at !== current.sync_requested_at);
         const previousUptime = routerUptimeSeconds(current.last_seen_uptime ?? undefined);
         const reportedUptime = routerUptimeSeconds(heartbeat.uptime);
         const pendingCommandId = current.reboot_requested_at ? String(Date.parse(current.reboot_requested_at)) : null;
@@ -70,7 +68,7 @@ export const Route = createFileRoute("/api/internal/hotspot-heartbeat")({
           reportedFirewallStatus === (current.status === "blocked" ? "blocked" : "unblocked");
         const firewallStateChanged = firewallConfirmed && current.router_applied_status !== reportedFirewallStatus;
         const update = {
-          ...heartbeatUpdate(heartbeat, now, syncPending ? current.sync_requested_at : null),
+          ...heartbeatUpdate(heartbeat, now),
           ...(rebootConfirmed ? { reboot_requested_at: null, reboot_applied_at: now } : {}),
           ...(firewallStateChanged ? { router_applied_status: reportedFirewallStatus } : {}),
           ...(routerStatusPending && firewallMatchesRequest ? { router_status_applied_at: now } : {}),
@@ -100,15 +98,6 @@ export const Route = createFileRoute("/api/internal/hotspot-heartbeat")({
             created_at: now,
           });
           if (auditError) console.error("[hotspot-heartbeat] Could not audit applied firewall state", auditError);
-        }
-        if (syncPending) {
-          const { error: auditError } = await (supabaseAdmin as any).from("hotspot_device_audit").insert({
-            action: "sync_applied",
-            device_id: current.id,
-            new_status: "sync_applied",
-            created_at: now,
-          });
-          if (auditError) console.error("[hotspot-heartbeat] Could not audit applied sync", auditError);
         }
         const applied = firewallMatchesRequest ? reportedFirewallStatus : null;
         return Response.json({ ok: true, reboot: rebootConfirmed, firewall: applied });

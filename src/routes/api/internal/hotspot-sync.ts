@@ -26,7 +26,7 @@ export const Route = createFileRoute("/api/internal/hotspot-sync")({
         const requestedAt = new Date().toISOString();
         const { error: updateError } = await (supabaseAdmin as any)
           .from("hotspot_devices")
-          .update({ sync_requested_at: requestedAt, updated_at: requestedAt })
+          .update({ sync_requested_at: requestedAt, sync_applied_at: null, updated_at: requestedAt })
           .eq("id", device.id);
         if (updateError) return new Response("Could not request sync", { status: 500 });
         const { error: auditError } = await (supabaseAdmin as any).from("hotspot_device_audit").insert({

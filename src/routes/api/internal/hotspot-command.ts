@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createHash } from "node:crypto";
-import { hasHotspotRouterAuth } from "@/lib/hotspot-router-auth";
+import { hasHotspotRouterAuth, hotspotSyncAckSignature } from "@/lib/hotspot-router-auth";
 
 const headers = { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store, no-cache, must-revalidate" };
 const noOp = () => new Response("# no-op\n", { headers });
@@ -41,6 +41,22 @@ function hotspotLoginFileSyncCommand() {
 `;
 }
 
+function syncAcknowledgementCommand(identity: string, requestedAt: string, blocked: boolean) {
+  const requestId = String(Date.parse(requestedAt));
+  if (!/^\d{13}$/.test(requestId)) return "";
+  const signature = hotspotSyncAckSignature(identity, requestId);
+  if (!signature) return "";
+  const firewallState = blocked ? "yes" : "no";
+  const url = `https://manostech-system.com.br/api/internal/hotspot-sync-ack?routerIdentity=${identity}&requestId=${requestId}&signature=${signature}`;
+  // These checks run after the commands above. An import or fetch failure
+  // leaves the request pending instead of reporting a false success.
+  return `:if ([:len [/radius find where service=hotspot comment~"^MANOS-RADIUS" disabled=no]] = 0) do={ :error "Manos Tech RADIUS sync not confirmed" }
+:if ([:len [/file find where name="flash/manos-login-v3.marker"]] = 0) do={ :error "Manos Tech login sync not confirmed" }
+:if ([:len [/system scheduler find where name="MANOS-HEARTBEAT" comment="MANOS-FW-${firewallState}"]] = 0) do={ :error "Manos Tech firewall sync not confirmed" }
+/tool fetch url="${url}" http-method=post http-data="" output=none check-certificate=yes
+`;
+}
+
 /**
  * A router that is already proving its identity through the heartbeat can
  * safely receive the current RADIUS credential over that TLS channel. The
@@ -78,7 +94,7 @@ export const Route = createFileRoute("/api/internal/hotspot-command")({
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { data: device, error } = await (supabaseAdmin as any)
           .from("hotspot_devices")
-          .select("id,status,reboot_requested_at,router_status_requested_at,router_status_applied_at")
+          .select("id,status,reboot_requested_at,router_status_requested_at,router_status_applied_at,sync_requested_at,sync_applied_at")
           .eq("router_identity", identity)
           .maybeSingle();
         if (error) return new Response("Could not read device", { status: 500 });
@@ -125,10 +141,18 @@ export const Route = createFileRoute("/api/internal/hotspot-command")({
           return new Response('/system script set [find where name="MANOS-HEARTBEAT"] comment=""\n', { headers });
         }
 
-        if (device.router_status_requested_at && device.router_status_applied_at !== device.router_status_requested_at) {
-          return new Response(`${radiusCredentialCommand()}${hotspotLoginFileSyncCommand()}${statusCommand(device.status === "blocked")}\n${firewallStateScript()}`, { headers });
-        }
-        return new Response(`${radiusCredentialCommand()}${hotspotLoginFileSyncCommand()}${statusCommand(device.status === "blocked")}`, { headers });
+        const radiusCommand = radiusCredentialCommand();
+        const syncPending = Boolean(device.sync_requested_at && device.sync_applied_at !== device.sync_requested_at);
+        const statusPending = Boolean(device.router_status_requested_at && device.router_status_applied_at !== device.router_status_requested_at);
+        const blocked = device.status === "blocked";
+        const confirmation = syncPending && radiusCommand
+          ? syncAcknowledgementCommand(identity, device.sync_requested_at, blocked)
+          : "";
+        const firewallCheck = statusPending || confirmation ? `\n${firewallStateScript()}` : "";
+        return new Response(
+          `${radiusCommand}${hotspotLoginFileSyncCommand()}${statusCommand(blocked)}${firewallCheck}${confirmation}`,
+          { headers },
+        );
       },
     },
   },
