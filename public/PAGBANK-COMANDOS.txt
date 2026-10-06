@@ -1,0 +1,9 @@
+PagBank — criação da chave pública webhook
+
+Use o token do mesmo ambiente selecionado no sistema. Não compartilhe o token nem a resposta.
+
+Sandbox:
+Invoke-RestMethod -Method Post -Uri "https://sandbox.api.pagseguro.com/public-keys" -Headers @{ Authorization = "Bearer SEU_TOKEN_SANDBOX"; Accept = "application/json"; "Content-Type" = "application/json" } -Body '{"type":"webhook"}'
+
+Produção:
+Invoke-RestMethod -Method Post -Uri "https://api.pagseguro.com/public-keys" -Headers @{ Authorization = "Bearer SEU_TOKEN_PRODUCAO"; Accept = "application/json"; "Content-Type" = "application/json" } -Body '{"type":"webhook"}'
