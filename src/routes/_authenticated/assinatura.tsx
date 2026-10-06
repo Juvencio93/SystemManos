@@ -493,9 +493,9 @@ function SubscriptionPage() {
                 <Loader2 className="size-8 animate-spin text-primary" />
                 <p className="text-sm text-muted-foreground">Gerando QR Code PIX...</p>
               </div>
-            ) : pixDialog.qrCode ? (
+            ) : pixDialog.qrCode || pixDialog.copyPaste ? (
               <>
-                <div className="overflow-hidden rounded-xl border-4 border-white bg-white p-2 shadow-sm">
+                {pixDialog.qrCode && <div className="overflow-hidden rounded-xl border-4 border-white bg-white p-2 shadow-sm">
                   <img
                           loading="lazy"
                           decoding="async"
@@ -503,7 +503,7 @@ function SubscriptionPage() {
                     alt="QR Code PIX"
                     className="size-48"
                   />
-                </div>
+                </div>}
                 <div className="w-full space-y-2">
                   <p className="text-center text-[10px] uppercase tracking-wider text-muted-foreground">
                     Código Copia e Cola
