@@ -79,7 +79,7 @@ export function sanitizeRouterOsHeartbeat(input: HeartbeatInput): HeartbeatInput
   return sanitized;
 }
 
-export function heartbeatUpdate(input: HeartbeatInput, now: string, syncRequestedAt?: string | null) {
+export function heartbeatUpdate(input: HeartbeatInput, now: string) {
   return {
     ap_mac: input.mac,
     last_seen_at: now,
@@ -91,9 +91,6 @@ export function heartbeatUpdate(input: HeartbeatInput, now: string, syncRequeste
     tx_bytes: finiteNumber(input.txBytes, 0, Number.MAX_SAFE_INTEGER) ?? 0,
     latency_ms: finiteNumber(input.latencyMs, 0, 3_600_000),
     packet_loss_pct: finiteNumber(input.packetLossPct, 0, 100),
-    // Store the request's own timestamp as the acknowledgement. If a newer
-    // request races this heartbeat, it will still differ and remain pending.
-    ...(syncRequestedAt ? { sync_applied_at: syncRequestedAt } : {}),
     updated_at: now,
   };
 }

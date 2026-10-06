@@ -43,6 +43,7 @@ import { Route as ApiInternalHotspotHealthRouteImport } from './routes/api/inter
 import { Route as ApiInternalHotspotHeartbeatRouteImport } from './routes/api/internal/hotspot-heartbeat'
 import { Route as ApiInternalHotspotRebootRouteImport } from './routes/api/internal/hotspot-reboot'
 import { Route as ApiInternalHotspotSyncRouteImport } from './routes/api/internal/hotspot-sync'
+import { Route as ApiInternalHotspotSyncAckRouteImport } from './routes/api/internal/hotspot-sync-ack'
 import { Route as ApiInternalMikrotikActivationRouteImport } from './routes/api/internal/mikrotik-activation'
 import { Route as ApiInternalRadiusAuthorizeRouteImport } from './routes/api/internal/radius-authorize'
 import { Route as ApiInternalRadiusConfigRouteImport } from './routes/api/internal/radius-config'
@@ -241,6 +242,12 @@ const ApiInternalHotspotSyncRoute = ApiInternalHotspotSyncRouteImport.update({
   path: '/api/internal/hotspot-sync',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiInternalHotspotSyncAckRoute =
+  ApiInternalHotspotSyncAckRouteImport.update({
+    id: '/api/internal/hotspot-sync-ack',
+    path: '/api/internal/hotspot-sync-ack',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiInternalMikrotikActivationRoute =
   ApiInternalMikrotikActivationRouteImport.update({
     id: '/api/internal/mikrotik-activation',
@@ -339,6 +346,7 @@ export interface FileRoutesByFullPath {
   '/api/internal/hotspot-heartbeat': typeof ApiInternalHotspotHeartbeatRoute
   '/api/internal/hotspot-reboot': typeof ApiInternalHotspotRebootRoute
   '/api/internal/hotspot-sync': typeof ApiInternalHotspotSyncRoute
+  '/api/internal/hotspot-sync-ack': typeof ApiInternalHotspotSyncAckRoute
   '/api/internal/mikrotik-activation': typeof ApiInternalMikrotikActivationRoute
   '/api/internal/radius-authorize': typeof ApiInternalRadiusAuthorizeRoute
   '/api/internal/radius-config': typeof ApiInternalRadiusConfigRoute
@@ -385,6 +393,7 @@ export interface FileRoutesByTo {
   '/api/internal/hotspot-heartbeat': typeof ApiInternalHotspotHeartbeatRoute
   '/api/internal/hotspot-reboot': typeof ApiInternalHotspotRebootRoute
   '/api/internal/hotspot-sync': typeof ApiInternalHotspotSyncRoute
+  '/api/internal/hotspot-sync-ack': typeof ApiInternalHotspotSyncAckRoute
   '/api/internal/mikrotik-activation': typeof ApiInternalMikrotikActivationRoute
   '/api/internal/radius-authorize': typeof ApiInternalRadiusAuthorizeRoute
   '/api/internal/radius-config': typeof ApiInternalRadiusConfigRoute
@@ -434,6 +443,7 @@ export interface FileRoutesById {
   '/api/internal/hotspot-heartbeat': typeof ApiInternalHotspotHeartbeatRoute
   '/api/internal/hotspot-reboot': typeof ApiInternalHotspotRebootRoute
   '/api/internal/hotspot-sync': typeof ApiInternalHotspotSyncRoute
+  '/api/internal/hotspot-sync-ack': typeof ApiInternalHotspotSyncAckRoute
   '/api/internal/mikrotik-activation': typeof ApiInternalMikrotikActivationRoute
   '/api/internal/radius-authorize': typeof ApiInternalRadiusAuthorizeRoute
   '/api/internal/radius-config': typeof ApiInternalRadiusConfigRoute
@@ -483,6 +493,7 @@ export interface FileRouteTypes {
     | '/api/internal/hotspot-heartbeat'
     | '/api/internal/hotspot-reboot'
     | '/api/internal/hotspot-sync'
+    | '/api/internal/hotspot-sync-ack'
     | '/api/internal/mikrotik-activation'
     | '/api/internal/radius-authorize'
     | '/api/internal/radius-config'
@@ -529,6 +540,7 @@ export interface FileRouteTypes {
     | '/api/internal/hotspot-heartbeat'
     | '/api/internal/hotspot-reboot'
     | '/api/internal/hotspot-sync'
+    | '/api/internal/hotspot-sync-ack'
     | '/api/internal/mikrotik-activation'
     | '/api/internal/radius-authorize'
     | '/api/internal/radius-config'
@@ -577,6 +589,7 @@ export interface FileRouteTypes {
     | '/api/internal/hotspot-heartbeat'
     | '/api/internal/hotspot-reboot'
     | '/api/internal/hotspot-sync'
+    | '/api/internal/hotspot-sync-ack'
     | '/api/internal/mikrotik-activation'
     | '/api/internal/radius-authorize'
     | '/api/internal/radius-config'
@@ -605,6 +618,7 @@ export interface RootRouteChildren {
   ApiInternalHotspotHeartbeatRoute: typeof ApiInternalHotspotHeartbeatRoute
   ApiInternalHotspotRebootRoute: typeof ApiInternalHotspotRebootRoute
   ApiInternalHotspotSyncRoute: typeof ApiInternalHotspotSyncRoute
+  ApiInternalHotspotSyncAckRoute: typeof ApiInternalHotspotSyncAckRoute
   ApiInternalMikrotikActivationRoute: typeof ApiInternalMikrotikActivationRoute
   ApiInternalRadiusAuthorizeRoute: typeof ApiInternalRadiusAuthorizeRoute
   ApiInternalRadiusConfigRoute: typeof ApiInternalRadiusConfigRoute
@@ -858,6 +872,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiInternalHotspotSyncRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/internal/hotspot-sync-ack': {
+      id: '/api/internal/hotspot-sync-ack'
+      path: '/api/internal/hotspot-sync-ack'
+      fullPath: '/api/internal/hotspot-sync-ack'
+      preLoaderRoute: typeof ApiInternalHotspotSyncAckRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/internal/mikrotik-activation': {
       id: '/api/internal/mikrotik-activation'
       path: '/api/internal/mikrotik-activation'
@@ -1029,6 +1050,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiInternalHotspotHeartbeatRoute: ApiInternalHotspotHeartbeatRoute,
   ApiInternalHotspotRebootRoute: ApiInternalHotspotRebootRoute,
   ApiInternalHotspotSyncRoute: ApiInternalHotspotSyncRoute,
+  ApiInternalHotspotSyncAckRoute: ApiInternalHotspotSyncAckRoute,
   ApiInternalMikrotikActivationRoute: ApiInternalMikrotikActivationRoute,
   ApiInternalRadiusAuthorizeRoute: ApiInternalRadiusAuthorizeRoute,
   ApiInternalRadiusConfigRoute: ApiInternalRadiusConfigRoute,

@@ -14,6 +14,15 @@ export function hotspotRouterToken(routerIdentity: string) {
   return createHmac("sha256", secret).update(`mikrotik-heartbeat:${routerIdentity}`).digest("hex");
 }
 
+/** Short-lived proof tied to one synchronization request, never a reusable RB token. */
+export function hotspotSyncAckSignature(routerIdentity: string, requestId: string) {
+  const secret = credentialSecret();
+  if (!secret) return null;
+  return createHmac("sha256", secret)
+    .update(`mikrotik-sync:${routerIdentity}:${requestId}`)
+    .digest("hex");
+}
+
 export function hasHotspotRouterAuth(request: Request, routerIdentity: string) {
   const expected = hotspotRouterToken(routerIdentity);
   const provided = request.headers.get(HEARTBEAT_HEADER) ?? "";
