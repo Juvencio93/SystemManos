@@ -207,6 +207,7 @@ function HotspotPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" asChild><a href="/mikrotik/MANOS-HOTSPOT-BASE.rsc" download><Download className="size-4" /> Kit-base .rsc</a></Button>
+            <Button variant="outline" asChild><a href="/mikrotik/MANOS-ISOLATION-UPDATE.rsc" download><Download className="size-4" /> Atualizar isolamento .rsc</a></Button>
             <Button variant="outline" asChild><a href="/mikrotik/MANOS-POSTFLIGHT.rsc" download><Download className="size-4" /> Conferência .rsc</a></Button>
             <Button variant="outline" asChild><a href="/mikrotik/login.html" download><Download className="size-4" /> login.html</a></Button>
             <Button variant="outline" asChild><a href="/mikrotik/alogin.html" download><Download className="size-4" /> alogin.html</a></Button>
