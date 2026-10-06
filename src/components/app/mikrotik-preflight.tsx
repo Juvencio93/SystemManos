@@ -16,7 +16,7 @@ export function MikrotikPreflight() {
   return (
     <div className="space-y-3 rounded-lg border border-primary/25 bg-primary/5 p-4 text-sm">
       <div>
-        <p className="font-semibold">Pré-verificação da RB</p>
+        <p className="font-semibold">1. Pré-verificação da RB</p>
         <p className="text-muted-foreground">Leitura local antes de importar o kit. O diagnóstico não altera a RB nem envia a saída ao sistema.</p>
       </div>
       <div className="flex flex-wrap items-center gap-3">
