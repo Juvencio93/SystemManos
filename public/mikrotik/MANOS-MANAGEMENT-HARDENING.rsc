@@ -3,6 +3,13 @@
 # Mantenha WinBox e SSH para manutencao local pela ether4.
 :foreach serviceName in={"ftp";"telnet";"btest";"api";"api-ssl"} do={
   :local serviceId [/ip service find where name=$serviceName]
-  :if ([:len $serviceId] > 0) do={ /ip service set [:pick $serviceId 0] disabled=yes }
+  :if ([:len $serviceId] > 0) do={
+    :do {
+      /ip service set [:pick $serviceId 0] disabled=yes
+      :put ("MANOS-MANAGEMENT-HARDENING|SERVICE|" . $serviceName . "|disabled")
+    } on-error={
+      :put ("MANOS-MANAGEMENT-HARDENING|SERVICE|" . $serviceName . "|unchanged")
+    }
+  }
 }
-:put "MANOS-MANAGEMENT-HARDENING|DONE|1"
+:put "MANOS-MANAGEMENT-HARDENING|DONE|2"
