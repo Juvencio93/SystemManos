@@ -43,7 +43,7 @@ export function HotspotNotificationCenter({ userId }: { userId: string }) {
           supabase
             .from("hotspot_devices")
             .select(
-              "id,router_identity,last_seen_at,packet_loss_pct,router_status_requested_at,router_status_applied_at,sync_requested_at,sync_applied_at,reboot_requested_at,reboot_applied_at",
+              "id,router_identity,status,router_applied_status,last_seen_at,packet_loss_pct,router_status_requested_at,router_status_applied_at,sync_requested_at,sync_applied_at,reboot_requested_at,reboot_applied_at",
             ),
           supabase
             .from("hotspot_device_audit")
