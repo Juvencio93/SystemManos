@@ -211,11 +211,13 @@ function HotspotPage() {
             <p className="font-semibold">2. Importar kit-base</p>
             <p className="text-muted-foreground">Use em RB nova somente após concluir a pré-verificação.</p>
             <div className="flex flex-wrap gap-2"><Button variant="outline" asChild><a href="/mikrotik/MANOS-HOTSPOT-BASE.rsc" download><Download className="size-4" /> Baixar kit-base .rsc</a></Button><Button variant="outline" asChild><a href="/mikrotik/guia-instalacao-mikrotik-manos-tech-v2.pdf" target="_blank" rel="noreferrer"><BookOpen className="size-4" /> Abrir manual</a></Button></div>
+            <p className="text-xs text-muted-foreground">Terminal: <code>/import file-name=MANOS-HOTSPOT-BASE.rsc</code></p>
           </div>
           <div className="space-y-2 rounded-lg border border-primary/25 bg-primary/5 p-4 text-sm">
             <p className="font-semibold">3 e 4. Baixar Ativação e Heartbeat da RB</p>
             <p className="text-muted-foreground">Na lista de Clientes ativos homologados, localize a RB e baixe primeiro <strong>Ativação</strong>, depois <strong>Heartbeat</strong>. Esses dois arquivos são exclusivos daquela RB.</p>
             <Button variant="outline" asChild><a href="#clientes-ativos">Ir para Clientes ativos homologados</a></Button>
+            <p className="text-xs text-muted-foreground">Terminal: <code>/import file-name=MT-IDENTIDADE-activation.rsc</code>, depois <code>/import file-name=MT-IDENTIDADE-heartbeat.rsc</code>. Substitua <code>MT-IDENTIDADE</code> pelo nome do arquivo baixado.</p>
           </div>
           <MikrotikPostflight />
           <MikrotikSecurityAudit />
@@ -223,32 +225,38 @@ function HotspotPage() {
             <p className="font-semibold">Endurecimento de serviços da RB</p>
             <p className="text-muted-foreground">Desativa somente FTP, Telnet, Bandwidth Test, API e API-SSL. Mantém WinBox, SSH, HotSpot, RADIUS, DHCP, WAN, ether4, ether5 e Heartbeat. Use pela ether4 ou localmente.</p>
             <Button variant="outline" asChild><a href="/mikrotik/MANOS-MANAGEMENT-HARDENING.rsc" download><Download className="size-4" /> Baixar endurecimento de serviços .rsc</a></Button>
+            <p className="text-xs text-muted-foreground">Terminal: <code>/import file-name=MANOS-MANAGEMENT-HARDENING.rsc</code></p>
           </div>
           <div className="border-t border-border pt-5"><p className="mb-3 text-sm font-semibold text-muted-foreground">Arquivos de manutenção e recuperação</p>
           <div className="space-y-2 rounded-lg border border-border p-4 text-sm">
             <p className="font-semibold">Exportação antes de manutenção</p>
             <p className="text-muted-foreground">Gera uma exportação local sem senhas em <code>flash/</code>. Execute pela ether4 ou localmente antes de alterar a rede e copie o arquivo para fora da RB.</p>
             <Button variant="outline" asChild><a href="/mikrotik/MANOS-BACKUP-EXPORT.rsc" download><Download className="size-4" /> Baixar exportação de backup .rsc</a></Button>
+            <p className="text-xs text-muted-foreground">Terminal: <code>/import file-name=MANOS-BACKUP-EXPORT.rsc</code></p>
           </div>
           <div className="space-y-2 rounded-lg border border-amber-300/25 bg-amber-300/5 p-4 text-sm">
             <p className="font-semibold">Manutenção de RB já instalada</p>
             <p className="text-muted-foreground">Atualiza somente o isolamento entre visitantes e funcionários. Não use o kit-base em uma RB que já está funcionando.</p>
             <Button variant="outline" asChild><a href="/mikrotik/MANOS-ISOLATION-UPDATE.rsc" download><Download className="size-4" /> Baixar atualização de isolamento .rsc</a></Button>
+            <p className="text-xs text-muted-foreground">Terminal: <code>/import file-name=MANOS-ISOLATION-UPDATE.rsc</code></p>
           </div></div>
           <div className="space-y-2 rounded-lg border border-amber-300/25 bg-amber-300/5 p-4 text-sm">
             <p className="font-semibold">Proteção adicional do HotSpot</p>
             <p className="text-muted-foreground">Bloqueia visitantes da faixa do provedor e dos serviços de administração IP da RB. Não altera ether4, ether5, impressoras, RADIUS, filas ou Heartbeat.</p>
             <Button variant="outline" asChild><a href="/mikrotik/MANOS-HOTSPOT-FIREWALL-UPDATE.rsc" download><Download className="size-4" /> Baixar proteção do HotSpot .rsc</a></Button>
+            <p className="text-xs text-muted-foreground">Terminal: <code>/import file-name=MANOS-HOTSPOT-FIREWALL-UPDATE.rsc</code></p>
           </div>
           <div className="space-y-2 rounded-lg border border-amber-300/25 bg-amber-300/5 p-4 text-sm">
             <p className="font-semibold">Proteção de entrada pela WAN</p>
             <p className="text-muted-foreground">Bloqueia acesso à própria RB vindo da bridge-wan, preservando DHCP do provedor e respostas de RADIUS, DNS, NTP e Heartbeat. Aplique em Safe Mode pela ether4 ou acesso local; não pela ether5. Não bloqueia equipamentos conectados na ether5 entre si.</p>
             <Button variant="outline" asChild><a href="/mikrotik/MANOS-WAN-FIREWALL-UPDATE.rsc" download><Download className="size-4" /> Baixar proteção WAN .rsc</a></Button>
+            <p className="text-xs text-muted-foreground">Terminal: <code>/import file-name=MANOS-WAN-FIREWALL-UPDATE.rsc</code></p>
           </div>
           <div className="space-y-2 rounded-lg border border-border p-4 text-sm">
             <p className="font-semibold">Recuperação da página do HotSpot</p>
             <p className="text-muted-foreground">Use somente se for necessário restaurar manualmente a página de login na pasta <code>flash/hotspot</code>. A sincronização normal atualiza esses arquivos automaticamente.</p>
             <div className="flex flex-wrap gap-2"><Button variant="outline" asChild><a href="/mikrotik/login.html" download><Download className="size-4" /> Baixar login.html</a></Button><Button variant="outline" asChild><a href="/mikrotik/alogin.html" download><Download className="size-4" /> Baixar alogin.html</a></Button></div>
+            <p className="text-xs text-muted-foreground">Files: envie <code>login.html</code> e <code>alogin.html</code> para <code>flash/hotspot/</code>. Não há comando de importação para arquivos HTML.</p>
           </div>
         </CardContent>}
       </Card>
@@ -278,7 +286,7 @@ function HotspotPage() {
         <CardContent className="space-y-3">
           <p className="text-xs text-muted-foreground">Sincronizar confirma RADIUS, página de login e bloqueio na RB. Portas e faixas IP são verificadas antes da instalação pelo diagnóstico do kit.</p>
           <div className="flex flex-col gap-2 sm:flex-row"><Input placeholder="Buscar por identidade ou MAC" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} /><select className="rounded-md border border-input bg-background px-3 text-sm" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}><option value="all">Todos os status</option><option value="operational">Homologados</option><option value="awaiting_homologation">Pendentes</option><option value="blocked">Bloqueados</option></select><Button variant="outline" onClick={exportCsv}>Exportar CSV</Button></div>
-          {visible.map((client) => <div key={client.id} className="flex w-full items-center justify-between rounded-lg border border-border bg-muted/20 p-3"><button onClick={() => setSelected(client)} className="min-w-0 text-left hover:text-primary"><span className="font-medium">{client.router_identity ?? "RB sem identidade"}</span><span className="ml-3 text-xs text-muted-foreground">MAC: {client.ap_mac ?? "não informado"}</span><span className="mt-1 block text-xs text-muted-foreground"><span className={isOnline(client.last_seen_at) ? "font-semibold text-emerald-300" : "text-muted-foreground"}>{isOnline(client.last_seen_at) ? "● Online" : "○ Offline"}</span> · última comunicação: {client.last_seen_at ? new Date(client.last_seen_at).toLocaleString("pt-BR") : "nunca"} · IP: {client.last_seen_ip ?? "—"} · RouterOS: {client.router_version ?? "—"}{syncProgress(client)}</span></button><div className="flex items-center gap-2"><Badge variant="outline" className={statusClass(client.status)}>{statusLabel(client.status)}</Badge><Button size="sm" variant="outline" onClick={() => void downloadActivation(client)}>Ativação</Button><Button size="sm" variant="outline" onClick={() => void downloadHeartbeat(client)}>Heartbeat</Button><Button size="sm" variant="outline" onClick={() => void requestSync(client)}>Sincronizar</Button></div></div>)}
+          {visible.map((client) => <div key={client.id} className="flex w-full items-center justify-between rounded-lg border border-border bg-muted/20 p-3"><button onClick={() => setSelected(client)} className="min-w-0 text-left hover:text-primary"><span className="font-medium">{client.router_identity ?? "RB sem identidade"}</span><span className="ml-3 text-xs text-muted-foreground">MAC: {client.ap_mac ?? "não informado"}</span><span className="mt-1 block text-xs text-muted-foreground"><span className={isOnline(client.last_seen_at) ? "font-semibold text-emerald-300" : "text-muted-foreground"}>{isOnline(client.last_seen_at) ? "● Online" : "○ Offline"}</span> · última comunicação: {client.last_seen_at ? new Date(client.last_seen_at).toLocaleString("pt-BR") : "nunca"} · IP: {client.last_seen_ip ?? "—"} · RouterOS: {client.router_version ?? "—"}{syncProgress(client)}</span></button><div className="flex flex-col items-end gap-1"><div className="flex items-center gap-2"><Badge variant="outline" className={statusClass(client.status)}>{statusLabel(client.status)}</Badge><Button size="sm" variant="outline" onClick={() => void downloadActivation(client)}>Ativação</Button><Button size="sm" variant="outline" onClick={() => void downloadHeartbeat(client)}>Heartbeat</Button><Button size="sm" variant="outline" onClick={() => void requestSync(client)}>Sincronizar</Button></div><p className="text-[11px] text-muted-foreground">Terminal: <code>/import file-name={client.router_identity ?? "MT-IDENTIDADE"}-activation.rsc</code> → <code>/import file-name={client.router_identity ?? "MT-IDENTIDADE"}-heartbeat.rsc</code></p></div></div>)}
           {!clients.length && <p className="text-sm text-muted-foreground">Nenhum dispositivo cadastrado.</p>}
           <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground"><span>Página {page} de {totalPages}</span><div className="flex gap-2"><Button size="icon" variant="outline" disabled={page === 1} onClick={() => setPage((p) => p - 1)}><ChevronLeft className="size-4" /></Button><Button size="icon" variant="outline" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)}><ChevronRight className="size-4" /></Button></div></div>
         </CardContent>
