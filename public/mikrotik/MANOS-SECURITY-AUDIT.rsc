@@ -1,11 +1,14 @@
 # Diagnostico de seguranca Manos Tech. Somente leitura: nao altera a RB.
-:put "MANOS-SECURITY|BEGIN|1"
+:put "MANOS-SECURITY|BEGIN|2"
 :put ("MANOS-SECURITY|ROUTEROS|" . [/system resource get version])
-:foreach serviceId in=[/ip service find] do={
-  :local disabled [/ip service get $serviceId disabled]
-  :local enabled false
-  :if ($disabled = false) do={ :set enabled true }
-  :put ("MANOS-SECURITY|SERVICE|" . [/ip service get $serviceId name] . "|" . $enabled)
+:foreach serviceName in={"ftp";"ssh";"telnet";"www";"www-ssl";"winbox";"api";"api-ssl";"btest"} do={
+  :local serviceId [/ip service find where name=$serviceName]
+  :if ([:len $serviceId] > 0) do={
+    :local disabled [/ip service get [:pick $serviceId 0] disabled]
+    :local enabled false
+    :if ($disabled = false) do={ :set enabled true }
+    :put ("MANOS-SECURITY|SERVICE|" . $serviceName . "|" . $enabled)
+  }
 }
 :do {
   :local ipv6Disabled [/ipv6 settings get disable-ipv6]
@@ -21,4 +24,4 @@
 :if ($backupCount > 0) do={ :set backupAvailable true }
 :put ("MANOS-SECURITY|BACKUP|" . $backupAvailable)
 :put "MANOS-SECURITY|AP-ISOLATION|manual-check"
-:put "MANOS-SECURITY|END|1"
+:put "MANOS-SECURITY|END|2"
