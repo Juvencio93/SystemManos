@@ -88,6 +88,19 @@
   :if ($isolationRule != $firstRule) do={ /ip firewall filter move $isolationRule destination=$firstRule }
 }
 
+# Guests cannot reach the provider subnet (systems and printers) or the
+# RouterOS IP administration services. The employee network remains allowed
+# to use the provider subnet through ether5/bridge-wan.
+:if ([:len [/ip firewall filter find comment="MANOS-GUEST-BLOCK-PROVIDER"]] = 0) do={
+  /ip firewall filter add chain=forward src-address=192.168.88.0/24 dst-address=192.168.0.0/24 action=drop place-before=0 comment="MANOS-GUEST-BLOCK-PROVIDER"
+}
+:if ([:len [/ip firewall filter find comment="MANOS-GUEST-BLOCK-MANAGEMENT-TCP"]] = 0) do={
+  /ip firewall filter add chain=input src-address=192.168.88.0/24 protocol=tcp dst-port=21,22,23,8291,8728,8729 action=drop place-before=0 comment="MANOS-GUEST-BLOCK-MANAGEMENT-TCP"
+}
+:if ([:len [/ip firewall filter find comment="MANOS-GUEST-BLOCK-MANAGEMENT-UDP"]] = 0) do={
+  /ip firewall filter add chain=input src-address=192.168.88.0/24 protocol=udp dst-port=161 action=drop place-before=0 comment="MANOS-GUEST-BLOCK-MANAGEMENT-UDP"
+}
+
 # Shared 60/60 Mbps cap for ether4 only. The guest (.88) and WAN bridge
 # (ether1/ether5) are outside this queue.
 :if ([:len [/queue simple find name="MANOS-ETHER4-TOTAL"]] = 0) do={

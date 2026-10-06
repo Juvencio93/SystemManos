@@ -223,6 +223,11 @@ function HotspotPage() {
             <p className="text-muted-foreground">Atualiza somente o isolamento entre visitantes e funcionários. Não use o kit-base em uma RB que já está funcionando.</p>
             <Button variant="outline" asChild><a href="/mikrotik/MANOS-ISOLATION-UPDATE.rsc" download><Download className="size-4" /> Baixar atualização de isolamento .rsc</a></Button>
           </div></div>
+          <div className="space-y-2 rounded-lg border border-amber-300/25 bg-amber-300/5 p-4 text-sm">
+            <p className="font-semibold">Proteção adicional do HotSpot</p>
+            <p className="text-muted-foreground">Bloqueia visitantes da faixa do provedor e dos serviços de administração IP da RB. Não altera ether4, ether5, impressoras, RADIUS, filas ou Heartbeat.</p>
+            <Button variant="outline" asChild><a href="/mikrotik/MANOS-HOTSPOT-FIREWALL-UPDATE.rsc" download><Download className="size-4" /> Baixar proteção do HotSpot .rsc</a></Button>
+          </div>
           <div className="space-y-2 rounded-lg border border-border p-4 text-sm">
             <p className="font-semibold">Recuperação da página do HotSpot</p>
             <p className="text-muted-foreground">Use somente se for necessário restaurar manualmente a página de login na pasta <code>flash/hotspot</code>. A sincronização normal atualiza esses arquivos automaticamente.</p>

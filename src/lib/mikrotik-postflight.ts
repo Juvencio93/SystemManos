@@ -44,6 +44,10 @@ export function analyzeMikrotikPostflight(output: string): MikrotikPostflightRep
     const active = fields.find((row) => row[1] === "ISOLATION" && row[2] === rule)?.[3];
     findings.push(active === "true" ? { level: "ok", message: `Isolamento ${rule} ativo.` } : { level: "blocker", message: `Regra de isolamento ${rule} não foi confirmada.` });
   }
+  for (const rule of ["MANOS-GUEST-BLOCK-PROVIDER", "MANOS-GUEST-BLOCK-MANAGEMENT-TCP", "MANOS-GUEST-BLOCK-MANAGEMENT-UDP"]) {
+    const active = fields.find((row) => row[1] === "SECURITY" && row[2] === rule)?.[3];
+    findings.push(active === "true" ? { level: "ok", message: `Proteção ${rule} ativa.` } : { level: "warning", message: `Proteção ${rule} ainda não foi aplicada.` });
+  }
   findings.push({ level: "warning", message: "Faça um teste de navegação no visitante e um teste de velocidade no dispositivo conectado; a RB não mede a velocidade percebida pelo cliente." });
   return { valid: true, findings };
 }
