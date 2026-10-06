@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 const root = process.cwd();
 const kitFiles = [
   "public/mikrotik/MANOS-PREFLIGHT.rsc",
+  "public/mikrotik/MANOS-POSTFLIGHT.rsc",
   "public/mikrotik/MANOS-HOTSPOT-BASE.rsc",
   "public/mikrotik/login.html",
   "public/mikrotik/alogin.html",
