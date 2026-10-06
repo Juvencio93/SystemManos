@@ -1,5 +1,6 @@
 # Manos Tech - leitura apos a instalacao. Nao altera a configuracao.
 :put "MANOS-POSTFLIGHT|BEGIN|1"
+:put "MANOS-POSTFLIGHT|VERSION|3"
 :foreach port in={"ether1";"ether2";"ether3";"ether4";"ether5"} do={
   :local bridge "none"
   :local memberships [/interface bridge port find where interface=$port]
@@ -30,7 +31,13 @@
   :local rules [/ip firewall filter find where comment=$rule disabled=no]
   :put ("MANOS-POSTFLIGHT|ISOLATION|" . $rule . "|" . ([:len $rules] > 0))
 }
-:put ("MANOS-POSTFLIGHT|SECURITY|MANOS-GUEST-BLOCK-PROVIDER|" . ([:len [/ip firewall filter find where comment="MANOS-GUEST-BLOCK-PROVIDER" disabled=no]] > 0))
-:put ("MANOS-POSTFLIGHT|SECURITY|MANOS-GUEST-BLOCK-MANAGEMENT-TCP|" . ([:len [/ip firewall filter find where comment="MANOS-GUEST-BLOCK-MANAGEMENT-TCP" disabled=no]] > 0))
-:put ("MANOS-POSTFLIGHT|SECURITY|MANOS-GUEST-BLOCK-MANAGEMENT-UDP|" . ([:len [/ip firewall filter find where comment="MANOS-GUEST-BLOCK-MANAGEMENT-UDP" disabled=no]] > 0))
+:foreach rule in={"MANOS-GUEST-BLOCK-PROVIDER";"MANOS-GUEST-BLOCK-MANAGEMENT-TCP";"MANOS-GUEST-BLOCK-MANAGEMENT-UDP"} do={
+  :local rules [/ip firewall filter find where comment=$rule]
+  :local active false
+  :if ([:len $rules] > 0) do={
+    :local ruleId [:pick $rules 0]
+    :if (![/ip firewall filter get $ruleId disabled]) do={ :set active true }
+  }
+  :put ("MANOS-POSTFLIGHT|SECURITY|" . $rule . "|" . $active)
+}
 :put "MANOS-POSTFLIGHT|END|1"
