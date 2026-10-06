@@ -200,21 +200,29 @@ function HotspotPage() {
       <Card className="glass-panel border-primary/20">
         <CardHeader><button type="button" onClick={() => setExpandedSection(expandedSection === "kit" ? null : "kit")} className="flex w-full items-center gap-2 text-left"><Router className="size-5 text-primary" /><CardTitle>Kit de instalação MikroTik</CardTitle><span className="ml-auto text-primary">{expandedSection === "kit" ? "−" : "+"}</span></button></CardHeader>
         {expandedSection === "kit" && <CardContent className="space-y-5">
-          <p className="text-sm text-muted-foreground">Use os arquivos abaixo em todas as RBs. A plataforma identifica cada equipamento pela identidade exclusiva do RouterOS.</p>
+          <p className="text-sm text-muted-foreground">Siga a sequência indicada. Os arquivos de ativação e Heartbeat são exclusivos de cada RB e ficam na lista de dispositivos abaixo.</p>
           <div className="grid gap-3 sm:grid-cols-2">
-            <button type="button" onClick={() => setExpandedKitCard(expandedKitCard === "files" ? null : "files")} className="rounded-lg border border-primary/25 bg-primary/5 p-3 text-left text-sm transition hover:border-primary/60"><p className="font-semibold text-primary">Arquivos atualizados <span className="float-right">{expandedKitCard === "files" ? "−" : "+"}</span></p><p className="text-muted-foreground">{kitUpdatedAt}</p>{expandedKitCard === "files" && <p className="mt-2 border-t border-primary/15 pt-2 text-xs text-muted-foreground">Kit-base, ativação personalizada, Heartbeat, login.html e alogin.html disponíveis para download.</p>}</button>
+            <button type="button" onClick={() => setExpandedKitCard(expandedKitCard === "files" ? null : "files")} className="rounded-lg border border-primary/25 bg-primary/5 p-3 text-left text-sm transition hover:border-primary/60"><p className="font-semibold text-primary">Arquivos atualizados <span className="float-right">{expandedKitCard === "files" ? "−" : "+"}</span></p><p className="text-muted-foreground">{kitUpdatedAt}</p>{expandedKitCard === "files" && <p className="mt-2 border-t border-primary/15 pt-2 text-xs text-muted-foreground">O kit-base, diagnósticos, atualização de isolamento e arquivos de recuperação do portal são padrão. Ativação e Heartbeat são baixados individualmente para cada RB.</p>}</button>
             <button type="button" onClick={() => setExpandedKitCard(expandedKitCard === "manual" ? null : "manual")} className="rounded-lg border border-primary/25 bg-primary/5 p-3 text-left text-sm transition hover:border-primary/60"><p className="font-semibold text-primary">Manual atualizado <span className="float-right">{expandedKitCard === "manual" ? "−" : "+"}</span></p><p className="text-muted-foreground">{manualUpdatedAt}</p>{expandedKitCard === "manual" && <p className="mt-2 border-t border-primary/15 pt-2 text-xs text-muted-foreground">Procedimento completo de reset HTML, importação dos arquivos, validação de rede, Hotspot, RADIUS e Heartbeat.</p>}</button>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" asChild><a href="/mikrotik/MANOS-HOTSPOT-BASE.rsc" download><Download className="size-4" /> Kit-base .rsc</a></Button>
-            <Button variant="outline" asChild><a href="/mikrotik/MANOS-ISOLATION-UPDATE.rsc" download><Download className="size-4" /> Atualizar isolamento .rsc</a></Button>
-            <Button variant="outline" asChild><a href="/mikrotik/MANOS-POSTFLIGHT.rsc" download><Download className="size-4" /> Conferência .rsc</a></Button>
-            <Button variant="outline" asChild><a href="/mikrotik/login.html" download><Download className="size-4" /> login.html</a></Button>
-            <Button variant="outline" asChild><a href="/mikrotik/alogin.html" download><Download className="size-4" /> alogin.html</a></Button>
-            <Button variant="outline" asChild><a href="/mikrotik/guia-instalacao-mikrotik-manos-tech-v2.pdf" target="_blank" rel="noreferrer"><BookOpen className="size-4" /> Abrir manual</a></Button>
-          </div>
           <MikrotikPreflight />
+          <div className="space-y-2 rounded-lg border border-primary/25 bg-primary/5 p-4 text-sm">
+            <p className="font-semibold">Instalação inicial</p>
+            <p className="text-muted-foreground">Use em RB nova somente após concluir a pré-verificação.</p>
+            <div className="flex flex-wrap gap-2"><Button variant="outline" asChild><a href="/mikrotik/MANOS-HOTSPOT-BASE.rsc" download><Download className="size-4" /> Baixar kit-base .rsc</a></Button><Button variant="outline" asChild><a href="/mikrotik/guia-instalacao-mikrotik-manos-tech-v2.pdf" target="_blank" rel="noreferrer"><BookOpen className="size-4" /> Abrir manual</a></Button></div>
+            <p className="text-xs text-muted-foreground">Depois, baixe Ativação e Heartbeat na linha da RB em Clientes ativos homologados.</p>
+          </div>
+          <div className="space-y-2 rounded-lg border border-amber-300/25 bg-amber-300/5 p-4 text-sm">
+            <p className="font-semibold">Manutenção de RB já instalada</p>
+            <p className="text-muted-foreground">Atualiza somente o isolamento entre visitantes e funcionários. Não use o kit-base em uma RB que já está funcionando.</p>
+            <Button variant="outline" asChild><a href="/mikrotik/MANOS-ISOLATION-UPDATE.rsc" download><Download className="size-4" /> Baixar atualização de isolamento .rsc</a></Button>
+          </div>
           <MikrotikPostflight />
+          <div className="space-y-2 rounded-lg border border-border p-4 text-sm">
+            <p className="font-semibold">Recuperação da página do HotSpot</p>
+            <p className="text-muted-foreground">Use somente se for necessário restaurar manualmente a página de login na pasta <code>flash/hotspot</code>. A sincronização normal atualiza esses arquivos automaticamente.</p>
+            <div className="flex flex-wrap gap-2"><Button variant="outline" asChild><a href="/mikrotik/login.html" download><Download className="size-4" /> Baixar login.html</a></Button><Button variant="outline" asChild><a href="/mikrotik/alogin.html" download><Download className="size-4" /> Baixar alogin.html</a></Button></div>
+          </div>
         </CardContent>}
       </Card>
       <Card className="glass-panel border-primary/20">
