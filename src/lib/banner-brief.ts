@@ -1194,23 +1194,23 @@ export function validateSecondPromptCommercialDirection(
 /** Reject near-copy pairs while ignoring shared brand and offer vocabulary. */
 export function validatePromptConceptSeparation(first: string, second: string) {
   const photoLed = (value: string) =>
-    /\b(?:fotografia\s+(?:publicit[aá]ria|editorial|realista)(?:\s+realista)?\s+(?:(?:de|do)\s+)?produto|foto(?:grafia)?\s+de\s+produto\s+(?:como\s+)?(?:foco|protagonista)|still\s+life\s+fotogr[aá]fico|imagem\s+fotogr[aá]fica\s+(?:do\s+)?produto)\b/iu.test(
+    /\b(?:protagonismo\s+da\s+oferta|fotografia\s+(?:publicit[aá]ria|editorial|realista)(?:\s+realista)?\s+(?:(?:de|do)\s+)?produto|foto(?:grafia)?\s+de\s+produto\s+(?:como\s+)?(?:foco|protagonista)|still\s+life\s+fotogr[aá]fico|imagem\s+fotogr[aá]fica\s+(?:do\s+)?produto)\b/iu.test(
       value,
     );
-  const graphicLed = (value: string) =>
-    /\b(?:cartaz|p[oó]ster)\s+tipogr[aá]fico|\btipografia\s+(?:como\s+)?protagonista|\bdesign\s+gr[aá]fico\s+(?:como\s+)?(?:ideia|conceito|dire[cç][aã]o)\b/iu.test(
+  const experienceLed = (value: string) =>
+    /\b(?:experi[eê]ncia\s+da\s+marca|contexto\s+de\s+uso|atmosfera\s+editorial|composi[cç][aã]o\s+(?:ampla|contextual)|cena\s+editorial|narrativa\s+contextual)\b/iu.test(
       value,
     );
 
   // A changed camera angle alone is not a separate creative concept. Require
   // opposing routes plus explicit, observable differences in three art-
   // direction axes so the prompts cannot collapse into the same layout.
-  if (!((photoLed(first) && graphicLed(second)) || (graphicLed(first) && photoLed(second)))) {
+  if (!((photoLed(first) && experienceLed(second)) || (experienceLed(first) && photoLed(second)))) {
     return [
       {
         reason: "SIMILAR_PROMPT_CONCEPTS",
         detail:
-          "As opções precisam seguir estratégias distintas: uma campanha conduzida pela fotografia do produto e outra por um conceito de cartaz/design tipográfico; trocar somente ângulo, luz ou enquadramento não basta.",
+          "As opções precisam seguir estratégias distintas: uma conduzida pelo protagonista em plano próximo e outra por experiência, contexto de uso ou atmosfera editorial em composição ampla.",
       },
     ];
   }
@@ -1224,15 +1224,15 @@ export function validatePromptConceptSeparation(first: string, second: string) {
     },
     {
       first: /\b(?:ponto\s+focal|assimetric[ao]|area\s+negativa|espaco\s+negativo|produto\s+dominante|produto\s+ocupa)\b/u,
-      second: /\b(?:grade\s+(?:modular|editorial|geometrica)|composicao\s+modular|layout\s+geometrico|tipografia\s+integrada\s+a\s+grade)\b/u,
+      second: /\b(?:composicao\s+(?:ampla|contextual)|leitura\s+em\s+camadas|cena\s+editorial|contexto\s+de\s+uso|atmosfera\s+editorial)\b/u,
     },
     {
       first: /\b(?:luz\s+(?:lateral|direcional|recortada|dram[aá]tica)|iluminacao\s+(?:lateral|direcional|dram[aá]tica)|contraluz)\b/u,
       second: /\b(?:luz\s+(?:difusa|uniforme|frontal)|iluminacao\s+(?:difusa|uniforme|frontal)|luz\s+suave\s+e\s+uniforme)\b/u,
     },
     {
-      first: /\b(?:texto|tipografia)\s+(?:discreto|discreta|secund[aá]rio|secund[aá]ria|em\s+segundo\s+plano)|hierarquia\s+visual\s+liderada\s+pela\s+imagem\b/u,
-      second: /\b(?:tipografia|texto)\s+(?:como\s+)?(?:protagonista|elemento\s+principal)|hierarquia\s+tipogr[aá]fica\s+dominante|texto\s+conduz\s+a\s+leitura\b/u,
+      first: /\b(?:texto|tipografia)\s+(?:discreto|discreta|secund[aá]rio|secund[aá]ria|em\s+segundo\s+plano)|hierarquia\s+visual\s+liderada\s+pela\s+imagem|area\s+de\s+texto\b/u,
+      second: /\b(?:texto\s+integrado\s+[àa]\s+cena|tipografia\s+organiza\s+a\s+mensagem|mensagem\s+integrada\s+[àa]\s+composicao|leitura\s+em\s+camadas)\b/u,
     },
   ] as const;
   const divergentAxes = axes.filter(

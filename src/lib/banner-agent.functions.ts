@@ -49,7 +49,6 @@ function safeBannerOptions(
   context?: {
     segment?: string;
     visualGuidance?: string | null;
-    visualResearchNotice?: string;
   },
 ) {
   const items =
@@ -70,16 +69,16 @@ function safeBannerOptions(
       : "";
   const visual = context?.visualGuidance?.trim()
     ? `Referência visual verificada para orientar materiais, cores e atmosfera: ${context.visualGuidance.trim()}`
-    : `${context?.visualResearchNotice ?? "Pesquisa visual não concluída; não afirme que não existem referências públicas."} Não simular detalhes locais sem evidência. Usar fundo neutro de estúdio e luz de campanha controlada.`;
+    : "Derivar o sistema visual exclusivamente da logo e da identidade cadastrada: cores dominantes, contraste, personalidade e peso gráfico. Não mencionar pesquisa, Tavily, ausência de referências ou limitações técnicas no prompt. Não apresentar um ambiente inventado como se fosse o local real.";
   const common = `Banner horizontal 16:9 para ${business} ${segment} Produto(s) confirmado(s): ${items}. ${offerLine}${temporalLine ? ` Informação confirmada: ${temporalLine}.` : ""} ${visual} Usar somente os itens e textos comerciais confirmados. Não acrescentar objetos, ingredientes, alegações, datas, preços ou condições. Usar a logo cadastrada fielmente, sem redesenhar ou deformar. Não incluir dados cadastrais, contatos ou trechos de pesquisa.`;
   return [
     {
       title: "Protagonismo da oferta",
-      prompt: `${common} Direção de arte — protagonismo da oferta: apresente o produto, serviço, evento ou benefício confirmado como foco visual inequívoco, usando a linguagem adequada ao ramo da empresa. Traduza as referências verificadas em um sistema visual concreto: paleta, contraste, textura, tratamento fotográfico, peso tipográfico e atmosfera recorrentes devem parecer parte da mesma marca, sem copiar uma peça existente. Use fotografia publicitária realista quando houver elemento fotografável; para serviços ou temas abstratos, use uma representação visual clara e específica, sem ícones genéricos. Preserve espaço de leitura e hierarquia direta. A frase comercial deve permanecer como uma única unidade semântica, em uma linha ou em no máximo duas linhas equilibradas; não isole palavras, não divida a frase em faixas desconectadas e não quebre palavras. Logo oficial claramente visível, legível e em escala proporcional, sem ficar minúscula nem dominar a peça. Mostrar somente os textos comerciais confirmados, exatamente como informados. ${temporalLine ? `Incluir exatamente: ${temporalLine}.` : ""} Sem objetos, alegações ou condições não confirmadas, sem aparência de template genérico, sem poluição visual, sem texto ilegível e sem deformar o logotipo.`,
+      prompt: `${common} Direção de arte — protagonismo da oferta. CONTRATO EXCLUSIVO DA OPÇÃO 1: usar plano fechado ou macro, câmera em três quartos, um único protagonista ocupando de 55% a 70% do quadro e composição dividida entre imagem e área de texto. A oferta deve ter textura, volume e iluminação publicitária realista. Fundo simples derivado das cores da marca, sem cena ambiental, sem vista zenital, sem pessoas, sem colagem e sem cartaz ocupando o quadro inteiro. Traduza as referências verificadas ou a logo em paleta, contraste, textura, tratamento fotográfico e peso tipográfico próprios da marca. Preserve espaço de leitura e hierarquia direta. A frase comercial deve permanecer como uma única unidade semântica, em uma linha ou em no máximo duas linhas equilibradas; não isole palavras, não divida a frase em faixas desconectadas e não quebre palavras. Logo oficial claramente visível, legível e em escala proporcional, sem ficar minúscula nem dominar a peça. Mostrar somente os textos comerciais confirmados, exatamente como informados. ${temporalLine ? `Incluir exatamente: ${temporalLine}.` : ""} Sem objetos, alegações ou condições não confirmadas, sem aparência de template genérico, sem poluição visual, sem texto ilegível e sem deformar o logotipo.`,
     },
     {
       title: "Experiência da marca",
-      prompt: `${common} Direção de arte — experiência da marca: crie uma segunda narrativa realmente diferente, ligada ao contexto de uso, ambiente, público ou experiência própria do ramo. Quando houver ambiente real confirmado, use seus elementos observáveis de forma coerente; quando não houver, construa uma cena editorial ou composição de campanha baseada exclusivamente no sistema visual verificado da marca. A tipografia organiza a mensagem, mas nunca substitui a ideia visual nem se torna um cartaz genérico. Mantenha a mesma paleta, textura, peso tipográfico, tratamento de imagem e atmosfera reconhecíveis da primeira opção, mudando narrativa, enquadramento e distribuição. A frase comercial deve permanecer como uma única unidade semântica, em uma linha ou em no máximo duas linhas equilibradas; não isole palavras, não divida a frase em faixas desconectadas e não quebre palavras. Logo oficial claramente visível, legível e em escala proporcional. ${temporalLine ? `Incluir exatamente: ${temporalLine}.` : ""} Sem cenários inventados apresentados como reais, sem adereços ou produtos não confirmados, sem template genérico, sem identidade de outra marca, sem poluição visual e sem deformar o logotipo.`,
+      prompt: `${common} Direção de arte — experiência da marca. CONTRATO EXCLUSIVO DA OPÇÃO 2: composição ampla e contextual, com câmera frontal ou zenital conforme o ramo, leitura em camadas e a oferta integrada a uma situação de uso ou atmosfera editorial. É proibido repetir o plano fechado, a divisão lateral imagem/texto, o mesmo lado do protagonista, a mesma posição da logo, as mesmas faixas, pinceladas ou blocos gráficos da opção 1. Quando houver ambiente real confirmado, use apenas elementos observáveis; quando não houver, use superfície ou cenário editorial abstrato coerente com a logo, sem afirmar que é o estabelecimento. A tipografia organiza a mensagem, mas não pode dominar a imagem nem virar cartaz genérico. Preserve o mesmo DNA de marca, mudando claramente narrativa, câmera, profundidade, distribuição e ritmo visual. A frase comercial deve permanecer como uma única unidade semântica, em uma linha ou em no máximo duas linhas equilibradas; não isole palavras, não divida a frase em faixas desconectadas e não quebre palavras. Logo oficial claramente visível, legível e em posição diferente da opção 1. ${temporalLine ? `Incluir exatamente: ${temporalLine}.` : ""} Sem cenários inventados apresentados como reais, sem adereços ou produtos não confirmados, sem template genérico, sem identidade de outra marca, sem poluição visual e sem deformar o logotipo.`,
     },
   ];
 }
@@ -327,18 +326,6 @@ export const askBannerAgent = createServerFn({ method: "POST" })
       const initialResearch = needsCompanyEnvironmentResearch(researchProfile)
         ? await searchCompanyEnvironment(researchProfile)
         : null;
-      const visualResearchNotice =
-        initialResearch?.researchState === "NOT_CONFIGURED"
-          ? "A pesquisa visual não foi executada: Tavily não está configurado neste ambiente."
-          : initialResearch?.researchState === "FAILED"
-            ? "A pesquisa visual do Tavily falhou; não afirme que não existem referências públicas."
-            : initialResearch?.researchState === "NO_MATCH"
-              ? "O Tavily foi consultado, mas não encontrou correspondência confiável; isso não prova que não existam fotos nas redes."
-              : initialResearch?.researchState === "MATCHED_NO_VISUAL"
-                ? "O Tavily encontrou fontes relacionadas à empresa, mas não confirmou características visuais aproveitáveis; isso não significa que não existam fotos públicas."
-                : initialResearch?.researchState === "VISUALS_FOUND"
-                  ? "O Tavily confirmou referências visuais da empresa."
-                  : "A pesquisa visual ainda não foi executada; não afirme que não existem referências públicas.";
       // O briefing é vivo: o modelo recebe o cadastro e TODO o histórico e
       // decide semanticamente se falta algo essencial. Não usamos uma lista
       // fixa de campos obrigatórios por segmento.
@@ -534,7 +521,7 @@ export const askBannerAgent = createServerFn({ method: "POST" })
       const visualGuidance = initialResearch?.visualGuidance ?? null;
       const finalEnvironmentResearchContext = initialResearch?.hasVisualEvidence
         ? `Validação da empresa concluída antes desta resposta. Use somente estas referências públicas confirmadas:\n\n${initialResearch.context}`
-        : `${visualResearchNotice} Use fundo neutro/estúdio e não simule o local sem evidência visual concreta.`;
+        : "Nenhuma característica visual externa foi confirmada. Derive a direção de marca da logo e do cadastro, sem citar pesquisa ou afirmar ausência de referências públicas. Não simule o estabelecimento real.";
 
       // Identity evidence returned by Tavily is not automatically visual
       // evidence of an interior. Only an explicit visual/material reference
@@ -583,7 +570,7 @@ export const askBannerAgent = createServerFn({ method: "POST" })
       ].join(" ");
 
       // 3. Prepare AI Prompt with the scanned company context
-      const systemPrompt = `${BANNER_SYSTEM}\n\n${groundingDirective}\n\n${sceneContractDirective}\n\n${commercialContractDirective}\n\nDIFERENÇA CRIATIVA OBRIGATÓRIA: os dois prompts mantêm rigorosamente os mesmos fatos comerciais confirmados, mas precisam ser duas campanhas visualmente distintas, com qualidade profissional equivalente. Uma opção é conduzida por fotografia editorial realista do produto como protagonista; a outra é um cartaz de design gráfico em que a tipografia lidera e a foto do produto é apoio. Em cada prompt, descreva escolhas concretas e diferentes em pelo menos três eixos: enquadramento/perspectiva, composição/organização espacial, iluminação e hierarquia da tipografia em relação ao produto. Não basta trocar imagem, cor, fonte, adjetivos ou ângulo; a diferença deve ser perceptível antes de ler os títulos. Fotografia: plano próximo em três quartos, textura real do próprio produto, luz direcional e texto secundário numa área negativa. Cartaz: vista zenital/aberta, produto fotográfico de apoio integrado a uma grade gráfica assimétrica, luz difusa e tipografia protagonista. Adapte essas escolhas ao produto e à identidade da empresa; não as transforme em posições rígidas de esquerda/direita. Sem cenário ou adereços não confirmados. Diga explicitamente no prompt qual é o ponto focal, como a luz o revela, onde fica a área segura e quais textos podem aparecer.\n\nCONTEXTO OFICIAL DA EMPRESA:\n${companyCtx}\n\nCOMPATIBILIDADE DO PEDIDO: ${compatibility.classification}. ${compatibility.reason} Segmento é contexto, não whitelist; não bloqueie extensões plausíveis.\n\nPESQUISA EXTERNA SOBRE O AMBIENTE:\n${finalEnvironmentResearchContext}`;
+      const systemPrompt = `${BANNER_SYSTEM}\n\n${groundingDirective}\n\n${sceneContractDirective}\n\n${commercialContractDirective}\n\nDIFERENÇA CRIATIVA OBRIGATÓRIA: os dois prompts mantêm rigorosamente os mesmos fatos comerciais e o mesmo DNA visual da marca, mas devem resultar em campanhas inequivocamente diferentes. OPÇÃO 1 — PROTAGONISMO: plano fechado ou macro, câmera em três quartos, um único protagonista ocupando 55% a 70% do quadro, iluminação direcional e área negativa organizada para texto. OPÇÃO 2 — EXPERIÊNCIA: composição ampla, frontal ou zenital conforme o ramo, leitura em camadas e oferta integrada a um contexto de uso ou atmosfera editorial. Na opção 2 é proibido repetir plano fechado, divisão lateral, lado do protagonista, posição da logo, faixas, pinceladas, blocos gráficos e hierarquia da opção 1. Tipografia nunca pode ser a única ideia visual. Diferencie concretamente câmera, profundidade, composição, iluminação, posição da logo e relação texto/imagem. Se não houver referência visual confirmada, derive paleta e personalidade da logo; não mencione Tavily, pesquisa, fontes, ausência de referências ou limitações técnicas em nenhum prompt. Sem cenário real ou adereços não confirmados. Diga explicitamente o ponto focal, como a luz o revela, onde fica a área segura e quais textos podem aparecer.\n\nCONTEXTO OFICIAL DA EMPRESA:\n${companyCtx}\n\nCOMPATIBILIDADE DO PEDIDO: ${compatibility.classification}. ${compatibility.reason} Segmento é contexto, não whitelist; não bloqueie extensões plausíveis.\n\nEVIDÊNCIA VISUAL INTERNA — use apenas para orientar a criação e nunca mencione sua origem no prompt final:\n${finalEnvironmentResearchContext}`;
       const userPrompt = `Histórico da conversa:\n${chatHistory}\n\nResponda apenas com o JSON conforme o formato obrigatório.`;
 
       // 4. Call AI (Dry Run - no quota yet)
@@ -605,7 +592,6 @@ export const askBannerAgent = createServerFn({ method: "POST" })
           const fallbackOptions = safeBannerOptions(requiredOfferFacts, {
             ...(snapshot.business_segment ? { segment: snapshot.business_segment } : {}),
             visualGuidance,
-            visualResearchNotice,
           });
           const limitCheck = await checkAiLimitAndIncrement(context.supabase, context.userId);
           if (!limitCheck.allowed) {
@@ -681,7 +667,7 @@ export const askBannerAgent = createServerFn({ method: "POST" })
 
         if (violations.length > 0) {
           const correction = await callGateway(
-            `${systemPrompt}\n\nCORREÇÃO DETERMINÍSTICA: reescreva integralmente as duas opções para cumprir os CONTRATOS VISUAL E COMERCIAL e resolver cada violação indicada. Os dois conceitos devem ter narrativas e composições claramente diferentes, não apenas palavras trocadas. Como o ambiente não foi confirmado, use exclusivamente composição de produto em fundo neutro de estúdio, backdrop abstrato mínimo ou superfície neutra de apoio. Não mencione nem represente loja, balcão, vitrine, fachada, interior, salão, estabelecimento, arquitetura ou ambiente comercial. Preserve todos os itens, preço, validade, empresa, escopo e texto comercial escolhido confirmados em cada opção, incluindo visualItems e commercialFacts completos. Se a frase escolhida for “por conta da casa”, mantenha exatamente essa frase e não a substitua por “GRÁTIS”. Retorne somente o JSON obrigatório, sem perguntas.`,
+            `${systemPrompt}\n\nCORREÇÃO DETERMINÍSTICA: reescreva integralmente as duas opções para cumprir os CONTRATOS VISUAL E COMERCIAL e resolver cada violação indicada. A opção 1 deve ser próxima, concentrada e conduzida pelo protagonista; a opção 2 deve ser ampla, contextual e construída com câmera, profundidade, posição da logo, distribuição do texto e ritmo visual diferentes. Não repita divisão lateral, lado do protagonista, faixas, pinceladas ou blocos gráficos. Quando o ambiente não estiver confirmado, use na opção 2 uma superfície editorial ou atmosfera abstrata coerente com a logo, sem representar o estabelecimento real. Nunca mencione Tavily, pesquisa, fontes ou ausência de referências. Preserve todos os itens, preço, validade, empresa, escopo e texto comercial escolhido confirmados em cada opção, incluindo visualItems e commercialFacts completos. Se a frase escolhida for “por conta da casa”, mantenha exatamente essa frase e não a substitua por “GRÁTIS”. Retorne somente o JSON obrigatório, sem perguntas.`,
             `Resposta rejeitada pelo validador local: ${JSON.stringify(violations)}\n\nResposta a corrigir:\n${JSON.stringify(normalized)}`,
           );
           if (!correction.ok || !correction.text) {
@@ -693,7 +679,6 @@ export const askBannerAgent = createServerFn({ method: "POST" })
                 promptOptions: safeBannerOptions(requiredOfferFacts, {
                   ...(snapshot.business_segment ? { segment: snapshot.business_segment } : {}),
                   visualGuidance,
-                  visualResearchNotice,
                 }),
                 reminder: "As opções preservam os itens e o valor informados.",
                 brief: activeBrief,
@@ -713,7 +698,6 @@ export const askBannerAgent = createServerFn({ method: "POST" })
                 promptOptions: safeBannerOptions(requiredOfferFacts, {
                   ...(snapshot.business_segment ? { segment: snapshot.business_segment } : {}),
                   visualGuidance,
-                  visualResearchNotice,
                 }),
                 reminder: "As opções preservam os itens e o valor informados.",
                 brief: activeBrief,
@@ -759,7 +743,6 @@ export const askBannerAgent = createServerFn({ method: "POST" })
                 promptOptions: safeBannerOptions(requiredOfferFacts, {
                   ...(snapshot.business_segment ? { segment: snapshot.business_segment } : {}),
                   visualGuidance,
-                  visualResearchNotice,
                 }),
                 reminder: "As opções preservam os itens e o valor informados.",
                 brief: activeBrief,
