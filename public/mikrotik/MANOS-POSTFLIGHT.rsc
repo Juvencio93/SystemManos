@@ -6,12 +6,14 @@
   :if ([:len $memberships] > 0) do={ :set bridge [/interface bridge port get [:pick $memberships 0] bridge] }
   :put ("MANOS-POSTFLIGHT|PORT|" . $port . "|" . $bridge)
 }
-:foreach address in={"192.168.88.1/24";"192.168.89.1/24"} do={
-  :local addresses [/ip address find where address=$address disabled=no]
-  :local state "missing"
-  :if ([:len $addresses] > 0) do={ :set state [/ip address get [:pick $addresses 0] interface] }
-  :put ("MANOS-POSTFLIGHT|ADDRESS|" . $address . "|" . $state)
-}
+:local lanAddress [/ip address find where address="192.168.88.1/24" disabled=no]
+:local lanState "missing"
+:if ([:len $lanAddress] > 0) do={ :set lanState [/ip address get [:pick $lanAddress 0] interface] }
+:put ("MANOS-POSTFLIGHT|ADDRESS|192.168.88.1/24|" . $lanState)
+:local livreAddress [/ip address find where address="192.168.89.1/24" disabled=no]
+:local livreState "missing"
+:if ([:len $livreAddress] > 0) do={ :set livreState [/ip address get [:pick $livreAddress 0] interface] }
+:put ("MANOS-POSTFLIGHT|ADDRESS|192.168.89.1/24|" . $livreState)
 :local queueId [/queue simple find where name="MANOS-ETHER4-TOTAL" disabled=no]
 :if ([:len $queueId] = 0) do={
   :put "MANOS-POSTFLIGHT|QUEUE|MANOS-ETHER4-TOTAL|missing"
