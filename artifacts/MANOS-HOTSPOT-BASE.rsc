@@ -53,7 +53,8 @@
 # Per-visitor rate limits, session timeout and idle timeout are delivered by
 # FreeRADIUS from the saved company/branch policy. No fixed aggregate cap here.
 
-# ether4 remains outside bridge-lan as the free 192.168.89.0/24 network.
+# ether4 remains outside bridge-lan as the employee 192.168.89.0/24 network.
+# Its aggregate upload/download limit is 60M/60M.
 # ether5 is bridged directly with ether1 as the provider-network extension and
 # therefore has no HotSpot, DHCP or private NAT from the RB.
 # Download this package's login.html as flash/hotspot/login.html and its
@@ -66,3 +67,11 @@
 :if ([:len [/queue type find name="manos-pcq-download"]] > 0) do={/queue type remove [find name="manos-pcq-download"]}
 :if ([:len [/ip firewall nat find comment="MANOS-NAT-ETHER5-LIVRE"]] > 0) do={/ip firewall nat remove [find comment="MANOS-NAT-ETHER5-LIVRE"]}
 :if ([:len [/ip firewall filter find comment="MANOS-BLOCK-ETHER5"]] > 0) do={/ip firewall filter remove [find comment="MANOS-BLOCK-ETHER5"]}
+
+# Shared 60/60 Mbps cap for ether4 only. The guest (.88) and WAN bridge
+# (ether1/ether5) are outside this queue.
+:if ([:len [/queue simple find name="MANOS-ETHER4-TOTAL"]] = 0) do={
+  /queue simple add name="MANOS-ETHER4-TOTAL" target=192.168.89.0/24 max-limit=60M/60M comment="MANOS-ETHER4-60M"
+} else={
+  /queue simple set [find name="MANOS-ETHER4-TOTAL"] target=192.168.89.0/24 max-limit=60M/60M disabled=no comment="MANOS-ETHER4-60M"
+}
