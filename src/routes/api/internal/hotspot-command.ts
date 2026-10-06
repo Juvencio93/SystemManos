@@ -13,16 +13,17 @@ const BLOCK_RULES = [
 ] as const;
 
 function firewallStateScript() {
-  const tests = BLOCK_RULES.map(([comment]) => `:if ([:len [/ip firewall filter find where comment="${comment}" disabled=no]] = 0) do={ :set blockedRuleCount ($blockedRuleCount + 1) }`).join("\n");
-  return `:local blockedRuleCount 0\n${tests}\n:local firewallState "no"\n:if ($blockedRuleCount = 4) do={ :set firewallState "yes" }\n/system scheduler set [find where name="MANOS-HEARTBEAT"] comment=("MANOS-FW-" . $firewallState)\n`;
+  const tests = BLOCK_RULES.map(([comment]) => `:if ([:len [/ip firewall filter find where comment="${comment}" disabled=no]] > 0) do={ :set blockedRuleCount ($blockedRuleCount + 1) }`).join("\n");
+  return `:local blockedRuleCount 0\n${tests}\n:local firewallState "no"\n:if ($blockedRuleCount = 4) do={ :set firewallState "yes" }\n:local expectedComment ("MANOS-FW-" . $firewallState)\n:local schedulerId [/system scheduler find where name="MANOS-HEARTBEAT"]\n:if ([:len $schedulerId] > 0 && [/system scheduler get $schedulerId comment] != $expectedComment) do={ /system scheduler set $schedulerId comment=$expectedComment }\n`;
 }
 
 function statusCommand(blocked: boolean) {
+  const removeManagedRule = (comment: string) => `:if ([:len [/ip firewall filter find where comment="${comment}"]] > 0) do={ /ip firewall filter remove [find where comment="${comment}"] }`;
   if (!blocked) {
-    return `${BLOCK_RULES.map(([comment]) => `/ip firewall filter remove [find where comment="${comment}"]`).join("\n")}\n/ip firewall filter remove [find where comment="MANOS-BLOCK-ETHER5"]\n`;
+    return `${BLOCK_RULES.map(([comment]) => removeManagedRule(comment)).join("\n")}\n${removeManagedRule("MANOS-BLOCK-ETHER5")}\n`;
   }
   return `# Quarantine all RB-routed networks. ether5 remains a transparent provider-LAN bridge.
-/ip firewall filter remove [find where comment="MANOS-BLOCK-ETHER5"]
+${removeManagedRule("MANOS-BLOCK-ETHER5")}
 ${BLOCK_RULES.map(([comment, chain, subnet]) => `:if ([:len [/ip firewall filter find where comment="${comment}"]] = 0) do={/ip firewall filter add chain=${chain} src-address=${subnet} action=drop place-before=0 comment="${comment}"} else={/ip firewall filter set [find where comment="${comment}"] disabled=no; /ip firewall filter move [find where comment="${comment}"] destination=0}`).join("\n")}
 `;
 }
@@ -94,7 +95,7 @@ export const Route = createFileRoute("/api/internal/hotspot-command")({
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { data: device, error } = await (supabaseAdmin as any)
           .from("hotspot_devices")
-          .select("id,status,reboot_requested_at,router_status_requested_at,router_status_applied_at,sync_requested_at,sync_applied_at")
+          .select("id,status,router_applied_status,reboot_requested_at,router_status_requested_at,router_status_applied_at,sync_requested_at,sync_applied_at")
           .eq("router_identity", identity)
           .maybeSingle();
         if (error) return new Response("Could not read device", { status: 500 });
@@ -148,7 +149,8 @@ export const Route = createFileRoute("/api/internal/hotspot-command")({
         const confirmation = syncPending && radiusCommand
           ? syncAcknowledgementCommand(identity, device.sync_requested_at, blocked)
           : "";
-        const firewallCheck = statusPending || confirmation ? `\n${firewallStateScript()}` : "";
+        const reportedStatusMismatch = device.router_applied_status !== (blocked ? "blocked" : "unblocked");
+        const firewallCheck = statusPending || confirmation || reportedStatusMismatch ? `\n${firewallStateScript()}` : "";
         return new Response(
           `${radiusCommand}${hotspotLoginFileSyncCommand()}${statusCommand(blocked)}${firewallCheck}${confirmation}`,
           { headers },
