@@ -239,13 +239,23 @@ export const cancelMatrizPayment = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: role } = await context.supabase.from("user_roles").select("role, company_id").eq("user_id", context.userId).maybeSingle();
     if (role?.role !== "matriz" || !role.company_id) throw new Error("Sem permissão para cancelar este pagamento.");
-    const { data: charge } = await supabaseAdmin.from("company_charges").select("id, company_id, status, asaas_payment_id").eq("id", data.chargeId).maybeSingle();
+    const { data: charge } = await supabaseAdmin.from("company_charges").select("id, company_id, status, asaas_payment_id, pagbank_order_id, payment_provider, amount").eq("id", data.chargeId).maybeSingle();
     if (!charge || charge.company_id !== role.company_id) throw new Error("Cobrança não encontrada.");
     if (["pago", "received", "confirmed"].includes(String(charge.status).toLowerCase())) throw new Error("Este pagamento já foi confirmado e não pode ser cancelado.");
     if (charge.asaas_payment_id) {
       const { data: integration } = await supabaseAdmin.from("asaas_integrations").select("access_token, environment").eq("owner_type", "platform").is("owner_id", null).neq("status", "disabled").maybeSingle();
       if (integration?.access_token) await fetchAsaas({ accessToken: integration.access_token, environment: integration.environment as AsaasEnvironment, endpoint: `/payments/${charge.asaas_payment_id}`, options: { method: "DELETE" } });
     }
-    await supabaseAdmin.from("company_charges").update({ status: "cancelado", asaas_pix_qr_code: null, asaas_pix_copy_paste: null, updated_at: new Date().toISOString() }).eq("id", data.chargeId);
+    if (charge.payment_provider === "pagbank" && charge.pagbank_order_id) {
+      const { data: integration } = await supabaseAdmin.from("pagbank_integrations" as any).select("access_token, environment").eq("owner_type", "platform").is("owner_id", null).neq("status", "disabled").maybeSingle();
+      if (integration?.access_token) {
+        const base = integration.environment === "sandbox" ? "https://sandbox.api.pagseguro.com" : "https://api.pagseguro.com";
+        const response = await fetch(`${base}/orders/${charge.pagbank_order_id}`, { headers: { Authorization: `Bearer ${integration.access_token}`, Accept: "application/json" } });
+        const order = await response.json().catch(() => ({}));
+        const remoteStatus = String(order?.charges?.[0]?.status || "").toUpperCase();
+        if (["PAID", "AUTHORIZED"].includes(remoteStatus)) throw new Error("Este pagamento PagBank já foi confirmado e não pode ser cancelado.");
+      }
+    }
+    await supabaseAdmin.from("company_charges").update({ status: "cancelado", asaas_pix_qr_code: null, asaas_pix_copy_paste: null, pix_payload: null, updated_at: new Date().toISOString() }).eq("id", data.chargeId);
     return { success: true };
   });

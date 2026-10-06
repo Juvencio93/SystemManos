@@ -263,6 +263,11 @@ function SubscriptionPage() {
       toast.error(error instanceof Error ? error.message : "Não foi possível cancelar o pagamento.");
     }
   };
+  const handlePixDialogChange = (open: boolean) => {
+    if (open) { setPixDialog((prev) => ({ ...prev, open })); return; }
+    if (pixDialog.chargeId && (pixDialog.qrCode || pixDialog.copyPaste)) { void handleCancelPayment(); return; }
+    setPixDialog((prev) => ({ ...prev, open }));
+  };
 
   const summary = useMemo(() => {
     const c = company.data;
@@ -476,7 +481,7 @@ function SubscriptionPage() {
 
       <Dialog
         open={pixDialog.open}
-        onOpenChange={(open) => !open && setPixDialog((prev) => ({ ...prev, open }))}
+        onOpenChange={handlePixDialogChange}
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -532,7 +537,7 @@ function SubscriptionPage() {
             )}
           </div>
           <div className="flex justify-center border-t pt-4">
-            {pixDialog.qrCode && pixDialog.provider === "asaas" && (
+            {(pixDialog.qrCode || pixDialog.copyPaste) && (
               <Button variant="destructive" size="sm" className="mr-3" onClick={handleCancelPayment}>
                 Cancelar pagamento
               </Button>
