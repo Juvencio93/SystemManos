@@ -30,8 +30,7 @@
   :local rules [/ip firewall filter find where comment=$rule disabled=no]
   :put ("MANOS-POSTFLIGHT|ISOLATION|" . $rule . "|" . ([:len $rules] > 0))
 }
-:foreach rule in={"MANOS-GUEST-BLOCK-PROVIDER";"MANOS-GUEST-BLOCK-MANAGEMENT-TCP";"MANOS-GUEST-BLOCK-MANAGEMENT-UDP"} do={
-  :local rules [/ip firewall filter find where comment=$rule disabled=no]
-  :put ("MANOS-POSTFLIGHT|SECURITY|" . $rule . "|" . ([:len $rules] > 0))
-}
+:put ("MANOS-POSTFLIGHT|SECURITY|MANOS-GUEST-BLOCK-PROVIDER|" . ([:len [/ip firewall filter find where comment="MANOS-GUEST-BLOCK-PROVIDER" disabled=no]] > 0))
+:put ("MANOS-POSTFLIGHT|SECURITY|MANOS-GUEST-BLOCK-MANAGEMENT-TCP|" . ([:len [/ip firewall filter find where comment="MANOS-GUEST-BLOCK-MANAGEMENT-TCP" disabled=no]] > 0))
+:put ("MANOS-POSTFLIGHT|SECURITY|MANOS-GUEST-BLOCK-MANAGEMENT-UDP|" . ([:len [/ip firewall filter find where comment="MANOS-GUEST-BLOCK-MANAGEMENT-UDP" disabled=no]] > 0))
 :put "MANOS-POSTFLIGHT|END|1"
