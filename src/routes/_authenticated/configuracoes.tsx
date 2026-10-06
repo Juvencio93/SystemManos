@@ -21,6 +21,7 @@ import {
   RefreshCw,
   User,
   WalletCards,
+  ChevronDown,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -148,6 +149,7 @@ function SettingsPage() {
   const [pagbankToken, setPagbankToken] = useState("");
   const [pagbankEnvironment, setPagbankEnvironment] = useState<"sandbox" | "production">("sandbox");
   const [pagbankSiteUrl, setPagbankSiteUrl] = useState("");
+  const [openPaymentIntegration, setOpenPaymentIntegration] = useState<"asaas" | "pagbank" | null>(null);
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -809,7 +811,13 @@ function SettingsPage() {
 
         {(isAdm || isReseller) && (
           <Card className="glass-panel border-primary/10">
-            <CardHeader>
+            <CardHeader
+              role="button"
+              tabIndex={0}
+              className="cursor-pointer select-none"
+              onClick={() => setOpenPaymentIntegration((current) => current === "asaas" ? null : "asaas")}
+              onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setOpenPaymentIntegration((current) => current === "asaas" ? null : "asaas"); } }}
+            >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <WalletCards className="size-5 text-primary" />
@@ -818,20 +826,20 @@ function SettingsPage() {
                     <CardDescription>{isReseller ? "Receba os pagamentos das empresas da sua rede via PIX." : "Receba mensalidades via PIX."}</CardDescription>
                   </div>
                 </div>
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "border-primary/30",
-                    asaasQuery.data?.configured
-                      ? "border-green-500/40 bg-green-500/10 text-green-400"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  {asaasQuery.data?.configured ? "Configurado" : "Disponível"}
-                </Badge>
+                <div className="flex items-center gap-2"><Badge
+                    variant="outline"
+                    className={cn(
+                      "border-primary/30",
+                      asaasQuery.data?.configured
+                        ? "border-green-500/40 bg-green-500/10 text-green-400"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    {asaasQuery.data?.configured ? "Configurado" : "Disponível"}
+                  </Badge><ChevronDown className={cn("size-4 transition-transform", openPaymentIntegration === "asaas" && "rotate-180")} /></div>
               </div>
             </CardHeader>
-            <CardContent className="space-y-5">
+            {openPaymentIntegration === "asaas" && <><CardContent className="space-y-5">
               <div className="rounded-xl border border-blue-500/40 bg-blue-500/10 p-4 text-sm text-blue-200">
                 <ul className="list-disc space-y-1 pl-5">
                   <li>Acesse a área do cliente Asaas e abra Perfil &gt; Integrações.</li>
@@ -971,7 +979,7 @@ function SettingsPage() {
                 <Trash2 className="size-4" />
                 Remover
               </Button>
-            </CardFooter>
+            </CardFooter></>}
           </Card>
         )}
 
@@ -981,14 +989,14 @@ function SettingsPage() {
 
         {(isAdm || isReseller) && (
           <Card className="glass-panel border-primary/10">
-            <CardHeader><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><WalletCards className="size-5 text-primary" /><div><CardTitle>PagBank</CardTitle><CardDescription>PIX por QR Code e copia-e-cola, com Sandbox para testes.</CardDescription></div></div><Badge variant="outline" className={cn("border-primary/30", pagbankQuery.data?.configured ? "border-green-500/40 bg-green-500/10 text-green-400" : "text-muted-foreground")}>{pagbankQuery.data?.configured ? "Configurado" : "Disponível"}</Badge></div></CardHeader>
-            <CardContent className="space-y-4">
+            <CardHeader role="button" tabIndex={0} className="cursor-pointer select-none" onClick={() => setOpenPaymentIntegration((current) => current === "pagbank" ? null : "pagbank")} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setOpenPaymentIntegration((current) => current === "pagbank" ? null : "pagbank"); } }}><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><WalletCards className="size-5 text-primary" /><div><CardTitle>PagBank</CardTitle><CardDescription>PIX por QR Code e copia-e-cola, com Sandbox para testes.</CardDescription></div></div><div className="flex items-center gap-2"><Badge variant="outline" className={cn("border-primary/30", pagbankQuery.data?.configured ? "border-green-500/40 bg-green-500/10 text-green-400" : "text-muted-foreground")}>{pagbankQuery.data?.configured ? "Configurado" : "Disponível"}</Badge><ChevronDown className={cn("size-4 transition-transform", openPaymentIntegration === "pagbank" && "rotate-180")} /></div></div></CardHeader>
+            {openPaymentIntegration === "pagbank" && <><CardContent className="space-y-4">
               <Accordion type="single" collapsible className="rounded-xl border border-blue-500/40 bg-blue-500/10 px-4"><AccordionItem value="pagbank-setup" className="border-0"><AccordionTrigger className="py-4 text-sm font-medium text-blue-100 hover:no-underline">Como configurar PagBank</AccordionTrigger><AccordionContent className="pb-4 text-sm text-blue-100"><ol className="list-decimal space-y-2 pl-5"><li>Crie uma conta e uma aplicação no <a href="https://developer.pagbank.com.br" target="_blank" rel="noreferrer" className="underline">Portal de Desenvolvedores PagBank</a>.</li><li>Escolha o ambiente correto: <strong>Sandbox</strong> usa token Sandbox; <strong>Produção</strong> usa token de produção. Nunca misture os tokens.</li><li>Na área de chaves públicas, crie uma chave do tipo <code>webhook</code> para o mesmo ambiente. Essa chave não é colada no campo de token.</li><li>Para PIX, a conta PagBank precisa ter uma chave PIX ativa. O cliente da cobrança também precisa ter CPF/CNPJ e e-mail diferentes do e-mail do comerciante.</li><li>Use a URL abaixo como notificação: <code className="block break-all mt-1">{pagbankSiteUrl.replace(/\/+$/, "") || "https://seu-dominio"}/api/public/pagbank-webhook-v1</code>.</li><li>Depois de colar o token correspondente ao ambiente, clique em <strong>Ativar integração</strong> e em <strong>Testar conexão</strong>.</li></ol><p className="mt-3 text-xs">Revendas devem conectar somente a própria conta PagBank. O token fica restrito ao servidor.</p></AccordionContent></AccordionItem></Accordion>
               {pagbankQuery.data?.configured && <div className="rounded-xl border border-green-500/30 bg-green-500/10 p-3 text-xs text-green-200"><p>Token salvo: {pagbankQuery.data.tokenMasked}</p><p>Ambiente: {pagbankQuery.data.environment}</p><p className="break-all">Webhook: {pagbankQuery.data.webhookUrl}</p></div>}
               <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label htmlFor="pagbankEnvironment">Ambiente</Label><select id="pagbankEnvironment" value={pagbankEnvironment} onChange={(e) => setPagbankEnvironment(e.target.value as "sandbox" | "production")} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="sandbox">Sandbox (testes)</option><option value="production">Produção</option></select></div><div className="space-y-2"><Label htmlFor="pagbankSiteUrl">URL pública</Label><Input id="pagbankSiteUrl" type="url" value={pagbankSiteUrl} onChange={(e) => setPagbankSiteUrl(e.target.value)} placeholder="https://manostech-system.com.br" /></div></div>
               <div className="space-y-2"><Label htmlFor="pagbankToken">Token de acesso PagBank</Label><Input id="pagbankToken" type="password" value={pagbankToken} onChange={(e) => setPagbankToken(e.target.value)} placeholder={pagbankQuery.data?.tokenMasked || "Token sandbox ou produção"} /></div>
             </CardContent>
-            <CardFooter className="flex flex-wrap gap-2 border-t bg-muted/30 py-4"><Button type="button" onClick={() => savePagbankMutation.mutate()} disabled={savePagbankMutation.isPending || !pagbankToken.trim()}>{savePagbankMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />} Ativar integração</Button><Button type="button" variant="outline" onClick={() => testPagbankMutation.mutate()} disabled={!pagbankQuery.data?.configured || testPagbankMutation.isPending}>Testar conexão</Button><Button type="button" variant="outline" className="border-destructive/30 text-destructive" onClick={() => removePagbankMutation.mutate()} disabled={!pagbankQuery.data?.configured}>Remover</Button></CardFooter>
+            <CardFooter className="flex flex-wrap gap-2 border-t bg-muted/30 py-4"><Button type="button" onClick={() => savePagbankMutation.mutate()} disabled={savePagbankMutation.isPending || !pagbankToken.trim()}>{savePagbankMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />} Ativar integração</Button><Button type="button" variant="outline" onClick={() => testPagbankMutation.mutate()} disabled={!pagbankQuery.data?.configured || testPagbankMutation.isPending}>Testar conexão</Button><Button type="button" variant="outline" className="border-destructive/30 text-destructive" onClick={() => removePagbankMutation.mutate()} disabled={!pagbankQuery.data?.configured}>Remover</Button></CardFooter></>}
           </Card>
         )}
 
