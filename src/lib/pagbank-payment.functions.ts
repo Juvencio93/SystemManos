@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import QRCode from "qrcode";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const api = (environment: string) => environment === "sandbox" ? "https://sandbox.api.pagseguro.com" : "https://api.pagseguro.com";
@@ -41,13 +42,13 @@ export const getOrCreatePagBankPix = createServerFn({ method: "POST" }).middlewa
   const { data: pref } = await ownerScope(supabaseAdmin.from("payment_provider_preferences").select("provider"), ownerType, ownerId).maybeSingle(); if (pref?.provider !== "pagbank") return { available: false, provider: "pagbank" as const };
   const { data: integration } = await ownerScope(supabaseAdmin.from("pagbank_integrations" as any).select("access_token, environment, webhook_url, status"), ownerType, ownerId).maybeSingle(); if (!integration || integration.status !== "configured") return { available: false, provider: "pagbank" as const };
   if (!company?.document || !company?.contact_email) throw new Error("Para cobrar pelo PagBank, complete CPF/CNPJ e e-mail no cadastro da empresa.");
-  if (charge.pagbank_order_id) { const order = await pagbank(integration.access_token, integration.environment, `/orders/${charge.pagbank_order_id}`); const stored = order?.charges?.[0]?.qr_code?.text; const image = order?.charges?.[0]?.links?.find((l: any) => l.rel === "QRCODE.BASE64")?.href; if (stored && image) { const raw = await pagbank(integration.access_token, integration.environment, image.replace(api(integration.environment), "")); return { success: true, available: true, provider: "pagbank" as const, copyPaste: stored, qrCode: typeof raw === "string" ? raw : raw?.content }; }
+  if (charge.pagbank_order_id) { const order = await pagbank(integration.access_token, integration.environment, `/orders/${charge.pagbank_order_id}`); const stored = order?.charges?.[0]?.qr_code?.text; if (stored) { const dataUrl = await QRCode.toDataURL(stored, { margin: 1, width: 360 }); return { success: true, available: true, provider: "pagbank" as const, copyPaste: stored, qrCode: dataUrl.replace(/^data:image\/png;base64,/, "") }; }
   }
   const phone = String(company.contact_phone || "").replace(/\D/g, ""); const expires = new Date(Date.now() + 86400000).toISOString();
   const order = await pagbank(integration.access_token, integration.environment, "/orders", { reference_id: charge.id, customer: { name: company.trade_name || company.name, email: company.contact_email, tax_id: String(company.document).replace(/\D/g, ""), ...(phone.length >= 10 ? { phones: [{ type: "MOBILE", country: "55", area: phone.slice(-11, -9), number: phone.slice(-9) }] } : {}) }, items: [{ reference_id: charge.id, name: charge.reference, quantity: 1, unit_amount: Math.round(Number(charge.amount) * 100) }], charges: [{ reference_id: charge.id, description: charge.reference, amount: { value: Math.round(Number(charge.amount) * 100), currency: "BRL" }, payment_method: { type: "PIX", pix: { expiration_date: expires } } }], notification_urls: [integration.webhook_url] });
-  const pgCharge = order?.charges?.[0]; const copyPaste = pgCharge?.qr_code?.text; const base64Link = pgCharge?.links?.find((l: any) => l.rel === "QRCODE.BASE64")?.href; if (!order?.id || !copyPaste) throw new Error("O PagBank não retornou o QR Code PIX.");
+  const pgCharge = order?.charges?.[0]; const copyPaste = pgCharge?.qr_code?.text; if (!order?.id || !copyPaste) throw new Error("O PagBank não retornou o QR Code PIX.");
   const { error: updateError } = await supabaseAdmin.from("company_charges").update({ payment_provider: "pagbank", pagbank_order_id: order.id, pix_payload: copyPaste, external_id: order.id, method: "PIX PagBank", updated_at: new Date().toISOString() } as any).eq("id", charge.id); if (updateError) throw new Error(updateError.message);
   let qrCode: string | null = null;
-  if (base64Link) { try { const raw = await pagbank(integration.access_token, integration.environment, base64Link.replace(api(integration.environment), "")); qrCode = typeof raw === "string" ? raw : raw?.content || raw?.base64 || null; } catch { /* o copia e cola continua válido */ } }
+  try { const dataUrl = await QRCode.toDataURL(copyPaste, { margin: 1, width: 360 }); qrCode = dataUrl.replace(/^data:image\/png;base64,/, ""); } catch { /* o copia e cola continua válido */ }
   return { success: true, available: true, provider: "pagbank" as const, qrCode, copyPaste };
 });
