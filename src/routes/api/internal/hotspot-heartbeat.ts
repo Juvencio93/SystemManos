@@ -77,7 +77,13 @@ export const Route = createFileRoute("/api/internal/hotspot-heartbeat")({
             ? { router_status_applied_at: null }
             : {}),
         };
-        const { error } = await (supabaseAdmin as any).from("hotspot_devices").update(update).eq("id", current.id);
+        let { error } = await (supabaseAdmin as any).from("hotspot_devices").update(update).eq("id", current.id);
+        // Existing RBs must keep reporting while the additive migration that
+        // stores kit_version is being applied to the database.
+        if (error && heartbeat.kitVersion) {
+          const { kit_version: _kitVersion, ...legacyUpdate } = update;
+          ({ error } = await (supabaseAdmin as any).from("hotspot_devices").update(legacyUpdate).eq("id", current.id));
+        }
         if (error) return new Response("Could not update heartbeat", { status: 500 });
         if (rebootConfirmed) {
           const { error: auditError } = await (supabaseAdmin as any).from("hotspot_device_audit").insert({
