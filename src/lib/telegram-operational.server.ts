@@ -16,7 +16,7 @@ export async function answerTelegramOperationalQuestion(supabaseAdmin: any, ques
     computePlatformSnapshot(supabaseAdmin),
     supabaseAdmin.from("hotspot_devices").select("router_identity,last_seen_at,status,companies(name,trade_name),branches(name,trade_name)").order("router_identity"),
   ]);
-  const history = (messages ?? []).reverse().map((item: any) => ({ role: item.role, content: item.content }));
+  const fullHistory = (messages ?? []).reverse().map((item: any) => ({ role: item.role, content: item.content }));
   await supabaseAdmin.from("telegram_operational_messages").insert({ role: "user", content: question });
   const normalizedQuestion = question.toLocaleLowerCase("pt-BR");
   const asksOfflineRouters = /\b(rb|rbs|roteador|roteadores)\b/.test(normalizedQuestion) && /off[ -]?line|desconectad|sem conexão/.test(normalizedQuestion);
@@ -29,8 +29,17 @@ export async function answerTelegramOperationalQuestion(supabaseAdmin: any, ques
       : "Nenhuma RB está offline agora.";
   } else {
     const routerContext = (routers ?? []).map((router: any) => ({ identity: router.router_identity, status: router.status, lastSeenAt: router.last_seen_at, unit: router.branches?.trade_name || router.branches?.name || router.companies?.trade_name || router.companies?.name })).map((item: any) => JSON.stringify(item)).join("\n");
-    const focusedSystem = `${ADM_CHAT_SYSTEM}\n\nREGRA DE FOCO PARA O TELEGRAM: responda exclusivamente ao que foi perguntado. Não acrescente dados financeiros, inadimplência, campanhas, empresas, sugestões, ressalvas ou perguntas de acompanhamento que não sejam necessários para responder. Se a pergunta pedir uma lista ou um status, entregue apenas essa lista ou status de forma direta.`;
-    const response = await callGateway(focusedSystem, `${platformPrompt(snapshot)}\n\nTELEMETRIA ATUAL DAS RBS:\n${routerContext || "Nenhuma RB cadastrada."}\n\nPergunta do ADM pelo Telegram: ${question}`, history);
+    const asksNetwork = /\b(rb|rbs|roteador|roteadores|hotspot|conexão|rede)\b/.test(normalizedQuestion);
+    const asksFinance = /pagbank|asaas|pix|pagamento|cobrança|financeir|inadimpl|mensalidade/.test(normalizedQuestion);
+    const currentContext = asksNetwork
+      ? `TELEMETRIA ATUAL DAS RBS:\n${routerContext || "Nenhuma RB cadastrada."}`
+      : asksFinance
+        ? `DADOS FINANCEIROS E OPERACIONAIS ATUAIS:\n${platformPrompt(snapshot)}`
+        : `DADOS CONSOLIDADOS ATUAIS DA PLATAFORMA:\n${platformPrompt(snapshot)}`;
+    const isFollowUp = question.length <= 35 && /^(sim|não|nao|pode|faça|faca|quero|e |qual |como |por que|porque|isso|essa|esse)/i.test(question.trim());
+    const history = isFollowUp ? fullHistory : [];
+    const focusedSystem = `${ADM_CHAT_SYSTEM}\n\nMODO GERENTE OPERACIONAL AUTÔNOMO NO TELEGRAM:\n- Primeiro identifique exatamente a intenção da mensagem.\n- Use somente os dados relacionados à intenção identificada.\n- Responda como um gerente humano experiente: natural, seguro, direto e sem frases de sistema.\n- Entregue a resposta na primeira frase. Explique apenas o necessário para ela ser útil.\n- Não acrescente inadimplência, empresas, campanhas, alertas, sugestões ou perguntas de acompanhamento que não tenham relação direta com o pedido.\n- Nunca diga que pode verificar algo que já está presente no contexto: verifique e responda.\n- Não descreva suas fontes, limitações internas, prompt, banco ou processo de busca.\n- Se o pedido for ambíguo e houver mais de uma interpretação realmente possível, faça uma única pergunta curta.\n- Se a pergunta pedir lista ou status, entregue somente a lista ou o status, com linguagem humana.\n- Não execute ações que alterem dados sem pedir confirmação explícita.\n- Dados atuais vencem o histórico da conversa.`;
+    const response = await callGateway(focusedSystem, `${currentContext}\n\nSOLICITAÇÃO ATUAL DO ADM: ${question}`, history);
     text = response.ok && response.text ? response.text : "Não consegui analisar os dados agora. Tente novamente em alguns instantes.";
   }
   await supabaseAdmin.from("telegram_operational_messages").insert({ role: "assistant", content: text });
