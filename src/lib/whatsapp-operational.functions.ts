@@ -12,7 +12,7 @@ export const getWhatsAppOperationalIntegration = createServerFn({ method: "GET" 
   await requireAdm(context.supabase, context.userId);
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data } = await supabaseAdmin.from("whatsapp_operational_integrations" as any).select("waba_id,phone_number_id,business_phone,alert_phone,access_token,verify_token,alert_template_name,status,last_error").maybeSingle();
-  return data ? { configured: data.status === "configured", ...data, access_token: undefined, verify_token: undefined, verifyTokenMasked: mask(data.verify_token), tokenMasked: mask(data.access_token) } : { configured: false };
+  return data ? { configured: data.status === "configured", saved: data.status !== "disabled", ...data, access_token: undefined, verify_token: undefined, verifyTokenMasked: mask(data.verify_token), tokenMasked: mask(data.access_token), last_error: data.last_error?.includes("131030") ? "O número que receberá os alertas ainda não foi autorizado na lista de destinatários de teste da Meta." : data.last_error } : { configured: false, saved: false };
 });
 
 export const saveWhatsAppOperationalIntegration = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).validator((input: unknown) => z.object({ wabaId: z.string().trim().min(5), phoneNumberId: z.string().trim().min(5), businessPhone: z.string().trim().min(10), alertPhone: z.string().trim().min(10), accessToken: z.string().trim().min(20), appSecret: z.string().trim().min(20), templateName: z.string().trim().min(3).default("alerta_operacional") }).parse(input)).handler(async ({ context, data }) => {

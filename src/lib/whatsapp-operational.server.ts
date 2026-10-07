@@ -9,7 +9,7 @@ export async function sendOperationalWhatsAppAlert(
   const { data: integration } = await supabaseAdmin
     .from("whatsapp_operational_integrations")
     .select("id,phone_number_id,alert_phone,access_token,alert_template_name,status")
-    .eq("status", "configured")
+    .neq("status", "disabled")
     .maybeSingle();
   if (!integration) return { sent: false, reason: "not_configured" as const };
 
@@ -48,7 +48,7 @@ export async function sendOperationalWhatsAppAlert(
     await supabaseAdmin.from("whatsapp_operational_integrations").update({ status: "error", last_error: message, updated_at: new Date().toISOString() }).eq("id", integration.id);
     return { sent: false, reason: "provider_error" as const, message };
   }
-  await supabaseAdmin.from("whatsapp_operational_integrations").update({ last_error: null, updated_at: new Date().toISOString() }).eq("id", integration.id);
+  await supabaseAdmin.from("whatsapp_operational_integrations").update({ status: "configured", last_error: null, updated_at: new Date().toISOString() }).eq("id", integration.id);
   return { sent: true };
 }
 
