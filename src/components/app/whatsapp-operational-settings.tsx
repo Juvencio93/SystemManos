@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { CheckCircle2, Copy, Loader2, MessageCircle, Save, Send } from "lucide-react";
+import { CheckCircle2, Copy, Loader2, MessageCircle, Save, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getWhatsAppOperationalIntegration, saveWhatsAppOperationalIntegration, testWhatsAppOperationalIntegration } from "@/lib/whatsapp-operational.functions";
+import { getWhatsAppOperationalIntegration, removeWhatsAppOperationalIntegration, saveWhatsAppOperationalIntegration, testWhatsAppOperationalIntegration } from "@/lib/whatsapp-operational.functions";
 
 const webhookPath = "/api/public/whatsapp-operational-webhook";
 
@@ -18,6 +18,7 @@ export function WhatsAppOperationalSettings() {
   const getIntegration = useServerFn(getWhatsAppOperationalIntegration);
   const saveIntegration = useServerFn(saveWhatsAppOperationalIntegration);
   const testIntegration = useServerFn(testWhatsAppOperationalIntegration);
+  const removeIntegration = useServerFn(removeWhatsAppOperationalIntegration);
   const integration = useQuery({ queryKey: ["whatsapp-operational-integration"], queryFn: () => getIntegration() });
   const [form, setForm] = useState({ wabaId: "", phoneNumberId: "", businessPhone: "", alertPhone: "", accessToken: "", appSecret: "", templateName: "alerta_operacional" });
   const [revealedVerifyToken, setRevealedVerifyToken] = useState("");
@@ -39,6 +40,11 @@ export function WhatsAppOperationalSettings() {
     onSuccess: () => toast.success("Mensagem de teste enviada ao WhatsApp."),
     onError: (error: Error) => toast.error(error.message || "Não foi possível enviar o teste."),
   });
+  const remove = useMutation({
+    mutationFn: () => removeIntegration(),
+    onSuccess: async () => { setRevealedVerifyToken(""); setForm({ wabaId: "", phoneNumberId: "", businessPhone: "", alertPhone: "", accessToken: "", appSecret: "", templateName: "alerta_operacional" }); await queryClient.invalidateQueries({ queryKey: ["whatsapp-operational-integration"] }); toast.success("Integração do WhatsApp excluída."); },
+    onError: (error: Error) => toast.error(error.message || "Não foi possível excluir a integração."),
+  });
   const set = (field: keyof typeof form, value: string) => setForm((current) => ({ ...current, [field]: value }));
   const copy = async (value: string) => { await navigator.clipboard.writeText(value); toast.success("Copiado."); };
   const data = integration.data as any;
@@ -53,6 +59,6 @@ export function WhatsAppOperationalSettings() {
       <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label>Token permanente</Label><Input type="password" autoComplete="new-password" value={form.accessToken} onChange={(e) => set("accessToken", e.target.value)} placeholder={data?.tokenMasked || "Cole o token da Meta"} /></div><div className="space-y-2"><Label>Segredo do aplicativo</Label><Input type="password" autoComplete="new-password" value={form.appSecret} onChange={(e) => set("appSecret", e.target.value)} placeholder="Cole o segredo do aplicativo" /></div></div>
       {data?.last_error && <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">{data.last_error}</div>}
     </CardContent>
-    <CardFooter className="flex flex-wrap gap-2 border-t bg-muted/30 py-4"><Button onClick={() => save.mutate()} disabled={save.isPending || !form.accessToken || !form.appSecret}>{save.isPending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />} Salvar integração</Button><Button variant="outline" onClick={() => test.mutate()} disabled={!data?.configured || test.isPending}>{test.isPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />} Enviar teste</Button>{data?.configured && <span className="flex items-center gap-1 text-xs text-emerald-400"><CheckCircle2 className="size-4" /> Credenciais protegidas no servidor</span>}</CardFooter>
+    <CardFooter className="flex flex-wrap gap-2 border-t bg-muted/30 py-4"><Button onClick={() => save.mutate()} disabled={save.isPending || !form.accessToken || !form.appSecret}>{save.isPending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />} Salvar integração</Button><Button variant="outline" onClick={() => test.mutate()} disabled={!data?.configured || test.isPending}>{test.isPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />} Enviar teste</Button><Button variant="outline" className="border-destructive/30 text-destructive hover:bg-destructive/10" onClick={() => { if (window.confirm("Excluir a integração do WhatsApp e todas as credenciais salvas?")) remove.mutate(); }} disabled={!data?.configured || remove.isPending}>{remove.isPending ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />} Excluir</Button>{data?.configured && <span className="flex items-center gap-1 text-xs text-emerald-400"><CheckCircle2 className="size-4" /> Credenciais protegidas no servidor</span>}</CardFooter>
   </Card>;
 }

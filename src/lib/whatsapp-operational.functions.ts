@@ -34,3 +34,11 @@ export const testWhatsAppOperationalIntegration = createServerFn({ method: "POST
   return { success: true };
 });
 
+export const removeWhatsAppOperationalIntegration = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
+  await requireAdm(context.supabase, context.userId);
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { error } = await supabaseAdmin.from("whatsapp_operational_integrations" as any).delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  if (error) throw new Error(error.message);
+  return { success: true };
+});
+
