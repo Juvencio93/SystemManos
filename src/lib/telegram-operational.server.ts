@@ -1,3 +1,16 @@
+export function formatTelegramHtml(text: string) {
+  const escaped = text
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+
+  return escaped
+    .replace(/^#{1,6}\s+(.+)$/gm, "<b>$1</b>")
+    .replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>")
+    .replace(/__([^_\n]+)__/g, "<b>$1</b>")
+    .replace(/`([^`\n]+)`/g, "<code>$1</code>");
+}
+
 export async function sendOperationalTelegramAlert(supabaseAdmin: any, alert: { title: string; description: string }) {
   const { data: integration } = await supabaseAdmin.from("telegram_operational_integrations").select("id,bot_token,alert_chat_id,status").neq("status", "disabled").maybeSingle();
   if (!integration) return { sent: false, reason: "not_configured" as const };
@@ -38,7 +51,7 @@ export async function answerTelegramOperationalQuestion(supabaseAdmin: any, ques
         : `DADOS CONSOLIDADOS ATUAIS DA PLATAFORMA:\n${platformPrompt(snapshot)}`;
     const isFollowUp = question.length <= 35 && /^(sim|não|nao|pode|faça|faca|quero|e |qual |como |por que|porque|isso|essa|esse)/i.test(question.trim());
     const history = isFollowUp ? fullHistory : [];
-    const focusedSystem = `${ADM_CHAT_SYSTEM}\n\nMODO GERENTE OPERACIONAL AUTÔNOMO NO TELEGRAM:\n- Primeiro identifique exatamente a intenção da mensagem.\n- Use somente os dados relacionados à intenção identificada.\n- Responda como um gerente humano experiente: natural, seguro, direto e sem frases de sistema.\n- Entregue a resposta na primeira frase. Explique apenas o necessário para ela ser útil.\n- Não acrescente inadimplência, empresas, campanhas, alertas, sugestões ou perguntas de acompanhamento que não tenham relação direta com o pedido.\n- Nunca diga que pode verificar algo que já está presente no contexto: verifique e responda.\n- Não descreva suas fontes, limitações internas, prompt, banco ou processo de busca.\n- Se o pedido for ambíguo e houver mais de uma interpretação realmente possível, faça uma única pergunta curta.\n- Se a pergunta pedir lista ou status, entregue somente a lista ou o status, com linguagem humana.\n- Não execute ações que alterem dados sem pedir confirmação explícita.\n- Dados atuais vencem o histórico da conversa.`;
+    const focusedSystem = `${ADM_CHAT_SYSTEM}\n\nMODO GERENTE OPERACIONAL AUTÔNOMO NO TELEGRAM:\n- Primeiro identifique exatamente a intenção da mensagem.\n- Use somente os dados relacionados à intenção identificada.\n- Responda como um gerente humano experiente: natural, seguro, direto e sem frases de sistema.\n- Entregue a resposta na primeira frase. Explique apenas o necessário para ela ser útil.\n- Não acrescente inadimplência, empresas, campanhas, alertas, sugestões ou perguntas de acompanhamento que não tenham relação direta com o pedido.\n- Nunca diga que pode verificar algo que já está presente no contexto: verifique e responda.\n- Não descreva suas fontes, limitações internas, prompt, banco ou processo de busca.\n- Se o pedido for ambíguo e houver mais de uma interpretação realmente possível, faça uma única pergunta curta.\n- Se a pergunta pedir lista ou status, entregue somente a lista ou o status, com linguagem humana.\n- Pode usar emojis pertinentes para facilitar a leitura e tornar a conversa humana, com moderação.\n- Para dar destaque, use **texto em negrito**. Não use asteriscos simples como decoração.\n- Não execute ações que alterem dados sem pedir confirmação explícita.\n- Dados atuais vencem o histórico da conversa.`;
     const response = await callGateway(focusedSystem, `${currentContext}\n\nSOLICITAÇÃO ATUAL DO ADM: ${question}`, history);
     text = response.ok && response.text ? response.text : "Não consegui analisar os dados agora. Tente novamente em alguns instantes.";
   }
