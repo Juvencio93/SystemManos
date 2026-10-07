@@ -54,7 +54,6 @@ import { getLatestOperationalAnalysis } from "@/lib/operational.functions";
 import { AiStructuredResponse } from "@/components/app/ai/AiStructuredResponse";
 import { normalizeAiResponse } from "@/lib/ai-response-parser";
 import { cn } from "@/lib/utils";
-import { isBannerCreationRequest } from "@/lib/banner-intent";
 import robotMascot from "@/assets/manos-tech-robot.png";
 import { useAccess } from "@/hooks/use-access";
 
@@ -721,7 +720,10 @@ function ClientAiAgentCard({
     const value = q.trim();
     if (!value || chat.isPending) return;
 
-    if (onBannerPrompt && isBannerCreationRequest(value)) {
+    // No dashboard de Matriz e Filial, a Manos Tech IA é a entrada do
+    // gerador de prompts. Toda mensagem segue para o mesmo diálogo, que
+    // interpreta o texto livre e pergunta apenas o que ainda for necessário.
+    if (onBannerPrompt) {
       onBannerPrompt(value);
       setQuestion("");
       return;
@@ -1000,7 +1002,7 @@ function ClientAiAgentCard({
                   Manos Tech IA
                 </span>
                 <span className="text-sm font-normal text-muted-foreground/80">
-                  Seu assistente de marketing e CRM
+                  Seu assistente para criação de banners
                 </span>
               </span>
             </CardTitle>
@@ -1009,7 +1011,7 @@ function ClientAiAgentCard({
           <CardContent className="space-y-4 pt-0">
             <div className="space-y-4">
               <div className="flex items-center gap-2">
-                <h4 className="text-base font-bold text-white">Consultoria de Marketing</h4>
+                <h4 className="text-base font-bold text-white">Gerador de Prompts para Banners</h4>
                 <Badge
                   variant="outline"
                   className="text-xs text-primary border-primary/30 py-0.5 px-2 h-5 font-bold"
@@ -1021,7 +1023,7 @@ function ClientAiAgentCard({
               {aiUsageQuery.data && (
                 <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                    <span className="font-semibold text-white">Comandos de IA hoje</span>
+                    <span className="font-semibold text-white">Criações com IA hoje</span>
                     <span className="text-muted-foreground">{aiUsageQuery.data.used} usados · {aiUsageQuery.data.available} disponíveis · limite {aiUsageQuery.data.limit}</span>
                   </div>
                   <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.min(100, (aiUsageQuery.data.used / Math.max(1, aiUsageQuery.data.limit)) * 100)}%` }} /></div>
@@ -1033,11 +1035,7 @@ function ClientAiAgentCard({
                 <Input
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
-                  placeholder={
-                    isFilial
-                      ? "Pergunte sobre marketing ou peça um prompt para banner..."
-                      : "Ex: Como atrair mais clientes hoje?"
-                  }
+                  placeholder="Conte o que você quer divulgar no banner..."
                   className="bg-background/40 border-primary/20 focus-visible:ring-primary/40 h-11 text-base"
 
                   onKeyDown={(e) => e.key === "Enter" && send(question)}
@@ -1110,7 +1108,7 @@ function ClientAiAgentCard({
                   Manos Tech IA
                 </span>
                 <span className="text-sm font-normal text-muted-foreground/80">
-                  Seu assistente de marketing e CRM
+                  Seu assistente para criação de banners
                 </span>
               </span>
             </CardTitle>
@@ -1119,7 +1117,7 @@ function ClientAiAgentCard({
           <CardContent className="space-y-4 pt-0">
             <div className="space-y-4">
               <div className="flex items-center gap-2">
-                <h4 className="text-base font-bold text-white">Consultoria de Marketing</h4>
+                <h4 className="text-base font-bold text-white">Gerador de Prompts para Banners</h4>
                 <Badge
                   variant="outline"
                   className="text-xs text-primary border-primary/30 py-0.5 px-2 h-5 font-bold"
@@ -1132,7 +1130,7 @@ function ClientAiAgentCard({
                 <Input
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
-                  placeholder="Pergunte sobre marketing ou peça um prompt para banner..."
+                  placeholder="Conte o que você quer divulgar no banner..."
                   className="bg-background/40 border-primary/20 focus-visible:ring-primary/40 h-11 text-base"
                   onKeyDown={(e) => e.key === "Enter" && send(question)}
                 />
