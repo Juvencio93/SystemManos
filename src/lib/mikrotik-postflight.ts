@@ -39,7 +39,7 @@ export function analyzeMikrotikPostflight(output: string): MikrotikPostflightRep
   const hotspot = fields.find((row) => row[1] === "HOTSPOT")?.[2];
   findings.push(hotspot === "bridge-lan" ? { level: "ok", message: "HotSpot ativo somente em bridge-lan (ether2/ether3)." } : { level: "blocker", message: "HotSpot não foi confirmado em bridge-lan." });
   const login = fields.find((row) => row[1] === "LOGIN")?.[2];
-  findings.push(login === "true" ? { level: "ok", message: "Página de login Manos Tech confirmada." } : { level: "warning", message: "Página de login ainda não foi confirmada. Solicite uma sincronização e confira novamente." });
+  findings.push(login === "true" ? { level: "ok", message: "login.html e alogin.html confirmados em flash/hotspot." } : { level: "blocker", message: "As páginas login.html e alogin.html não foram confirmadas em flash/hotspot. Execute o instalador das páginas e confira novamente." });
   for (const rule of ["MANOS-ISOLATE-HOTSPOT-LIVRE", "MANOS-ISOLATE-LIVRE-HOTSPOT"]) {
     const active = fields.find((row) => row[1] === "ISOLATION" && row[2] === rule)?.[3];
     findings.push(active === "true" ? { level: "ok", message: `Isolamento ${rule} ativo.` } : { level: "blocker", message: `Regra de isolamento ${rule} não foi confirmada.` });

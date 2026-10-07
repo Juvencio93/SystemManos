@@ -13,7 +13,7 @@ export function MikrotikPostflight() {
   const ready = report?.valid && blockers.length === 0 && visitorInternet && visitorSpeed;
 
   return <div className="space-y-3 rounded-lg border border-emerald-400/25 bg-emerald-400/5 p-4 text-sm">
-    <div><p className="font-semibold">5. Conferência pós-instalação</p><p className="text-muted-foreground">Leitura local: confirma portas, IPs, fila da ether4, RADIUS, login e isolamento. Não altera a RB nem envia a saída ao sistema.</p></div>
+    <div><p className="font-semibold">6. Conferência pós-instalação</p><p className="text-muted-foreground">Leitura local: confirma portas, IPs, fila da ether4, RADIUS, os dois arquivos de login e o isolamento. Não altera a RB nem envia a saída ao sistema.</p></div>
     <div className="flex flex-wrap items-center gap-3"><Button variant="outline" size="sm" asChild><a href="/mikrotik/MANOS-POSTFLIGHT.rsc" download><Download className="size-4" /> Baixar conferência .rsc</a></Button><span className="text-muted-foreground">Envie para Files na RB e execute: <code>/import file-name=MANOS-POSTFLIGHT.rsc</code></span></div>
     <label className="block space-y-1"><span>Saída do Terminal</span><Textarea rows={7} value={output} onChange={(event) => setOutput(event.target.value)} placeholder="Cole aqui a saída entre MANOS-POSTFLIGHT|BEGIN|1 e MANOS-POSTFLIGHT|END|1" /></label>
     {report && <div className="space-y-1" role="status">{report.findings.map((finding, index) => <p key={`${index}-${finding.message}`} className={finding.level === "blocker" ? "text-red-300" : finding.level === "warning" ? "text-amber-300" : "text-emerald-300"}>{finding.level === "blocker" ? "● Corrigir: " : finding.level === "warning" ? "● Conferir: " : "✓ "}{finding.message}</p>)}</div>}

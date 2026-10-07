@@ -201,10 +201,15 @@ function HotspotPage() {
       <Card className="glass-panel border-primary/20">
         <CardHeader><button type="button" onClick={() => setExpandedSection(expandedSection === "kit" ? null : "kit")} className="flex w-full items-center gap-2 text-left"><Router className="size-5 text-primary" /><CardTitle>Kit de instalação MikroTik</CardTitle><span className="ml-auto text-primary">{expandedSection === "kit" ? "−" : "+"}</span></button></CardHeader>
         {expandedSection === "kit" && <CardContent className="space-y-5">
-          <div><p className="font-semibold">Instalação de RB nova</p><p className="text-sm text-muted-foreground">Siga os passos 1 a 8 nesta ordem. Ativação e Heartbeat são exclusivos de cada RB. Os arquivos de manutenção ficam separados abaixo.</p></div>
+          <div><p className="font-semibold">Instalação de RB nova ou resetada</p><p className="text-sm text-muted-foreground">Siga os passos 0 a 8 nesta ordem. Pare imediatamente se qualquer importação apresentar erro. Ativação e Heartbeat são exclusivos de cada RB; os arquivos de manutenção ficam separados abaixo.</p></div>
           <div className="grid gap-3 sm:grid-cols-2">
             <button type="button" onClick={() => setExpandedKitCard(expandedKitCard === "files" ? null : "files")} className="rounded-lg border border-primary/25 bg-primary/5 p-3 text-left text-sm transition hover:border-primary/60"><p className="font-semibold text-primary">Arquivos atualizados <span className="float-right">{expandedKitCard === "files" ? "−" : "+"}</span></p><p className="text-muted-foreground">{kitUpdatedAt}</p>{expandedKitCard === "files" && <p className="mt-2 border-t border-primary/15 pt-2 text-xs text-muted-foreground">O kit-base, diagnósticos, atualização de isolamento e arquivos de recuperação do portal são padrão. Ativação e Heartbeat são baixados individualmente para cada RB.</p>}</button>
             <button type="button" onClick={() => setExpandedKitCard(expandedKitCard === "manual" ? null : "manual")} className="rounded-lg border border-primary/25 bg-primary/5 p-3 text-left text-sm transition hover:border-primary/60"><p className="font-semibold text-primary">Manual atualizado <span className="float-right">{expandedKitCard === "manual" ? "−" : "+"}</span></p><p className="text-muted-foreground">{manualUpdatedAt}</p>{expandedKitCard === "manual" && <p className="mt-2 border-t border-primary/15 pt-2 text-xs text-muted-foreground">Procedimento completo de reset HTML, importação dos arquivos, validação de rede, Hotspot, RADIUS e Heartbeat.</p>}</button>
+          </div>
+          <div className="space-y-2 rounded-lg border border-red-400/25 bg-red-400/5 p-4 text-sm">
+            <p className="font-semibold">0. Reset autorizado e reconexão local</p>
+            <p className="text-muted-foreground">Faça backup fora da RB antes do reset. Para uma instalação realmente limpa, execute o reset sem configuração padrão, aguarde reiniciar e reconecte pelo endereço MAC usando WinBox. Não prossiga por acesso remoto.</p>
+            <p className="text-xs text-muted-foreground">Terminal: <code>/system reset-configuration no-defaults=yes</code></p>
           </div>
           <MikrotikPreflight />
           <div className="space-y-2 rounded-lg border border-primary/25 bg-primary/5 p-4 text-sm">
@@ -214,26 +219,27 @@ function HotspotPage() {
             <p className="text-xs text-muted-foreground">Terminal: <code>/import file-name=MANOS-HOTSPOT-BASE.rsc</code></p>
           </div>
           <div className="space-y-2 rounded-lg border border-primary/25 bg-primary/5 p-4 text-sm">
-            <p className="font-semibold">3 e 4. Baixar Ativação e Heartbeat da RB</p>
-            <p className="text-muted-foreground">Na lista de Clientes ativos homologados, localize a RB e baixe primeiro <strong>Ativação</strong>, depois <strong>Heartbeat</strong>. Esses dois arquivos são exclusivos daquela RB.</p>
+            <p className="font-semibold">4 e 5. Importar Ativação e Heartbeat da RB</p>
+            <p className="text-muted-foreground">Depois de instalar as páginas, localize a RB em Clientes ativos homologados. Baixe e importe primeiro <strong>Ativação</strong>; aguarde terminar sem erros. Depois baixe e importe o <strong>Heartbeat</strong>. Esses arquivos são exclusivos daquela RB.</p>
             <Button variant="outline" asChild><a href="#clientes-ativos">Ir para Clientes ativos homologados</a></Button>
             <p className="text-xs text-muted-foreground">Terminal: <code>/import file-name=MT-IDENTIDADE-activation.rsc</code>, depois <code>/import file-name=MT-IDENTIDADE-heartbeat.rsc</code>. Substitua <code>MT-IDENTIDADE</code> pelo nome do arquivo baixado.</p>
           </div>
           <div className="space-y-2 rounded-lg border border-border p-4 text-sm">
             <p className="font-semibold">Arquivos da página de login do HotSpot</p>
-            <p className="text-muted-foreground">A Ativação e o Heartbeat atualizam a página automaticamente. Mantenha estes arquivos disponíveis caso seja necessário restaurá-la durante a instalação.</p>
+            <p className="font-semibold">3. Instalar as páginas do HotSpot</p>
+            <p className="text-muted-foreground">Esta etapa é obrigatória em RB nova ou resetada. Baixe os três arquivos, envie todos para a raiz de <strong>Files</strong> e só então execute o instalador.</p>
             <div className="flex flex-wrap gap-2"><Button variant="outline" asChild><a href="/mikrotik/login.html" download><Download className="size-4" /> Baixar login.html</a></Button><Button variant="outline" asChild><a href="/mikrotik/alogin.html" download><Download className="size-4" /> Baixar alogin.html</a></Button><Button variant="outline" asChild><a href="/mikrotik/MANOS-INSTALL-HOTSPOT-PAGES.rsc" download><Download className="size-4" /> Baixar instalador das páginas .rsc</a></Button></div>
             <p className="text-xs text-muted-foreground">Files: envie os três arquivos para a raiz da RB e execute <code>/import file-name=MANOS-INSTALL-HOTSPOT-PAGES.rsc</code>. O instalador coloca os dois HTMLs em <code>flash/hotspot/</code>.</p>
           </div>
           <MikrotikPostflight />
           <div className="space-y-2 rounded-lg border border-amber-300/25 bg-amber-300/5 p-4 text-sm">
-            <p className="font-semibold">6. Endurecimento de serviços da RB</p>
+            <p className="font-semibold">7. Endurecimento de serviços da RB</p>
             <p className="text-muted-foreground">Desativa somente FTP, Telnet, Bandwidth Test, API e API-SSL. Mantém WinBox, SSH, HotSpot, RADIUS, DHCP, WAN, ether4, ether5 e Heartbeat. Use pela ether4 ou localmente.</p>
             <Button variant="outline" asChild><a href="/mikrotik/MANOS-MANAGEMENT-HARDENING.rsc" download><Download className="size-4" /> Baixar endurecimento de serviços .rsc</a></Button>
             <p className="text-xs text-muted-foreground">Terminal: <code>/import file-name=MANOS-MANAGEMENT-HARDENING.rsc</code></p>
           </div>
           <div className="space-y-2 rounded-lg border border-border p-4 text-sm">
-            <p className="font-semibold">7. Exportação final de backup</p>
+            <p className="font-semibold">8. Exportação final de backup</p>
             <p className="text-muted-foreground">Gera uma exportação local sem senhas em <code>flash/</code>. Copie o arquivo para fora da RB após concluir a instalação; ele também deve ser renovado antes de qualquer manutenção futura.</p>
             <Button variant="outline" asChild><a href="/mikrotik/MANOS-BACKUP-EXPORT.rsc" download><Download className="size-4" /> Baixar exportação de backup .rsc</a></Button>
             <p className="text-xs text-muted-foreground">Terminal: <code>/import file-name=MANOS-BACKUP-EXPORT.rsc</code></p>

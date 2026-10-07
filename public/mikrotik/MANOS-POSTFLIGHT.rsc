@@ -1,6 +1,6 @@
 # Manos Tech - leitura apos a instalacao. Nao altera a configuracao.
 :put "MANOS-POSTFLIGHT|BEGIN|1"
-:put "MANOS-POSTFLIGHT|VERSION|4"
+:put "MANOS-POSTFLIGHT|VERSION|5"
 :foreach port in={"ether1";"ether2";"ether3";"ether4";"ether5"} do={
   :local bridge "none"
   :local memberships [/interface bridge port find where interface=$port]
@@ -26,7 +26,11 @@
 :put ("MANOS-POSTFLIGHT|RADIUS|" . ([:len $radiusId] > 0))
 :local hotspotId [/ip hotspot find where name="hotspot1" disabled=no]
 :if ([:len $hotspotId] = 0) do={ :put "MANOS-POSTFLIGHT|HOTSPOT|missing" } else={ :put ("MANOS-POSTFLIGHT|HOTSPOT|" . [/ip hotspot get [:pick $hotspotId 0] interface]) }
-:put ("MANOS-POSTFLIGHT|LOGIN|" . ([:len [/file find where name="flash/manos-login-v3.marker"]] > 0))
+:local loginFileOk ([:len [/file find where name="flash/hotspot/login.html"]] > 0)
+:local aloginFileOk ([:len [/file find where name="flash/hotspot/alogin.html"]] > 0)
+:put ("MANOS-POSTFLIGHT|LOGIN-FILE|flash/hotspot/login.html|" . $loginFileOk)
+:put ("MANOS-POSTFLIGHT|LOGIN-FILE|flash/hotspot/alogin.html|" . $aloginFileOk)
+:put ("MANOS-POSTFLIGHT|LOGIN|" . ($loginFileOk && $aloginFileOk))
 :foreach rule in={"MANOS-ISOLATE-HOTSPOT-LIVRE";"MANOS-ISOLATE-LIVRE-HOTSPOT"} do={
   :local rules [/ip firewall filter find where comment=$rule disabled=no]
   :put ("MANOS-POSTFLIGHT|ISOLATION|" . $rule . "|" . ([:len $rules] > 0))

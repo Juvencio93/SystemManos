@@ -116,7 +116,7 @@ function activationScript(identity: string, radiusHost: string, radiusSecret: st
 } else={
   /radius set [find where service=hotspot] address=$radiusHost secret=$radiusSecret authentication-port=1812 accounting-port=1813 timeout=3s require-message-auth=no disabled=no comment="${radiusMarker(radiusSecret)}"
 }
-/ip hotspot profile set [find where name="hsprof1"] use-radius=yes radius-accounting=yes login-by=http-chap,http-pap html-directory=flash/hotspot html-directory-override=flash/hotspot
+/ip hotspot profile set [find where name="hsprof1"] use-radius=yes radius-accounting=yes login-by=http-chap,http-pap html-directory="/flash/hotspot" html-directory-override=""
 /ip hotspot set [find where name="hotspot1"] idle-timeout=none keepalive-timeout=none login-timeout=none disabled=no
 :foreach host in={"manostech-system.com.br";"*.manostech-system.com.br";"idzvginmbesnkcaapehh.supabase.co"} do={
   :if ([:len [/ip hotspot walled-garden ip find where dst-host=$host]] = 0) do={ /ip hotspot walled-garden ip add dst-host=$host action=accept comment="MANOS-PORTAL" }

@@ -1,6 +1,7 @@
 # Manos Tech - kit-base RouterOS v7
 # Universal template. Import the device activation file after this one.
 # Never put RADIUS/WireGuard secrets or certificate private keys in this file.
+:put "MANOS-HOTSPOT-BASE|BEGIN|2"
 
 # WAN: ether1 is the provider input and ether5 is a direct provider-network
 # extension. The DHCP client belongs to the WAN bridge, not to ether1.
@@ -15,7 +16,7 @@
 /system ntp client set enabled=yes
 
 # Portal files directory.
-:if ([:len [/file find name="flash/hotspot"]] = 0) do={/file add name=flash/hotspot type=directory}
+:if ([:len [/file find name="flash/hotspot"]] = 0) do={/file add name="/flash/hotspot" type=directory}
 
 /interface bridge
 :if ([:len [find name="bridge-lan"]] = 0) do={add name=bridge-lan protocol-mode=rstp}
@@ -46,7 +47,8 @@
 
 # Captive portal base. The personalized activation file enables RADIUS later.
 /ip hotspot profile
-:if ([:len [find name="hsprof1"]] = 0) do={add name=hsprof1 hotspot-address=192.168.88.1 html-directory=flash/hotspot html-directory-override=flash/hotspot login-by=http-pap}
+:if ([:len [find name="hsprof1"]] = 0) do={add name=hsprof1 hotspot-address=192.168.88.1 html-directory="/flash/hotspot" login-by=http-pap}
+:if ([:len [find name="hsprof1"]] > 0) do={set [find name="hsprof1"] html-directory="/flash/hotspot" html-directory-override=""}
 :if ([:len [/ip hotspot find name="hotspot1"]] = 0) do={/ip hotspot add name=hotspot1 interface=bridge-lan address-pool=pool-lan profile=hsprof1 disabled=no}
 /ip hotspot set [find name="hotspot1"] idle-timeout=none keepalive-timeout=none login-timeout=none
 
@@ -135,3 +137,4 @@
 } else={
   /queue simple set [find name="MANOS-ETHER4-TOTAL"] target=192.168.89.0/24 max-limit=60M/60M disabled=no comment="MANOS-ETHER4-60M"
 }
+:put "MANOS-HOTSPOT-BASE|END|2"
