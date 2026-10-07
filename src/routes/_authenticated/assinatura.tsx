@@ -96,6 +96,13 @@ const CHARGE_LABEL: Record<string, string> = {
   cancelado: "Cancelado",
 };
 
+function customerPaymentErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+  if (message.includes("complete CPF/CNPJ e e-mail")) return message;
+  if (message.includes("Esta cobrança já está paga")) return message;
+  return "Não foi possível gerar o pagamento PIX agora. Tente novamente mais tarde ou entre em contato com o suporte.";
+}
+
 function nextDueDate(dueDay: number | null) {
   if (!dueDay) return null;
   const today = getTodayBR();
@@ -244,7 +251,7 @@ function SubscriptionPage() {
       }
       setPixDialog((prev) => ({ ...prev, qrCode: result.qrCode, copyPaste: result.copyPaste, provider: "asaas" }));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Não foi possível iniciar o pagamento.");
+      toast.error(customerPaymentErrorMessage(error));
       setPixDialog({ open: false, chargeId: null, qrCode: null, copyPaste: null, provider: null });
     } finally {
       setIsGeneratingPix(false);
