@@ -22,7 +22,7 @@ export const saveWhatsAppOperationalIntegration = createServerFn({ method: "POST
   const payload = { waba_id: data.wabaId, phone_number_id: data.phoneNumberId, business_phone: data.businessPhone, alert_phone: data.alertPhone, access_token: data.accessToken, app_secret: data.appSecret, verify_token: existing?.verify_token || crypto.randomUUID().replaceAll("-", ""), alert_template_name: data.templateName, status: "configured", last_error: null, updated_at: new Date().toISOString() };
   const result = existing ? await supabaseAdmin.from("whatsapp_operational_integrations" as any).update(payload).eq("id", existing.id) : await supabaseAdmin.from("whatsapp_operational_integrations" as any).insert(payload);
   if (result.error) throw new Error(result.error.message);
-  return { success: true };
+  return { success: true, verifyToken: payload.verify_token };
 });
 
 export const testWhatsAppOperationalIntegration = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {

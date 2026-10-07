@@ -59,6 +59,7 @@ import { finalizeLogoUpload } from "@/lib/storage.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { WhatsAppOperationalSettings } from "@/components/app/whatsapp-operational-settings";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
   component: SettingsPage,
@@ -1017,6 +1018,8 @@ function SettingsPage() {
             <CardFooter className="flex flex-wrap gap-2 border-t bg-muted/30 py-4"><Button type="button" onClick={() => savePagbankMutation.mutate()} disabled={savePagbankMutation.isPending || !pagbankToken.trim()}>{savePagbankMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />} Ativar integração</Button><Button type="button" variant="outline" onClick={() => testPagbankMutation.mutate()} disabled={!pagbankQuery.data?.saved || testPagbankMutation.isPending}>Testar conexão</Button><Button type="button" variant="outline" className="border-destructive/30 text-destructive" onClick={() => removePagbankMutation.mutate()} disabled={!pagbankQuery.data?.saved}>Remover</Button></CardFooter></>}
           </Card>
         )}
+
+        {isAdm && <WhatsAppOperationalSettings />}
 
         {/* Security Section */}
         <Card className="glass-panel border-primary/10">
