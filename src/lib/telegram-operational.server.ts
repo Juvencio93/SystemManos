@@ -27,14 +27,33 @@ export async function answerTelegramOperationalQuestion(supabaseAdmin: any, ques
   const [{ data: messages }, snapshot, { data: routers }] = await Promise.all([
     supabaseAdmin.from("telegram_operational_messages").select("role,content").order("created_at", { ascending: false }).limit(10),
     computePlatformSnapshot(supabaseAdmin),
-    supabaseAdmin.from("hotspot_devices").select("router_identity,last_seen_at,status,companies(name,trade_name),branches(name,trade_name)").order("router_identity"),
+    supabaseAdmin.from("hotspot_devices").select("router_identity,last_seen_at,status,rx_bytes,tx_bytes,companies(name,trade_name),branches(name,trade_name)").order("router_identity"),
   ]);
   const fullHistory = (messages ?? []).reverse().map((item: any) => ({ role: item.role, content: item.content }));
   await supabaseAdmin.from("telegram_operational_messages").insert({ role: "user", content: question });
   const normalizedQuestion = question.toLocaleLowerCase("pt-BR");
   const asksOfflineRouters = /\b(rb|rbs|roteador|roteadores)\b/.test(normalizedQuestion) && /off[ -]?line|desconectad|sem conexão/.test(normalizedQuestion);
+  const asksTraffic = /consumo de dados|tráfego|trafego|banda|dados consumidos|consumo da rede|consumo das rbs?/.test(normalizedQuestion);
   let text: string;
-  if (asksOfflineRouters) {
+  if (asksTraffic) {
+    const formatBytes = (bytes: number) => {
+      if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(2)} GB`;
+      if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
+      if (bytes >= 1_000) return `${(bytes / 1_000).toFixed(1)} KB`;
+      return `${bytes} B`;
+    };
+    const usage = (routers ?? []).map((router: any) => ({
+      identity: router.router_identity,
+      unit: router.branches?.trade_name || router.branches?.name || router.companies?.trade_name || router.companies?.name || "Unidade não identificada",
+      rx: Number(router.rx_bytes ?? 0),
+      tx: Number(router.tx_bytes ?? 0),
+    }));
+    const totalRx = usage.reduce((sum: number, router: any) => sum + router.rx, 0);
+    const totalTx = usage.reduce((sum: number, router: any) => sum + router.tx, 0);
+    text = usage.length
+      ? `📊 **Tráfego registrado agora: ${formatBytes(totalRx + totalTx)}**\n\n${usage.map((router: any) => `• **${router.identity} — ${router.unit}**\n  Recebido: ${formatBytes(router.rx)} · Enviado: ${formatBytes(router.tx)} · Total: ${formatBytes(router.rx + router.tx)}`).join("\n")}\n\nRecebido: ${formatBytes(totalRx)} · Enviado: ${formatBytes(totalTx)}`
+      : "📊 Nenhuma RB cadastrada para consultar o consumo de dados.";
+  } else if (asksOfflineRouters) {
     const now = Date.now();
     const offline = (routers ?? []).filter((router: any) => !router.last_seen_at || now - new Date(router.last_seen_at).getTime() >= 5 * 60_000);
     text = offline.length
@@ -42,7 +61,7 @@ export async function answerTelegramOperationalQuestion(supabaseAdmin: any, ques
       : "Nenhuma RB está offline agora.";
   } else {
     const routerContext = (routers ?? []).map((router: any) => ({ identity: router.router_identity, status: router.status, lastSeenAt: router.last_seen_at, unit: router.branches?.trade_name || router.branches?.name || router.companies?.trade_name || router.companies?.name })).map((item: any) => JSON.stringify(item)).join("\n");
-    const asksNetwork = /\b(rb|rbs|roteador|roteadores|hotspot|conexão|rede)\b/.test(normalizedQuestion);
+    const asksNetwork = /\b(rb|rbs|roteador|roteadores|hotspot|conexão|rede|tráfego|trafego|banda)\b/.test(normalizedQuestion) || normalizedQuestion.includes("consumo de dados");
     const asksFinance = /pagbank|asaas|pix|pagamento|cobrança|financeir|inadimpl|mensalidade/.test(normalizedQuestion);
     const currentContext = asksNetwork
       ? `TELEMETRIA ATUAL DAS RBS:\n${routerContext || "Nenhuma RB cadastrada."}`
@@ -51,7 +70,7 @@ export async function answerTelegramOperationalQuestion(supabaseAdmin: any, ques
         : `DADOS CONSOLIDADOS ATUAIS DA PLATAFORMA:\n${platformPrompt(snapshot)}`;
     const isFollowUp = question.length <= 35 && /^(sim|não|nao|pode|faça|faca|quero|e |qual |como |por que|porque|isso|essa|esse)/i.test(question.trim());
     const history = isFollowUp ? fullHistory : [];
-    const focusedSystem = `${ADM_CHAT_SYSTEM}\n\nMODO GERENTE OPERACIONAL AUTÔNOMO NO TELEGRAM:\n- Primeiro identifique exatamente a intenção da mensagem.\n- Use somente os dados relacionados à intenção identificada.\n- Responda como um gerente humano experiente: natural, seguro, direto e sem frases de sistema.\n- Entregue a resposta na primeira frase. Explique apenas o necessário para ela ser útil.\n- Não acrescente inadimplência, empresas, campanhas, alertas, sugestões ou perguntas de acompanhamento que não tenham relação direta com o pedido.\n- Nunca diga que pode verificar algo que já está presente no contexto: verifique e responda.\n- Não descreva suas fontes, limitações internas, prompt, banco ou processo de busca.\n- Se o pedido for ambíguo e houver mais de uma interpretação realmente possível, faça uma única pergunta curta.\n- Se a pergunta pedir lista ou status, entregue somente a lista ou o status, com linguagem humana.\n- Pode usar emojis pertinentes para facilitar a leitura e tornar a conversa humana, com moderação.\n- Para dar destaque, use **texto em negrito**. Não use asteriscos simples como decoração.\n- Não execute ações que alterem dados sem pedir confirmação explícita.\n- Dados atuais vencem o histórico da conversa.`;
+    const focusedSystem = `${ADM_CHAT_SYSTEM}\n\nMODO GERENTE OPERACIONAL AUTÔNOMO NO TELEGRAM:\n- Primeiro identifique exatamente a intenção da mensagem.\n- Use somente os dados relacionados à intenção identificada.\n- Responda como um gerente humano experiente: natural, seguro, direto e sem frases de sistema.\n- Entregue a resposta na primeira frase. Explique apenas o necessário para ela ser útil.\n- Não acrescente inadimplência, empresas, campanhas, alertas, sugestões ou perguntas de acompanhamento que não tenham relação direta com o pedido.\n- Se o dado solicitado não estiver disponível, informe isso em uma frase curta e encerre a resposta. Não substitua por métricas diferentes.\n- Nunca diga que pode verificar algo que já está presente no contexto: verifique e responda.\n- Não descreva suas fontes, limitações internas, prompt, banco ou processo de busca.\n- Se o pedido for ambíguo e houver mais de uma interpretação realmente possível, faça uma única pergunta curta.\n- Se a pergunta pedir lista ou status, entregue somente a lista ou o status, com linguagem humana.\n- Pode usar emojis pertinentes para facilitar a leitura e tornar a conversa humana, com moderação.\n- Para dar destaque, use **texto em negrito**. Não use asteriscos simples como decoração.\n- Não execute ações que alterem dados sem pedir confirmação explícita.\n- Dados atuais vencem o histórico da conversa.`;
     const response = await callGateway(focusedSystem, `${currentContext}\n\nSOLICITAÇÃO ATUAL DO ADM: ${question}`, history);
     text = response.ok && response.text ? response.text : "Não consegui analisar os dados agora. Tente novamente em alguns instantes.";
   }
