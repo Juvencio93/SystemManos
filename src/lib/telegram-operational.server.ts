@@ -27,15 +27,37 @@ export async function answerTelegramOperationalQuestion(supabaseAdmin: any, ques
   const [{ data: messages }, snapshot, { data: routers }] = await Promise.all([
     supabaseAdmin.from("telegram_operational_messages").select("role,content").order("created_at", { ascending: false }).limit(10),
     computePlatformSnapshot(supabaseAdmin),
-    supabaseAdmin.from("hotspot_devices").select("router_identity,last_seen_at,status,rx_bytes,tx_bytes,companies(name,trade_name),branches(name,trade_name)").order("router_identity"),
+    supabaseAdmin.from("hotspot_devices").select("router_identity,last_seen_at,status,active_sessions,rx_bytes,tx_bytes,companies(name,trade_name),branches(name,trade_name)").order("router_identity"),
   ]);
   const fullHistory = (messages ?? []).reverse().map((item: any) => ({ role: item.role, content: item.content }));
   await supabaseAdmin.from("telegram_operational_messages").insert({ role: "user", content: question });
   const normalizedQuestion = question.toLocaleLowerCase("pt-BR");
   const asksOfflineRouters = /\b(rb|rbs|roteador|roteadores)\b/.test(normalizedQuestion) && /off[ -]?line|desconectad|sem conexão/.test(normalizedQuestion);
   const asksTraffic = /consumo de dados|tráfego|trafego|banda|dados consumidos|consumo da rede|consumo das rbs?/.test(normalizedQuestion);
+  const asksConnectedClients = /(clientes?|usuários?|usuarios?|pessoas?|dispositivos?|sessões?|sessoes?).*(conectad|online|ativos?)|(conectad|online).*(agora|momento|clientes?|usuários?|usuarios?|pessoas?|dispositivos?|sessões?|sessoes?)/.test(normalizedQuestion);
   let text: string;
-  if (asksTraffic) {
+  if (asksConnectedClients) {
+    const now = Date.now();
+    const groupByCompany = /por empresa|empresas?/.test(normalizedQuestion) && !/por filial|filiais/.test(normalizedQuestion);
+    const connectedByUnit = new Map<string, { sessions: number; hasCurrentReading: boolean }>();
+    for (const router of routers ?? []) {
+      const company = router.companies?.trade_name || router.companies?.name;
+      const branch = router.branches?.trade_name || router.branches?.name;
+      const unit = (groupByCompany ? company : branch || company) || "Unidade não identificada";
+      const current = connectedByUnit.get(unit) ?? { sessions: 0, hasCurrentReading: false };
+      const readingIsCurrent = Boolean(router.last_seen_at) && now - new Date(router.last_seen_at).getTime() < 5 * 60_000;
+      if (readingIsCurrent) {
+        current.sessions += Number(router.active_sessions ?? 0);
+        current.hasCurrentReading = true;
+      }
+      connectedByUnit.set(unit, current);
+    }
+    const units = [...connectedByUnit.entries()].sort(([a], [b]) => a.localeCompare(b, "pt-BR"));
+    const total = units.reduce((sum, [, item]) => sum + (item.hasCurrentReading ? item.sessions : 0), 0);
+    text = units.length
+      ? `👥 **${total} ${total === 1 ? "cliente conectado" : "clientes conectados"} agora**\n\n${units.map(([unit, item]) => item.hasCurrentReading ? `• **${unit}:** ${item.sessions} ${item.sessions === 1 ? "conectado" : "conectados"}` : `• **${unit}:** sem leitura atual`).join("\n")}`
+      : "👥 Nenhuma RB cadastrada para consultar clientes conectados.";
+  } else if (asksTraffic) {
     const formatBytes = (bytes: number) => {
       if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(2)} GB`;
       if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
