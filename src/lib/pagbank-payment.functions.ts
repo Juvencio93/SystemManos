@@ -54,13 +54,13 @@ async function notifyPagBankFailure(supabaseAdmin: any, company: any, companyId:
     { onConflict: "recipient_user_id,event_key" },
   );
   try {
-    const { sendOperationalWhatsAppAlert } = await import("@/lib/whatsapp-operational.server");
-    await sendOperationalWhatsAppAlert(supabaseAdmin, {
+    const { sendOperationalTelegramAlert } = await import("@/lib/telegram-operational.server");
+    await sendOperationalTelegramAlert(supabaseAdmin, {
       title: `Falha no PIX PagBank — ${companyName}`,
       description: detail,
     });
   } catch (error) {
-    console.error("[whatsapp-operational] alert delivery failed", error);
+    console.error("[telegram-operational] alert delivery failed", error);
   }
 }
 

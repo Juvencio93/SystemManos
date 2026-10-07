@@ -59,7 +59,7 @@ import { finalizeLogoUpload } from "@/lib/storage.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
-import { WhatsAppOperationalSettings } from "@/components/app/whatsapp-operational-settings";
+import { TelegramOperationalSettings } from "@/components/app/telegram-operational-settings";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
   component: SettingsPage,
@@ -1019,7 +1019,7 @@ function SettingsPage() {
           </Card>
         )}
 
-        {isAdm && <WhatsAppOperationalSettings />}
+        {isAdm && <TelegramOperationalSettings />}
 
         {/* Security Section */}
         <Card className="glass-panel border-primary/10">
