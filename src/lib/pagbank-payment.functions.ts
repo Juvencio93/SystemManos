@@ -53,6 +53,15 @@ async function notifyPagBankFailure(supabaseAdmin: any, company: any, companyId:
     })),
     { onConflict: "recipient_user_id,event_key" },
   );
+  try {
+    const { sendOperationalWhatsAppAlert } = await import("@/lib/whatsapp-operational.server");
+    await sendOperationalWhatsAppAlert(supabaseAdmin, {
+      title: `Falha no PIX PagBank — ${companyName}`,
+      description: detail,
+    });
+  } catch (error) {
+    console.error("[whatsapp-operational] alert delivery failed", error);
+  }
 }
 
 export const getOrCreatePagBankPix = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).validator((input: unknown) => z.object({ chargeId: z.string().uuid() }).parse(input)).handler(async ({ context, data }) => {
