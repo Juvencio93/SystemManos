@@ -28,7 +28,7 @@ function statusCommand(blocked: boolean) {
   }
   return `# Quarantine all RB-routed networks. ether5 remains a transparent provider-LAN bridge.
 ${removeManagedRule("MANOS-BLOCK-ETHER5")}
-${BLOCK_RULES.map(([comment, chain, subnet]) => `:if ([:len [/ip firewall filter find where comment="${comment}"]] = 0) do={/ip firewall filter add chain=${chain} src-address=${subnet} action=drop place-before=0 comment="${comment}"} else={/ip firewall filter set [find where comment="${comment}"] disabled=no; /ip firewall filter move [find where comment="${comment}"] destination=0}`).join("\n")}
+${BLOCK_RULES.map(([comment, chain, subnet]) => `:if ([:len [/ip firewall filter find where comment="${comment}"]] = 0) do={/ip firewall filter add chain=${chain} src-address=${subnet} action=drop comment="${comment}"} else={/ip firewall filter set [find where comment="${comment}"] disabled=no}; :local manosFirstRule [:pick [/ip firewall filter find] 0]; :local manosManagedRule [:pick [/ip firewall filter find where comment="${comment}"] 0]; :if ($manosManagedRule != $manosFirstRule) do={/ip firewall filter move $manosManagedRule destination=$manosFirstRule}`).join("\n")}
 `;
 }
 

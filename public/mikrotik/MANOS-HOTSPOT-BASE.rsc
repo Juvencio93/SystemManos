@@ -72,7 +72,7 @@
 # only traffic routed between the two private Manos networks; internet access
 # through bridge-wan and the ether1/ether5 provider bridge remains unchanged.
 :if ([:len [/ip firewall filter find comment="MANOS-ISOLATE-HOTSPOT-LIVRE"]] = 0) do={
-  /ip firewall filter add chain=forward src-address=192.168.88.0/24 dst-address=192.168.89.0/24 action=drop place-before=0 comment="MANOS-ISOLATE-HOTSPOT-LIVRE"
+  /ip firewall filter add chain=forward src-address=192.168.88.0/24 dst-address=192.168.89.0/24 action=drop comment="MANOS-ISOLATE-HOTSPOT-LIVRE"
 } else={
   /ip firewall filter set [find comment="MANOS-ISOLATE-HOTSPOT-LIVRE"] chain=forward src-address=192.168.88.0/24 dst-address=192.168.89.0/24 action=drop disabled=no
   :local firstRule [:pick [/ip firewall filter find] 0]
@@ -80,7 +80,7 @@
   :if ($isolationRule != $firstRule) do={ /ip firewall filter move $isolationRule destination=$firstRule }
 }
 :if ([:len [/ip firewall filter find comment="MANOS-ISOLATE-LIVRE-HOTSPOT"]] = 0) do={
-  /ip firewall filter add chain=forward src-address=192.168.89.0/24 dst-address=192.168.88.0/24 action=drop place-before=0 comment="MANOS-ISOLATE-LIVRE-HOTSPOT"
+  /ip firewall filter add chain=forward src-address=192.168.89.0/24 dst-address=192.168.88.0/24 action=drop comment="MANOS-ISOLATE-LIVRE-HOTSPOT"
 } else={
   /ip firewall filter set [find comment="MANOS-ISOLATE-LIVRE-HOTSPOT"] chain=forward src-address=192.168.89.0/24 dst-address=192.168.88.0/24 action=drop disabled=no
   :local firstRule [:pick [/ip firewall filter find] 0]
@@ -92,13 +92,13 @@
 # RouterOS IP administration services. The employee network remains allowed
 # to use the provider subnet through ether5/bridge-wan.
 :if ([:len [/ip firewall filter find comment="MANOS-GUEST-BLOCK-PROVIDER"]] = 0) do={
-  /ip firewall filter add chain=forward src-address=192.168.88.0/24 dst-address=192.168.0.0/24 action=drop place-before=0 comment="MANOS-GUEST-BLOCK-PROVIDER"
+  /ip firewall filter add chain=forward src-address=192.168.88.0/24 dst-address=192.168.0.0/24 action=drop comment="MANOS-GUEST-BLOCK-PROVIDER"
 }
 :if ([:len [/ip firewall filter find comment="MANOS-GUEST-BLOCK-MANAGEMENT-TCP"]] = 0) do={
-  /ip firewall filter add chain=input src-address=192.168.88.0/24 protocol=tcp dst-port=21,22,23,8291,8728,8729 action=drop place-before=0 comment="MANOS-GUEST-BLOCK-MANAGEMENT-TCP"
+  /ip firewall filter add chain=input src-address=192.168.88.0/24 protocol=tcp dst-port=21,22,23,8291,8728,8729 action=drop comment="MANOS-GUEST-BLOCK-MANAGEMENT-TCP"
 }
 :if ([:len [/ip firewall filter find comment="MANOS-GUEST-BLOCK-MANAGEMENT-UDP"]] = 0) do={
-  /ip firewall filter add chain=input src-address=192.168.88.0/24 protocol=udp dst-port=161 action=drop place-before=0 comment="MANOS-GUEST-BLOCK-MANAGEMENT-UDP"
+  /ip firewall filter add chain=input src-address=192.168.88.0/24 protocol=udp dst-port=161 action=drop comment="MANOS-GUEST-BLOCK-MANAGEMENT-UDP"
 }
 
 # Protect the router itself from traffic arriving at the provider bridge. DHCP
