@@ -1,90 +1,187 @@
 from pathlib import Path
+
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
-from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import Image, KeepTogether, PageBreak, Paragraph, SimpleDocTemplate, Spacer
 
-OUT = Path("public/mikrotik")
-PDF_V2 = OUT / "guia-instalacao-mikrotik-manos-tech-v2.pdf"
-PDF_ALIAS = OUT / "guia-instalacao-mikrotik-manos-tech.pdf"
-styles = getSampleStyleSheet()
-styles.add(ParagraphStyle(name="Cover", parent=styles["Title"], textColor=colors.HexColor("#075985"), fontSize=24, leading=29, spaceAfter=8))
-styles.add(ParagraphStyle(name="Sub", parent=styles["BodyText"], textColor=colors.HexColor("#475569"), fontSize=11, leading=16, spaceAfter=10))
-styles.add(ParagraphStyle(name="H1x", parent=styles["Heading1"], textColor=colors.HexColor("#075985"), fontSize=18, leading=22, spaceBefore=4, spaceAfter=9))
-styles.add(ParagraphStyle(name="H2x", parent=styles["Heading2"], textColor=colors.HexColor("#0e7490"), fontSize=13, leading=17, spaceBefore=9, spaceAfter=5))
-styles.add(ParagraphStyle(name="Bodyx", parent=styles["BodyText"], fontSize=9.6, leading=13.5, spaceAfter=5))
-styles.add(ParagraphStyle(name="Small", parent=styles["BodyText"], textColor=colors.HexColor("#475569"), fontSize=8.3, leading=11.5, spaceAfter=4))
-styles.add(ParagraphStyle(name="CodeX", parent=styles["Code"], fontName="Courier", fontSize=8.1, leading=11, backColor=colors.HexColor("#eef2f7"), borderColor=colors.HexColor("#cbd5e1"), borderWidth=.5, borderPadding=7, spaceBefore=4, spaceAfter=7))
-styles.add(ParagraphStyle(name="WarnX", parent=styles["BodyText"], fontSize=9.5, leading=13.5, textColor=colors.HexColor("#9a3412"), backColor=colors.HexColor("#fff7ed"), borderColor=colors.HexColor("#fb923c"), borderWidth=1, borderPadding=8, spaceBefore=5, spaceAfter=8))
-styles.add(ParagraphStyle(name="OkX", parent=styles["BodyText"], fontSize=9.5, leading=13.5, textColor=colors.HexColor("#065f46"), backColor=colors.HexColor("#ecfdf5"), borderColor=colors.HexColor("#34d399"), borderWidth=1, borderPadding=8, spaceBefore=5, spaceAfter=8))
+ROOT = Path("public/mikrotik")
+LOGO = ROOT / "manos-tech-logo.jpg"
+PDF_MAIN = ROOT / "guia-instalacao-mikrotik-manos-tech-v2.pdf"
+PDF_ALIAS = ROOT / "guia-instalacao-mikrotik-manos-tech.pdf"
 
-def footer(canvas, doc):
-    canvas.saveState(); canvas.setStrokeColor(colors.HexColor("#cbd5e1")); canvas.line(18*mm, 16*mm, 192*mm, 16*mm)
-    canvas.setFont("Helvetica", 7.5); canvas.setFillColor(colors.HexColor("#64748b"))
-    canvas.drawString(18*mm, 11*mm, "Manos Tech - Instalação MikroTik HotSpot - revisão 07/10/2026")
-    canvas.drawRightString(192*mm, 11*mm, f"Página {doc.page}"); canvas.restoreState()
+base = getSampleStyleSheet()
+styles = {
+    "cover": ParagraphStyle("cover", parent=base["Title"], fontName="Helvetica-Bold", fontSize=25, leading=31, textColor=colors.HexColor("#075985"), alignment=1, spaceAfter=9),
+    "subtitle": ParagraphStyle("subtitle", parent=base["BodyText"], fontSize=13, leading=18, textColor=colors.HexColor("#475569"), alignment=1, spaceAfter=12),
+    "h1": ParagraphStyle("h1", parent=base["Heading1"], fontName="Helvetica-Bold", fontSize=19, leading=24, textColor=colors.HexColor("#075985"), spaceAfter=10),
+    "h2": ParagraphStyle("h2", parent=base["Heading2"], fontName="Helvetica-Bold", fontSize=14, leading=18, textColor=colors.HexColor("#0e7490"), spaceBefore=8, spaceAfter=6),
+    "body": ParagraphStyle("body", parent=base["BodyText"], fontSize=11.2, leading=16, textColor=colors.HexColor("#172033"), spaceAfter=8),
+    "step": ParagraphStyle("step", parent=base["BodyText"], fontSize=11.2, leading=16, leftIndent=8, firstLineIndent=-8, spaceAfter=7),
+    "code": ParagraphStyle("code", parent=base["Code"], fontName="Courier-Bold", fontSize=10.2, leading=15, textColor=colors.HexColor("#0f172a"), backColor=colors.HexColor("#eef2f7"), borderColor=colors.HexColor("#94a3b8"), borderWidth=.8, borderPadding=9, spaceBefore=4, spaceAfter=10, splitLongWords=True),
+    "warn": ParagraphStyle("warn", parent=base["BodyText"], fontSize=11, leading=16, textColor=colors.HexColor("#9a3412"), backColor=colors.HexColor("#fff7ed"), borderColor=colors.HexColor("#fb923c"), borderWidth=1, borderPadding=10, spaceBefore=5, spaceAfter=10),
+    "ok": ParagraphStyle("ok", parent=base["BodyText"], fontSize=11, leading=16, textColor=colors.HexColor("#065f46"), backColor=colors.HexColor("#ecfdf5"), borderColor=colors.HexColor("#34d399"), borderWidth=1, borderPadding=10, spaceBefore=5, spaceAfter=10),
+    "small": ParagraphStyle("small", parent=base["BodyText"], fontSize=9, leading=12, textColor=colors.HexColor("#64748b")),
+}
 
-def p(text, style="Bodyx"): return Paragraph(text, styles[style])
-def command(text): return Paragraph(text, styles["CodeX"])
-def checklist(rows):
-    data = [[p("Etapa", "Small"), p("Arquivo ou ação", "Small"), p("Pode avançar quando", "Small")]]
-    data += [[p(a, "Small"), p(b, "Small"), p(c, "Small")] for a, b, c in rows]
-    table = Table(data, colWidths=[23*mm, 65*mm, 84*mm], repeatRows=1)
-    table.setStyle(TableStyle([("BACKGROUND", (0,0), (-1,0), colors.HexColor("#e0f2fe")), ("TEXTCOLOR", (0,0), (-1,0), colors.HexColor("#075985")), ("GRID", (0,0), (-1,-1), .4, colors.HexColor("#cbd5e1")), ("VALIGN", (0,0), (-1,-1), "TOP"), ("LEFTPADDING", (0,0), (-1,-1), 6), ("RIGHTPADDING", (0,0), (-1,-1), 6), ("TOPPADDING", (0,0), (-1,-1), 5), ("BOTTOMPADDING", (0,0), (-1,-1), 5)]))
-    return table
+
+def P(text, style="body"):
+    return Paragraph(text, styles[style])
+
+
+def C(text):
+    return Paragraph(text.replace("&", "&amp;"), styles["code"])
+
+
+def block(title, body, command=None, result=None):
+    items = [P(title, "h2"), P(body)]
+    if command:
+        items.append(C(command))
+    if result:
+        items.append(P(f"<b>Resultado esperado:</b> {result}", "ok"))
+    return KeepTogether(items)
+
+
+def header_footer(canvas, doc):
+    canvas.saveState()
+    if doc.page > 1:
+        canvas.drawImage(str(LOGO), 18*mm, 270*mm, width=18*mm, height=18*mm, preserveAspectRatio=True, mask="auto")
+        canvas.setFont("Helvetica-Bold", 9)
+        canvas.setFillColor(colors.HexColor("#075985"))
+        canvas.drawString(40*mm, 280*mm, "MANOS TECH - INSTALAÇÃO MIKROTIK HOTSPOT")
+        canvas.setStrokeColor(colors.HexColor("#cbd5e1"))
+        canvas.line(18*mm, 268*mm, 192*mm, 268*mm)
+    canvas.setStrokeColor(colors.HexColor("#cbd5e1"))
+    canvas.line(18*mm, 16*mm, 192*mm, 16*mm)
+    canvas.setFont("Helvetica", 8)
+    canvas.setFillColor(colors.HexColor("#64748b"))
+    canvas.drawString(18*mm, 11*mm, "Manual revisado em 07/10/2026 - RouterOS v7")
+    canvas.drawRightString(192*mm, 11*mm, f"Página {doc.page}")
+    canvas.restoreState()
+
 
 story = [
- p("Instalação de RB nova ou resetada", "Cover"), p("MikroTik RouterOS v7 - HotSpot Manos Tech", "Sub"),
- p("Este manual descreve um único fluxo completo para uma RB sem configuração. Arquivos de manutenção de RB antiga aparecem somente no final e não fazem parte da instalação nova."),
- p("REGRA PRINCIPAL", "H2x"), p("Execute um arquivo por vez e leia toda a saída do Terminal. Se aparecer <b>Script Error</b>, <b>failure</b>, <b>MISSING</b> ou <b>FAILED</b>, pare. Não importe a etapa seguinte até corrigir a atual.", "WarnX"),
- p("Ordem obrigatória", "H2x"), checklist([
-  ("0", "Backup, reset e reconexão por MAC", "A RB reiniciou e o WinBox conectou pelo MAC"),
-  ("1", "MANOS-PREFLIGHT.rsc", "ether1 a ether5 aparecem como none"),
-  ("2", "MANOS-HOTSPOT-BASE.rsc", "Terminou sem Script Error"),
-  ("3", "login.html, alogin.html e instalador", "LOGIN e ALOGIN retornam INSTALLED"),
-  ("4", "Arquivo exclusivo *-activation.rsc", "Ativação terminou sem erro"),
-  ("5", "Arquivo exclusivo *-heartbeat.rsc", "Scheduler MANOS-HEARTBEAT ativo"),
-  ("6", "MANOS-POSTFLIGHT.rsc", "Todos os itens obrigatórios confirmados"),
-  ("7", "MANOS-MANAGEMENT-HARDENING.rsc", "Serviços desnecessários desativados"),
-  ("8", "MANOS-BACKUP-EXPORT.rsc", "Exportação copiada para fora da RB"),
- ]), Spacer(1, 4*mm), p("Topologia aplicada", "H2x"),
- p("<b>ether1:</b> entrada do provedor. <b>ether2 e ether3:</b> visitantes com HotSpot em 192.168.88.0/24. <b>ether4:</b> funcionários em 192.168.89.0/24, limitada a 60/60 Mbps. <b>ether5:</b> extensão transparente da rede do provedor junto com ether1; não recebe DHCP, HotSpot ou NAT privado da RB."),
- PageBreak(), p("0. Backup, reset e acesso local", "H1x"),
- p("Use este procedimento somente com autorização para apagar a configuração. Salve antes um backup/export fora da RB. Mantenha um computador conectado localmente e use WinBox por MAC; não faça a instalação por acesso remoto ou pela ether5.", "WarnX"),
- command("/system reset-configuration no-defaults=yes"),
- p("Após reiniciar, abra WinBox, selecione a RB pela aba Neighbors usando o endereço MAC e conecte. Se o RouterOS solicitar aceite de licença ou troca de senha, conclua antes de enviar os arquivos."),
- p("1. Pré-verificação após o reset", "H1x"), p("Baixe <b>MANOS-PREFLIGHT.rsc</b>, envie para a raiz de <b>Files</b> e execute:"), command("/import file-name=MANOS-PREFLIGHT.rsc"),
- p("A saída deve começar em <b>MANOS-PREFLIGHT|BEGIN|1</b>, terminar em <b>MANOS-PREFLIGHT|END|1</b> e mostrar ether1 a ether5 como <b>none</b>. Se ainda houver bridge, IP, DHCP, PPPoE ou HotSpot, pare e revise o reset.", "OkX"),
- p("Confirmações", "H2x"), p("- O provedor entrega IP por DHCP.<br/>- O cabo do provedor será ligado na ether1.<br/>- ether5 pode compartilhar a rede do provedor.<br/>- Você continua conectado localmente pelo MAC.<br/>- Os arquivos foram baixados novamente do painel atual."),
- PageBreak(), p("2. Instalar o kit-base", "H1x"), p("Baixe <b>MANOS-HOTSPOT-BASE.rsc</b>, envie para a raiz de Files e execute somente este comando:"), command("/import file-name=MANOS-HOTSPOT-BASE.rsc"),
- p("Aguarde o Terminal voltar ao prompt. Não avance se aparecer erro. O kit cria bridges, DHCP, HotSpot, NAT, isolamento, proteção da RB, fila da ether4 e a pasta flash/hotspot."),
- p("Verificação rápida", "H2x"), command("/interface bridge port print\n/ip address print\n/ip hotspot print detail"), p("Execute cada linha separadamente. O esperado é ether1/ether5 em bridge-wan, ether2/ether3 em bridge-lan, ether4 em bridge-livre, endereços 192.168.88.1/24 e 192.168.89.1/24 e hotspot1 em bridge-lan.", "OkX"),
- p("3. Instalar login.html e alogin.html", "H1x"), p("Baixe <b>login.html</b>, <b>alogin.html</b> e <b>MANOS-INSTALL-HOTSPOT-PAGES.rsc</b>. Envie os três para a raiz de Files e execute:"), command("/import file-name=MANOS-INSTALL-HOTSPOT-PAGES.rsc"),
- p("A saída obrigatória é:<br/><b>MANOS-HOTSPOT-PAGES|LOGIN|INSTALLED</b><br/><b>MANOS-HOTSPOT-PAGES|ALOGIN|INSTALLED</b><br/>Se aparecer MISSING ou FAILED, envie novamente os três arquivos e repita esta etapa.", "OkX"),
- p("O perfil hsprof1 usa o caminho completo <b>/flash/hotspot</b>. As páginas devem existir como flash/hotspot/login.html e flash/hotspot/alogin.html."),
- PageBreak(), p("4. Importar a Ativação exclusiva", "H1x"), p("No painel, localize a RB correta em Clientes ativos homologados e baixe <b>Ativação</b>. Esse arquivo contém a identidade e as credenciais RADIUS daquela RB; não reutilize em outro equipamento."), command('/import file-name="NOME-EXATO-activation.rsc"'), p("Use o nome exato mostrado em Files. A Ativação exige hotspot1 e hsprof1 criados pelo kit-base."),
- p("5. Importar o Heartbeat exclusivo", "H1x"), p("Baixe o <b>Heartbeat</b> da mesma linha e importe somente após a Ativação concluir:"), command('/import file-name="NOME-EXATO-heartbeat.rsc"'),
- p("Confirme script e agendador, um comando por vez:"), command('/system script print detail where name="MANOS-HEARTBEAT"\n/system scheduler print detail where name="MANOS-HEARTBEAT"'), p("O scheduler deve estar habilitado com intervalo de 5 segundos. Aguarde a RB aparecer online no painel.", "OkX"),
- p("Se não ficar online", "H2x"), p("Confira IP e rota na bridge-wan, relógio da RB e execute <b>/system script run MANOS-HEARTBEAT</b>. Depois consulte <b>/log print where message~\"Manos Tech\"</b>."),
- PageBreak(), p("6. Conferência obrigatória", "H1x"), p("Baixe <b>MANOS-POSTFLIGHT.rsc</b>, envie para Files e execute:"), command("/import file-name=MANOS-POSTFLIGHT.rsc"),
- p("Cole no painel a saída completa entre BEGIN e END. A conferência verifica portas, endereços, fila da ether4, RADIUS, HotSpot, os dois HTMLs, isolamento, proteção do visitante e firewall da WAN."), p("Não homologue a RB se houver item obrigatório false, missing ou aviso vermelho. Corrija a etapa indicada e execute o POSTFLIGHT novamente.", "WarnX"),
- p("Testes físicos obrigatórios", "H2x"), p("1. Conecte um cliente pela rede de visitantes em ether2 ou ether3.<br/>2. Abra uma página HTTP e confirme o redirecionamento.<br/>3. Faça cadastro/login e confirme navegação.<br/>4. Confira a velocidade aplicada pelo RADIUS.<br/>5. Teste a rede de funcionários pela ether4.<br/>6. Confirme que visitante não alcança 192.168.89.0/24 nem a administração da RB."),
- p("7. Endurecimento", "H1x"), p("Conectado localmente pela ether4 ou MAC, importe o endurecimento. Ele desativa FTP, Telnet, Bandwidth Test, API e API-SSL e mantém WinBox e SSH."), command("/import file-name=MANOS-MANAGEMENT-HARDENING.rsc"),
- p("8. Exportação final", "H1x"), p("Importe o arquivo e copie a exportação criada em flash para fora da RB."), command("/import file-name=MANOS-BACKUP-EXPORT.rsc"),
- PageBreak(), p("Manutenção de RB já instalada", "H1x"), p("Esta seção não pertence à instalação de uma RB zerada. Não use o kit-base em uma RB produtiva apenas para corrigir uma regra.", "WarnX"),
- checklist([
-  ("Isolamento", "MANOS-ISOLATION-UPDATE.rsc", "Corrigir somente isolamento .88 x .89"),
-  ("Visitantes", "MANOS-HOTSPOT-FIREWALL-UPDATE.rsc", "Bloquear provedor e administração"),
-  ("WAN", "MANOS-WAN-FIREWALL-UPDATE.rsc", "Proteger bridge-wan; aplicar localmente"),
-  ("Páginas", "HTMLs + instalador", "Restaurar flash/hotspot"),
-  ("Auditoria", "MANOS-SECURITY-AUDIT.rsc", "Somente leitura"),
- ]),
- p("Diagnóstico", "H2x"), command('/ip dhcp-client print detail\n/ip route print detail\n/radius print detail\n/ip hotspot active print detail\n/system script run MANOS-HEARTBEAT\n/log print where message~"radius|hotspot|Manos Tech|failure"'),
- p("Referência técnica", "H2x"), p("O fluxo segue as operações documentadas no RouterOS v7: reset sem configuração padrão, conexão local por MAC, diretório completo do HotSpot em /flash/hotspot e cópia de arquivos com /file copy. Consulte a documentação oficial MikroTik de Configuration Management, First Time Configuration, Files e HotSpot Captive Portal."),
+    Spacer(1, 15*mm),
+    Image(str(LOGO), width=58*mm, height=58*mm, hAlign="CENTER"),
+    Spacer(1, 8*mm),
+    P("Instalação de RB nova ou resetada", "cover"),
+    P("MikroTik RouterOS v7 - HotSpot Manos Tech", "subtitle"),
+    Spacer(1, 8*mm),
+    P("Este manual apresenta um fluxo único e completo para configurar uma RB sem nenhuma configuração anterior.", "subtitle"),
+    P("PARE AO PRIMEIRO ERRO", "h2"),
+    P("Execute somente um arquivo por vez. Se o Terminal mostrar <b>Script Error</b>, <b>failure</b>, <b>MISSING</b> ou <b>FAILED</b>, não continue. Corrija a etapa e repita sua conferência.", "warn"),
+    Spacer(1, 12*mm),
+    P("Manutenção de RB já instalada está separada no final. Não use arquivos de atualização durante uma instalação limpa.", "ok"),
+
+    PageBreak(),
+    P("Visão geral da instalação", "h1"),
+    P("Siga exatamente esta ordem. Não pule a instalação das páginas do HotSpot."),
+    P("<b>0.</b> Backup, reset e reconexão local pelo MAC.", "step"),
+    P("<b>1.</b> Executar MANOS-PREFLIGHT.rsc após o reset.", "step"),
+    P("<b>2.</b> Importar MANOS-HOTSPOT-BASE.rsc.", "step"),
+    P("<b>3.</b> Instalar login.html e alogin.html com MANOS-INSTALL-HOTSPOT-PAGES.rsc.", "step"),
+    P("<b>4.</b> Importar a Ativação exclusiva da RB.", "step"),
+    P("<b>5.</b> Importar o Heartbeat exclusivo da mesma RB.", "step"),
+    P("<b>6.</b> Executar MANOS-POSTFLIGHT.rsc e corrigir todos os itens vermelhos.", "step"),
+    P("<b>7.</b> Aplicar o endurecimento dos serviços.", "step"),
+    P("<b>8.</b> Gerar e guardar a exportação final.", "step"),
+    P("Topologia aplicada", "h2"),
+    P("<b>ether1:</b> entrada do provedor.<br/><b>ether2 e ether3:</b> visitantes com HotSpot em 192.168.88.0/24.<br/><b>ether4:</b> funcionários em 192.168.89.0/24, com limite total de 60/60 Mbps.<br/><b>ether5:</b> extensão transparente da rede do provedor junto com ether1."),
+    P("A instalação deve ser feita localmente pelo WinBox usando o endereço MAC. Não execute o procedimento por acesso remoto nem pela ether5.", "warn"),
+
+    PageBreak(),
+    P("0. Backup, reset e reconexão", "h1"),
+    P("Antes de apagar a configuração, salve backup e exportação fora da RB. Confirme que existe autorização para reconfigurar o equipamento.", "warn"),
+    C("/system reset-configuration no-defaults=yes"),
+    P("Confirme o reset no Terminal. Após reiniciar, abra o WinBox, entre em <b>Neighbors</b>, selecione o endereço MAC da RB e conecte. Conclua qualquer aceite de licença ou troca de senha solicitada pelo RouterOS."),
+    P("1. Pré-verificação após o reset", "h1"),
+    P("Baixe MANOS-PREFLIGHT.rsc no painel, envie para a raiz de <b>Files</b> e execute:"),
+    C("/import file-name=MANOS-PREFLIGHT.rsc"),
+    P("A saída precisa começar em MANOS-PREFLIGHT|BEGIN|1, terminar em MANOS-PREFLIGHT|END|1 e mostrar ether1 até ether5 como <b>none</b>.", "ok"),
+    P("Se ainda aparecer bridge, endereço IP, DHCP, PPPoE ou HotSpot, a RB não está limpa. Pare e revise o reset.", "warn"),
+
+    PageBreak(),
+    P("2. Importar o kit-base", "h1"),
+    P("Baixe MANOS-HOTSPOT-BASE.rsc, envie para a raiz de Files e execute:"),
+    C("/import file-name=MANOS-HOTSPOT-BASE.rsc"),
+    P("A importação correta mostra MANOS-HOTSPOT-BASE|BEGIN|2, depois MANOS-HOTSPOT-BASE|END|2 e retorna ao prompt sem Script Error.", "ok"),
+    P("O kit cria bridges, DHCP, HotSpot, NAT, isolamento, proteção de entrada, fila da ether4 e a pasta flash/hotspot."),
+    P("Conferência rápida", "h2"),
+    P("Execute os comandos abaixo <b>separadamente</b>:"),
+    C("/interface bridge port print"),
+    C("/ip address print"),
+    C("/ip hotspot print detail"),
+    P("Resultado esperado: ether1/ether5 em bridge-wan; ether2/ether3 em bridge-lan; ether4 em bridge-livre; endereços 192.168.88.1/24 e 192.168.89.1/24; hotspot1 em bridge-lan.", "ok"),
+
+    PageBreak(),
+    P("3. Instalar as páginas do HotSpot", "h1"),
+    P("Baixe os três arquivos abaixo e envie todos para a raiz de Files:"),
+    P("<b>1.</b> login.html", "step"),
+    P("<b>2.</b> alogin.html", "step"),
+    P("<b>3.</b> MANOS-INSTALL-HOTSPOT-PAGES.rsc", "step"),
+    P("Depois execute:"),
+    C("/import file-name=MANOS-INSTALL-HOTSPOT-PAGES.rsc"),
+    P("A saída obrigatória deve conter as duas confirmações abaixo:", "body"),
+    C("MANOS-HOTSPOT-PAGES|LOGIN|INSTALLED"),
+    C("MANOS-HOTSPOT-PAGES|ALOGIN|INSTALLED"),
+    P("Se aparecer MISSING ou FAILED, envie novamente os três arquivos e repita esta etapa. Não continue para a Ativação.", "warn"),
+    P("O perfil hsprof1 utiliza o diretório completo /flash/hotspot. Os arquivos finais precisam existir em flash/hotspot/login.html e flash/hotspot/alogin.html.", "ok"),
+
+    PageBreak(),
+    P("4. Importar a Ativação", "h1"),
+    P("Na lista de Clientes ativos homologados, localize a RB correta e baixe <b>Ativação</b>. O arquivo é exclusivo daquele equipamento e contém identidade e credenciais RADIUS."),
+    C('/import file-name="NOME-EXATO-activation.rsc"'),
+    P("Substitua pelo nome exato exibido em Files. Aguarde terminar sem erro antes de continuar.", "ok"),
+    P("5. Importar o Heartbeat", "h1"),
+    P("Na mesma linha da RB, baixe o Heartbeat e importe somente depois da Ativação:"),
+    C('/import file-name="NOME-EXATO-heartbeat.rsc"'),
+    P("Confira o script e o agendador com comandos separados:"),
+    C('/system script print detail where name="MANOS-HEARTBEAT"'),
+    C('/system scheduler print detail where name="MANOS-HEARTBEAT"'),
+    P("O scheduler deve estar habilitado e com intervalo de 5 segundos. Aguarde a RB aparecer online no painel.", "ok"),
+    P("Se permanecer offline, execute /system script run MANOS-HEARTBEAT e consulte /log print where message~\"Manos Tech\".", "warn"),
+
+    PageBreak(),
+    P("6. Conferência pós-instalação", "h1"),
+    P("Baixe MANOS-POSTFLIGHT.rsc, envie para Files e execute:"),
+    C("/import file-name=MANOS-POSTFLIGHT.rsc"),
+    P("Cole no painel a saída completa entre BEGIN e END. A conferência verifica portas, endereços, fila da ether4, RADIUS, HotSpot, login.html, alogin.html, isolamento e firewall."),
+    P("Não homologue a RB enquanto existir item vermelho, false ou missing.", "warn"),
+    P("Testes físicos obrigatórios", "h2"),
+    P("<b>1.</b> Conecte um cliente na rede de visitantes pela ether2 ou ether3.<br/><b>2.</b> Abra uma página HTTP e confirme o redirecionamento.<br/><b>3.</b> Faça cadastro/login e confirme navegação.<br/><b>4.</b> Confira a velocidade aplicada pelo RADIUS.<br/><b>5.</b> Teste a rede de funcionários pela ether4.<br/><b>6.</b> Confirme que o visitante não alcança 192.168.89.0/24 nem a administração da RB."),
+
+    PageBreak(),
+    P("7. Endurecimento dos serviços", "h1"),
+    P("Conectado localmente pela ether4 ou pelo MAC, envie e importe:"),
+    C("/import file-name=MANOS-MANAGEMENT-HARDENING.rsc"),
+    P("O arquivo desativa FTP, Telnet, Bandwidth Test, API e API-SSL. WinBox e SSH continuam disponíveis."),
+    P("8. Exportação final", "h1"),
+    P("Envie e importe:"),
+    C("/import file-name=MANOS-BACKUP-EXPORT.rsc"),
+    P("Copie a exportação criada em flash para fora da RB e guarde em local seguro.", "ok"),
+    P("Conclusão", "h2"),
+    P("A instalação termina somente quando o POSTFLIGHT estiver aprovado, os testes físicos forem concluídos, a RB estiver online no painel e a exportação final estiver salva fora do equipamento.", "ok"),
+
+    PageBreak(),
+    P("Manutenção de RB já instalada", "h1"),
+    P("Os arquivos abaixo não pertencem ao fluxo de uma RB zerada. Não importe o kit-base em uma RB produtiva apenas para corrigir uma função.", "warn"),
+    P("<b>MANOS-ISOLATION-UPDATE.rsc</b><br/>Corrige somente o isolamento entre 192.168.88.0/24 e 192.168.89.0/24."),
+    P("<b>MANOS-HOTSPOT-FIREWALL-UPDATE.rsc</b><br/>Protege visitantes contra a rede do provedor e os serviços de administração."),
+    P("<b>MANOS-WAN-FIREWALL-UPDATE.rsc</b><br/>Protege a entrada pela bridge-wan. Aplique localmente, nunca pela ether5."),
+    P("<b>MANOS-SECURITY-AUDIT.rsc</b><br/>Realiza somente leitura de segurança."),
+    P("<b>login.html + alogin.html + instalador</b><br/>Restaura as páginas em flash/hotspot."),
+    P("Comandos de diagnóstico", "h2"),
+    C("/ip dhcp-client print detail"),
+    C("/ip route print detail"),
+    C("/radius print detail"),
+    C("/ip hotspot active print detail"),
+    C('/log print where message~"radius|hotspot|Manos Tech|failure"'),
+    P("Referência: documentação oficial MikroTik de Configuration Management, First Time Configuration, Files e HotSpot Captive Portal.", "small"),
 ]
 
-doc = SimpleDocTemplate(str(PDF_V2), pagesize=A4, rightMargin=18*mm, leftMargin=18*mm, topMargin=16*mm, bottomMargin=21*mm, title="Instalação de RB nova ou resetada - Manos Tech", author="Manos Tech")
-doc.build(story, onFirstPage=footer, onLaterPages=footer)
-PDF_ALIAS.write_bytes(PDF_V2.read_bytes())
-print(PDF_V2); print(PDF_ALIAS)
+doc = SimpleDocTemplate(str(PDF_MAIN), pagesize=A4, leftMargin=18*mm, rightMargin=18*mm, topMargin=32*mm, bottomMargin=21*mm, title="Instalação de RB nova ou resetada - Manos Tech", author="Manos Tech")
+doc.build(story, onFirstPage=header_footer, onLaterPages=header_footer)
+PDF_ALIAS.write_bytes(PDF_MAIN.read_bytes())
+print(PDF_MAIN)
+print(PDF_ALIAS)
