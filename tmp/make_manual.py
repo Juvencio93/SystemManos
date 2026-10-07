@@ -19,19 +19,23 @@ styles = {
     "h2": ParagraphStyle("h2", parent=base["Heading2"], fontName="Helvetica-Bold", fontSize=14, leading=18, textColor=colors.HexColor("#0e7490"), spaceBefore=8, spaceAfter=6),
     "body": ParagraphStyle("body", parent=base["BodyText"], fontSize=11.2, leading=16, textColor=colors.HexColor("#172033"), spaceAfter=8),
     "step": ParagraphStyle("step", parent=base["BodyText"], fontSize=11.2, leading=16, leftIndent=8, firstLineIndent=-8, spaceAfter=7),
-    "code": ParagraphStyle("code", parent=base["Code"], fontName="Courier-Bold", fontSize=10.2, leading=15, textColor=colors.HexColor("#0f172a"), backColor=colors.HexColor("#eef2f7"), borderColor=colors.HexColor("#94a3b8"), borderWidth=.8, borderPadding=9, spaceBefore=4, spaceAfter=10, splitLongWords=True),
-    "warn": ParagraphStyle("warn", parent=base["BodyText"], fontSize=11, leading=16, textColor=colors.HexColor("#9a3412"), backColor=colors.HexColor("#fff7ed"), borderColor=colors.HexColor("#fb923c"), borderWidth=1, borderPadding=10, spaceBefore=5, spaceAfter=10),
-    "ok": ParagraphStyle("ok", parent=base["BodyText"], fontSize=11, leading=16, textColor=colors.HexColor("#065f46"), backColor=colors.HexColor("#ecfdf5"), borderColor=colors.HexColor("#34d399"), borderWidth=1, borderPadding=10, spaceBefore=5, spaceAfter=10),
+    "code": ParagraphStyle("code", parent=base["Code"], fontName="Courier-Bold", fontSize=10.2, leading=15, textColor=colors.HexColor("#0f172a"), backColor=colors.HexColor("#eef2f7"), borderColor=colors.HexColor("#94a3b8"), borderWidth=.8, borderPadding=9, splitLongWords=True),
+    "warn": ParagraphStyle("warn", parent=base["BodyText"], fontSize=11, leading=16, textColor=colors.HexColor("#9a3412"), backColor=colors.HexColor("#fff7ed"), borderColor=colors.HexColor("#fb923c"), borderWidth=1, borderPadding=10),
+    "ok": ParagraphStyle("ok", parent=base["BodyText"], fontSize=11, leading=16, textColor=colors.HexColor("#065f46"), backColor=colors.HexColor("#ecfdf5"), borderColor=colors.HexColor("#34d399"), borderWidth=1, borderPadding=10),
     "small": ParagraphStyle("small", parent=base["BodyText"], fontSize=9, leading=12, textColor=colors.HexColor("#64748b")),
 }
 
 
 def P(text, style="body"):
-    return Paragraph(text, styles[style])
+    paragraph = Paragraph(text, styles[style])
+    if style in {"warn", "ok"}:
+        return KeepTogether([Spacer(1, 4*mm), paragraph, Spacer(1, 7*mm)])
+    return paragraph
 
 
 def C(text):
-    return Paragraph(text.replace("&", "&amp;"), styles["code"])
+    paragraph = Paragraph(text.replace("&", "&amp;"), styles["code"])
+    return KeepTogether([Spacer(1, 4*mm), paragraph, Spacer(1, 7*mm)])
 
 
 def block(title, body, command=None, result=None):
