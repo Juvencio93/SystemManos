@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useSuspenseQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
@@ -22,6 +22,7 @@ import {
   User,
   WalletCards,
   ChevronDown,
+  Scale,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -1020,6 +1021,29 @@ function SettingsPage() {
         )}
 
         {isAdm && <TelegramOperationalSettings />}
+
+        <Card className="glass-panel border-primary/10">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Scale className="size-5 text-primary" />
+              <CardTitle>Informações legais</CardTitle>
+            </div>
+            <CardDescription>
+              Consulte as regras de uso da plataforma e as informações sobre proteção de dados.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-3">
+            <Button asChild variant="outline" className="h-auto justify-start px-4 py-3">
+              <Link to="/termos-de-uso">Termos de Uso</Link>
+            </Button>
+            <Button asChild variant="outline" className="h-auto justify-start px-4 py-3">
+              <Link to="/politica-de-privacidade">Política de Privacidade</Link>
+            </Button>
+            <Button asChild variant="outline" className="h-auto justify-start px-4 py-3">
+              <Link to="/direitos-do-titular">Direitos do Titular</Link>
+            </Button>
+          </CardContent>
+        </Card>
 
         {/* Security Section */}
         <Card className="glass-panel border-primary/10">

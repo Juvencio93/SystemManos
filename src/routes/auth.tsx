@@ -128,6 +128,21 @@ function AuthPage() {
                 {ready ? (loading ? "Entrando..." : "Entrar") : "Carregando..."}
               </Button>
             </form>
+
+            <nav
+              aria-label="Informações legais"
+              className="mt-7 flex flex-wrap justify-center gap-x-4 gap-y-2 border-t border-white/10 pt-5 text-xs text-muted-foreground"
+            >
+              <Link to="/termos-de-uso" className="transition-colors hover:text-primary">
+                Termos de Uso
+              </Link>
+              <Link to="/politica-de-privacidade" className="transition-colors hover:text-primary">
+                Política de Privacidade
+              </Link>
+              <Link to="/direitos-do-titular" className="transition-colors hover:text-primary">
+                Direitos do Titular
+              </Link>
+            </nav>
           </div>
         </div>
       </div>
