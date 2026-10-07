@@ -13,6 +13,7 @@ const kitFiles = [
   "public/mikrotik/MANOS-MANAGEMENT-HARDENING.rsc",
   "public/mikrotik/MANOS-BACKUP-EXPORT.rsc",
   "public/mikrotik/MANOS-HOTSPOT-BASE.rsc",
+  "public/mikrotik/MANOS-INSTALL-HOTSPOT-PAGES.rsc",
   "public/mikrotik/login.html",
   "public/mikrotik/alogin.html",
 ];
