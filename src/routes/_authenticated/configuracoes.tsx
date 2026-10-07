@@ -201,6 +201,23 @@ function SettingsPage() {
     }
   }, [asaasSiteUrl]);
 
+  useEffect(() => {
+    if (pagbankQuery.data?.environment) {
+      setPagbankEnvironment(pagbankQuery.data.environment as "sandbox" | "production");
+    }
+    if (pagbankQuery.data?.webhookUrl) {
+      try {
+        setPagbankSiteUrl(new URL(pagbankQuery.data.webhookUrl).origin);
+        return;
+      } catch {
+        // A origem publicada abaixo será usada se a URL antiga não for válida.
+      }
+    }
+    if (typeof window !== "undefined") {
+      setPagbankSiteUrl(window.location.origin);
+    }
+  }, [pagbankQuery.data]);
+
 
   useEffect(() => {
     if (paymentProviderQuery.data?.provider) {
@@ -994,8 +1011,8 @@ function SettingsPage() {
             {openPaymentIntegration === "pagbank" && <><CardContent className="space-y-4">
               <Accordion type="single" collapsible className="rounded-xl border border-blue-500/40 bg-blue-500/10 px-4"><AccordionItem value="pagbank-setup" className="border-0"><AccordionTrigger className="py-4 text-sm font-medium text-blue-100 hover:no-underline">Como configurar PagBank</AccordionTrigger><AccordionContent className="pb-4 text-sm text-blue-100"><ol className="list-decimal space-y-2 pl-5"><li>Crie uma conta e uma aplicação no <a href="https://developer.pagbank.com.br" target="_blank" rel="noreferrer" className="underline">Portal de Desenvolvedores PagBank</a>.</li><li>Escolha o ambiente correto: <strong>Sandbox</strong> usa token Sandbox; <strong>Produção</strong> usa token de produção. Nunca misture os tokens.</li><li>Na área de chaves públicas, crie uma chave do tipo <code>webhook</code> para o mesmo ambiente. Essa chave não é colada no campo de token.</li><li>Para PIX, a conta PagBank precisa ter uma chave PIX ativa. O cliente da cobrança também precisa ter CPF/CNPJ e e-mail diferentes do e-mail do comerciante.</li><li>Use a URL abaixo como notificação: <code className="block break-all mt-1">{pagbankSiteUrl.replace(/\/+$/, "") || "https://seu-dominio"}/api/public/pagbank-webhook-v1</code>.</li><li>Depois de colar o token correspondente ao ambiente, clique em <strong>Ativar integração</strong> e em <strong>Testar conexão</strong>.</li></ol><p className="mt-3 text-xs">Revendas devem conectar somente a própria conta PagBank. O token fica restrito ao servidor.</p></AccordionContent></AccordionItem></Accordion>
               {pagbankQuery.data?.saved && <div className={cn("rounded-xl border p-3 text-xs", isPagBankProductionApprovalPending(pagbankQuery.data.lastError) ? "border-amber-500/30 bg-amber-500/10 text-amber-100" : "border-green-500/30 bg-green-500/10 text-green-200")}><p>Token salvo: {pagbankQuery.data.tokenMasked}</p><p>Ambiente: {pagbankQuery.data.environment}</p><p className="break-all">Webhook: {pagbankQuery.data.webhookUrl}</p>{pagbankQuery.data.lastError && <p className="mt-2 font-medium">{pagbankQuery.data.lastError}</p>}</div>}
-              <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label htmlFor="pagbankEnvironment">Ambiente</Label><select id="pagbankEnvironment" value={pagbankEnvironment} onChange={(e) => setPagbankEnvironment(e.target.value as "sandbox" | "production")} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="sandbox">Sandbox (testes)</option><option value="production">Produção</option></select></div><div className="space-y-2"><Label htmlFor="pagbankSiteUrl">URL pública</Label><Input id="pagbankSiteUrl" type="url" value={pagbankSiteUrl} onChange={(e) => setPagbankSiteUrl(e.target.value)} placeholder="https://manostech-system.com.br" /></div></div>
-              <div className="space-y-2"><Label htmlFor="pagbankToken">Token de acesso PagBank</Label><Input id="pagbankToken" type="password" value={pagbankToken} onChange={(e) => setPagbankToken(e.target.value)} placeholder={pagbankQuery.data?.tokenMasked || "Token sandbox ou produção"} /></div>
+              <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label htmlFor="pagbankEnvironment">Ambiente</Label><select id="pagbankEnvironment" value={pagbankEnvironment} onChange={(e) => setPagbankEnvironment(e.target.value as "sandbox" | "production")} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="sandbox">Sandbox (testes)</option><option value="production">Produção</option></select></div><div className="space-y-2"><Label htmlFor="pagbankSiteUrl">URL pública</Label><Input id="pagbankSiteUrl" name="pagbank_public_url" type="url" value={pagbankSiteUrl} readOnly autoComplete="off" placeholder="https://manostech-system.com.br" /></div></div>
+              <div className="space-y-2"><Label htmlFor="pagbankToken">Token de acesso PagBank</Label><Input id="pagbankToken" name="pagbank_access_token" type="password" value={pagbankToken} onChange={(e) => setPagbankToken(e.target.value)} autoComplete="new-password" placeholder={pagbankQuery.data?.tokenMasked || "Token sandbox ou produção"} /></div>
             </CardContent>
             <CardFooter className="flex flex-wrap gap-2 border-t bg-muted/30 py-4"><Button type="button" onClick={() => savePagbankMutation.mutate()} disabled={savePagbankMutation.isPending || !pagbankToken.trim()}>{savePagbankMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />} Ativar integração</Button><Button type="button" variant="outline" onClick={() => testPagbankMutation.mutate()} disabled={!pagbankQuery.data?.saved || testPagbankMutation.isPending}>Testar conexão</Button><Button type="button" variant="outline" className="border-destructive/30 text-destructive" onClick={() => removePagbankMutation.mutate()} disabled={!pagbankQuery.data?.saved}>Remover</Button></CardFooter></>}
           </Card>
