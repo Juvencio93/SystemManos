@@ -29,6 +29,32 @@ async function pagbank(token: string, environment: string, path: string, body?: 
 }
 const ownerScope = (query: any, ownerType: string, ownerId: string | null) => ownerId ? query.eq("owner_type", ownerType).eq("owner_id", ownerId) : query.eq("owner_type", ownerType).is("owner_id", null);
 
+async function notifyPagBankFailure(supabaseAdmin: any, company: any, companyId: string, detail: string) {
+  const resellerId = company?.reseller_id ?? null;
+  let recipients = supabaseAdmin.from("user_roles").select("user_id");
+  recipients = resellerId
+    ? recipients.eq("role", "revenda").eq("reseller_id", resellerId)
+    : recipients.eq("role", "adm");
+  const { data: responsibleUsers } = await recipients;
+  if (!responsibleUsers?.length) return;
+  const companyName = company?.trade_name || company?.name || "Matriz";
+  const now = new Date().toISOString();
+  await supabaseAdmin.from("system_notifications").upsert(
+    responsibleUsers.map(({ user_id }: { user_id: string }) => ({
+      recipient_user_id: user_id,
+      event_key: `pagbank-payment:${companyId}`,
+      category: "payment",
+      severity: "critical",
+      title: `Falha no PIX PagBank — ${companyName}`,
+      description: detail,
+      company_id: companyId,
+      created_at: now,
+      updated_at: now,
+    })),
+    { onConflict: "recipient_user_id,event_key" },
+  );
+}
+
 export const getOrCreatePagBankPix = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).validator((input: unknown) => z.object({ chargeId: z.string().uuid() }).parse(input)).handler(async ({ context, data }) => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data: role } = await context.supabase.from("user_roles").select("role, company_id, reseller_id").eq("user_id", context.userId).maybeSingle(); if (!role || !["adm", "matriz", "revenda"].includes(role.role)) throw new Error("Sem permissão para gerar pagamento.");
@@ -37,11 +63,22 @@ export const getOrCreatePagBankPix = createServerFn({ method: "POST" }).middlewa
   const ownerType = resellerId ? "reseller" : "platform"; const ownerId = resellerId;
   const { data: pref } = await ownerScope(supabaseAdmin.from("payment_provider_preferences").select("provider"), ownerType, ownerId).maybeSingle(); if (pref?.provider !== "pagbank") return { available: false, provider: "pagbank" as const };
   const { data: integration } = await ownerScope(supabaseAdmin.from("pagbank_integrations" as any).select("access_token, environment, webhook_url, status"), ownerType, ownerId).maybeSingle(); if (!integration || integration.status !== "configured") return { available: false, provider: "pagbank" as const };
-  if (!company?.document || !company?.contact_email) throw new Error("Para cobrar pelo PagBank, complete CPF/CNPJ e e-mail no cadastro da empresa.");
+  if (!company?.document || !company?.contact_email) {
+    const detail = `Complete CPF/CNPJ e e-mail no cadastro de ${company?.trade_name || company?.name || "matriz"} para permitir cobranças pelo PagBank.`;
+    await notifyPagBankFailure(supabaseAdmin, company, charge.company_id, detail);
+    throw new Error("Não foi possível gerar o pagamento PIX agora.");
+  }
   if (charge.pagbank_order_id) { try { const order = await pagbank(integration.access_token, integration.environment, `/orders/${charge.pagbank_order_id}`); const stored = order?.charges?.[0]?.qr_code?.text; if (stored) { const dataUrl = await QRCode.toDataURL(stored, { margin: 1, width: 360 }); return { success: true, available: true, provider: "pagbank" as const, copyPaste: stored, qrCode: dataUrl.replace(/^data:image\/png;base64,/, "") }; } } catch { await supabaseAdmin.from("company_charges").update({ pagbank_order_id: null, pagbank_last_event_id: null, pix_payload: null, external_id: null, updated_at: new Date().toISOString() } as any).eq("id", charge.id); }
   }
   const phone = String(company.contact_phone || "").replace(/\D/g, ""); const expires = new Date(Date.now() + 86400000).toISOString();
-  const order = await pagbank(integration.access_token, integration.environment, "/orders", { reference_id: charge.id, customer: { name: company.trade_name || company.name, email: company.contact_email, tax_id: String(company.document).replace(/\D/g, ""), ...(phone.length >= 10 ? { phones: [{ type: "MOBILE", country: "55", area: phone.slice(-11, -9), number: phone.slice(-9) }] } : {}) }, items: [{ reference_id: charge.id, name: charge.reference, quantity: 1, unit_amount: Math.round(Number(charge.amount) * 100) }], charges: [{ reference_id: charge.id, description: charge.reference, amount: { value: Math.round(Number(charge.amount) * 100), currency: "BRL" }, payment_method: { type: "PIX", pix: { expiration_date: expires } } }], notification_urls: [integration.webhook_url] });
+  let order: any;
+  try {
+    order = await pagbank(integration.access_token, integration.environment, "/orders", { reference_id: charge.id, customer: { name: company.trade_name || company.name, email: company.contact_email, tax_id: String(company.document).replace(/\D/g, ""), ...(phone.length >= 10 ? { phones: [{ type: "MOBILE", country: "55", area: phone.slice(-11, -9), number: phone.slice(-9) }] } : {}) }, items: [{ reference_id: charge.id, name: charge.reference, quantity: 1, unit_amount: Math.round(Number(charge.amount) * 100) }], charges: [{ reference_id: charge.id, description: charge.reference, amount: { value: Math.round(Number(charge.amount) * 100), currency: "BRL" }, payment_method: { type: "PIX", pix: { expiration_date: expires } } }], notification_urls: [integration.webhook_url] });
+  } catch (cause) {
+    const detail = cause instanceof Error ? cause.message : "O PagBank recusou a criação da cobrança PIX.";
+    await notifyPagBankFailure(supabaseAdmin, company, charge.company_id, detail);
+    throw new Error("Não foi possível gerar o pagamento PIX agora.");
+  }
   const pgCharge = order?.charges?.[0]; const copyPaste = pgCharge?.qr_code?.text; if (!order?.id || !copyPaste) throw new Error("O PagBank não retornou o QR Code PIX.");
   const { error: updateError } = await supabaseAdmin.from("company_charges").update({ status: "atrasado", payment_provider: "pagbank", pagbank_order_id: order.id, pagbank_last_event_id: null, pix_payload: copyPaste, external_id: order.id, method: "PIX PagBank", updated_at: new Date().toISOString() } as any).eq("id", charge.id); if (updateError) throw new Error(updateError.message);
   let qrCode: string | null = null;

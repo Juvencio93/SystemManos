@@ -38,7 +38,7 @@ export function HotspotNotificationCenter({ userId }: { userId: string }) {
     queryKey: ["hotspot-attention-alerts", userId],
     refetchInterval: 30_000,
     queryFn: async () => {
-      const [{ data: devices, error: devicesError }, { data: audits, error: auditsError }] =
+      const [{ data: devices, error: devicesError }, { data: audits, error: auditsError }, { data: systemNotifications, error: systemError }] =
         await Promise.all([
           supabase
             .from("hotspot_devices")
@@ -52,10 +52,30 @@ export function HotspotNotificationCenter({ userId }: { userId: string }) {
             .gte("created_at", new Date(Date.now() - 24 * 60 * 60_000).toISOString())
             .order("created_at", { ascending: false })
             .limit(30),
+          (supabase as any)
+            .from("system_notifications")
+            .select("id,severity,title,description,created_at")
+            .eq("recipient_user_id", userId)
+            .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60_000).toISOString())
+            .order("created_at", { ascending: false })
+            .limit(30),
         ]);
       if (devicesError) throw devicesError;
       if (auditsError) throw auditsError;
-      return buildHotspotAlerts(devices ?? [], audits ?? []);
+      if (systemError) throw systemError;
+      const operationalAlerts = buildHotspotAlerts(devices ?? [], audits ?? []);
+      const savedAlerts = (systemNotifications ?? []).map((item: any) => ({
+        id: `system:${item.id}`,
+        severity: item.severity,
+        title: item.title,
+        description: item.description,
+        createdAt: item.created_at,
+        deviceId: "",
+        routerIdentity: "",
+      }));
+      return [...savedAlerts, ...operationalAlerts].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
     },
   });
 
@@ -109,7 +129,7 @@ export function HotspotNotificationCenter({ userId }: { userId: string }) {
         <div className="flex items-center justify-between border-b border-border p-4">
           <div>
             <p className="font-semibold">Notificações</p>
-            <p className="text-xs text-muted-foreground">Eventos importantes das RBs</p>
+            <p className="text-xs text-muted-foreground">Alertas operacionais e financeiros</p>
           </div>
           <div className="flex items-center gap-1">
             {unread.length ? (
@@ -138,7 +158,7 @@ export function HotspotNotificationCenter({ userId }: { userId: string }) {
               <Router className="mx-auto mb-2 size-6 text-emerald-400" />
               <p className="text-sm font-medium">Nenhum alerta importante</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                As RBs monitoradas não exigem atenção.
+                Nenhum evento exige atenção no momento.
               </p>
             </div>
           ) : null}

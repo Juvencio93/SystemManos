@@ -98,7 +98,6 @@ const CHARGE_LABEL: Record<string, string> = {
 
 function customerPaymentErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : "";
-  if (message.includes("complete CPF/CNPJ e e-mail")) return message;
   if (message.includes("Esta cobrança já está paga")) return message;
   return "Não foi possível gerar o pagamento PIX agora. Tente novamente mais tarde ou entre em contato com o suporte.";
 }
