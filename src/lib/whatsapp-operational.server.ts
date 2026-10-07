@@ -27,21 +27,24 @@ export async function sendOperationalWhatsAppAlert(
         type: "template",
         template: {
           name: integration.alert_template_name,
-          language: { code: "pt_BR" },
-          components: [{
+          language: { code: integration.alert_template_name === "hello_world" ? "en_US" : "pt_BR" },
+          ...(integration.alert_template_name === "hello_world" ? {} : { components: [{
             type: "body",
             parameters: [
               { type: "text", text: alert.title },
               { type: "text", text: alert.description },
             ],
-          }],
+          }] }),
         },
       }),
     },
   );
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const message = payload?.error?.message || `WhatsApp retornou erro ${response.status}.`;
+    const providerMessage = payload?.error?.message || `WhatsApp retornou erro ${response.status}.`;
+    const message = payload?.error?.code === 131030
+      ? "O número que receberá os alertas ainda não foi autorizado na lista de destinatários de teste da Meta."
+      : providerMessage;
     await supabaseAdmin.from("whatsapp_operational_integrations").update({ status: "error", last_error: message, updated_at: new Date().toISOString() }).eq("id", integration.id);
     return { sent: false, reason: "provider_error" as const, message };
   }
