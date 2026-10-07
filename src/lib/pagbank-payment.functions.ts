@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import QRCode from "qrcode";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { getPagBankErrorMessage } from "@/lib/pagbank-errors";
 
 const api = (environment: string) => environment === "sandbox" ? "https://sandbox.api.pagseguro.com" : "https://api.pagseguro.com";
 async function pagbank(token: string, environment: string, path: string, body?: unknown) {
@@ -23,12 +24,7 @@ async function pagbank(token: string, environment: string, path: string, body?: 
       return text;
     }
   })();
-  if (!r.ok)
-    throw new Error(
-      (json as any)?.error_messages?.[0]?.description ||
-        (json as any)?.message ||
-        `PagBank retornou erro ${r.status}.`,
-    );
+  if (!r.ok) throw new Error(getPagBankErrorMessage(json as any, r.status));
   return json;
 }
 const ownerScope = (query: any, ownerType: string, ownerId: string | null) => ownerId ? query.eq("owner_type", ownerType).eq("owner_id", ownerId) : query.eq("owner_type", ownerType).is("owner_id", null);
