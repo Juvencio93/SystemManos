@@ -12,6 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as DireitosDoTitularRouteImport } from './routes/direitos-do-titular'
+import { Route as PoliticaDePrivacidadeRouteImport } from './routes/politica-de-privacidade'
+import { Route as TermosDeUsoRouteImport } from './routes/termos-de-uso'
 import { Route as AuthenticatedAssinaturaRouteImport } from './routes/_authenticated/assinatura'
 import { Route as AuthenticatedCampanhasRouteImport } from './routes/_authenticated/campanhas'
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
@@ -56,6 +59,7 @@ import { Route as ApiPublicBillingAccessSyncRouteImport } from './routes/api/pub
 import { Route as ApiPublicHotspotEntryRouteImport } from './routes/api/public/hotspot-entry'
 import { Route as ApiPublicOperationalJobRouteImport } from './routes/api/public/operational-job'
 import { Route as ApiPublicPagbankWebhookV1RouteImport } from './routes/api/public/pagbank-webhook-v1'
+import { Route as ApiPublicTelegramOperationalWebhookRouteImport } from './routes/api/public/telegram-operational-webhook'
 import { Route as AuthenticatedFinanceiroReciboChargeIdRouteImport } from './routes/_authenticated/financeiro/recibo.$chargeId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -70,6 +74,21 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DireitosDoTitularRoute = DireitosDoTitularRouteImport.update({
+  id: '/direitos-do-titular',
+  path: '/direitos-do-titular',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PoliticaDePrivacidadeRoute = PoliticaDePrivacidadeRouteImport.update({
+  id: '/politica-de-privacidade',
+  path: '/politica-de-privacidade',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermosDeUsoRoute = TermosDeUsoRouteImport.update({
+  id: '/termos-de-uso',
+  path: '/termos-de-uso',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAssinaturaRoute = AuthenticatedAssinaturaRouteImport.update({
@@ -314,6 +333,12 @@ const ApiPublicPagbankWebhookV1Route =
     path: '/api/public/pagbank-webhook-v1',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicTelegramOperationalWebhookRoute =
+  ApiPublicTelegramOperationalWebhookRouteImport.update({
+    id: '/api/public/telegram-operational-webhook',
+    path: '/api/public/telegram-operational-webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedFinanceiroReciboChargeIdRoute =
   AuthenticatedFinanceiroReciboChargeIdRouteImport.update({
     id: '/recibo/$chargeId',
@@ -324,6 +349,9 @@ const AuthenticatedFinanceiroReciboChargeIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/direitos-do-titular': typeof DireitosDoTitularRoute
+  '/politica-de-privacidade': typeof PoliticaDePrivacidadeRoute
+  '/termos-de-uso': typeof TermosDeUsoRoute
   '/financeiro': typeof AuthenticatedFinanceiroRouteRouteWithChildren
   '/assinatura': typeof AuthenticatedAssinaturaRoute
   '/campanhas': typeof AuthenticatedCampanhasRoute
@@ -366,6 +394,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hotspot-entry': typeof ApiPublicHotspotEntryRoute
   '/api/public/operational-job': typeof ApiPublicOperationalJobRoute
   '/api/public/pagbank-webhook-v1': typeof ApiPublicPagbankWebhookV1Route
+  '/api/public/telegram-operational-webhook': typeof ApiPublicTelegramOperationalWebhookRoute
   '/empresas/': typeof AuthenticatedEmpresasIndexRoute
   '/financeiro/': typeof AuthenticatedFinanceiroIndexRoute
   '/financeiro/recibo/$chargeId': typeof AuthenticatedFinanceiroReciboChargeIdRoute
@@ -373,6 +402,9 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/direitos-do-titular': typeof DireitosDoTitularRoute
+  '/politica-de-privacidade': typeof PoliticaDePrivacidadeRoute
+  '/termos-de-uso': typeof TermosDeUsoRoute
   '/assinatura': typeof AuthenticatedAssinaturaRoute
   '/campanhas': typeof AuthenticatedCampanhasRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
@@ -414,6 +446,7 @@ export interface FileRoutesByTo {
   '/api/public/hotspot-entry': typeof ApiPublicHotspotEntryRoute
   '/api/public/operational-job': typeof ApiPublicOperationalJobRoute
   '/api/public/pagbank-webhook-v1': typeof ApiPublicPagbankWebhookV1Route
+  '/api/public/telegram-operational-webhook': typeof ApiPublicTelegramOperationalWebhookRoute
   '/empresas': typeof AuthenticatedEmpresasIndexRoute
   '/financeiro': typeof AuthenticatedFinanceiroIndexRoute
   '/financeiro/recibo/$chargeId': typeof AuthenticatedFinanceiroReciboChargeIdRoute
@@ -423,6 +456,9 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/direitos-do-titular': typeof DireitosDoTitularRoute
+  '/politica-de-privacidade': typeof PoliticaDePrivacidadeRoute
+  '/termos-de-uso': typeof TermosDeUsoRoute
   '/_authenticated/financeiro': typeof AuthenticatedFinanceiroRouteRouteWithChildren
   '/_authenticated/assinatura': typeof AuthenticatedAssinaturaRoute
   '/_authenticated/campanhas': typeof AuthenticatedCampanhasRoute
@@ -465,6 +501,7 @@ export interface FileRoutesById {
   '/api/public/hotspot-entry': typeof ApiPublicHotspotEntryRoute
   '/api/public/operational-job': typeof ApiPublicOperationalJobRoute
   '/api/public/pagbank-webhook-v1': typeof ApiPublicPagbankWebhookV1Route
+  '/api/public/telegram-operational-webhook': typeof ApiPublicTelegramOperationalWebhookRoute
   '/_authenticated/empresas/': typeof AuthenticatedEmpresasIndexRoute
   '/_authenticated/financeiro/': typeof AuthenticatedFinanceiroIndexRoute
   '/_authenticated/financeiro/recibo/$chargeId': typeof AuthenticatedFinanceiroReciboChargeIdRoute
@@ -474,6 +511,9 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/direitos-do-titular'
+    | '/politica-de-privacidade'
+    | '/termos-de-uso'
     | '/financeiro'
     | '/assinatura'
     | '/campanhas'
@@ -516,6 +556,7 @@ export interface FileRouteTypes {
     | '/api/public/hotspot-entry'
     | '/api/public/operational-job'
     | '/api/public/pagbank-webhook-v1'
+    | '/api/public/telegram-operational-webhook'
     | '/empresas/'
     | '/financeiro/'
     | '/financeiro/recibo/$chargeId'
@@ -523,6 +564,9 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/direitos-do-titular'
+    | '/politica-de-privacidade'
+    | '/termos-de-uso'
     | '/assinatura'
     | '/campanhas'
     | '/configuracoes'
@@ -564,6 +608,7 @@ export interface FileRouteTypes {
     | '/api/public/hotspot-entry'
     | '/api/public/operational-job'
     | '/api/public/pagbank-webhook-v1'
+    | '/api/public/telegram-operational-webhook'
     | '/empresas'
     | '/financeiro'
     | '/financeiro/recibo/$chargeId'
@@ -572,6 +617,9 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/direitos-do-titular'
+    | '/politica-de-privacidade'
+    | '/termos-de-uso'
     | '/_authenticated/financeiro'
     | '/_authenticated/assinatura'
     | '/_authenticated/campanhas'
@@ -614,6 +662,7 @@ export interface FileRouteTypes {
     | '/api/public/hotspot-entry'
     | '/api/public/operational-job'
     | '/api/public/pagbank-webhook-v1'
+    | '/api/public/telegram-operational-webhook'
     | '/_authenticated/empresas/'
     | '/_authenticated/financeiro/'
     | '/_authenticated/financeiro/recibo/$chargeId'
@@ -623,6 +672,9 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  DireitosDoTitularRoute: typeof DireitosDoTitularRoute
+  PoliticaDePrivacidadeRoute: typeof PoliticaDePrivacidadeRoute
+  TermosDeUsoRoute: typeof TermosDeUsoRoute
   PortalSlugRoute: typeof PortalSlugRoute
   ApiInternalHotspotAuditCleanupRoute: typeof ApiInternalHotspotAuditCleanupRoute
   ApiInternalHotspotCommandRoute: typeof ApiInternalHotspotCommandRoute
@@ -644,6 +696,7 @@ export interface RootRouteChildren {
   ApiPublicHotspotEntryRoute: typeof ApiPublicHotspotEntryRoute
   ApiPublicOperationalJobRoute: typeof ApiPublicOperationalJobRoute
   ApiPublicPagbankWebhookV1Route: typeof ApiPublicPagbankWebhookV1Route
+  ApiPublicTelegramOperationalWebhookRoute: typeof ApiPublicTelegramOperationalWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -667,6 +720,27 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/direitos-do-titular': {
+      id: '/direitos-do-titular'
+      path: '/direitos-do-titular'
+      fullPath: '/direitos-do-titular'
+      preLoaderRoute: typeof DireitosDoTitularRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/politica-de-privacidade': {
+      id: '/politica-de-privacidade'
+      path: '/politica-de-privacidade'
+      fullPath: '/politica-de-privacidade'
+      preLoaderRoute: typeof PoliticaDePrivacidadeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/termos-de-uso': {
+      id: '/termos-de-uso'
+      path: '/termos-de-uso'
+      fullPath: '/termos-de-uso'
+      preLoaderRoute: typeof TermosDeUsoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/assinatura': {
@@ -977,6 +1051,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPagbankWebhookV1RouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/telegram-operational-webhook': {
+      id: '/api/public/telegram-operational-webhook'
+      path: '/api/public/telegram-operational-webhook'
+      fullPath: '/api/public/telegram-operational-webhook'
+      preLoaderRoute: typeof ApiPublicTelegramOperationalWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/financeiro/recibo/$chargeId': {
       id: '/_authenticated/financeiro/recibo/$chargeId'
       path: '/recibo/$chargeId'
@@ -1063,6 +1144,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  DireitosDoTitularRoute: DireitosDoTitularRoute,
+  PoliticaDePrivacidadeRoute: PoliticaDePrivacidadeRoute,
+  TermosDeUsoRoute: TermosDeUsoRoute,
   PortalSlugRoute: PortalSlugRoute,
   ApiInternalHotspotAuditCleanupRoute: ApiInternalHotspotAuditCleanupRoute,
   ApiInternalHotspotCommandRoute: ApiInternalHotspotCommandRoute,
@@ -1084,6 +1168,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHotspotEntryRoute: ApiPublicHotspotEntryRoute,
   ApiPublicOperationalJobRoute: ApiPublicOperationalJobRoute,
   ApiPublicPagbankWebhookV1Route: ApiPublicPagbankWebhookV1Route,
+  ApiPublicTelegramOperationalWebhookRoute:
+    ApiPublicTelegramOperationalWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
