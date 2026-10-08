@@ -1032,7 +1032,7 @@ function SettingsPage() {
               Consulte as regras de uso da plataforma e as informações sobre proteção de dados.
             </CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-3">
+          <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Button asChild variant="outline" className="h-auto justify-start px-4 py-3">
               <Link to="/termos-de-uso">Termos de Uso</Link>
             </Button>
@@ -1042,6 +1042,11 @@ function SettingsPage() {
             <Button asChild variant="outline" className="h-auto justify-start px-4 py-3">
               <Link to="/direitos-do-titular">Direitos do Titular</Link>
             </Button>
+            {(isAdm || isMatriz) && (
+              <Button asChild variant="outline" className="h-auto justify-start px-4 py-3">
+                <Link to="/solicitacoes-privacidade">Solicitações Recebidas</Link>
+              </Button>
+            )}
           </CardContent>
         </Card>
 

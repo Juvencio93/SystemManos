@@ -29,6 +29,7 @@ import { Route as AuthenticatedMensagensRouteImport } from './routes/_authentica
 import { Route as AuthenticatedPortaisRouteImport } from './routes/_authenticated/portais'
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
 import { Route as AuthenticatedRevendasRouteImport } from './routes/_authenticated/revendas'
+import { Route as AuthenticatedSolicitacoesPrivacidadeRouteImport } from './routes/_authenticated/solicitacoes-privacidade'
 import { Route as AuthenticatedVisitantesRouteImport } from './routes/_authenticated/visitantes'
 import { Route as PortalSlugRouteImport } from './routes/portal.$slug'
 import { Route as AuthenticatedEmpresasIndexRouteImport } from './routes/_authenticated/empresas.index'
@@ -164,6 +165,12 @@ const AuthenticatedRevendasRoute = AuthenticatedRevendasRouteImport.update({
   path: '/revendas',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSolicitacoesPrivacidadeRoute =
+  AuthenticatedSolicitacoesPrivacidadeRouteImport.update({
+    id: '/solicitacoes-privacidade',
+    path: '/solicitacoes-privacidade',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedVisitantesRoute = AuthenticatedVisitantesRouteImport.update({
   id: '/visitantes',
   path: '/visitantes',
@@ -366,6 +373,7 @@ export interface FileRoutesByFullPath {
   '/portais': typeof AuthenticatedPortaisRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/revendas': typeof AuthenticatedRevendasRoute
+  '/solicitacoes-privacidade': typeof AuthenticatedSolicitacoesPrivacidadeRoute
   '/visitantes': typeof AuthenticatedVisitantesRoute
   '/portal/$slug': typeof PortalSlugRoute
   '/empresas/$companyId': typeof AuthenticatedEmpresasCompanyIdRoute
@@ -418,6 +426,7 @@ export interface FileRoutesByTo {
   '/portais': typeof AuthenticatedPortaisRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/revendas': typeof AuthenticatedRevendasRoute
+  '/solicitacoes-privacidade': typeof AuthenticatedSolicitacoesPrivacidadeRoute
   '/visitantes': typeof AuthenticatedVisitantesRoute
   '/portal/$slug': typeof PortalSlugRoute
   '/empresas/$companyId': typeof AuthenticatedEmpresasCompanyIdRoute
@@ -473,6 +482,7 @@ export interface FileRoutesById {
   '/_authenticated/portais': typeof AuthenticatedPortaisRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
   '/_authenticated/revendas': typeof AuthenticatedRevendasRoute
+  '/_authenticated/solicitacoes-privacidade': typeof AuthenticatedSolicitacoesPrivacidadeRoute
   '/_authenticated/visitantes': typeof AuthenticatedVisitantesRoute
   '/portal/$slug': typeof PortalSlugRoute
   '/_authenticated/empresas/$companyId': typeof AuthenticatedEmpresasCompanyIdRoute
@@ -528,6 +538,7 @@ export interface FileRouteTypes {
     | '/portais'
     | '/relatorios'
     | '/revendas'
+    | '/solicitacoes-privacidade'
     | '/visitantes'
     | '/portal/$slug'
     | '/empresas/$companyId'
@@ -580,6 +591,7 @@ export interface FileRouteTypes {
     | '/portais'
     | '/relatorios'
     | '/revendas'
+    | '/solicitacoes-privacidade'
     | '/visitantes'
     | '/portal/$slug'
     | '/empresas/$companyId'
@@ -634,6 +646,7 @@ export interface FileRouteTypes {
     | '/_authenticated/portais'
     | '/_authenticated/relatorios'
     | '/_authenticated/revendas'
+    | '/_authenticated/solicitacoes-privacidade'
     | '/_authenticated/visitantes'
     | '/portal/$slug'
     | '/_authenticated/empresas/$companyId'
@@ -839,6 +852,13 @@ declare module '@tanstack/react-router' {
       path: '/revendas'
       fullPath: '/revendas'
       preLoaderRoute: typeof AuthenticatedRevendasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/solicitacoes-privacidade': {
+      id: '/_authenticated/solicitacoes-privacidade'
+      path: '/solicitacoes-privacidade'
+      fullPath: '/solicitacoes-privacidade'
+      preLoaderRoute: typeof AuthenticatedSolicitacoesPrivacidadeRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/visitantes': {
@@ -1109,6 +1129,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPortaisRoute: typeof AuthenticatedPortaisRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
   AuthenticatedRevendasRoute: typeof AuthenticatedRevendasRoute
+  AuthenticatedSolicitacoesPrivacidadeRoute: typeof AuthenticatedSolicitacoesPrivacidadeRoute
   AuthenticatedVisitantesRoute: typeof AuthenticatedVisitantesRoute
   AuthenticatedEmpresasCompanyIdRoute: typeof AuthenticatedEmpresasCompanyIdRoute
   AuthenticatedMarketingCampaignIdRoute: typeof AuthenticatedMarketingCampaignIdRoute
@@ -1131,6 +1152,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPortaisRoute: AuthenticatedPortaisRoute,
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
   AuthenticatedRevendasRoute: AuthenticatedRevendasRoute,
+  AuthenticatedSolicitacoesPrivacidadeRoute:
+    AuthenticatedSolicitacoesPrivacidadeRoute,
   AuthenticatedVisitantesRoute: AuthenticatedVisitantesRoute,
   AuthenticatedEmpresasCompanyIdRoute: AuthenticatedEmpresasCompanyIdRoute,
   AuthenticatedMarketingCampaignIdRoute: AuthenticatedMarketingCampaignIdRoute,

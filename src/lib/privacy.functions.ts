@@ -3,6 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolvePortalTarget } from "@/lib/portal.server";
 
 const privacyRequestSchema = z.object({
@@ -160,4 +161,72 @@ export const submitPrivacyRequest = createServerFn({ method: "POST" })
     }
 
     return { protocol, immediatelyRevoked };
+  });
+
+const privacyStatusSchema = z.enum([
+  "requested",
+  "identity_verification",
+  "in_progress",
+  "completed",
+  "rejected",
+]);
+
+async function privacyScope(context: any) {
+  const { data: role } = await context.supabase
+    .from("user_roles")
+    .select("role,company_id")
+    .eq("user_id", context.userId)
+    .in("role", ["adm", "matriz"])
+    .maybeSingle();
+  if (!role) throw new Error("Você não tem permissão para acessar estas solicitações.");
+  return role as { role: "adm" | "matriz"; company_id: string | null };
+}
+
+export const listPrivacyRequests = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const role = await privacyScope(context);
+    let query = (supabaseAdmin as any)
+      .from("privacy_requests")
+      .select(
+        "id,protocol,company_id,request_type,full_name,email,phone_e164,portal_slug,details,status,identity_verified_at,resolved_at,created_at,updated_at,companies(name,trade_name)",
+      )
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (role.role === "matriz") query = query.eq("company_id", role.company_id);
+    const { data, error } = await query;
+    if (error) throw new Error("Não foi possível carregar as solicitações de privacidade.");
+    return data ?? [];
+  });
+
+export const updatePrivacyRequestStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) =>
+    z.object({ id: z.string().uuid(), status: privacyStatusSchema }).parse(input),
+  )
+  .handler(async ({ context, data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const role = await privacyScope(context);
+    let lookup = (supabaseAdmin as any)
+      .from("privacy_requests")
+      .select("id,company_id")
+      .eq("id", data.id);
+    if (role.role === "matriz") lookup = lookup.eq("company_id", role.company_id);
+    const { data: requestRow } = await lookup.maybeSingle();
+    if (!requestRow) throw new Error("Solicitação não encontrada ou sem permissão.");
+
+    const now = new Date().toISOString();
+    const updates: Record<string, string | null> = {
+      status: data.status,
+      updated_at: now,
+      resolved_at: ["completed", "rejected"].includes(data.status) ? now : null,
+    };
+    if (data.status === "in_progress") updates["identity_verified_at"] = now;
+    const { error } = await (supabaseAdmin as any)
+      .from("privacy_requests")
+      .update(updates)
+      .eq("id", data.id);
+    if (error) throw new Error("Não foi possível atualizar a solicitação.");
+    return { ok: true };
   });
