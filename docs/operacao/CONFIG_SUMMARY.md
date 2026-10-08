@@ -1,7 +1,7 @@
 # Resumo de Configuração: Backup & Monitoramento
 
 ## 1. Configuração Atual
-- **Backup:** Nativo do Supabase (Apenas Banco de Dados). Retenção padrão (7-30 dias).
+- **Backup:** estado e retenção precisam ser confirmados no painel do Supabase; não há confirmação automática pelo conector atual.
 - **Storage:** Sem backup nativo automático.
 - **Monitoramento:** Logs Explorer do Supabase (Autenticação, Banco, Funções) + relatório interno de erros (`lovable-error-reporting.ts`).
 - **Privacidade:** Logs configurados para evitar o registro de senhas, tokens, cookies, telefones ou e-mails.
@@ -16,9 +16,11 @@
 - Criação de manuais de restauração e monitoramento.
 - Validação de isolamento de dados (`unitScope`).
 
-## 4. Próximos Passos (Opcional)
+## 4. Próximos Passos Obrigatórios
 - **Sentry:** Para habilitar, forneça o `SENTRY_DSN`. O sistema funciona plenamente sem ele.
-- **Destino de Backup:** Definir bucket S3 ou local externo para armazenamento privado dos backups semanais.
+- **Destino de Backup:** definir bucket S3 ou local externo para armazenamento privado dos backups semanais.
+- **Restauração:** executar e registrar o primeiro teste em projeto isolado.
+- **Autenticação:** ativar a proteção contra senhas vazadas no painel do Supabase.
 
 ## 5. Como Testar
 - **Logs:** Provoque um erro 404 proposital e verifique o Logs Explorer no painel do Supabase.
