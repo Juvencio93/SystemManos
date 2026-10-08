@@ -1,12 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ShieldCheck } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowLeft, Clock3, ShieldCheck, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -44,13 +48,18 @@ function PrivacyRequestsPage() {
   const access = useAccess();
   const queryClient = useQueryClient();
   const allowed = access.data?.role === "adm" || access.data?.role === "matriz";
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [status, setStatus] = useState("requested");
+  const [notes, setNotes] = useState("");
+  const [verification, setVerification] = useState("");
+  const [resolution, setResolution] = useState("");
   const requests = useQuery({
     queryKey: ["privacy-requests"],
     queryFn: () => listPrivacyRequests(),
     enabled: allowed,
   });
   const update = useMutation({
-    mutationFn: (input: { id: string; status: string }) =>
+    mutationFn: (input: Record<string, unknown>) =>
       updatePrivacyRequestStatus({ data: input as any }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["privacy-requests"] });
@@ -59,6 +68,26 @@ function PrivacyRequestsPage() {
     onError: (error) =>
       toast.error(error instanceof Error ? error.message : "Não foi possível atualizar."),
   });
+  const selected = requests.data?.find((item: any) => item.id === selectedId) ?? null;
+  useEffect(() => {
+    if (!selected) return;
+    setStatus(selected.status);
+    setNotes(selected.internal_notes ?? "");
+    setVerification(selected.identity_verification_method ?? "");
+    setResolution(selected.resolution_summary ?? "");
+  }, [selected]);
+
+  const saveSelected = (assignToSelf = false) => {
+    if (!selected) return;
+    update.mutate({
+      id: selected.id,
+      status,
+      assignToSelf,
+      internalNotes: notes,
+      identityVerificationMethod: verification,
+      resolutionSummary: resolution,
+    });
+  };
 
   if (!access.isLoading && !allowed) {
     return (
@@ -98,6 +127,8 @@ function PrivacyRequestsPage() {
                     <TableHead>Pedido</TableHead>
                     <TableHead>Empresa</TableHead>
                     <TableHead>Recebida em</TableHead>
+                    <TableHead>Prazo</TableHead>
+                    <TableHead>Responsável</TableHead>
                     <TableHead>Andamento</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -131,21 +162,29 @@ function PrivacyRequestsPage() {
                         }).format(new Date(item.created_at))}
                       </TableCell>
                       <TableCell>
-                        <select
-                          aria-label={`Andamento de ${item.protocol}`}
-                          value={item.status}
-                          disabled={update.isPending}
-                          onChange={(event) =>
-                            update.mutate({ id: item.id, status: event.target.value })
+                        <span
+                          className={
+                            new Date(item.due_at) < new Date() &&
+                            !["completed", "rejected"].includes(item.status)
+                              ? "font-semibold text-destructive"
+                              : ""
                           }
-                          className="h-9 rounded-md border border-input bg-background px-2 text-sm"
                         >
-                          {Object.entries(statusLabels).map(([value, label]) => (
-                            <option key={value} value={value}>
-                              {label}
-                            </option>
-                          ))}
-                        </select>
+                          {new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(
+                            new Date(item.due_at),
+                          )}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        {item.assigned_profile?.full_name ||
+                          item.assigned_profile?.email ||
+                          "Não definido"}
+                      </TableCell>
+                      <TableCell className="space-y-2">
+                        <Badge variant="outline">{statusLabels[item.status] ?? item.status}</Badge>
+                        <Button size="sm" variant="outline" onClick={() => setSelectedId(item.id)}>
+                          Gerenciar
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -160,6 +199,82 @@ function PrivacyRequestsPage() {
           )}
         </CardContent>
       </Card>
+      {selected && (
+        <Card className="glass-panel border-primary/20">
+          <CardContent className="space-y-5 pt-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-sm text-muted-foreground">Atendimento do protocolo</p>
+                <p className="font-mono font-semibold">{selected.protocol}</p>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Clock3 className="size-4" /> Prazo operacional:{" "}
+                {new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium" }).format(
+                  new Date(selected.due_at),
+                )}
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Andamento</Label>
+                <select
+                  value={status}
+                  onChange={(event) => setStatus(event.target.value)}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  {Object.entries(statusLabels).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Método de confirmação da identidade</Label>
+                <Input
+                  value={verification}
+                  onChange={(event) => setVerification(event.target.value)}
+                  placeholder="Ex.: código enviado ao e-mail cadastrado"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Observações internas</Label>
+              <Textarea
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                rows={4}
+                placeholder="Registre contatos, verificações e providências tomadas."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Resposta ou conclusão</Label>
+              <Textarea
+                value={resolution}
+                onChange={(event) => setResolution(event.target.value)}
+                rows={3}
+                placeholder="Descreva o que foi atendido ou o motivo fundamentado da recusa."
+              />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => saveSelected(false)} disabled={update.isPending}>
+                Salvar atendimento
+              </Button>
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => saveSelected(true)}
+                disabled={update.isPending}
+              >
+                <UserCheck className="size-4" /> Assumir atendimento
+              </Button>
+              <Button variant="ghost" onClick={() => setSelectedId(null)}>
+                Fechar
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

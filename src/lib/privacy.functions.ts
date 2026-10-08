@@ -66,21 +66,31 @@ export const submitPrivacyRequest = createServerFn({ method: "POST" })
     const request = getRequest();
     const now = new Date().toISOString();
 
-    const { error: insertError } = await (supabaseAdmin as any).from("privacy_requests").insert({
-      protocol,
-      company_id: target?.companyId ?? null,
-      request_type: data.requestType,
-      full_name: data.fullName,
-      email: data.email.toLowerCase(),
-      phone_e164: phoneE164,
-      portal_slug: data.portalSlug || null,
-      details: data.details || null,
-      request_ip: ip === "unknown" ? null : ip,
-      user_agent: request?.headers.get("user-agent")?.slice(0, 400) ?? null,
-      created_at: now,
-      updated_at: now,
-    });
+    const { data: insertedRequest, error: insertError } = await (supabaseAdmin as any)
+      .from("privacy_requests")
+      .insert({
+        protocol,
+        company_id: target?.companyId ?? null,
+        request_type: data.requestType,
+        full_name: data.fullName,
+        email: data.email.toLowerCase(),
+        phone_e164: phoneE164,
+        portal_slug: data.portalSlug || null,
+        details: data.details || null,
+        request_ip: ip === "unknown" ? null : ip,
+        user_agent: request?.headers.get("user-agent")?.slice(0, 400) ?? null,
+        created_at: now,
+        updated_at: now,
+      })
+      .select("id")
+      .single();
     if (insertError) throw new Error("Não foi possível registrar a solicitação agora.");
+    await (supabaseAdmin as any).from("privacy_request_events").insert({
+      privacy_request_id: insertedRequest.id,
+      event_type: "created",
+      new_status: "requested",
+      note: "Solicitação registrada pelo canal público.",
+    });
 
     let immediatelyRevoked = false;
     if (data.requestType === "marketing_revocation") {
@@ -190,7 +200,7 @@ export const listPrivacyRequests = createServerFn({ method: "GET" })
     let query = (supabaseAdmin as any)
       .from("privacy_requests")
       .select(
-        "id,protocol,company_id,request_type,full_name,email,phone_e164,portal_slug,details,status,identity_verified_at,resolved_at,created_at,updated_at,companies(name,trade_name)",
+        "id,protocol,company_id,request_type,full_name,email,phone_e164,portal_slug,details,status,assigned_to,due_at,internal_notes,identity_verification_method,identity_verified_at,resolution_summary,resolved_at,created_at,updated_at,companies(name,trade_name),assigned_profile:profiles!privacy_requests_assigned_to_fkey(full_name,email)",
       )
       .order("created_at", { ascending: false })
       .limit(200);
@@ -203,18 +213,37 @@ export const listPrivacyRequests = createServerFn({ method: "GET" })
 export const updatePrivacyRequestStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: unknown) =>
-    z.object({ id: z.string().uuid(), status: privacyStatusSchema }).parse(input),
+    z
+      .object({
+        id: z.string().uuid(),
+        status: privacyStatusSchema,
+        assignToSelf: z.boolean().optional(),
+        internalNotes: z.string().trim().max(4000).optional(),
+        identityVerificationMethod: z.string().trim().max(240).optional(),
+        resolutionSummary: z.string().trim().max(2000).optional(),
+      })
+      .parse(input),
   )
   .handler(async ({ context, data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const role = await privacyScope(context);
     let lookup = (supabaseAdmin as any)
       .from("privacy_requests")
-      .select("id,company_id")
+      .select("id,company_id,request_type,status,assigned_to,internal_notes")
       .eq("id", data.id);
     if (role.role === "matriz") lookup = lookup.eq("company_id", role.company_id);
     const { data: requestRow } = await lookup.maybeSingle();
     if (!requestRow) throw new Error("Solicitação não encontrada ou sem permissão.");
+    if (
+      ["in_progress", "completed"].includes(data.status) &&
+      requestRow.request_type !== "marketing_revocation" &&
+      !data.identityVerificationMethod
+    ) {
+      throw new Error("Informe como a identidade do titular foi confirmada.");
+    }
+    if (["completed", "rejected"].includes(data.status) && !data.resolutionSummary) {
+      throw new Error("Registre a resposta final ou o motivo da recusa.");
+    }
 
     const now = new Date().toISOString();
     const updates: Record<string, string | null> = {
@@ -222,11 +251,40 @@ export const updatePrivacyRequestStatus = createServerFn({ method: "POST" })
       updated_at: now,
       resolved_at: ["completed", "rejected"].includes(data.status) ? now : null,
     };
-    if (data.status === "in_progress") updates["identity_verified_at"] = now;
+    if (data.assignToSelf) updates["assigned_to"] = context.userId;
+    if (data.internalNotes !== undefined) updates["internal_notes"] = data.internalNotes || null;
+    if (data.identityVerificationMethod !== undefined)
+      updates["identity_verification_method"] = data.identityVerificationMethod || null;
+    if (data.status === "in_progress" && data.identityVerificationMethod) {
+      updates["identity_verified_at"] = now;
+      updates["identity_verified_by"] = context.userId;
+    }
+    if (data.resolutionSummary !== undefined)
+      updates["resolution_summary"] = data.resolutionSummary || null;
     const { error } = await (supabaseAdmin as any)
       .from("privacy_requests")
       .update(updates)
       .eq("id", data.id);
     if (error) throw new Error("Não foi possível atualizar a solicitação.");
+    const eventTypes = new Set<string>();
+    if (requestRow.status !== data.status) eventTypes.add("status_changed");
+    if (data.assignToSelf && requestRow.assigned_to !== context.userId) eventTypes.add("assigned");
+    if (data.identityVerificationMethod && data.status === "in_progress")
+      eventTypes.add("identity_verified");
+    if (data.internalNotes !== undefined && data.internalNotes !== requestRow.internal_notes)
+      eventTypes.add("note_updated");
+    if (["completed", "rejected"].includes(data.status)) eventTypes.add("resolved");
+    if (eventTypes.size > 0) {
+      await (supabaseAdmin as any).from("privacy_request_events").insert(
+        [...eventTypes].map((eventType) => ({
+          privacy_request_id: data.id,
+          actor_user_id: context.userId,
+          event_type: eventType,
+          previous_status: requestRow.status,
+          new_status: data.status,
+          note: data.resolutionSummary || data.internalNotes || null,
+        })),
+      );
+    }
     return { ok: true };
   });
