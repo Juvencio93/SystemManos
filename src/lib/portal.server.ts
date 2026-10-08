@@ -7,6 +7,8 @@ import { normalizeSponsorDisplayType, type SponsorDisplayType } from "@/lib/camp
 
 export const portalSlugSchema = z.object({ slug: z.string().trim().min(1).max(120) });
 
+export const WIFI_CONSENT_VERSION = "wifi-privacy-v2-2026-10-07";
+
 export const portalLeadSchema = z.object({
   slug: z.string().trim().min(1).max(120),
   fullName: z.string().trim().min(3, "Informe seu nome completo").max(120),
@@ -25,10 +27,7 @@ export const portalLeadSchema = z.object({
     .refine((val) => !/^0+$/.test(val), "WhatsApp inválido"),
   city: z.string().trim().min(2, "Informe sua cidade").max(120), // Cidade agora obrigatória
   consent: z.boolean().refine((val) => val === true, "E necessário aceitar a política LGPD"),
-  // O portal possui um único aceite obrigatório. O mesmo aceite é registrado
-  // para LGPD e para o contato comercial pelo WhatsApp, conforme o texto
-  // apresentado ao visitante no formulário.
-  marketingConsent: z.boolean().optional(),
+  marketingConsent: z.boolean().default(false),
   deviceType: z.string().trim().max(40).optional(),
   userAgent: z.string().trim().max(400).optional(),
   mac: z.string().trim().max(100).optional(),
@@ -367,6 +366,10 @@ export async function registerLead(
     phone: string;
     city: string; // Obrigatória
     consent: boolean;
+    marketingConsent: boolean;
+    consentSource: "wifi_portal" | "privacy_center";
+    consentIp?: string | undefined;
+    portalSlug: string;
     deviceType?: string | undefined;
     userAgent?: string | undefined;
     mac?: string | undefined;
@@ -383,9 +386,7 @@ export async function registerLead(
 
   const phoneE164 = toE164(input.countryCode, input.phone);
   const now = new Date().toISOString();
-  // O schema já exige consent === true. Não use um campo opcional enviado pelo
-  // navegador para decidir o consentimento comercial, pois ele não existe na UI.
-  const marketingConsent = input.consent;
+  const marketingConsent = input.marketingConsent;
   const periodDate = periodDateFor(target.dailyResetTime);
 
   // 1. Tentar encontrar visitante existente
@@ -420,7 +421,9 @@ export async function registerLead(
           marketing_consent_at: marketingConsent ? now : null,
           whatsapp_opt_in: marketingConsent,
           whatsapp_opt_in_at: marketingConsent ? now : null,
-          consent_version: "wifi-and-whatsapp-v1",
+          marketing_consent_revoked_at: marketingConsent ? null : now,
+          consent_version: WIFI_CONSENT_VERSION,
+          consent_source: input.consentSource,
         })
         .eq("id", visitorId);
 
@@ -441,7 +444,9 @@ export async function registerLead(
           marketing_consent_at: marketingConsent ? now : null,
           whatsapp_opt_in: marketingConsent,
           whatsapp_opt_in_at: marketingConsent ? now : null,
-          consent_version: "wifi-and-whatsapp-v1",
+          marketing_consent_revoked_at: null,
+          consent_version: WIFI_CONSENT_VERSION,
+          consent_source: input.consentSource,
           connections_count: 1,
         })
         .select("id")
@@ -450,6 +455,42 @@ export async function registerLead(
       if (insertError) throw new Error(`Erro ao criar visitante: ${insertError.message}`);
       visitorId = created.id;
       globalConnectionsCount = 1;
+    }
+
+    const { error: consentAuditError } = await (admin as any)
+      .from("visitor_consent_events")
+      .insert([
+        {
+          visitor_id: visitorId,
+          company_id: target.companyId,
+          branch_id: target.kind === "branch" ? target.id : null,
+          event_id: target.kind === "event" ? target.id : null,
+          campaign_id: target.campaignId,
+          purpose: "wifi_access",
+          granted: true,
+          consent_version: WIFI_CONSENT_VERSION,
+          source: input.consentSource,
+          portal_slug: input.portalSlug,
+          request_ip: input.consentIp ?? null,
+          user_agent: input.userAgent ?? null,
+        },
+        {
+          visitor_id: visitorId,
+          company_id: target.companyId,
+          branch_id: target.kind === "branch" ? target.id : null,
+          event_id: target.kind === "event" ? target.id : null,
+          campaign_id: target.campaignId,
+          purpose: "marketing",
+          granted: marketingConsent,
+          consent_version: WIFI_CONSENT_VERSION,
+          source: input.consentSource,
+          portal_slug: input.portalSlug,
+          request_ip: input.consentIp ?? null,
+          user_agent: input.userAgent ?? null,
+        },
+      ]);
+    if (consentAuditError) {
+      throw new Error(`Erro ao registrar consentimento: ${consentAuditError.message}`);
     }
 
     // Cria ou atualiza o lead da campanha vigente sem alterar o link/QR do portal.
@@ -463,7 +504,8 @@ export async function registerLead(
         source_event_id: target.kind === "event" ? target.id : null,
         whatsapp_opt_in: marketingConsent,
         whatsapp_opt_in_at: marketingConsent ? now : null,
-        consent_version: "wifi-and-whatsapp-v1",
+        do_not_contact: !marketingConsent,
+        consent_version: WIFI_CONSENT_VERSION,
         updated_at: now,
       },
       { onConflict: "visitor_id,campaign_id" },

@@ -166,6 +166,7 @@ function PortalPage() {
     phone: "",
     city: "",
     consent: false,
+    marketingConsent: false,
   });
 
   const selectedCountry = useMemo(
@@ -231,6 +232,7 @@ function PortalPage() {
           city: form.city.trim(),
           countryCode: selectedCountry.code,
           consent: true,
+          marketingConsent: form.marketingConsent,
           deviceType: detectDevice(navigator.userAgent),
           userAgent: navigator.userAgent.slice(0, 400),
           mac: mac || undefined,
@@ -589,9 +591,8 @@ function PortalPage() {
                       </p>
                     )}
                     <p className={`text-[color:var(--portal-muted)] ${theme.typography.lgpdClass}`}>
-                      Seus dados serão usados para liberar o acesso ao Wi-Fi e para o envio de
-                      ofertas e contatos comerciais desta empresa pelo WhatsApp. Você pode pedir
-                      a exclusão ou interromper os contatos a qualquer momento.
+                      Para liberar o Wi-Fi, precisamos tratar os dados informados neste cadastro.
+                      O recebimento de ofertas é opcional e pode ser interrompido a qualquer momento.
                     </p>
                   </div>
                   <label
@@ -613,12 +614,37 @@ function PortalPage() {
                       style={{ accentColor: theme.palette.accentOn }}
                     />
                     <span className={`text-[color:var(--portal-muted)] ${theme.typography.lgpdClass}`}>
-                      <strong className="text-[color:var(--portal-text)]">Obrigatório:</strong> aceito os termos de
-                      uso e o tratamento dos meus dados conforme a LGPD para liberar o Wi-Fi e
-                      autorizo o recebimento de ofertas e contatos comerciais desta empresa pelo
-                      WhatsApp.
+                      <strong className="text-[color:var(--portal-text)]">Obrigatório:</strong> aceito os{" "}
+                      <Link to="/termos-de-uso" target="_blank" className="underline">Termos de Uso</Link> e a{" "}
+                      <Link to="/politica-de-privacidade" target="_blank" className="underline">Política de Privacidade</Link>{" "}
+                      para o tratamento necessário à liberação e à segurança do Wi-Fi.
                     </span>
                   </label>
+                  <label
+                    htmlFor="marketingConsent"
+                    className="flex cursor-pointer items-start gap-2.5 pt-1"
+                  >
+                    <input
+                      id="marketingConsent"
+                      type="checkbox"
+                      checked={form.marketingConsent}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, marketingConsent: e.target.checked }))
+                      }
+                      className="mt-1 size-4 shrink-0 rounded border-[color:var(--portal-border)] bg-[color:var(--portal-surface-alt)] transition-all focus:ring-offset-transparent"
+                      style={{ accentColor: theme.palette.accentOn }}
+                    />
+                    <span className={`text-[color:var(--portal-muted)] ${theme.typography.lgpdClass}`}>
+                      <strong className="text-[color:var(--portal-text)]">Opcional:</strong> quero receber
+                      ofertas e contatos comerciais desta empresa por WhatsApp e outros canais informados.
+                    </span>
+                  </label>
+                  <p className={`text-[color:var(--portal-faint)] ${theme.typography.lgpdClass}`}>
+                    Você pode revogar essa autorização ou exercer seus direitos na{" "}
+                    <Link to="/direitos-do-titular" target="_blank" className="underline">
+                      Central de Privacidade
+                    </Link>.
+                  </p>
                 </div>
 
 

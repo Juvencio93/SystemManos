@@ -2337,8 +2337,10 @@ export type Database = {
           last_seen_at: string
           lgpd_consent: boolean
           lgpd_consent_at: string | null
+          consent_source: string | null
           marketing_consent: boolean
           marketing_consent_at: string | null
+          marketing_consent_revoked_at: string | null
           phone_e164: string
           reseller_id: string | null
           updated_at: string
@@ -2360,8 +2362,10 @@ export type Database = {
           last_seen_at?: string
           lgpd_consent?: boolean
           lgpd_consent_at?: string | null
+          consent_source?: string | null
           marketing_consent?: boolean
           marketing_consent_at?: string | null
+          marketing_consent_revoked_at?: string | null
           phone_e164: string
           reseller_id?: string | null
           updated_at?: string
@@ -2383,8 +2387,10 @@ export type Database = {
           last_seen_at?: string
           lgpd_consent?: boolean
           lgpd_consent_at?: string | null
+          consent_source?: string | null
           marketing_consent?: boolean
           marketing_consent_at?: string | null
+          marketing_consent_revoked_at?: string | null
           phone_e164?: string
           reseller_id?: string | null
           updated_at?: string

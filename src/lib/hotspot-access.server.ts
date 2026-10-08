@@ -27,6 +27,10 @@ type PendingHotspotCheckin = {
   phone: string;
   city: string;
   consent: boolean;
+  marketingConsent: boolean;
+  consentSource: "wifi_portal";
+  consentIp?: string;
+  portalSlug: string;
   deviceType?: string;
   userAgent?: string;
   mac?: string;
@@ -201,6 +205,10 @@ export async function authorizeHotspotAccess(
       phone: pending.phone,
       city: pending.city,
       consent: pending.consent,
+      marketingConsent: pending.marketingConsent,
+      consentSource: pending.consentSource,
+      consentIp: pending.consentIp,
+      portalSlug: pending.portalSlug,
       ...(pending.deviceType ? { deviceType: pending.deviceType } : {}),
       ...(pending.userAgent ? { userAgent: pending.userAgent } : {}),
       ...(pending.mac ? { mac: pending.mac } : {}),
