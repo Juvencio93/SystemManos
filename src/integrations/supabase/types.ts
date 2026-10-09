@@ -1995,6 +1995,7 @@ export type Database = {
       }
       platform_settings: {
         Row: {
+          document: string | null
           display_name: string
           id: string
           logo_url: string | null
@@ -2003,6 +2004,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          document?: string | null
           display_name?: string
           id?: string
           logo_url?: string | null
@@ -2011,6 +2013,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          document?: string | null
           display_name?: string
           id?: string
           logo_url?: string | null

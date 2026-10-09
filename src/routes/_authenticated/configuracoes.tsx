@@ -139,6 +139,7 @@ function SettingsPage() {
   const [name, setName] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [phone, setPhone] = useState("");
+  const [platformDocument, setPlatformDocument] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [pendingLogoUrl, setPendingLogoUrl] = useState("");
   const [chatAvatarUrl, setChatAvatarUrl] = useState("");
@@ -169,6 +170,7 @@ function SettingsPage() {
     if (data.role === "adm") {
       setName("Manos Tech"); // Identity is fixed for ADM
       setPhone(data.platformSettings?.support_phone || "");
+      setPlatformDocument(data.platformSettings?.document || "");
       setLogoUrl(data.platformSettings?.logo_url_relatorios || "");
     } else if (data.role === "matriz") {
       setName(data.companyData?.trade_name || data.companyData?.name || "");
@@ -233,6 +235,7 @@ function SettingsPage() {
       displayName: string;
       contact_phone: string;
       logo_url: string;
+      document?: string;
     }) => {
       const result = await updateSettingsFn({ data: variables });
       if (!result.success) throw new Error("Falha na atualização");
@@ -277,6 +280,7 @@ function SettingsPage() {
       displayName,
       contact_phone: phone,
       logo_url: finalLogoUrl,
+      ...(isAdm ? { document: platformDocument } : {}),
     });
   };
 
@@ -660,6 +664,7 @@ function SettingsPage() {
                   displayName,
                   contact_phone: phone,
                   logo_url: pendingLogoUrl || logoUrl,
+                  ...(isAdm ? { document: platformDocument } : {}),
                 })}
                 disabled={updateProfileMutation.isPending || isChatAvatarUploading}
               >
@@ -727,6 +732,30 @@ function SettingsPage() {
                   placeholder="(00) 00000-0000"
                 />
               </div>
+
+              {isAdm && (
+                <div className="space-y-2">
+                  <Label htmlFor="platform-document">CNPJ da Manos Tech</Label>
+                  <Input
+                    id="platform-document"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={platformDocument}
+                    onChange={(event) => {
+                      const digits = event.target.value.replace(/\D/g, "").slice(0, 14);
+                      setPlatformDocument(
+                        digits
+                          .replace(/^(\d{2})(\d)/, "$1.$2")
+                          .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+                          .replace(/\.(\d{3})(\d)/, ".$1/$2")
+                          .replace(/(\d{4})(\d)/, "$1-$2"),
+                      );
+                    }}
+                    placeholder="00.000.000/0000-00"
+                  />
+                  <p className="text-xs text-muted-foreground">Usado nos recibos emitidos pela plataforma.</p>
+                </div>
+              )}
 
               <div className="space-y-4">
                 <Label>Logo {isAdm ? "Institucional" : "da Empresa"}</Label>

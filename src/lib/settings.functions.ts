@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { Database } from "@/integrations/supabase/types";
+import { formatCnpj, isValidCnpj } from "@/lib/cnpj-utils";
 
 export const getSettingsData = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -22,7 +23,7 @@ export const getSettingsData = createServerFn({ method: "GET" })
     // Get Platform Settings (Support Phone)
     const { data: platformSettings } = await supabase
       .from("platform_settings")
-      .select("display_name, logo_url, logo_url_relatorios, support_phone")
+      .select("display_name, logo_url, logo_url_relatorios, support_phone, document")
       .maybeSingle();
 
     let companyData = null;
@@ -93,6 +94,7 @@ export const updateSettings = createServerFn({ method: "POST" })
         ),
         chatAvatarUrl: z.string().url("URL da foto inválida").or(z.literal("")).optional(),
         contact_phone: z.string().optional(),
+        document: z.string().optional(),
         logo_url: z.string().url("URL inválida").or(z.literal("")).optional(),
       })
       .parse(data),
@@ -162,10 +164,7 @@ export const updateSettings = createServerFn({ method: "POST" })
       }
 
       // Return explicitly to allow frontend cache update
-      return {
-        success: true,
-        displayName: persistedProfile.display_name,
-      };
+      // Continue so a profile save can also persist platform/company settings.
     }
 
     const { data: roleData } = await supabase
@@ -186,6 +185,10 @@ export const updateSettings = createServerFn({ method: "POST" })
       if (!settings) throw new Error("Configurações da plataforma não encontradas.");
 
       const updateData: Record<string, unknown> = {};
+      if (input.document !== undefined) {
+        if (!isValidCnpj(input.document)) throw new Error("Informe um CNPJ válido.");
+        updateData["document"] = formatCnpj(input.document);
+      }
       // ADM no longer renames platform via greeting field
       if (input.contact_phone !== undefined) updateData["support_phone"] = input.contact_phone;
       if (input.logo_url !== undefined) updateData["logo_url_relatorios"] = input.logo_url || null;

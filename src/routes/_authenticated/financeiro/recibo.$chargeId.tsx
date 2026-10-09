@@ -31,8 +31,8 @@ function ReceiptPage() {
     window.print();
   };
 
-  // Fixed branding branding
   const institutionalName = "Manos Tech";
+  const platformDocument = (settings as { document?: string | null })?.document;
 
   return (
     <div className="min-h-screen bg-slate-50 py-8 px-4 sm:px-6 lg:px-8 print:bg-white print:p-0">
@@ -68,13 +68,7 @@ function ReceiptPage() {
         <div className="text-center space-y-2 text-slate-400 text-xs print:mt-12">
           <p>Plataforma de Gestão {institutionalName}</p>
           <div className="flex flex-col items-center gap-1 opacity-80">
-            {/* Use institutional data for the platform issuer, not user display name */}
-            <p>Empresa: {institutionalName} Solução em Marketing</p>
-            <p>
-              CNPJ:{" "}
-              {(settings as unknown as { document?: string })?.document || "00.000.000/0000-00"}
-            </p>
-            <p>Razão Social: {institutionalName} LTDA</p>
+            {platformDocument && <p>CNPJ: {platformDocument}</p>}
           </div>
         </div>
       </div>
