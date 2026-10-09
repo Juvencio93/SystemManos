@@ -127,9 +127,7 @@ export function LegalCompanyDetails() {
     <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
       <p className="font-semibold text-white">Manos Tech LTDA</p>
       <p>CNPJ: 52.499.913/0001-06</p>
-      <p>
-        Rua Corretor Aldo Pereira da Costa, 261, Apto. 02, Meia Praia, Navegantes/SC, CEP 88372-064.
-      </p>
+      <p>Navegantes - SC</p>
       <p>Telefone: (47) 99704-9730</p>
       <p>
         E-mail:{" "}
