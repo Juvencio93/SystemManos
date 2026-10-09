@@ -4,7 +4,12 @@ import { useMutation } from "@tanstack/react-query";
 import { CheckCircle2, ExternalLink, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { LegalList, LegalPageShell, LegalSection } from "@/components/legal/legal-page-shell";
+import {
+  LegalCompanyDetails,
+  LegalList,
+  LegalPageShell,
+  LegalSection,
+} from "@/components/legal/legal-page-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,7 +58,7 @@ function DataSubjectRightsPage() {
       eyebrow="Canal de privacidade"
       title="Direitos do titular"
       summary="Use este canal para entender ou solicitar providências relacionadas aos seus dados pessoais na plataforma Manos Tech."
-      updatedAt="7 de outubro de 2026"
+      updatedAt="8 de outubro de 2026"
     >
       <LegalSection title="1 Solicitações disponíveis">
         <LegalList
@@ -183,10 +188,12 @@ function DataSubjectRightsPage() {
       </LegalSection>
       <LegalSection title="3 Responsável pelo atendimento">
         <p>
-          Quando o pedido se referir a uma campanha ou portal Wi-Fi de um estabelecimento, a Manos
-          Tech poderá encaminhá-lo à empresa responsável pela finalidade do tratamento e acompanhar
-          o atendimento da solicitação.
+          A Manos Tech é o encarregado pelo tratamento de dados pessoais e atende assuntos de
+          privacidade pelos canais abaixo. Quando o pedido se referir a uma campanha ou portal Wi-Fi
+          de um estabelecimento, a Manos Tech poderá encaminhá-lo à empresa responsável pela
+          finalidade do tratamento e acompanhar o atendimento da solicitação.
         </p>
+        <LegalCompanyDetails />
       </LegalSection>
       <LegalSection title="4 Informações adicionais">
         <p>

@@ -1,5 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { LegalList, LegalPageShell, LegalSection } from "@/components/legal/legal-page-shell";
+import {
+  LegalCompanyDetails,
+  LegalList,
+  LegalPageShell,
+  LegalSection,
+} from "@/components/legal/legal-page-shell";
 
 export const Route = createFileRoute("/politica-de-privacidade")({
   head: () => ({
@@ -20,7 +25,7 @@ function PrivacyPolicyPage() {
       eyebrow="Proteção de dados"
       title="Política de privacidade"
       summary="Esta política explica quais dados são tratados na plataforma, para quais finalidades, com quem podem ser compartilhados e como os titulares podem exercer seus direitos."
-      updatedAt="7 de outubro de 2026"
+      updatedAt="8 de outubro de 2026"
     >
       <LegalSection title="1 Quem participa do tratamento">
         <p>
@@ -93,9 +98,11 @@ function PrivacyPolicyPage() {
         <p>
           O titular pode solicitar confirmação, acesso, correção, informação, anonimização,
           bloqueio, eliminação, portabilidade e revogação, quando aplicável. Solicitações podem ser
-          iniciadas pela página Direitos do Titular ou pelo e-mail{" "}
-          <strong className="text-white">manostech.suporte@gmail.com</strong>.
+          iniciadas pela página Direitos do Titular ou pelos canais oficiais abaixo. A Manos Tech é
+          o encarregado pelo tratamento de dados pessoais e atende esses assuntos pelos canais
+          informados a seguir.
         </p>
+        <LegalCompanyDetails />
       </LegalSection>
     </LegalPageShell>
   );

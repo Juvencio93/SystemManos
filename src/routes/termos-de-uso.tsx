@@ -1,5 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { LegalList, LegalPageShell, LegalSection } from "@/components/legal/legal-page-shell";
+import {
+  LegalCompanyDetails,
+  LegalList,
+  LegalPageShell,
+  LegalSection,
+} from "@/components/legal/legal-page-shell";
 
 export const Route = createFileRoute("/termos-de-uso")({
   head: () => ({
@@ -17,7 +22,7 @@ function TermsOfUsePage() {
       eyebrow="Condições da plataforma"
       title="Termos de uso"
       summary="Regras aplicáveis aos administradores e usuários autorizados pelas empresas que utilizam a plataforma Manos Tech."
-      updatedAt="7 de outubro de 2026"
+      updatedAt="8 de outubro de 2026"
     >
       <LegalSection title="1 Aceitação e acesso">
         <p>
@@ -85,10 +90,8 @@ function TermsOfUsePage() {
         </p>
       </LegalSection>
       <LegalSection title="8 Contato">
-        <p>
-          Questões sobre estes Termos podem ser encaminhadas para{" "}
-          <strong className="text-white">manostech.suporte@gmail.com</strong>.
-        </p>
+        <p>Questões sobre estes Termos podem ser encaminhadas pelos canais oficiais abaixo.</p>
+        <LegalCompanyDetails />
       </LegalSection>
     </LegalPageShell>
   );
