@@ -54,7 +54,7 @@ export function HotspotNotificationCenter({ userId }: { userId: string }) {
             .limit(30),
           (supabase as any)
             .from("system_notifications")
-            .select("id,severity,title,description,created_at")
+            .select("id,category,severity,title,description,created_at")
             .eq("recipient_user_id", userId)
             .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60_000).toISOString())
             .order("created_at", { ascending: false })
@@ -63,7 +63,14 @@ export function HotspotNotificationCenter({ userId }: { userId: string }) {
       if (devicesError) throw devicesError;
       if (auditsError) throw auditsError;
       if (systemError) throw systemError;
-      const operationalAlerts = buildHotspotAlerts(devices ?? [], audits ?? []);
+      const savedHotspotTitles = new Set(
+        (systemNotifications ?? [])
+          .filter((item: any) => item.category === "hotspot")
+          .map((item: any) => item.title),
+      );
+      const operationalAlerts = buildHotspotAlerts(devices ?? [], audits ?? []).filter(
+        (alert) => !savedHotspotTitles.has(alert.title),
+      );
       const savedAlerts = (systemNotifications ?? []).map((item: any) => ({
         id: `system:${item.id}`,
         severity: item.severity,
