@@ -49,7 +49,7 @@ function HotspotPage() {
       query = query.or(filters.join(","));
     } else if (access?.role === "matriz" && access.companyId) query = query.eq("company_id", access.companyId);
     else if (access?.role === "filial" && access.branchId) query = query.eq("branch_id", access.branchId);
-    const { data, error } = await query.order("last_seen_at", { ascending: false, nullsFirst: false });
+    const { data, error } = await query.neq("status", "suspended").order("last_seen_at", { ascending: false, nullsFirst: false });
     if (error) throw error;
     return (data ?? []).map((device: any) => {
       const unit = device.branches ?? device.companies ?? {};
@@ -85,6 +85,9 @@ function HotspotPage() {
   useEffect(() => { const timer = window.setInterval(() => setHeartbeatSeconds((v) => v <= 1 ? 5 : v - 1), 1000); return () => window.clearInterval(timer); }, []);
   const isOnline = (lastSeen?: string) =>
     Boolean(lastSeen && Date.now() - new Date(lastSeen).getTime() < 15_000);
+  const hasOnlineTwin = (device: any) => Boolean(device.ap_mac && clients.some((other: any) =>
+    other.id !== device.id && other.ap_mac === device.ap_mac && other.status === "operational" && isOnline(other.last_seen_at)
+  ));
   const filteredClients = clients.reduce<any[]>((items, client) => {
     const text = `${client.router_identity ?? ""} ${client.ap_mac ?? ""}`.toLowerCase();
     if (text.includes(search.toLowerCase()) && (statusFilter === "all" || client.status === statusFilter)) items.push(client);
@@ -120,6 +123,16 @@ function HotspotPage() {
       if (actionError) { window.alert(actionError); return; }
       await clientsQuery.refetch();
       setSelected(null);
+  }
+  async function retireDuplicate(device: any) {
+    if (!device || !hasOnlineTwin(device) || isOnline(device.last_seen_at)) return;
+    if (!window.confirm(`Arquivar o cadastro antigo ${device.router_identity}? O histórico será preservado. A RB online com o mesmo MAC continuará ativa.`)) return;
+    const response = await postHotspotAction("/api/internal/hotspot-device-status", { routerIdentity: device.router_identity, retireDuplicate: true });
+    const actionError = await hotspotActionError(response, "Não foi possível arquivar o cadastro duplicado.");
+    if (actionError) { setSyncMessage(actionError); return; }
+    setSyncMessage(`${device.router_identity} foi arquivada. O registro e o histórico foram preservados.`);
+    setSelected(null);
+    await clientsQuery.refetch();
   }
   async function downloadActivation(client: any) {
     const path = await getActivation({ data: { kind: client.branch_id ? "branch" : "company", targetId: client.branch_id ?? client.company_id, fileKind: "activation" } });
@@ -288,7 +301,7 @@ function HotspotPage() {
           <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground"><span>Página {page} de {totalPages}</span><div className="flex gap-2"><Button size="icon" variant="outline" disabled={page === 1} onClick={() => setPage((p) => p - 1)}><ChevronLeft className="size-4" /></Button><Button size="icon" variant="outline" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)}><ChevronRight className="size-4" /></Button></div></div>
         </CardContent>
       </Card>
-      <Dialog open={Boolean(selected)} onOpenChange={(open) => !open && setSelected(null)}><DialogContent><DialogHeader><DialogTitle>{selected?.router_identity}</DialogTitle></DialogHeader><div className="grid gap-3 text-sm sm:grid-cols-2"><p>MAC: <strong>{selected?.ap_mac ?? "não informado"}</strong></p><p>IP: <strong>{selected?.last_seen_ip ?? "não informado"}</strong></p><p>RouterOS: <strong>{selected?.router_version ?? "não informado"}</strong></p><p>Última comunicação: <strong>{selected?.last_seen_at ? new Date(selected.last_seen_at).toLocaleString("pt-BR") : "nunca"}</strong></p><p>Sessões ativas: <strong>{selected?.active_sessions ?? 0}</strong></p><p>Tráfego: <strong>TX {formatBytes(Number(selected?.tx_bytes ?? 0))} · RX {formatBytes(Number(selected?.rx_bytes ?? 0))}</strong></p><p>Conexão: <Badge variant="outline" className={isOnline(selected?.last_seen_at) ? "border-emerald-400/40 text-emerald-300" : "border-red-400/40 text-red-300"}>{isOnline(selected?.last_seen_at) ? "Online" : "Offline"}</Badge></p><p>Status atual: <Badge variant="outline" className={statusClass(selected?.status)}>{selected && statusLabel(selected.status)}</Badge></p></div><div className="flex flex-wrap gap-2"><Button variant={selected?.status === "blocked" ? "default" : "destructive"} onClick={() => changeStatus(selected?.status === "blocked" ? "operational" : "blocked")}>{selected?.status === "blocked" ? "Desbloquear dispositivo" : "Bloquear dispositivo"}</Button><Button variant="outline" onClick={() => selected && void requestReboot(selected)}>Reiniciar RB</Button></div></DialogContent></Dialog>
+      <Dialog open={Boolean(selected)} onOpenChange={(open) => !open && setSelected(null)}><DialogContent><DialogHeader><DialogTitle>{selected?.router_identity}</DialogTitle></DialogHeader><div className="grid gap-3 text-sm sm:grid-cols-2"><p>MAC: <strong>{selected?.ap_mac ?? "não informado"}</strong></p><p>IP: <strong>{selected?.last_seen_ip ?? "não informado"}</strong></p><p>RouterOS: <strong>{selected?.router_version ?? "não informado"}</strong></p><p>Última comunicação: <strong>{selected?.last_seen_at ? new Date(selected.last_seen_at).toLocaleString("pt-BR") : "nunca"}</strong></p><p>Sessões ativas: <strong>{selected?.active_sessions ?? 0}</strong></p><p>Tráfego: <strong>TX {formatBytes(Number(selected?.tx_bytes ?? 0))} · RX {formatBytes(Number(selected?.rx_bytes ?? 0))}</strong></p><p>Conexão: <Badge variant="outline" className={isOnline(selected?.last_seen_at) ? "border-emerald-400/40 text-emerald-300" : "border-red-400/40 text-red-300"}>{isOnline(selected?.last_seen_at) ? "Online" : "Offline"}</Badge></p><p>Status atual: <Badge variant="outline" className={statusClass(selected?.status)}>{selected && statusLabel(selected.status)}</Badge></p></div><div className="flex flex-wrap gap-2">{selected?.status !== "suspended" && <><Button variant={selected?.status === "blocked" ? "default" : "destructive"} onClick={() => changeStatus(selected?.status === "blocked" ? "operational" : "blocked")}>{selected?.status === "blocked" ? "Desbloquear dispositivo" : "Bloquear dispositivo"}</Button><Button variant="outline" onClick={() => selected && void requestReboot(selected)}>Reiniciar RB</Button></>}{access?.role === "adm" && selected && !isOnline(selected.last_seen_at) && hasOnlineTwin(selected) && <Button variant="destructive" onClick={() => void retireDuplicate(selected)}>Arquivar cadastro duplicado</Button>}</div>{access?.role === "adm" && selected && !isOnline(selected.last_seen_at) && hasOnlineTwin(selected) && <p className="text-xs text-muted-foreground">Este cadastro está offline e compartilha o MAC com outra RB online. Arquivar preserva os registros, mas remove este duplicado das listas ativas.</p>}</DialogContent></Dialog>
     </div>
   );
 }

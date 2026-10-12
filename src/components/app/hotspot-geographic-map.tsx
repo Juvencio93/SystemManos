@@ -21,8 +21,15 @@ const HUB = {
 const CITY_FALLBACKS: Record<string, [number, number]> = {
   "balneário camboriú": [-26.9926, -48.6352],
   camboriú: [-27.0241, -48.6545],
+  itajaí: [-26.90722, -48.66055],
+  itajai: [-26.90722, -48.66055],
   joinville: [-26.3044, -48.8464],
 };
+
+function hasExactCoordinates(device: GeographicDevice) {
+  return device.latitude != null && device.longitude != null &&
+    Number.isFinite(Number(device.latitude)) && Number.isFinite(Number(device.longitude));
+}
 
 function coordinates(device: GeographicDevice): [number, number] | null {
   if (device.latitude == null || device.longitude == null) {
@@ -141,14 +148,17 @@ export function HotspotGeographicMap({
               : "#fb7185";
         const icon = L.divIcon({
           className: "hotspot-map-marker",
-          html: markerHtml(color, compact ? undefined : escapeHtml(device.router_identity)),
+          html: markerHtml(
+            color,
+            compact ? undefined : escapeHtml(`${device.router_identity}${hasExactCoordinates(device) ? "" : " · aprox."}`),
+          ),
           iconSize: compact ? [24, 24] : [150, 28],
           iconAnchor: [8, 8],
         });
         const marker = L.marker(point, { icon })
           .addTo(map)
           .bindPopup(
-            `<strong>${escapeHtml(device.unit_name || device.router_identity)}</strong><br>${escapeHtml(device.city || "Localização cadastrada")}`,
+            `<strong>${escapeHtml(device.unit_name || device.router_identity)}</strong><br>${escapeHtml(device.city || "Localização cadastrada")}${hasExactCoordinates(device) ? "" : "<br>Posição aproximada pelo município"}`,
           );
         marker.on("click", () => onSelectRef.current?.(device.id));
         markers.set(device.id, marker);

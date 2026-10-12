@@ -27,7 +27,7 @@ export async function answerTelegramOperationalQuestion(supabaseAdmin: any, ques
   const [{ data: messages }, snapshot, { data: routers }] = await Promise.all([
     supabaseAdmin.from("telegram_operational_messages").select("role,content").order("created_at", { ascending: false }).limit(10),
     computePlatformSnapshot(supabaseAdmin),
-    supabaseAdmin.from("hotspot_devices").select("router_identity,last_seen_at,status,active_sessions,rx_bytes,tx_bytes,companies(name,trade_name),branches(name,trade_name)").order("router_identity"),
+    supabaseAdmin.from("hotspot_devices").select("router_identity,last_seen_at,status,active_sessions,rx_bytes,tx_bytes,companies(name,trade_name),branches(name,trade_name)").neq("status", "suspended").order("router_identity"),
   ]);
   const fullHistory = (messages ?? []).reverse().map((item: any) => ({ role: item.role, content: item.content }));
   await supabaseAdmin.from("telegram_operational_messages").insert({ role: "user", content: question });

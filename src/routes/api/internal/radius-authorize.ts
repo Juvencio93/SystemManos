@@ -51,9 +51,9 @@ export const Route = createFileRoute("/api/internal/radius-authorize")({
             .select("status")
             .eq("router_identity", routerIdentity)
             .maybeSingle();
-          // Do not issue grants to an unknown, removed or blocked router when
-          // FreeRADIUS identifies the requesting NAS.
-          if (deviceError || !device || device.status === "blocked") return unauthorized();
+          // Only an operational router can receive grants. This also keeps
+          // suspended or retired duplicate hardware from authenticating.
+          if (deviceError || !device || device.status !== "operational") return unauthorized();
         }
         const grant = await authorizeHotspotAccess(supabaseAdmin, { username, mac });
         if (!grant) return unauthorized();

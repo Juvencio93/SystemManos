@@ -314,6 +314,9 @@ export function HotspotNetworkMap({ devices, isLoading = false, onBlock, onReboo
                   <MapPin className="mt-0.5 size-4 shrink-0 text-primary" />
                   {locationLabel(selected) || "Endereço ainda não cadastrado para esta RB."}
                 </p>
+                {selected.latitude == null || selected.longitude == null ? (
+                  <p className="mt-2 text-xs text-amber-300">O ponto no mapa é aproximado e usa o município cadastrado. Informe as coordenadas da instalação para mostrar o local exato.</p>
+                ) : null}
               </div>
 
               <div className="overflow-hidden rounded-lg border border-white/10 bg-[#071017]">

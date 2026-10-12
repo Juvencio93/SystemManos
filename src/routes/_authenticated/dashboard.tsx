@@ -414,7 +414,7 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
     } else if (access?.role === "matriz" && access.companyId) query = query.eq("company_id", access.companyId);
     else if (access?.role === "filial" && access.branchId) query = query.eq("branch_id", access.branchId);
     else if (access?.role !== "adm") return [];
-    const { data, error } = await query.order("last_seen_at", { ascending: false });
+    const { data, error } = await query.neq("status", "suspended").order("last_seen_at", { ascending: false });
     if (error) throw error;
     return (data ?? []).map((device: any) => {
       const unit = device.branches ?? device.companies ?? {};
