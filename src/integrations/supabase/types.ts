@@ -125,6 +125,48 @@ export type Database = {
         }
         Relationships: []
       }
+      pagbank_integrations: {
+        Row: {
+          access_token: string
+          created_at: string
+          environment: string
+          id: string
+          last_error: string | null
+          last_tested_at: string | null
+          owner_id: string | null
+          owner_type: string
+          status: string
+          updated_at: string
+          webhook_url: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string
+          environment?: string
+          id?: string
+          last_error?: string | null
+          last_tested_at?: string | null
+          owner_id?: string | null
+          owner_type: string
+          status?: string
+          updated_at?: string
+          webhook_url: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string
+          environment?: string
+          id?: string
+          last_error?: string | null
+          last_tested_at?: string | null
+          owner_id?: string | null
+          owner_type?: string
+          status?: string
+          updated_at?: string
+          webhook_url?: string
+        }
+        Relationships: []
+      }
       stripe_integrations: {
         Row: {
           account_id: string | null
