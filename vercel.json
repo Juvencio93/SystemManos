@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npm run build",
-  "installCommand": "npm install --no-audit --prefer-offline",
+  "buildCommand": "npm run build:verified",
+  "installCommand": "npm ci --no-audit --prefer-offline",
   "crons": [
     {
       "path": "/api/public/billing-access-sync",
