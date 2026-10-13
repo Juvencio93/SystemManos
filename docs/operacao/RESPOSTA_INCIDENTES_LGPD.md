@@ -31,7 +31,7 @@ Abrir registro ao detectar acesso indevido, vazamento, perda, alteração, indis
 
 ## Comunicação externa
 
-Quando o incidente puder causar risco ou dano relevante, a decisão de comunicação deve ser tratada como urgente. A regulamentação da ANPD estabelece comunicação à ANPD e aos titulares em até 3 dias úteis, ressalvadas regras legais específicas.
+Quando o incidente puder causar risco ou dano relevante, a decisão de comunicação deve ser tratada como urgente. Para dados em que o cliente é controlador, cabe ao cliente avaliar e realizar a comunicação à ANPD e aos titulares no prazo regulamentar de até 3 dias úteis, ressalvadas regras legais específicas. A Manos Tech, quando atuar como operadora, deve avisar o controlador sem demora indevida, fornecendo os elementos disponíveis para que ele avalie o incidente e cumpra o prazo. O canal e o procedimento de escalonamento precisam constar do Anexo de Tratamento de Dados de cada cliente.
 
 Não enviar nomes, CPF, tokens, senhas ou dados completos pelo Telegram. O alerta operacional deve conter apenas o identificador do incidente, severidade e orientação para abrir o painel seguro.
 

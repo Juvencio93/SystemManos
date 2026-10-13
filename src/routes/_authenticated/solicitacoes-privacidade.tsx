@@ -108,6 +108,11 @@ function PrivacyRequestsPage() {
         title="Solicitações de privacidade"
         subtitle="Acompanhe pedidos de acesso, correção, exclusão e revogação de marketing."
       />
+      <p className="text-sm text-muted-foreground">
+        A data exibida é uma referência interna de acompanhamento. Confirmação e acesso em formato
+        simplificado exigem resposta imediata; pedidos de declaração completa e os demais direitos
+        devem seguir o prazo aplicável a cada caso.
+      </p>
       <Button asChild variant="ghost" className="gap-2">
         <Link to="/configuracoes">
           <ArrowLeft className="size-4" /> Voltar para Configurações
@@ -127,7 +132,7 @@ function PrivacyRequestsPage() {
                     <TableHead>Pedido</TableHead>
                     <TableHead>Empresa</TableHead>
                     <TableHead>Recebida em</TableHead>
-                    <TableHead>Prazo</TableHead>
+                    <TableHead>Referência interna</TableHead>
                     <TableHead>Responsável</TableHead>
                     <TableHead>Andamento</TableHead>
                   </TableRow>
@@ -208,7 +213,7 @@ function PrivacyRequestsPage() {
                 <p className="font-mono font-semibold">{selected.protocol}</p>
               </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Clock3 className="size-4" /> Prazo operacional:{" "}
+                <Clock3 className="size-4" /> Referência interna de acompanhamento:{" "}
                 {new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium" }).format(
                   new Date(selected.due_at),
                 )}

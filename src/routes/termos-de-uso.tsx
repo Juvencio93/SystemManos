@@ -22,7 +22,7 @@ function TermsOfUsePage() {
       eyebrow="Condições da plataforma"
       title="Termos de uso"
       summary="Regras aplicáveis aos administradores e usuários autorizados pelas empresas que utilizam a plataforma Manos Tech."
-      updatedAt="8 de outubro de 2026"
+      updatedAt="13 de outubro de 2026"
     >
       <LegalSection title="1 Aceitação e acesso">
         <p>

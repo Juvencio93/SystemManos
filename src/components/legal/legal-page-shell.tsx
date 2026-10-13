@@ -135,7 +135,8 @@ export function LegalCompanyDetails() {
           manostech.suporte@gmail.com
         </a>
       </p>
-      <p>Encarregado pelo tratamento de dados pessoais: Manos Tech.</p>
+      <p>Encarregado pelo tratamento de dados pessoais: Manos Tech LTDA.</p>
+      <p>Pessoa natural responsável pelo encarregado: Gabriel Juvencio.</p>
     </div>
   );
 }

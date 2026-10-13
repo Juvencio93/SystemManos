@@ -100,11 +100,11 @@ export const submitPrivacyRequest = createServerFn({ method: "POST" })
         .ilike("email", data.email)
         .eq("phone_e164", phoneE164);
       if (target?.companyId) visitorQuery = visitorQuery.eq("company_id", target.companyId);
-      const { data: visitors } = await visitorQuery;
+      const { data: visitors, error: visitorLookupError } = await visitorQuery;
       const visitorIds = visitors?.map((visitor) => visitor.id) ?? [];
 
-      if (visitorIds.length > 0) {
-        await supabaseAdmin
+      if (!visitorLookupError && visitorIds.length > 0) {
+        const { error: visitorUpdateError } = await supabaseAdmin
           .from("visitors")
           .update({
             marketing_consent: false,
@@ -114,7 +114,7 @@ export const submitPrivacyRequest = createServerFn({ method: "POST" })
             whatsapp_opt_in_at: null,
           })
           .in("id", visitorIds);
-        await supabaseAdmin
+        const { error: leadUpdateError } = await supabaseAdmin
           .from("crm_leads")
           .update({
             whatsapp_opt_in: false,
@@ -123,20 +123,22 @@ export const submitPrivacyRequest = createServerFn({ method: "POST" })
             updated_at: now,
           })
           .in("visitor_id", visitorIds);
-        await (supabaseAdmin as any).from("visitor_consent_events").insert(
-          visitors!.map((visitor) => ({
-            visitor_id: visitor.id,
-            company_id: visitor.company_id,
-            purpose: "marketing",
-            granted: false,
-            consent_version: "privacy-revocation-v1",
-            source: "privacy_center",
-            portal_slug: data.portalSlug || null,
-            request_ip: ip === "unknown" ? null : ip,
-            user_agent: request?.headers.get("user-agent")?.slice(0, 400) ?? null,
-          })),
-        );
-        immediatelyRevoked = true;
+        const { error: consentEventError } = await (supabaseAdmin as any)
+          .from("visitor_consent_events")
+          .insert(
+            visitors!.map((visitor) => ({
+              visitor_id: visitor.id,
+              company_id: visitor.company_id,
+              purpose: "marketing",
+              granted: false,
+              consent_version: "privacy-revocation-v1",
+              source: "privacy_center",
+              portal_slug: data.portalSlug || null,
+              request_ip: ip === "unknown" ? null : ip,
+              user_agent: request?.headers.get("user-agent")?.slice(0, 400) ?? null,
+            })),
+          );
+        immediatelyRevoked = !visitorUpdateError && !leadUpdateError && !consentEventError;
       }
     }
 
@@ -161,7 +163,7 @@ export const submitPrivacyRequest = createServerFn({ method: "POST" })
           category: "privacy",
           severity: "warning",
           title: `Nova solicitação de privacidade — ${protocol}`,
-          description: `${data.fullName} enviou uma solicitação do tipo ${data.requestType}.`,
+          description: `${data.fullName} enviou uma solicitação do tipo ${data.requestType}.${data.requestType === "marketing_revocation" && !immediatelyRevoked ? " A revogação requer análise da equipe." : ""}`,
           company_id: target?.companyId ?? null,
           created_at: now,
           updated_at: now,

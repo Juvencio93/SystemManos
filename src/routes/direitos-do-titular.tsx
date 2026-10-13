@@ -58,7 +58,7 @@ function DataSubjectRightsPage() {
       eyebrow="Canal de privacidade"
       title="Direitos do titular"
       summary="Use este canal para entender ou solicitar providências relacionadas aos seus dados pessoais na plataforma Manos Tech."
-      updatedAt="8 de outubro de 2026"
+      updatedAt="13 de outubro de 2026"
     >
       <LegalSection title="1 Solicitações disponíveis">
         <LegalList
@@ -73,6 +73,12 @@ function DataSubjectRightsPage() {
         />
       </LegalSection>
       <LegalSection title="2 Como solicitar">
+        <p>
+          Confirmação da existência de tratamento e acesso em formato simplificado devem ser
+          providenciados imediatamente. Quando você pedir uma declaração completa, o prazo pode ser
+          de até 15 dias. Para os demais direitos, o prazo depende do pedido e da regra aplicável.
+          Podemos confirmar sua identidade quando isso for necessário para proteger seus dados.
+        </p>
         {result ? (
           <div className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-5">
             <CheckCircle2 className="size-6 text-emerald-300" />
@@ -80,8 +86,8 @@ function DataSubjectRightsPage() {
             <p>Protocolo: {result.protocol}</p>
             <p>
               {result.immediatelyRevoked
-                ? "O consentimento de marketing localizado foi revogado imediatamente."
-                : "A equipe responsável verificará sua identidade antes de atender o pedido."}
+                ? "O consentimento de marketing localizado foi revogado."
+                : "A equipe responsável verificará as informações e dará andamento ao pedido."}
             </p>
           </div>
         ) : (
@@ -106,8 +112,10 @@ function DataSubjectRightsPage() {
                 <option value="access">Consultar meus dados</option>
                 <option value="correction">Corrigir meus dados</option>
                 <option value="deletion">Excluir meus dados</option>
-                <option value="information">Pedir informações</option>
-                <option value="other">Outro pedido</option>
+                <option value="information">Confirmação, acesso ou informações</option>
+                <option value="other">
+                  Outro direito (anonimização, bloqueio, portabilidade etc.)
+                </option>
               </select>
             </div>
             <div className="space-y-2 sm:col-span-2">
@@ -182,16 +190,19 @@ function DataSubjectRightsPage() {
         )}
         <p className="text-xs text-slate-400">
           Para proteger o titular, poderá ser necessário confirmar a identidade antes de fornecer,
-          corrigir ou excluir dados. O atendimento também pode ser solicitado pelo e-mail
+          corrigir ou excluir dados. O pedido de interrupção de ofertas é aplicado quando os dados
+          enviados correspondem ao cadastro; se não for localizado, a equipe analisará a
+          solicitação. O atendimento também pode ser solicitado pelo e-mail
           manostech.suporte@gmail.com.
         </p>
       </LegalSection>
       <LegalSection title="3 Responsável pelo atendimento">
         <p>
-          A Manos Tech é o encarregado pelo tratamento de dados pessoais e atende assuntos de
-          privacidade pelos canais abaixo. Quando o pedido se referir a uma campanha ou portal Wi-Fi
-          de um estabelecimento, a Manos Tech poderá encaminhá-lo à empresa responsável pela
-          finalidade do tratamento e acompanhar o atendimento da solicitação.
+          A Manos Tech LTDA é o encarregado pelo tratamento de dados pessoais, com Gabriel Juvencio
+          como pessoa natural responsável, e atende assuntos de privacidade pelos canais abaixo.
+          Quando o pedido se referir a uma campanha ou portal Wi-Fi de um estabelecimento, a Manos
+          Tech poderá encaminhá-lo à empresa responsável pela finalidade do tratamento e acompanhar
+          o atendimento da solicitação.
         </p>
         <LegalCompanyDetails />
       </LegalSection>
