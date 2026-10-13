@@ -18,14 +18,14 @@ Revisão: 12 de outubro de 2026.
 
 ## Estado atual
 
-- O workflow e scripts foram adicionados ao repositório, mas precisam dos secrets/variables do GitHub e ainda não produziram um dump confirmado.
+- O workflow e scripts estão na branch padrão e o agendamento diário está ativo. O backup ainda aguarda secrets/variables do GitHub e não produziu um dump confirmado.
 - A função `backup-storage-to-r2` versão 9 está publicada e cobre os cinco buckets; o primeiro manifesto dessa versão ainda precisa ser confirmado no R2.
 - A regra de retenção R2 para `database-backups/` precisa ser criada no painel Cloudflare.
 - Nenhuma restauração completa foi executada. Portanto, ainda não há recuperação comprovada.
 
 ## Ativação
 
-Siga `BACKUP_STRATEGY.md` e `BACKUP_R2_GUIDE.md`. Depois da configuração, execute o workflow manualmente, valide hash remoto e faça uma restauração em projeto separado antes de considerar o processo operacional.
+Siga `BACKUP_STRATEGY.md` e `BACKUP_R2_GUIDE.md`. Depois de cadastrar os secrets/variables, execute o workflow manualmente, valide hash remoto e faça uma restauração em projeto separado antes de considerar o processo operacional.
 
 ## Ensaio mensal
 

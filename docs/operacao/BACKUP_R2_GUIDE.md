@@ -37,7 +37,7 @@ A função ignora chamadas antes de completar 14 dias desde a última cópia. O 
 
 ## Retenção do dump do banco no R2
 
-O workflow manual grava em `database-backups/` e verifica tamanho e SHA-256 após baixar o objeto do R2. O agendamento diário deve ser ativado somente depois de cadastrar os secrets e variables exigidos. Configure no painel Cloudflare uma regra de lifecycle com prefixo exatamente `database-backups/` e expiração após 35 dias. O R2 aplica regras por prefixo; não use prefixo vazio porque isso também apagaria os backups do Storage. [Ciclo de vida de objetos R2](https://developers.cloudflare.com/r2/buckets/object-lifecycles/)
+O workflow agendado diariamente às 04:17 (horário de Brasília) grava em `database-backups/` e verifica tamanho e SHA-256 após baixar o objeto do R2. Enquanto faltar qualquer secret ou variable, a checagem inicial encerra a execução sem iniciar um dump. Configure no painel Cloudflare uma regra de lifecycle com prefixo exatamente `database-backups/` e expiração após 35 dias. O R2 aplica regras por prefixo; não use prefixo vazio porque isso também apagaria os backups do Storage. [Ciclo de vida de objetos R2](https://developers.cloudflare.com/r2/buckets/object-lifecycles/)
 
 O R2 Standard tem atualmente 10 GB-month de armazenamento e cotas de operações incluídas; o consumo é compartilhado com outros objetos da conta. O volume estimado atual cabe nessa cota, mas dumps e mídia crescerão. [Preços R2](https://developers.cloudflare.com/r2/pricing/)
 
