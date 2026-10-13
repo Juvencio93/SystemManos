@@ -56,10 +56,11 @@ jobs:
         with:
           version: latest
 
-      - name: Install age and AWS CLI
+      - name: Install age and verify AWS CLI
         run: |
           sudo apt-get update
-          sudo apt-get install --yes age awscli
+          sudo apt-get install --yes age
+          aws --version
 
       - name: Create, encrypt, upload, and verify database dump
         env:
