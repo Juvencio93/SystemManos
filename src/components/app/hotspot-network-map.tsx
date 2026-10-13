@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ExternalLink, LocateFixed, MapPin, Wifi, X } from "lucide-react";
+import { Building2, ExternalLink, LocateFixed, MapPin, Wifi, X } from "lucide-react";
 
 import {
   HotspotGeographicMap,
@@ -216,7 +216,9 @@ export function HotspotNetworkMap({ devices, isLoading = false, onBlock, onReboo
               </div>
             ) : null}
             <div className="absolute right-3 top-3 z-[500] flex gap-3 rounded-md border border-white/10 bg-black/70 px-3 py-2 text-[11px] backdrop-blur">
-              <span className="text-cyan-300">● Sede</span>
+              <span className="flex items-center gap-1 text-cyan-300">
+                <Building2 className="size-3" /> Sede
+              </span>
               <span className="text-emerald-400">● Online</span>
               <span className="text-amber-400">● Instável/Reiniciando</span>
               <span className="text-red-400">● Offline</span>
