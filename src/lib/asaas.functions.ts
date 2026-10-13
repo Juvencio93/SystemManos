@@ -247,7 +247,7 @@ export const cancelMatrizPayment = createServerFn({ method: "POST" })
       if (integration?.access_token) await fetchAsaas({ accessToken: integration.access_token, environment: integration.environment as AsaasEnvironment, endpoint: `/payments/${charge.asaas_payment_id}`, options: { method: "DELETE" } });
     }
     if (charge.payment_provider === "pagbank" && charge.pagbank_order_id) {
-      const { data: integration } = await supabaseAdmin.from("pagbank_integrations" as any).select("access_token, environment").eq("owner_type", "platform").is("owner_id", null).neq("status", "disabled").maybeSingle();
+      const { data: integration } = await supabaseAdmin.from("pagbank_integrations").select("access_token, environment").eq("owner_type", "platform").is("owner_id", null).neq("status", "disabled").maybeSingle();
       if (integration?.access_token) {
         const base = integration.environment === "sandbox" ? "https://sandbox.api.pagseguro.com" : "https://api.pagseguro.com";
         const response = await fetch(`${base}/orders/${charge.pagbank_order_id}`, { headers: { Authorization: `Bearer ${integration.access_token}`, Accept: "application/json" } });
