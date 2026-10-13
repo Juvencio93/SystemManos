@@ -29,10 +29,10 @@ O fluxo do banco usa `supabase db dump`, que aplica filtros próprios do Supabas
 4. Guardar a chave privada `age-identity.txt` fora do GitHub e do próprio R2, em local seguro com cópia de contingência. Sem ela, o dump não pode ser descriptografado.
 5. No bucket R2, criar uma regra de lifecycle limitada ao prefixo `database-backups/` para excluir objetos após 35 dias. Não aplique regra sem prefixo: o mesmo bucket guarda os arquivos do Storage.
 6. Confirmar que a fonte da função `backup-storage-to-r2` está versionada e corresponde à versão ativa no Supabase; conferir os secrets e o cron atuais.
-7. Ativar o cron diário depois de cadastrar os secrets e variables. Executar o workflow manualmente uma vez e conferir o artefato no R2; depois, conferir uma execução agendada.
+7. O cron diário está publicado; a checagem automática pula o dump enquanto faltar configuração. Cadastrar os secrets/variables, executar o workflow manualmente uma vez e conferir o artefato no R2; depois, conferir uma execução agendada.
 8. Fazer o primeiro teste de restauração isolada antes de declarar a recuperação pronta.
 
-O workflow não inicia até todos os secrets e variables necessários estarem configurados. GitHub Actions executa o agendamento apenas para a branch padrão e pode desativar schedules após período prolongado sem atividade no repositório. Conferir a aba Actions periodicamente e manter `workflow_dispatch` disponível.
+O job de backup só inicia quando todos os secrets e variables necessários estiverem configurados; a checagem não passa os valores secretos para o runner. GitHub Actions executa o agendamento apenas para a branch padrão e pode desativar schedules após período prolongado sem atividade no repositório. Conferir a aba Actions periodicamente e manter `workflow_dispatch` disponível.
 
 ## Regras operacionais
 
