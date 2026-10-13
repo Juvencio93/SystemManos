@@ -1,52 +1,40 @@
 # Plano de backup e recuperação
 
-Revisão: 7 de outubro de 2026.
+Revisão: 12 de outubro de 2026.
 
-## Objetivos
+## Objetivos realistas para o plano Free
 
-- RPO do banco: até 24 horas sem PITR; até o intervalo contratado quando PITR estiver ativo.
-- RPO dos arquivos: até 24 horas.
-- RTO operacional: 4 horas para incidente crítico, sujeito ao volume e à disponibilidade dos fornecedores.
-- Todo teste de restauração ocorre primeiro em projeto Supabase separado.
+- Banco: RPO alvo de 24 horas depois que o workflow diário estiver configurado e confirmado.
+- Arquivos: RPO atual de até 14 dias, conforme a janela da função Storage e os limites de transferência do Supabase Free.
+- Restauração: validar mensalmente em um projeto Supabase isolado.
+- RTO: ainda não medido; só definir após o primeiro ensaio cronometrado.
 
-## Cobertura obrigatória
+## Cobertura
 
-1. Banco PostgreSQL: esquema, dados, funções, políticas RLS e registros de autenticação cobertos pelo mecanismo contratado.
-2. Supabase Storage: cópia separada dos objetos e manifesto com bucket, caminho, tamanho e hash quando disponível.
-3. Código e migrações: repositório Git remoto.
-4. Segredos: inventário no gerenciador de segredos, sem copiar valores para o repositório ou para o arquivo de backup.
+1. PostgreSQL: dump separado de roles, schema e dados via Supabase CLI, criptografado com `age` e enviado ao R2.
+2. Storage: cópia independente dos cinco buckets, com manifesto, tamanho e SHA-256 por arquivo.
+3. Código e migrações: Git remoto, incluindo a fonte da Edge Function.
+4. Segredos: gerenciadores de segredos do GitHub/Supabase/Cloudflare; chave privada de descriptografia guardada fora desses destinos.
 
-O backup nativo do banco não contém os arquivos armazenados no Storage. Os dois conjuntos precisam de rotinas independentes.
+## Estado atual
 
-## Rotina
+- O workflow e scripts foram adicionados ao repositório, mas precisam dos secrets/variables do GitHub e ainda não produziram um dump confirmado.
+- A função `backup-storage-to-r2` versão 9 está publicada e cobre os cinco buckets; o primeiro manifesto dessa versão ainda precisa ser confirmado no R2.
+- A regra de retenção R2 para `database-backups/` precisa ser criada no painel Cloudflare.
+- Nenhuma restauração completa foi executada. Portanto, ainda não há recuperação comprovada.
 
-| Frequência | Ação | Evidência |
-|---|---|---|
-| Diária | Confirmar sucesso do backup do banco e do Storage | Registro com data, responsável e identificador do backup |
-| Semanal | Gerar dump lógico criptografado em destino externo | Arquivo, hash SHA-256 e log sem segredos |
-| Mensal | Restaurar a cópia mais recente em ambiente isolado | Relatório do teste e checklist funcional |
-| Trimestral | Simular indisponibilidade completa | Tempo medido, falhas encontradas e plano de correção |
+## Ativação
 
-## Validação mensal de restauração
+Siga `BACKUP_STRATEGY.md` e `BACKUP_R2_GUIDE.md`. Depois da configuração, execute o workflow manualmente, valide hash remoto e faça uma restauração em projeto separado antes de considerar o processo operacional.
 
-1. Criar ou selecionar um projeto Supabase isolado, sem integração com clientes reais.
-2. Restaurar o dump do banco no ambiente isolado.
-3. Restaurar os objetos do Storage mantendo os mesmos caminhos.
-4. Aplicar as variáveis de ambiente próprias do teste.
-5. Conferir contagens e vínculos de `companies`, `branches`, `user_roles`, `hotspot_devices`, `campaigns`, `visitors` e `company_charges`.
-6. Validar login e isolamento com ADM, revenda, matriz e filial de teste.
-7. Conferir logos, banners e arquivos do portal.
-8. Bloquear qualquer webhook, Telegram ou cobrança externa no ambiente restaurado.
-9. Registrar horário inicial, horário final, resultado e divergências.
-10. Destruir com segurança o ambiente temporário após a aprovação do relatório.
+## Ensaio mensal
 
-## Critério de aprovação
+1. Selecionar uma cópia identificada e obter a chave privada `age` guardada fora do ambiente de produção.
+2. Criar um projeto Supabase isolado e salvar sua connection string separadamente.
+3. Descriptografar e restaurar roles, schema e dados usando o procedimento em `RESTORATION.md`.
+4. Restaurar objetos pelo manifesto com `scripts/restore-storage-from-r2.mjs`.
+5. Conferir tabelas e vínculos principais (`companies`, `branches`, `user_roles`, `hotspot_devices`, `campaigns`, `visitors` e `company_charges`), login de teste, políticas RLS e arquivos.
+6. Desativar integrações externas no ambiente de teste para impedir cobranças, webhooks e mensagens reais.
+7. Registrar duração, cópia usada, divergências e resultado. Remover o projeto isolado quando terminar.
 
-O backup só é considerado válido quando uma restauração isolada termina sem erro, os vínculos principais conferem e os testes de permissão não revelam dados entre clientes.
-
-## Situação atual verificada
-
-- Projeto Supabase ativo e saudável.
-- O conector técnico não informa o plano contratado nem confirma o histórico de backups.
-- A documentação anterior declarava retenção sem evidência suficiente; essa declaração não deve ser usada como confirmação.
-- A validação completa fica pendente até conferir o painel de backups e executar o primeiro teste mensal em projeto isolado.
+O backup só será considerado recuperável quando banco e arquivos forem restaurados e as verificações funcionais forem aprovadas.

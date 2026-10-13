@@ -35,3 +35,6 @@ dist-ssr
 .env.*
 !.env.example
 .env*
+age-identity.txt
+database.tar.gz
+database.tar.gz.age
