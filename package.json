@@ -7,6 +7,7 @@
     "dev": "vite dev",
     "kit:metadata": "node scripts/generate-hotspot-kit-manifest.mjs",
     "build": "npm run kit:metadata && vite build",
+    "build:verified": "npm run typecheck && npm run build",
     "build:dev": "vite build --mode development",
     "start": "node dist/server/server.js",
     "preview": "vite preview",
