@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import type { Map as LeafletMap, Marker as LeafletMarker } from "leaflet";
+import type { CircleMarker as LeafletCircleMarker, Map as LeafletMap } from "leaflet";
 
 export type GeographicDevice = {
   id: string;
@@ -13,40 +13,96 @@ export type GeographicDevice = {
 };
 
 const HUB = {
-  latitude: -27.0259,
-  longitude: -48.6501,
+  // Approximate city center for the company's registered municipality.
+  latitude: -26.8985,
+  longitude: -48.6541,
   label: "Manos Tech",
+  city: "Navegantes - SC",
 };
 
 const CITY_FALLBACKS: Record<string, [number, number]> = {
-  "balneário camboriú": [-26.9926, -48.6352],
-  camboriú: [-27.0241, -48.6545],
-  itajaí: [-26.90722, -48.66055],
+  "balneario camboriu": [-26.9926, -48.6352],
+  camboriu: [-27.0241, -48.6545],
   itajai: [-26.90722, -48.66055],
   joinville: [-26.3044, -48.8464],
+  navegantes: [-26.8985, -48.6541],
 };
 
+function validCoordinates(latitude: number, longitude: number) {
+  return (
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude) &&
+    latitude >= -90 &&
+    latitude <= 90 &&
+    longitude >= -180 &&
+    longitude <= 180
+  );
+}
+
 function hasExactCoordinates(device: GeographicDevice) {
-  return device.latitude != null && device.longitude != null &&
-    Number.isFinite(Number(device.latitude)) && Number.isFinite(Number(device.longitude));
+  return (
+    device.latitude != null &&
+    device.longitude != null &&
+    validCoordinates(Number(device.latitude), Number(device.longitude))
+  );
+}
+
+function normalizeCity(city: string) {
+  return city
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pt-BR")
+    .replace(/\s*[-,/].*$/, "")
+    .trim();
+}
+
+function cityCoordinates(city?: string | null): [number, number] | null {
+  if (!city) return null;
+  const normalized = normalizeCity(city);
+  return CITY_FALLBACKS[normalized] ?? null;
+}
+
+function mapsUrlCoordinates(mapsUrl?: string | null): [number, number] | null {
+  if (!mapsUrl) return null;
+  try {
+    const url = new URL(mapsUrl);
+    const atCoordinates = url.pathname.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
+    const queryCoordinates = (
+      url.searchParams.get("query") ??
+      url.searchParams.get("q") ??
+      ""
+    ).match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
+    const match = atCoordinates ?? queryCoordinates;
+    if (!match) return null;
+    const point: [number, number] = [Number(match[1]), Number(match[2])];
+    return validCoordinates(point[0], point[1]) ? point : null;
+  } catch {
+    return null;
+  }
 }
 
 function coordinates(device: GeographicDevice): [number, number] | null {
-  if (device.latitude == null || device.longitude == null) {
-    return CITY_FALLBACKS[(device.city ?? "").trim().toLocaleLowerCase("pt-BR")] ?? null;
+  if (hasExactCoordinates(device)) {
+    return [Number(device.latitude), Number(device.longitude)];
   }
-  const latitude = Number(device.latitude);
-  const longitude = Number(device.longitude);
-  if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
-    return [latitude, longitude];
-  }
-  return CITY_FALLBACKS[(device.city ?? "").trim().toLocaleLowerCase("pt-BR")] ?? null;
+  const fromMapsUrl = mapsUrlCoordinates(device.maps_url);
+  if (fromMapsUrl) return fromMapsUrl;
+  return cityCoordinates(device.city);
 }
 
-function markerHtml(color: string, label?: string) {
-  return `<div style="display:flex;align-items:center;gap:7px;white-space:nowrap">
-    <span style="width:16px;height:16px;border:2px solid rgba(255,255,255,.9);border-radius:999px;background:${color};box-shadow:0 0 18px ${color}"></span>
-    ${label ? `<strong style="padding:4px 7px;border-radius:5px;background:rgba(2,8,12,.88);color:white;font:600 11px system-ui">${label}</strong>` : ""}
+function hasPreciseLocation(device: GeographicDevice) {
+  return hasExactCoordinates(device) || Boolean(mapsUrlCoordinates(device.maps_url));
+}
+
+function companyMarkerHtml() {
+  return `<div class="hotspot-company-marker">
+    <span class="hotspot-company-marker__icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4" />
+        <path d="M8 9h2m-2 4h2m-2 4h2m6-2h2m-2 4h2" />
+      </svg>
+    </span>
+    <strong>${HUB.label}</strong>
   </div>`;
 }
 
@@ -77,7 +133,7 @@ export function HotspotGeographicMap({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
-  const markersRef = useRef<Map<string, LeafletMarker>>(new Map());
+  const markersRef = useRef<Map<string, LeafletCircleMarker>>(new Map());
   const onSelectRef = useRef(onSelect);
   const devicesRef = useRef(devices);
   const devicesKey = useMemo(
@@ -128,14 +184,14 @@ export function HotspotGeographicMap({
       const bounds: [number, number][] = compact ? [] : [[HUB.latitude, HUB.longitude]];
       if (!compact) {
         const hubIcon = L.divIcon({
-          className: "hotspot-map-marker",
-          html: markerHtml("#22d3ee", HUB.label),
-          iconSize: [120, 28],
-          iconAnchor: [8, 8],
+          className: "hotspot-company-marker-container",
+          html: companyMarkerHtml(),
+          iconSize: [150, 38],
+          iconAnchor: [16, 19],
         });
         L.marker([HUB.latitude, HUB.longitude], { icon: hubIcon, zIndexOffset: 1000 })
           .addTo(map)
-          .bindPopup("<strong>Manos Tech</strong><br>Sede operacional");
+          .bindPopup(`<strong>${HUB.label}</strong><br>Sede · ${HUB.city}`);
       }
 
       for (const { device, point } of located) {
@@ -146,19 +202,25 @@ export function HotspotGeographicMap({
             : device.state === "unstable"
               ? "#fbbf24"
               : "#fb7185";
-        const icon = L.divIcon({
-          className: "hotspot-map-marker",
-          html: markerHtml(
-            color,
-            compact ? undefined : escapeHtml(`${device.router_identity}${hasExactCoordinates(device) ? "" : " · aprox."}`),
-          ),
-          iconSize: compact ? [24, 24] : [150, 28],
-          iconAnchor: [8, 8],
+        const marker = L.circleMarker(point, {
+          radius: compact ? 8 : 9,
+          color: "rgba(255,255,255,.95)",
+          weight: 2,
+          fillColor: color,
+          fillOpacity: 1,
+          className: "hotspot-router-dot",
         });
-        const marker = L.marker(point, { icon })
+        marker
           .addTo(map)
+          .bindTooltip(escapeHtml(device.router_identity), {
+            permanent: !compact,
+            direction: "right",
+            offset: [10, 0],
+            opacity: 1,
+            className: "hotspot-router-label",
+          })
           .bindPopup(
-            `<strong>${escapeHtml(device.unit_name || device.router_identity)}</strong><br>${escapeHtml(device.city || "Localização cadastrada")}${hasExactCoordinates(device) ? "" : "<br>Posição aproximada pelo município"}`,
+            `<strong>${escapeHtml(device.unit_name || device.router_identity)}</strong><br>${escapeHtml(device.city || "Localização cadastrada")}${hasPreciseLocation(device) ? "" : "<br>Posição aproximada pelo município"}`,
           );
         marker.on("click", () => onSelectRef.current?.(device.id));
         markers.set(device.id, marker);

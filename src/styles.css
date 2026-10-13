@@ -31,6 +31,62 @@
   background: transparent;
 }
 
+.hotspot-company-marker-container {
+  border: 0;
+  background: transparent;
+}
+
+.hotspot-company-marker {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: max-content;
+  color: #f8fafc;
+  white-space: nowrap;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.85));
+}
+
+.hotspot-company-marker__icon {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  place-items: center;
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  border-radius: 10px;
+  background: #06b6d4;
+  color: #03232b;
+  box-shadow: 0 0 16px rgba(6, 182, 212, 0.65);
+}
+
+.hotspot-company-marker__icon svg {
+  width: 19px;
+  height: 19px;
+}
+
+.hotspot-company-marker strong,
+.leaflet-tooltip.hotspot-router-label {
+  padding: 4px 7px;
+  border: 0;
+  border-radius: 5px;
+  background: rgba(2, 8, 12, 0.92);
+  color: #fff;
+  font: 600 11px/1.2 system-ui, sans-serif;
+}
+
+.leaflet-tooltip.hotspot-router-label {
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
+  white-space: nowrap;
+}
+
+.leaflet-tooltip-right.hotspot-router-label::before {
+  border-right-color: rgba(2, 8, 12, 0.92);
+}
+
+.hotspot-router-dot {
+  cursor: pointer;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
