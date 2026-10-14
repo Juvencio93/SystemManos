@@ -150,21 +150,25 @@ export async function computeCompanyDetail(
     hourMap.set(key, (hourMap.get(key) ?? 0) + 1);
   }
 
-  const branchList: BranchSummary[] = (branches ?? []).map((b) => {
-    const own = currentConns.filter((c) => c.branch_id === b.id);
-    return {
-      id: b.id,
-      name: b.trade_name || b.name,
-      city: b.city ?? null,
-      active: b.active,
-      isHeadquarters: b.is_headquarters,
-      portalSlug: b.portal_slug,
-      leads: own.length,
-      leadsHoje: own.filter(
-        (c) => String(c.period_date ?? spDate(new Date(c.created_at))) === today,
-      ).length,
-    };
-  });
+  // A linha marcada como sede representa a matriz e não deve ser contada nem
+  // exibida como filial no painel da empresa.
+  const branchList: BranchSummary[] = (branches ?? [])
+    .filter((b) => !b.is_headquarters)
+    .map((b) => {
+      const own = currentConns.filter((c) => c.branch_id === b.id);
+      return {
+        id: b.id,
+        name: b.trade_name || b.name,
+        city: b.city ?? null,
+        active: b.active,
+        isHeadquarters: b.is_headquarters,
+        portalSlug: b.portal_slug,
+        leads: own.length,
+        leadsHoje: own.filter(
+          (c) => String(c.period_date ?? spDate(new Date(c.created_at))) === today,
+        ).length,
+      };
+    });
 
   const campaignList = (campaigns ?? []).map((c) => ({
     id: c.id,
