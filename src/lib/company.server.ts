@@ -148,8 +148,12 @@ export function summarizeUniqueVisitors(
   currentVisitorIds: readonly (string | null | undefined)[],
   previousVisitorIds: readonly (string | null | undefined)[],
 ) {
-  const current = new Set(currentVisitorIds.filter((visitorId): visitorId is string => Boolean(visitorId)));
-  const previous = new Set(previousVisitorIds.filter((visitorId): visitorId is string => Boolean(visitorId)));
+  const current = new Set(
+    currentVisitorIds.filter((visitorId): visitorId is string => Boolean(visitorId)),
+  );
+  const previous = new Set(
+    previousVisitorIds.filter((visitorId): visitorId is string => Boolean(visitorId)),
+  );
   let contatosNovos = 0;
   let contatosRecorrentes = 0;
 
@@ -177,7 +181,7 @@ FONTES DE VERDADE:
 ORDEM OBRIGATÓRIA DE RACIOCÍNIO:
 1. Leia a mensagem inteira e identifique exatamente o pedido, o objetivo e o que foi ou não informado.
 2. Leia o CONTEXTO OFICIAL DA EMPRESA antes de formular qualquer pergunta ou prompt. Use ramo, descrição, posicionamento, público e identidade para contextualizar a resposta.
-3. Só faça uma pergunta se ela desbloquear uma decisão essencial para a peça. A pergunta deve ser específica para o pedido atual e para o ramo da empresa; nunca repita um roteiro de happy hour em uma promoção genérica.
+3. Só faça uma pergunta se ela desbloquear uma decisão essencial para a peça. A pergunta deve ser específica para o pedido atual e para o contexto real, sem roteiro fixo ou pressuposto de um segmento.
 4. Se faltar uma informação externa relevante, considere a PESQUISA EXTERNA SOBRE O AMBIENTE antes de responder. Não invente quando a pesquisa não confirmar.
 5. Quando já houver informação suficiente, responda diretamente e gere os dois prompts sem criar perguntas artificiais.
 
@@ -209,14 +213,14 @@ PROIBIÇÃO DE INVENÇÕES:
 - Se houver ambiguidade comercial que possa mudar o sentido da oferta, não gere os prompts ainda.
 
 FLUXO DE INTERATIVIDADE:
-1. Primeiro extraia silenciosamente: objetivo da peça, item/serviço promovido, oferta exata, público quando relevante e textos confirmados.
-2. Se o pedido estiver genérico ou houver uma ambiguidade essencial, faça EXATAMENTE UMA pergunta curta e contextual, reunindo apenas os dados indispensáveis que faltam.
+1. Primeiro leia a conversa completa e extraia silenciosamente: o que a pessoa quer comunicar, objetivo da peça, item ou serviço promovido, oferta exata, público quando relevante e textos confirmados.
+2. Se a intenção ainda estiver genérica ou houver uma ambiguidade essencial, continue conversando antes de gerar. Faça UMA pergunta curta e contextual para entender o pedido; não transforme esse passo em formulário nem peça vários campos de uma vez.
 3. Pergunte, por exemplo, a que produto um preço se refere. Não force horário, dia, promoção ou CTA quando isso não for necessário; simplesmente omita o que não foi informado.
 4. Se a própria solicitação estabelecer uma campanha temporal (por exemplo, promoção da semana, evento ou festival), confirme o período/validade antes de gerar. Não faça isso para banner institucional ou comunicação permanente; não repita a pergunta se já houver "válido até", dias definidos ou outro período confirmado.
 5. Não gere os prompts enquanto o significado de preço, produto, benefício ou período comercial necessário estiver ambíguo.
-6. Quando os dados estiverem suficientes, gere imediatamente as duas opções, sem novas perguntas.
+6. Não gere apenas porque um resumo de dados parece completo: confirme que a intenção do cliente foi entendida e que nenhuma ambiguidade relevante ficou aberta. Quando estiver claro e suficiente, gere imediatamente as duas opções, sem perguntas artificiais.
 
-PADRÃO VISUAL OBRIGATÓRIO PARA AMBAS AS OPÇÕES:
+CRITÉRIOS DE QUALIDADE PARA AMBAS AS OPÇÕES (ADAPTAR AO PEDIDO, SEM RECEITA VISUAL FIXA):
 - Formato horizontal 16:9, resolução 1920 × 1080 px, próprio para Portal Cativo.
 - Defina hierarquia, posição dos elementos, área de respiro, iluminação, enquadramento e margens seguras.
 - Logotipo discreto, com espaço de respiro, ocupando no máximo 12% da composição; nunca dominar a peça.
@@ -230,26 +234,21 @@ PADRÃO VISUAL OBRIGATÓRIO PARA AMBAS AS OPÇÕES:
 - Mencione formato e resolução apenas uma vez em cada prompt.
 
 DIFERENÇA REAL ENTRE AS OPÇÕES:
-- Opção 1 — Direção premium e editorial adaptada ao segmento: protagonismo do produto ou serviço, imagem refinada, composição elegante, poucos elementos e atmosfera coerente com a empresa.
-- Opção 2 — Direção comercial contemporânea e de campanha, NUNCA um panfleto: construa uma grade editorial assimétrica ou modular, com o produto/serviço ocupando a maior parte do quadro e a informação comercial integrada à composição. O bloco tipográfico deve ocupar no máximo cerca de 30% do quadro, alinhado a uma margem, coluna ou área negativa deliberada — nunca uma faixa horizontal de largura total na base, nem texto centralizado dentro de uma barra. O preço deve ter presença clara, porém integrado à hierarquia tipográfica ou a um pequeno bloco de informação junto ao título; não use cápsula, selo, botão falso ou etiqueta de liquidação. Trabalhe com sans-serif geométrica, pesos contrastantes, alinhamento preciso e respiro generoso, evitando caixa-alta centralizada em sequência. A segunda opção deve mudar composição e direção visual, não aumentar a quantidade de elementos. Só use faixa inferior/de base se o usuário tiver pedido expressamente.
-- As opções devem ser TOTALMENTE DIFERENTES em grade/layout, posição do assunto principal, enquadramento ou ângulo, fundo, família tipográfica, hierarquia, cor dominante e tratamento de luz.
-- Antes de redigir, defina para cada opção uma NARRATIVA VISUAL diferente em uma frase. A primeira e a segunda não podem ser apenas "produto + texto" vistos de ângulos distintos: uma deve explorar uma relação específica entre produto/serviço e a identidade confirmada; a outra deve propor uma leitura comercial oposta, com outra estrutura e ritmo. Se ambas couberem na mesma descrição resumida, recomece a segunda.
-- Se a Opção 1 usar texto à esquerda e produto à direita, a Opção 2 está proibida de repetir essa distribuição. Use, por exemplo, imagem em largura total com faixa inferior, composição central, visão superior ou divisão vertical invertida.
-- Use famílias tipográficas de categorias distintas (por exemplo, serifada editorial versus sans-serif geométrica), sem prejudicar a legibilidade.
-- As paletas devem ter dominantes e contraste diferentes, porém ambas precisam continuar compatíveis com a identidade confirmada. Não troque coerência de marca por diferença aleatória.
-- As duas opções devem ser igualmente fortes e desejáveis, a ponto de o cliente realmente hesitar entre elas; não entregue uma opção claramente mais simples, genérica ou inacabada.
-- Não reutilize na Opção 2 a mesma atmosfera, distribuição de texto, ângulo, tratamento de fundo ou ritmo visual da Opção 1. Se a primeira for uma cena contextual do estabelecimento, a segunda deve assumir uma direção visual claramente oposta (por exemplo, estúdio minimalista, macro gastronômico, flat lay ou composição tipográfica integrada), mantendo o mesmo ramo e a mesma oferta.
-- Antes de aceitar a Opção 2, faça este teste: se ela ainda puder ser resumida como “imagem em cima, faixa escura embaixo e texto centralizado”, descarte-a e reconstrua-a como uma campanha editorial de grade assimétrica, com mensagem e produto em relação intencional.
+- Crie duas direções visuais distintas, mas deixe que a solicitação, o produto ou serviço, o público e a identidade da marca determinem quais são essas direções.
+- Não imponha macro, flat lay, cena de estabelecimento, grade assimétrica, faixa, composição lateral, tipos de lente, famílias tipográficas ou qualquer layout como padrão universal.
+- Adeque cada conceito à natureza do que será divulgado. Serviço, evento, causa, produto físico e comunicação institucional podem pedir soluções diferentes; não invente objetos físicos para representar serviços.
+- Mude a narrativa e a estrutura visual entre as duas opções, sem variar apenas ângulo ou cores. Mantenha ambas coerentes com a marca e igualmente completas.
+- Não invente ambiente, adereços ou elementos para conseguir diferença visual. Use somente os elementos permitidos pelas regras de fidelidade acima.
 
 REVISÃO SILENCIOSA ANTES DE RESPONDER:
 1. Confirme que cada preço, horário, produto, condição e alegação veio do contexto ou do usuário e que os valores estão no formato monetário brasileiro, sem duplicar "R$" e "reais".
 2. Confirme que cada elemento físico tem origem permitida; descarte qualquer UNVERIFIED_DECORATION. Uma diferença entre as duas opções nunca justifica introduzir props.
 3. Confirme que não há textos inventados nem placeholders.
 4. Confirme que há no máximo três blocos textuais e que o logo não domina a composição.
-5. Confirme que as duas opções são diferentes, profissionais, limpas e coerentes com a mesma marca.
-6. Compare as duas opções lado a lado. Se repetirem a mesma distribuição, família tipográfica, fundo ou direção de cor, redesenhe integralmente a Opção 2.
-7. Compare também a narrativa visual: repetir produto isolado, fundo de estúdio, logotipo e faixa de texto com pequenas trocas de lente/ângulo é falha. Reconstrua a Opção 2 com uma ideia visual realmente diferente.
-8. Reprove a Opção 2 se usar faixa inferior/de base, barra de largura total ou texto centralizado como solução padrão, salvo quando o usuário tiver solicitado exatamente essa estrutura.
+5. Confirme que as duas opções são diferentes, profissionais, limpas e coerentes com a marca e com o segmento/pedido, sem aplicar uma composição pré-definida.
+6. Compare as duas opções lado a lado e confirme que as ideias são distintas de um modo adequado ao pedido, sem exigir diferenças específicas de layout ou tipografia.
+7. Se as opções parecerem variações superficiais, escolha uma narrativa visual alternativa que faça sentido para aquele produto, serviço ou comunicação.
+8. Avalie qualquer faixa, grade ou composição pelo contexto e pela legibilidade; nenhum recurso visual é obrigatório ou proibido por padrão.
 9. Se qualquer item falhar, corrija o prompt antes de retornar o JSON.
 
 QUALIDADE DE IMPACTO (“UAU”):
@@ -274,13 +273,13 @@ Se tiver informação suficiente:
   "question": null,
   "promptOptions": [
     {
-      "title": "Opção 1 — Direção premium e editorial",
+      "title": "Nome curto da primeira direção criativa, escolhido para este pedido",
       "prompt": "Prompt completo com composição, hierarquia, textos exatos, identidade, referências e restrições. Formato horizontal 16:9, 1920 × 1080 px.",
       "visualItems": ["todos os produtos ou serviços visualmente presentes nesta opção"],
       "commercialFacts": { "items": ["todos os itens confirmados"], "price": 0, "validity": "período confirmado", "business": "nome oficial da empresa", "scope": "confirmed" }
     },
     {
-      "title": "Opção 2 — Direção comercial limpa",
+      "title": "Nome curto da segunda direção criativa, diferente da primeira",
       "prompt": "Prompt completo com outra composição, hierarquia, textos exatos, identidade, referências e restrições. Formato horizontal 16:9, 1920 × 1080 px.",
       "visualItems": ["todos os produtos ou serviços visualmente presentes nesta opção"],
       "commercialFacts": { "items": ["todos os itens confirmados"], "price": 0, "validity": "período confirmado", "business": "nome oficial da empresa", "scope": "confirmed" }
@@ -601,3 +600,4 @@ export const getOperationalROI = createServerFn({ method: "GET" })
       refValue: REF_VALUE_PER_OP,
     };
   });
+
