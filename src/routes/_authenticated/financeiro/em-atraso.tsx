@@ -1,36 +1,107 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getCompanyDisplayName } from "@/lib/name-utils";
-import { useQuery } from "@tanstack/react-query";
-import { Database } from "@/integrations/supabase/types";
-import { getFinanceiroStats } from "@/lib/financeiro.functions";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { confirmManualPayment, getFinanceiroStats } from "@/lib/financeiro.functions";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Search, AlertTriangle, Printer, Clock } from "lucide-react";
+import { Search, AlertTriangle, Printer, Clock, CircleDollarSign } from "lucide-react";
 import { useState } from "react";
 import { useAccess } from "@/hooks/use-access";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateBR } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useServerFn } from "@tanstack/react-start";
+import { format } from "date-fns";
+import { toast } from "sonner";
+import type { ChargeWithDetails, FinanceiroStats } from "@/lib/financeiro.types";
 
 export const Route = createFileRoute("/_authenticated/financeiro/em-atraso")({
   component: EmAtrasoPage,
 });
 
 function EmAtrasoPage() {
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const { data: access } = useAccess();
+  const [selectedCharge, setSelectedCharge] = useState<ChargeWithDetails | null>(null);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [paymentDate, setPaymentDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [observation, setObservation] = useState("");
+  const getStatsFn = useServerFn(getFinanceiroStats);
+  const confirmPaymentFn = useServerFn(confirmManualPayment);
 
   const statsQuery = useQuery({
-    queryKey: ["financial-stats"],
-    queryFn: () => getFinanceiroStats(),
+    queryKey: ["financeiro-stats", access?.companyId, access?.role, "todas-em-aberto"],
+    enabled: access?.role === "adm" || access?.role === "revenda",
+    queryFn: () => getStatsFn({ data: { period: "todas-em-aberto" } }),
   });
 
   const isReseller = access?.role === "revenda";
+  const canManageReceivables = access?.role === "adm" || isReseller;
+  const confirmMutation = useMutation({
+    mutationFn: () => {
+      if (!selectedCharge) throw new Error("Selecione uma cobrança para dar baixa.");
+      return confirmPaymentFn({
+        data: {
+          chargeId: selectedCharge.id,
+          amount: Number(selectedCharge.amount),
+          paidAt: new Date(`${paymentDate}T12:00:00`).toISOString(),
+          observation,
+        },
+      });
+    },
+    onSuccess: () => {
+      toast.success("Recebimento registrado. A cobrança foi baixada.");
+      void queryClient.invalidateQueries({ queryKey: ["financeiro-stats"] });
+      setConfirmDialogOpen(false);
+      setSelectedCharge(null);
+      setObservation("");
+    },
+    onError: (error: Error) =>
+      toast.error(error.message || "Não foi possível dar baixa na cobrança."),
+  });
+
+  const openConfirmDialog = (charge: ChargeWithDetails) => {
+    setSelectedCharge(charge);
+    setPaymentDate(format(new Date(), "yyyy-MM-dd"));
+    setObservation("");
+    setConfirmDialogOpen(true);
+  };
+
   if (access?.role !== "adm" && !isReseller) {
     return <div className="p-6">Acesso restrito.</div>;
   }
 
-  const totals = statsQuery.data ?? {
+  if (statsQuery.isError) {
+    return (
+      <div className="flex flex-col gap-6 p-4 md:p-6">
+        <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-6 text-center">
+          <AlertTriangle className="mx-auto mb-4 size-12 text-destructive" />
+          <h2 className="mb-2 text-xl font-bold text-destructive">
+            Não foi possível carregar a inadimplência
+          </h2>
+          <p className="mb-4 text-muted-foreground">
+            O sistema não conseguiu consultar as cobranças agora. Tente novamente.
+          </p>
+          <Button onClick={() => void statsQuery.refetch()} disabled={statsQuery.isFetching}>
+            {statsQuery.isFetching ? "Carregando..." : "Tentar novamente"}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const totals = (statsQuery.data as FinanceiroStats | undefined) ?? {
     receitaAcumulada: 0,
     receitaAcumuladaTotal: 0,
     mrr: 0,
@@ -79,7 +150,11 @@ function EmAtrasoPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Em Atraso</h1>
-          <p className="text-muted-foreground">{isReseller ? "Inadimplência das empresas da sua rede." : "Monitoramento detalhado de inadimplência."}</p>
+          <p className="text-muted-foreground">
+            {isReseller
+              ? "Inadimplência das empresas da sua rede."
+              : "Monitoramento detalhado de inadimplência."}
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" size="sm" onClick={() => window.print()}>
@@ -97,7 +172,7 @@ function EmAtrasoPage() {
           </div>
           <div className="text-2xl font-bold mt-1">{formatCurrency(totals.emAtraso)}</div>
           <div className="text-xs text-muted-foreground mt-1">
-            {filteredList.length} faturas pendentes
+            {filteredList.length} cobranças em atraso
           </div>
         </Card>
       </div>
@@ -166,6 +241,18 @@ function EmAtrasoPage() {
                           {formatCurrency(c.amount)}
                         </div>
                         <div className="flex justify-end gap-2">
+                          {canManageReceivables && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 text-xs border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300"
+                              onClick={() => openConfirmDialog(c)}
+                              disabled={confirmMutation.isPending && selectedCharge?.id === c.id}
+                            >
+                              <CircleDollarSign className="mr-1 size-3.5" />
+                              Recebido
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -181,7 +268,7 @@ function EmAtrasoPage() {
                 </div>
               );
             })}
-            {filteredList.length === 0 && !statsQuery.isLoading && (
+            {filteredList.length === 0 && !statsQuery.isLoading && !statsQuery.isError && (
               <div className="p-8 text-center text-muted-foreground text-sm">
                 Nenhuma inadimplência encontrada.
               </div>
@@ -189,6 +276,58 @@ function EmAtrasoPage() {
           </div>
         </div>
       </Card>
+
+      <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Registrar recebimento</DialogTitle>
+            <DialogDescription>
+              Confirme o pagamento integral da cobrança de{" "}
+              {getCompanyDisplayName(selectedCharge?.companies ?? null)}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="received-amount">Valor da cobrança</Label>
+              <Input
+                id="received-amount"
+                value={selectedCharge ? formatCurrency(Number(selectedCharge.amount)) : ""}
+                disabled
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="received-date">Data do recebimento</Label>
+              <Input
+                id="received-date"
+                type="date"
+                value={paymentDate}
+                onChange={(event) => setPaymentDate(event.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="received-notes">Observação</Label>
+              <Textarea
+                id="received-notes"
+                placeholder="Ex.: recebido via PIX"
+                value={observation}
+                onChange={(event) => setObservation(event.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => confirmMutation.mutate()}
+              disabled={confirmMutation.isPending || !paymentDate}
+            >
+              {confirmMutation.isPending ? "Registrando..." : "Confirmar recebimento"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
