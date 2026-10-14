@@ -29,7 +29,11 @@ async function resolveRole(supabase: SupabaseClient<Database>, userId: string) {
     .select("role, company_id, reseller_id")
     .eq("user_id", userId)
     .maybeSingle();
-  return data as { role: "adm" | "matriz" | "filial" | "revenda"; company_id: string | null; reseller_id: string | null } | null;
+  return data as {
+    role: "adm" | "matriz" | "filial" | "revenda";
+    company_id: string | null;
+    reseller_id: string | null;
+  } | null;
 }
 
 async function assertExpenseAccess(
@@ -70,7 +74,9 @@ export const confirmManualPayment = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const access = await resolveRole(context.supabase, context.userId);
     if (!access || (access.role !== "adm" && access.role !== "revenda")) {
-      throw new Error("Apenas administradores ou a revenda responsável podem confirmar pagamentos.");
+      throw new Error(
+        "Apenas administradores ou a revenda responsável podem confirmar pagamentos.",
+      );
     }
 
     const supabaseAdmin = await getSupabaseAdmin();
@@ -82,9 +88,32 @@ export const confirmManualPayment = createServerFn({ method: "POST" })
         .select("company_id, companies(reseller_id)")
         .eq("id", data.chargeId)
         .maybeSingle();
-      if (scopeError || !chargeScope || (chargeScope.companies as { reseller_id?: string | null } | null)?.reseller_id !== access.reseller_id) {
+      if (
+        scopeError ||
+        !chargeScope ||
+        (chargeScope.companies as { reseller_id?: string | null } | null)?.reseller_id !==
+          access.reseller_id
+      ) {
         throw new Error("Sem permissão para confirmar esta cobrança.");
       }
+    }
+
+    const { data: chargeToConfirm, error: chargeLookupError } = await supabaseAdmin
+      .from("company_charges")
+      .select("id, amount, status")
+      .eq("id", data.chargeId)
+      .maybeSingle();
+
+    if (chargeLookupError) throw chargeLookupError;
+    if (!chargeToConfirm) throw new Error("Cobrança não encontrada.");
+    if (chargeToConfirm.status === "pago") {
+      throw new Error("Cobrança já confirmada anteriormente.");
+    }
+    if (chargeToConfirm.status !== "pendente" && chargeToConfirm.status !== "atrasado") {
+      throw new Error("Esta cobrança não pode receber baixa manual.");
+    }
+    if (Math.round(data.amount * 100) !== Math.round(Number(chargeToConfirm.amount) * 100)) {
+      throw new Error("A baixa manual exige o recebimento integral do valor da cobrança.");
     }
 
     const { data: updatedCharge, error: updateError } = await supabaseAdmin
@@ -184,7 +213,11 @@ export const getFinanceiroStats = createServerFn({ method: "POST" })
 
     if (roleError) throw new Error("Erro ao validar permissões.");
 
-    const roleScope = roleData as { role?: string | null; company_id?: string | null; reseller_id?: string | null } | null;
+    const roleScope = roleData as {
+      role?: string | null;
+      company_id?: string | null;
+      reseller_id?: string | null;
+    } | null;
     const userRole = roleScope?.role;
     if (userRole !== "adm" && userRole !== "matriz" && userRole !== "revenda") {
       const error = new Error("Acesso negado.");
@@ -204,7 +237,10 @@ export const getFinanceiroStats = createServerFn({ method: "POST" })
       authorizedResellerId = roleScope.reseller_id;
     }
 
-    const supabaseAdmin = await getSupabaseAdmin();
+    // ADM/Matriz read their financial rows through existing RLS policies.
+    // Reseller rows still require the server-only client plus explicit scope.
+    const financeReadClient = userRole === "revenda" ? await getSupabaseAdmin() : supabase;
+
     const period = input?.period || "proximos-30-dias";
 
     // Timezone America/Sao_Paulo
@@ -254,7 +290,7 @@ export const getFinanceiroStats = createServerFn({ method: "POST" })
         break;
     }
 
-    const companiesQuery = supabaseAdmin
+    const companiesQuery = financeReadClient
       .from("companies")
       .select("id, name, trade_name, legal_name, monthly_price, subscription_status, reseller_id");
 
@@ -266,25 +302,32 @@ export const getFinanceiroStats = createServerFn({ method: "POST" })
 
     const [companiesRes, chargesRes, expensesRes, resellerCreditOrdersRes] = await Promise.all([
       scopedCompaniesQuery,
-      supabaseAdmin
+      financeReadClient
         .from("company_charges")
         .select("*, companies(id, name, trade_name, legal_name, plan_name, monthly_price)"),
-      supabaseAdmin
+      financeReadClient
         .from("expenses")
         .select(
           "*, companies(id, name, trade_name, legal_name), branches(id, name, trade_name, legal_name)",
         ),
       userRole === "adm"
-        ? supabaseAdmin
+        ? financeReadClient
             .from("reseller_credit_orders")
-            .select("id, reseller_id, quantity, unit_price, total_amount, confirmed_at, asaas_payment_id, resellers(id, name)")
+            .select(
+              "id, reseller_id, quantity, unit_price, total_amount, confirmed_at, asaas_payment_id, resellers(id, name)",
+            )
             .eq("status", "confirmed")
             .not("confirmed_at", "is", null)
             .order("confirmed_at", { ascending: false })
         : Promise.resolve({ data: [], error: null }),
     ]);
 
-    if (companiesRes.error || chargesRes.error || expensesRes.error || resellerCreditOrdersRes.error) {
+    if (
+      companiesRes.error ||
+      chargesRes.error ||
+      expensesRes.error ||
+      resellerCreditOrdersRes.error
+    ) {
       console.error("Erro no banco:", {
         companiesRes,
         chargesRes,
@@ -296,7 +339,14 @@ export const getFinanceiroStats = createServerFn({ method: "POST" })
 
     const allCompanies = (companiesRes.data ||
       []) as Database["public"]["Tables"]["companies"]["Row"][];
-    const authorizedCompanyIds = new Set(allCompanies.map((company) => company.id));
+    let scopedCompanies = allCompanies;
+    if (authorizedResellerId) {
+      const resellerCompanyIds = new Set(
+        (chargesRes.data ?? []).map((charge) => charge.company_id),
+      );
+      scopedCompanies = allCompanies.filter((company) => resellerCompanyIds.has(company.id));
+    }
+    const authorizedCompanyIds = new Set(scopedCompanies.map((company) => company.id));
     const expenseInScope = (companyId: string | null) =>
       userRole === "adm"
         ? companyId === null || authorizedCompanyIds.has(companyId)
@@ -315,7 +365,7 @@ export const getFinanceiroStats = createServerFn({ method: "POST" })
 
     // 1. Derivar Status e Filtrar por Empresa
     const chargesWithDerivedStatus = rawCharges
-      .filter((c) => authorizedCompanyIds.has(c.company_id))
+      .filter((c) => authorizedCompanyIds.has(c.company_id) && c.status !== "cancelado")
       .map((c) => {
         let derivedStatus: "pago" | "atrasado" | "pendente" = "pendente";
         if (c.status === "pago") {
@@ -376,10 +426,7 @@ export const getFinanceiroStats = createServerFn({ method: "POST" })
     // 4. Cálculos ACUMULADOS
     // Receita Acumulada: Total histórico efetivamente recebido (independente do filtro de período)
     const receitaAcumuladaTotal = rawCharges
-      .filter(
-        (c) =>
-          authorizedCompanyIds.has(c.company_id) && c.status === "pago",
-      )
+      .filter((c) => authorizedCompanyIds.has(c.company_id) && c.status === "pago")
       .reduce((sum, c) => sum + Number(c.amount || 0), 0);
 
     // Investimento Total: Total histórico dos investimentos (independente do filtro de período)
@@ -438,23 +485,25 @@ export const getFinanceiroStats = createServerFn({ method: "POST" })
 
     const totalInvestimento = statsByCompany.reduce((sum, s) => sum + s.investimento, 0);
 
-    const asaasIntegrationQuery = supabaseAdmin
-      .from("asaas_integrations")
-      .select("id")
-      .neq("status", "disabled")
-      .eq("owner_type", authorizedResellerId ? "reseller" : "platform");
-    const { data: asaasIntegration } = authorizedResellerId
-      ? await asaasIntegrationQuery.eq("owner_id", authorizedResellerId).maybeSingle()
-      : await asaasIntegrationQuery.is("owner_id", null).maybeSingle();
-
-    const asaasEnabled = Boolean(asaasIntegration);
+    // Payment credentials are intentionally server-only. The main financial
+    // view must still load in local ADM previews without a service key.
+    let asaasEnabled = false;
+    if (process.env["TECH_SUPABASE_SERVICE_KEY"]) {
+      const supabaseAdmin = await getSupabaseAdmin();
+      const asaasIntegrationQuery = supabaseAdmin
+        .from("asaas_integrations")
+        .select("id")
+        .neq("status", "disabled")
+        .eq("owner_type", authorizedResellerId ? "reseller" : "platform");
+      const { data: asaasIntegration } = authorizedResellerId
+        ? await asaasIntegrationQuery.eq("owner_id", authorizedResellerId).maybeSingle()
+        : await asaasIntegrationQuery.is("owner_id", null).maybeSingle();
+      asaasEnabled = Boolean(asaasIntegration);
+    }
 
     // Fonte Única para Receita Acumulada (Detalhamento)
     const cobrancasPagasHistorico = rawCharges
-      .filter(
-        (c) =>
-          authorizedCompanyIds.has(c.company_id) && c.status === "pago",
-      )
+      .filter((c) => authorizedCompanyIds.has(c.company_id) && c.status === "pago")
       .sort((a, b) => (b.paid_at || "").localeCompare(a.paid_at || ""));
 
     return {
@@ -532,22 +581,26 @@ export const createExpense = createServerFn({ method: "POST" })
 export const updateExpense = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: unknown) =>
-    z.object({
-      id: z.string().uuid(),
-      updates: z.object({
-        company_id: z.string().uuid().optional(),
-        branch_id: z.string().uuid().nullable().optional(),
-        description: z.string().trim().min(1).max(500).optional(),
-        amount: z.number().finite().nonnegative().optional(),
-        date: z.string().min(1).optional(),
-        category: z.string().trim().min(1).max(120).optional(),
-        observation: z.string().trim().max(2_000).nullable().optional(),
-        competence: z.string().trim().min(1).max(20).optional(),
-        payment_method: z.string().trim().min(1).max(120).optional(),
-        status: z.string().trim().min(1).max(80).optional(),
-        type: z.string().trim().min(1).max(80).optional(),
-      }).refine((updates) => Object.keys(updates).length > 0, "Informe ao menos uma alteração."),
-    }).parse(input),
+    z
+      .object({
+        id: z.string().uuid(),
+        updates: z
+          .object({
+            company_id: z.string().uuid().optional(),
+            branch_id: z.string().uuid().nullable().optional(),
+            description: z.string().trim().min(1).max(500).optional(),
+            amount: z.number().finite().nonnegative().optional(),
+            date: z.string().min(1).optional(),
+            category: z.string().trim().min(1).max(120).optional(),
+            observation: z.string().trim().max(2_000).nullable().optional(),
+            competence: z.string().trim().min(1).max(20).optional(),
+            payment_method: z.string().trim().min(1).max(120).optional(),
+            status: z.string().trim().min(1).max(80).optional(),
+            type: z.string().trim().min(1).max(80).optional(),
+          })
+          .refine((updates) => Object.keys(updates).length > 0, "Informe ao menos uma alteração."),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     const access = await resolveRole(context.supabase, context.userId);
@@ -604,3 +657,4 @@ export const getBranchesByCompany = createServerFn({ method: "GET" })
     if (error) throw error;
     return data;
   });
+
