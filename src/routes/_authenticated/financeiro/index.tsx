@@ -45,7 +45,13 @@ function FinanceiroDashboardPage() {
   const isReseller = access?.role === "revenda";
   const isAdmin = access?.role === "adm";
 
-  const { data: stats, isLoading: statsLoading } = useQuery({
+  const {
+    data: stats,
+    isLoading: statsLoading,
+    isError: statsError,
+    isFetching: statsFetching,
+    refetch: refetchStats,
+  } = useQuery({
     queryKey: ["financeiro-stats", period, access?.companyId, access?.role],
     enabled: !!access && !isFilial,
     queryFn: () =>
@@ -64,6 +70,21 @@ function FinanceiroDashboardPage() {
     return (
       <div className="flex h-[450px] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (statsError) {
+    return (
+      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 p-8 text-center">
+        <AlertCircle className="size-12 text-destructive" />
+        <h2 className="text-xl font-bold">Não foi possível carregar o Financeiro</h2>
+        <p className="max-w-md text-muted-foreground">
+          O sistema não conseguiu consultar os dados financeiros agora. Tente novamente.
+        </p>
+        <Button onClick={() => void refetchStats()} disabled={statsFetching}>
+          {statsFetching ? "Carregando..." : "Tentar novamente"}
+        </Button>
       </div>
     );
   }
@@ -123,7 +144,9 @@ function FinanceiroDashboardPage() {
         <div>
           <h1 className="text-3xl font-display font-black tracking-tight">Financeiro</h1>
           <p className="text-muted-foreground text-base opacity-80">
-            {isReseller ? "Gestão financeira das empresas da sua rede." : "Gestão de faturamento, cobranças e lucratividade real."}
+            {isReseller
+              ? "Gestão financeira das empresas da sua rede."
+              : "Gestão de faturamento, cobranças e lucratividade real."}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -153,11 +176,15 @@ function FinanceiroDashboardPage() {
           onClick={() => setActiveModal("mrr")}
         >
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-[12px] font-black uppercase tracking-[0.2em] opacity-60">MRR</CardTitle>
+            <CardTitle className="text-[12px] font-black uppercase tracking-[0.2em] opacity-60">
+              MRR
+            </CardTitle>
             <TrendingUp className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-black text-emerald-500 tracking-tight">{brl(typedStats?.mrr || 0)}</div>
+            <div className="text-3xl font-black text-emerald-500 tracking-tight">
+              {brl(typedStats?.mrr || 0)}
+            </div>
             <p className="text-xs text-muted-foreground">Receita Recorrente Mensal</p>
           </CardContent>
         </Card>
@@ -167,7 +194,9 @@ function FinanceiroDashboardPage() {
           onClick={() => setActiveModal("receita")}
         >
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-[12px] font-black uppercase tracking-[0.2em] opacity-60">Receita Acumulada</CardTitle>
+            <CardTitle className="text-[12px] font-black uppercase tracking-[0.2em] opacity-60">
+              Receita Acumulada
+            </CardTitle>
             <DollarSign className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
@@ -183,7 +212,9 @@ function FinanceiroDashboardPage() {
           onClick={() => setActiveModal("investimento")}
         >
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-[12px] font-black uppercase tracking-[0.2em] opacity-60">Investimento Total</CardTitle>
+            <CardTitle className="text-[12px] font-black uppercase tracking-[0.2em] opacity-60">
+              Investimento Total
+            </CardTitle>
             <CreditCard className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
@@ -204,7 +235,9 @@ function FinanceiroDashboardPage() {
           onClick={() => setActiveModal("lucro")}
         >
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-[12px] font-black uppercase tracking-[0.2em] opacity-60">Lucro Real</CardTitle>
+            <CardTitle className="text-[12px] font-black uppercase tracking-[0.2em] opacity-60">
+              Lucro Real
+            </CardTitle>
             <Wallet
               className={
                 typedStats?.lucroReal !== undefined && typedStats.lucroReal >= 0
@@ -250,11 +283,14 @@ function FinanceiroDashboardPage() {
                   Revendas
                 </CardTitle>
                 <CardDescription>
-                  Receita pré-paga confirmada com a venda de créditos. Estes valores não entram em A Receber.
+                  Receita pré-paga confirmada com a venda de créditos. Estes valores não entram em A
+                  Receber.
                 </CardDescription>
               </div>
               <div className="rounded-xl border border-cyan-500/20 bg-background/60 px-4 py-3">
-                <p className="text-xs uppercase tracking-wider text-muted-foreground">Receita no período</p>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                  Receita no período
+                </p>
                 <p className="text-2xl font-black text-cyan-400">
                   {brl(typedStats?.resellerCredits.receivedInPeriod || 0)}
                 </p>
@@ -263,15 +299,30 @@ function FinanceiroDashboardPage() {
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-              <ResellerMetric label="Receita histórica" value={brl(typedStats?.resellerCredits.totalReceived || 0)} />
-              <ResellerMetric label="Créditos vendidos" value={String(typedStats?.resellerCredits.creditsSold || 0)} />
-              <ResellerMetric label="Revendas compradoras" value={String(typedStats?.resellerCredits.buyerCount || 0)} icon={Users} />
-              <ResellerMetric label="Ticket médio" value={brl(typedStats?.resellerCredits.averageTicket || 0)} />
+              <ResellerMetric
+                label="Receita histórica"
+                value={brl(typedStats?.resellerCredits.totalReceived || 0)}
+              />
+              <ResellerMetric
+                label="Créditos vendidos"
+                value={String(typedStats?.resellerCredits.creditsSold || 0)}
+              />
+              <ResellerMetric
+                label="Revendas compradoras"
+                value={String(typedStats?.resellerCredits.buyerCount || 0)}
+                icon={Users}
+              />
+              <ResellerMetric
+                label="Ticket médio"
+                value={brl(typedStats?.resellerCredits.averageTicket || 0)}
+              />
               <ResellerMetric
                 label="Última venda"
                 value={
                   typedStats?.resellerCredits.latestConfirmedAt
-                    ? new Date(typedStats.resellerCredits.latestConfirmedAt).toLocaleDateString("pt-BR")
+                    ? new Date(typedStats.resellerCredits.latestConfirmedAt).toLocaleDateString(
+                        "pt-BR",
+                      )
                     : "Nenhuma"
                 }
               />
@@ -388,3 +439,4 @@ function ResellerMetric({
     </div>
   );
 }
+
