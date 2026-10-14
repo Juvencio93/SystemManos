@@ -632,7 +632,8 @@ function CompanyDetailPage() {
         </Card>
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+      <div className={`mt-6 grid gap-6 ${branches.length > 0 ? "lg:grid-cols-2" : ""}`}>
+        {branches.length > 0 ? (
         <Card className="glass-panel overflow-hidden border-border/40 bg-background/40">
           <CardHeader className="py-4 border-b border-border/40">
             <CardTitle className="text-base font-semibold">Lista de Filiais</CardTitle>
@@ -672,6 +673,7 @@ function CompanyDetailPage() {
             </Table>
           </CardContent>
         </Card>
+        ) : null}
 
         <Card className="glass-panel overflow-hidden border-border/40 bg-background/40">
           <CardHeader className="py-4 border-b border-border/40">
@@ -727,7 +729,8 @@ function CompanyDetailPage() {
         </Card>
       </div>
 
-      <Card className="mt-6 glass-panel">
+      {branches.length > 0 ? (
+        <Card className="mt-6 glass-panel">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Store className="size-4 text-primary" /> Filiais cadastradas
@@ -779,7 +782,8 @@ function CompanyDetailPage() {
             </TableBody>
           </Table>
         </CardContent>
-      </Card>
+        </Card>
+      ) : null}
 
       {isAdm && (
         <div className="mt-6 grid gap-4 lg:grid-cols-2">
