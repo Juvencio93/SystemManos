@@ -1252,29 +1252,6 @@ const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) => void 
       }
 
       if (response.data.needsMoreInfo) {
-        const userFactsText = newMessages
-          .filter((message) => message.role === "user")
-          .map((message) => message.content)
-          .filter((message) => !/^(?:quero|preciso|gostaria)\s+(?:criar|fazer|montar)\s+(?:um\s+)?banner/i.test(message.trim()))
-          .join(" ");
-        const comboAlreadyProvided = /combo/i.test(userFactsText);
-        const priceAlreadyProvided = /(?:r\$\s*\d|\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila))/i.test(userFactsText);
-        if (comboAlreadyProvided && priceAlreadyProvided && /oferta completa|cada item|item separadamente|mesma promoção/i.test(response.data.question || "")) {
-          setBrief(response.data.brief ?? brief);
-          setMessages([...newMessages, { role: "assistant" as const, content: "Perfeito! Vou considerar os itens como um combo na mesma promoção." }]);
-          setResult({
-            ...response.data,
-            needsMoreInfo: false,
-            question: null,
-            promptOptions: [
-              { title: "Identidade da marca", prompt: `Criar banner promocional horizontal 16:9 para o estabelecimento e ramo cadastrados, destacando ${userFactsText}. Mostrar todos os itens do combo em fotografia gastronômica realista, aplicar nome, logo e identidade visual confirmados no cadastro/pesquisa, com área de texto à esquerda, produtos à direita e preço em bloco de alto contraste. Tipografia grande e legível para celular; não inventar datas, ingredientes ou condições.` },
-              { title: "Composição alternativa", prompt: `Criar uma segunda opção realmente diferente de banner horizontal 16:9 para o estabelecimento e ramo cadastrados, mantendo exatamente ${userFactsText}. Usar enquadramento de mesa em três quartos, produtos em primeiro plano, preço em selo promocional e composição visual distinta da primeira. Aplicar logo, cores e materiais confirmados no cadastro/pesquisa; não adicionar informações comerciais não informadas.` },
-            ],
-          });
-          queryClient.invalidateQueries({ queryKey: ["company-ai-usage"] });
-          setIsFinalTurn(true);
-          return;
-        }
         setBrief(response.data.brief ?? brief);
         setMessages([
           ...newMessages,
@@ -1296,7 +1273,7 @@ const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) => void 
             role: "assistant" as const,
             content:
               response.data.question ||
-              "Para eu sugerir uma promoção coerente, qual produto ou serviço você quer destacar?",
+              "Quero entender melhor o que você tem em mente. Pode me contar um pouco mais?",
           },
         ]);
       }
@@ -1480,4 +1457,5 @@ const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) => void 
 });
 
 BannerAgentDialog.displayName = "BannerAgentDialog";
+
 
