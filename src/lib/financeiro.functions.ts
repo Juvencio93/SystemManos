@@ -441,7 +441,9 @@ export const getFinanceiroStats = createServerFn({ method: "POST" })
       .filter((c) => c.derivedStatus === "pendente")
       .reduce((sum, c) => sum + Number(c.amount || 0), 0);
 
-    const totalEmAtraso = filteredCharges
+    // A inadimplência é um saldo operacional aberto, independente do período
+    // escolhido para faturamento/previsão no dashboard.
+    const totalEmAtraso = chargesWithDerivedStatus
       .filter((c) => c.derivedStatus === "atrasado")
       .reduce((sum, c) => sum + Number(c.amount || 0), 0);
 
