@@ -7,6 +7,7 @@ type LegalPageShellProps = {
   title: string;
   summary: string;
   updatedAt: string;
+  version: string;
   children: ReactNode;
 };
 
@@ -15,6 +16,7 @@ export function LegalPageShell({
   title,
   summary,
   updatedAt,
+  version,
   children,
 }: LegalPageShellProps) {
   return (
@@ -89,7 +91,7 @@ export function LegalPageShell({
               <span className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1.5">
                 <FileCheck2 className="size-3.5" /> Atualizado em {updatedAt}
               </span>
-              <span>Versão vigente</span>
+              <span>Versão {version}</span>
             </div>
           </div>
           <div className="legal-content space-y-8 rounded-3xl border border-white/10 bg-slate-950/70 p-6 shadow-2xl shadow-cyan-950/10 sm:p-9">
@@ -135,8 +137,8 @@ export function LegalCompanyDetails() {
           manostech.suporte@gmail.com
         </a>
       </p>
-      <p>Encarregado pelo tratamento de dados pessoais: Manos Tech LTDA.</p>
-      <p>Pessoa natural responsável pelo encarregado: Gabriel Juvencio.</p>
+      <p>Encarregada indicada pela Manos Tech LTDA para os tratamentos sob sua responsabilidade.</p>
+      <p>Pessoa natural responsável pelo contato: Gabriel Juvencio.</p>
     </div>
   );
 }

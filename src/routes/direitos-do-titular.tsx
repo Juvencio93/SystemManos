@@ -10,6 +10,7 @@ import {
   LegalPageShell,
   LegalSection,
 } from "@/components/legal/legal-page-shell";
+import { LEGAL_DOCUMENTS } from "@/lib/legal-document-versions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -58,7 +59,8 @@ function DataSubjectRightsPage() {
       eyebrow="Canal de privacidade"
       title="Direitos do titular"
       summary="Use este canal para entender ou solicitar providências relacionadas aos seus dados pessoais na plataforma Manos Tech."
-      updatedAt="13 de outubro de 2026"
+      updatedAt={LEGAL_DOCUMENTS.dataSubjectRights.updatedAt}
+      version={LEGAL_DOCUMENTS.dataSubjectRights.version}
     >
       <LegalSection title="1 Solicitações disponíveis">
         <LegalList
@@ -75,9 +77,11 @@ function DataSubjectRightsPage() {
       <LegalSection title="2 Como solicitar">
         <p>
           Confirmação da existência de tratamento e acesso em formato simplificado devem ser
-          providenciados imediatamente. Quando você pedir uma declaração completa, o prazo pode ser
-          de até 15 dias. Para os demais direitos, o prazo depende do pedido e da regra aplicável.
-          Podemos confirmar sua identidade quando isso for necessário para proteger seus dados.
+          providenciados imediatamente. Quando você pedir uma declaração completa de confirmação ou
+          acesso, o prazo é de até 15 dias, ressalvada regra específica da ANPD. Para os demais
+          direitos, a resposta deve seguir a regra aplicável; se não for possível atender de
+          imediato, a equipe informará o motivo. Podemos confirmar sua identidade quando necessário.
+          O protocolo comprova o recebimento, mas não substitui a resposta material ao pedido.
         </p>
         {result ? (
           <div className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-5">
@@ -198,8 +202,8 @@ function DataSubjectRightsPage() {
       </LegalSection>
       <LegalSection title="3 Responsável pelo atendimento">
         <p>
-          A Manos Tech LTDA é o encarregado pelo tratamento de dados pessoais, com Gabriel Juvencio
-          como pessoa natural responsável, e atende assuntos de privacidade pelos canais abaixo.
+          A Manos Tech LTDA indicou a própria empresa como encarregada para os tratamentos sob sua
+          responsabilidade, com Gabriel Juvencio como pessoa natural responsável pelo contato.
           Quando o pedido se referir a uma campanha ou portal Wi-Fi de um estabelecimento, a Manos
           Tech poderá encaminhá-lo à empresa responsável pela finalidade do tratamento e acompanhar
           o atendimento da solicitação.

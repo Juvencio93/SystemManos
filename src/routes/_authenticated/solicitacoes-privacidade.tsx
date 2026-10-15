@@ -128,6 +128,7 @@ function PrivacyRequestsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Protocolo</TableHead>
+                    <TableHead>Política no recebimento</TableHead>
                     <TableHead>Solicitante</TableHead>
                     <TableHead>Pedido</TableHead>
                     <TableHead>Empresa</TableHead>
@@ -141,6 +142,11 @@ function PrivacyRequestsPage() {
                   {requests.data.map((item: any) => (
                     <TableRow key={item.id}>
                       <TableCell className="font-mono text-xs">{item.protocol}</TableCell>
+                      <TableCell className="text-xs">
+                        {item.policy_version === "unrecorded"
+                          ? "Não registrada (histórico)"
+                          : `Versão ${item.policy_version}`}
+                      </TableCell>
                       <TableCell>
                         <p className="font-medium">{item.full_name}</p>
                         <p className="text-xs text-muted-foreground">
@@ -156,9 +162,14 @@ function PrivacyRequestsPage() {
                         <Badge variant="outline">
                           {requestLabels[item.request_type] ?? item.request_type}
                         </Badge>
+                        {["information", "access"].includes(item.request_type) && (
+                          <p className="mt-1 text-xs font-medium text-rose-300">
+                            Avaliar resposta simplificada imediatamente
+                          </p>
+                        )}
                       </TableCell>
                       <TableCell>
-                        {item.companies?.trade_name || item.companies?.name || "Não identificada"}
+                        {item.companies?.trade_name || item.companies?.name || "Não identificada"
                       </TableCell>
                       <TableCell>
                         {new Intl.DateTimeFormat("pt-BR", {
