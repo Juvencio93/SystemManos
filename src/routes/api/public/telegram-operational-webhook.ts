@@ -17,7 +17,7 @@ export const Route = createFileRoute("/api/public/telegram-operational-webhook")
     handlers: {
       POST: async ({ request }) => {
         let db: any = null;
-        let integration: TelegramIntegration | null = null;
+        let authorizedIntegration: TelegramIntegration | null = null;
         let update: any = {};
         let deliveryAttemptCount = 0;
         try {
@@ -29,11 +29,12 @@ export const Route = createFileRoute("/api/public/telegram-operational-webhook")
           .select("id,bot_token,alert_chat_id,webhook_secret,pairing_code,status")
           .neq("status", "disabled")
           .maybeSingle();
-        integration = data as TelegramIntegration | null;
+        const integration = data as TelegramIntegration | null;
         if (!integration || secret !== integration.webhook_secret) {
           return new Response("Não autorizado.", { status: 401 });
         }
 
+        authorizedIntegration = integration;
         update = (await request.json().catch(() => ({}))) as any;
 
         // Database notifications use this branch; Telegram updates use the branch below.
@@ -166,7 +167,7 @@ export const Route = createFileRoute("/api/public/telegram-operational-webhook")
         } catch (error) {
           const message = (error instanceof Error ? error.message : String(error)).slice(0, 500);
           console.error("[telegram-operational] webhook request failed", error);
-          if (db && integration && update?.type === "system_notification" && typeof update?.event_key === "string") {
+          if (db && authorizedIntegration && update?.type === "system_notification" && typeof update?.event_key === "string") {
             const status = deliveryAttemptCount >= 5 ? "failed" : "pending";
             await db
               .from("telegram_operational_deliveries")
@@ -175,7 +176,7 @@ export const Route = createFileRoute("/api/public/telegram-operational-webhook")
             await db
               .from("telegram_operational_integrations")
               .update({ status: "error", last_error: message, updated_at: new Date().toISOString() })
-              .eq("id", integration.id);
+               .eq("id", authorizedIntegration.id);
           }
           return new Response("Falha ao processar a notificação.", { status: 500 });
         }
