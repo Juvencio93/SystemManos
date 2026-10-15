@@ -21,7 +21,7 @@ export function RbInventoryView({ data, loading, error, refresh, action, downloa
   const [label,setLabel] = useState("");
   const [target,setTarget] = useState("");
   const [busy,setBusy] = useState(false);
-  const [expanded,setExpanded] = useState(false);
+  const [expanded,setExpanded] = useState(true);
   const [message,setMessage] = useState("");
   const [failure,setFailure] = useState("");
   const devices = data?.devices ?? [];
