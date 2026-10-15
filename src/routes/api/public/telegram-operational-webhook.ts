@@ -16,20 +16,25 @@ export const Route = createFileRoute("/api/public/telegram-operational-webhook")
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const secret = request.headers.get("x-telegram-bot-api-secret-token");
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const db = supabaseAdmin as any;
+        let db: any = null;
+        let integration: TelegramIntegration | null = null;
+        let update: any = {};
+        let deliveryAttemptCount = 0;
+        try {
+          const secret = request.headers.get("x-telegram-bot-api-secret-token");
+          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          db = supabaseAdmin as any;
         const { data } = await db
           .from("telegram_operational_integrations")
           .select("id,bot_token,alert_chat_id,webhook_secret,pairing_code,status")
           .neq("status", "disabled")
           .maybeSingle();
-        const integration = data as TelegramIntegration | null;
+        integration = data as TelegramIntegration | null;
         if (!integration || secret !== integration.webhook_secret) {
           return new Response("Não autorizado.", { status: 401 });
         }
 
-        const update = (await request.json().catch(() => ({}))) as any;
+        update = (await request.json().catch(() => ({}))) as any;
 
         // Database notifications use this branch; Telegram updates use the branch below.
         if (update?.type === "system_notification" && typeof update?.event_key === "string") {
@@ -43,6 +48,7 @@ export const Route = createFileRoute("/api/public/telegram-operational-webhook")
           }
 
           const attemptCount = Number(delivery.attempt_count ?? 0) + 1;
+          deliveryAttemptCount = attemptCount;
           const { data: claimed } = await db
             .from("telegram_operational_deliveries")
             .update({
@@ -157,6 +163,22 @@ export const Route = createFileRoute("/api/public/telegram-operational-webhook")
           await send("Não consegui consultar o Gerente Operacional agora. Tente novamente em alguns instantes.");
         }
         return new Response("OK");
+        } catch (error) {
+          const message = (error instanceof Error ? error.message : String(error)).slice(0, 500);
+          console.error("[telegram-operational] webhook request failed", error);
+          if (db && integration && update?.type === "system_notification" && typeof update?.event_key === "string") {
+            const status = deliveryAttemptCount >= 5 ? "failed" : "pending";
+            await db
+              .from("telegram_operational_deliveries")
+              .update({ status, last_error: message })
+              .eq("event_key", update.event_key);
+            await db
+              .from("telegram_operational_integrations")
+              .update({ status: "error", last_error: message, updated_at: new Date().toISOString() })
+              .eq("id", integration.id);
+          }
+          return new Response("Falha ao processar a notificação.", { status: 500 });
+        }
       },
     },
   },
