@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { SUPABASE_PUBLIC_FALLBACK } from "./public-config";
+import { supabaseDevFallback } from "./public-config";
 import type { Database } from "./types";
 
 /**
@@ -8,7 +8,8 @@ import type { Database } from "./types";
  * Used exclusively for generating signed URLs and managing private buckets.
  */
 function createSupabaseStorageAdmin() {
-  const SUPABASE_URL = process.env["SUPABASE_URL"] || SUPABASE_PUBLIC_FALLBACK.url;
+  const fallback = supabaseDevFallback();
+  const SUPABASE_URL = process.env["SUPABASE_URL"] || fallback?.url;
   const TECH_SUPABASE_SERVICE_KEY = process.env["TECH_SUPABASE_SERVICE_KEY"];
 
   if (!SUPABASE_URL || !TECH_SUPABASE_SERVICE_KEY) {

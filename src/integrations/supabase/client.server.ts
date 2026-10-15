@@ -1,9 +1,8 @@
 // Server-side Supabase client with service role key - bypasses RLS.
-// Server-side Supabase client with service role key - bypasses RLS.
 // Use this for admin operations in server functions and server routes only.
 // For user-authenticated queries (with RLS), use the auth middleware instead.
 import { createClient } from "@supabase/supabase-js";
-import { SUPABASE_PUBLIC_FALLBACK } from "./public-config";
+import { supabaseDevFallback } from "./public-config";
 import type { Database } from "./types";
 
 function isNewSupabaseApiKey(value: string): boolean {
@@ -33,7 +32,8 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 }
 
 function createSupabaseAdminClient() {
-  const SUPABASE_URL = process.env["SUPABASE_URL"] || SUPABASE_PUBLIC_FALLBACK.url;
+  const fallback = supabaseDevFallback();
+  const SUPABASE_URL = process.env["SUPABASE_URL"] || fallback?.url;
   const TECH_SUPABASE_SERVICE_KEY = process.env["TECH_SUPABASE_SERVICE_KEY"];
 
   if (!SUPABASE_URL || !TECH_SUPABASE_SERVICE_KEY) {
