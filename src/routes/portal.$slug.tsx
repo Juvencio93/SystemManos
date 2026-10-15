@@ -636,7 +636,7 @@ function PortalPage() {
                     />
                     <span className={`text-[color:var(--portal-muted)] ${theme.typography.lgpdClass}`}>
                       <strong className="text-[color:var(--portal-text)]">Opcional:</strong> quero receber
-                      ofertas e contatos comerciais desta empresa por WhatsApp e outros canais informados.
+                      ofertas comerciais desta empresa pelo WhatsApp informado neste cadastro.
                     </span>
                   </label>
                   <p className={`text-[color:var(--portal-faint)] ${theme.typography.lgpdClass}`}>

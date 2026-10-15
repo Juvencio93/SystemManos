@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolvePortalTarget } from "@/lib/portal.server";
+import { PRIVACY_POLICY_VERSION } from "@/lib/legal-document-versions";
 
 const privacyRequestSchema = z.object({
   requestType: z.enum([
@@ -77,6 +78,7 @@ export const submitPrivacyRequest = createServerFn({ method: "POST" })
         phone_e164: phoneE164,
         portal_slug: data.portalSlug || null,
         details: data.details || null,
+        policy_version: PRIVACY_POLICY_VERSION,
         request_ip: ip === "unknown" ? null : ip,
         user_agent: request?.headers.get("user-agent")?.slice(0, 400) ?? null,
         created_at: now,
@@ -161,9 +163,11 @@ export const submitPrivacyRequest = createServerFn({ method: "POST" })
           recipient_user_id: userId,
           event_key: `privacy-request:${protocol}`,
           category: "privacy",
-          severity: "warning",
-          title: `Nova solicitação de privacidade — ${protocol}`,
-          description: `${data.fullName} enviou uma solicitação do tipo ${data.requestType}.${data.requestType === "marketing_revocation" && !immediatelyRevoked ? " A revogação requer análise da equipe." : ""}`,
+          severity: ["information", "access"].includes(data.requestType) ? "critical" : "warning",
+          title: ["information", "access"].includes(data.requestType)
+            ? `Resposta prioritária de privacidade — ${protocol}`
+            : `Nova solicitação de privacidade — ${protocol}`,
+          description: `${data.fullName} enviou uma solicitação do tipo ${data.requestType}.${["information", "access"].includes(data.requestType) ? " Avalie imediatamente se cabe resposta simplificada; o protocolo não é resposta ao titular." : ""}${data.requestType === "marketing_revocation" && !immediatelyRevoked ? " A revogação requer análise da equipe." : ""}`,
           company_id: target?.companyId ?? null,
           created_at: now,
           updated_at: now,
@@ -202,7 +206,7 @@ export const listPrivacyRequests = createServerFn({ method: "GET" })
     let query = (supabaseAdmin as any)
       .from("privacy_requests")
       .select(
-        "id,protocol,company_id,request_type,full_name,email,phone_e164,portal_slug,details,status,assigned_to,due_at,internal_notes,identity_verification_method,identity_verified_at,resolution_summary,resolved_at,created_at,updated_at,companies(name,trade_name),assigned_profile:profiles!privacy_requests_assigned_to_fkey(full_name,email)",
+        "id,protocol,company_id,request_type,policy_version,full_name,email,phone_e164,portal_slug,details,status,assigned_to,due_at,internal_notes,identity_verification_method,identity_verified_at,resolution_summary,resolved_at,created_at,updated_at,companies(name,trade_name),assigned_profile:profiles!privacy_requests_assigned_to_fkey(full_name,email)",
       )
       .order("created_at", { ascending: false })
       .limit(200);

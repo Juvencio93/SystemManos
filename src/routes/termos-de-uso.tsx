@@ -5,6 +5,7 @@ import {
   LegalPageShell,
   LegalSection,
 } from "@/components/legal/legal-page-shell";
+import { LEGAL_DOCUMENTS } from "@/lib/legal-document-versions";
 
 export const Route = createFileRoute("/termos-de-uso")({
   head: () => ({
@@ -22,7 +23,8 @@ function TermsOfUsePage() {
       eyebrow="Condições da plataforma"
       title="Termos de uso"
       summary="Regras aplicáveis aos administradores e usuários autorizados pelas empresas que utilizam a plataforma Manos Tech."
-      updatedAt="13 de outubro de 2026"
+      updatedAt={LEGAL_DOCUMENTS.termsOfUse.updatedAt}
+      version={LEGAL_DOCUMENTS.termsOfUse.version}
     >
       <LegalSection title="1 Aceitação e acesso">
         <p>
@@ -70,9 +72,10 @@ function TermsOfUsePage() {
           dependentes.
         </p>
         <p>
-          PagBank, Asaas e outros provedores processam pagamentos segundo regras próprias. A Manos
-          Tech organiza as cobranças e recebe notificações, mas não atua como instituição
-          financeira.
+          PagBank e Asaas v2 podem processar pagamentos quando a integração correspondente estiver
+          configurada. A rota legada Asaas v1 foi descontinuada. Cada provedor aplica seus próprios
+          termos e requisitos. A Manos Tech organiza as cobranças e recebe notificações, mas não
+          atua como instituição financeira.
         </p>
       </LegalSection>
       <LegalSection title="6 Conteúdo e inteligência artificial">
