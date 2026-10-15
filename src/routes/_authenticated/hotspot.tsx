@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { RbInventory } from "@/components/app/rb-inventory";
 import { BookOpen, Download, Router, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -188,7 +187,6 @@ function HotspotPage() {
     <div className="container max-w-5xl space-y-8 py-10">
       <PageHeader title="Hotspot" subtitle="Manuais e arquivos oficiais para instalação e atualização das RBs." />
       <HotspotNetworkMap devices={clients} isLoading={clientsQuery.isLoading} onBlock={async (device, blocked) => { const response = await postHotspotAction("/api/internal/hotspot-device-status", { routerIdentity: device.router_identity, blocked }); const actionError = await hotspotActionError(response, "Não foi possível alterar o bloqueio."); if (actionError) { setSyncMessage(actionError); return; } await clientsQuery.refetch(); }} onReboot={requestReboot} />
-      {canManageHotspot && <RbInventory />}
       <div className="-mt-2 grid gap-3 sm:grid-cols-5">
         <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Dispositivos cadastrados</p><p className="mt-1 text-2xl font-bold">{clients.length}</p></CardContent></Card>
         <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Homologados</p><p className="mt-1 text-2xl font-bold text-emerald-400">{clients.reduce((n, c) => n + (c.status === "operational" ? 1 : 0), 0)}</p></CardContent></Card>
