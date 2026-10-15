@@ -2,21 +2,108 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createPublicKey, verify } from "node:crypto";
 
 const api = (environment: string) => environment === "sandbox" ? "https://sandbox.api.pagseguro.com" : "https://api.pagseguro.com";
-function pem(base64: string) { const body = base64.match(/.{1,64}/g)?.join("\n") ?? base64; return `-----BEGIN PUBLIC KEY-----\n${body}\n-----END PUBLIC KEY-----`; }
-async function signatureValid(raw: string, signature: string, token: string, environment: string) {
+
+function pem(base64: string) {
+  const body = base64.match(/.{1,64}/g)?.join("\n") ?? base64;
+  return `-----BEGIN PUBLIC KEY-----\n${body}\n-----END PUBLIC KEY-----`;
+}
+
+/**
+ * In-process TTL cache for the PagBank webhook public key.
+ *
+ * A new webhook event used to trigger one HTTPS round-trip per configured
+ * integration to fetch the same public key. The key only rotates on the
+ * gateway side, so a 10-minute window is safe and keeps verification under
+ * the rate limit. Cache lives in module scope: hot-reloads reset it, which
+ * is acceptable for a 10-minute window.
+ */
+const PUBLIC_KEY_TTL_MS = 10 * 60 * 1000;
+const publicKeyCache = new Map<string, { key: string; expiresAt: number }>();
+
+function cacheKey(token: string, environment: string) {
+  return `${environment}::${token}`;
+}
+
+async function fetchPublicKey(token: string, environment: string): Promise<string | null> {
+  const cached = publicKeyCache.get(cacheKey(token, environment));
+  if (cached && cached.expiresAt > Date.now()) return cached.key;
+
   const headers = { Authorization: `Bearer ${token}`, Accept: "application/json" };
   let response = await fetch(`${api(environment)}/public-keys?type=webhook`, { headers });
-  let data = await response.json().catch(() => ({}));
+  let data: { public_key?: string } = await response.json().catch(() => ({}));
   if (!response.ok || !data.public_key) {
     response = await fetch(`${api(environment)}/public-keys/webhook`, { headers });
     data = await response.json().catch(() => ({}));
   }
-  if (!response.ok || !data.public_key) return false;
-  try { return verify("sha256", Buffer.from(raw, "utf8"), createPublicKey(pem(data.public_key)), Buffer.from(signature, "base64")); } catch { return false; }
+  if (!response.ok || !data.public_key) return null;
+
+  publicKeyCache.set(cacheKey(token, environment), {
+    key: data.public_key,
+    expiresAt: Date.now() + PUBLIC_KEY_TTL_MS,
+  });
+  return data.public_key;
 }
-export const Route = createFileRoute("/api/public/pagbank-webhook-v1")({ server: { handlers: { POST: async ({ request }) => {
-  const raw = await request.text(); const signature = request.headers.get("x-payload-signature"); if (!signature) return new Response("Assinatura ausente.", { status: 400 });
-  try { const { supabaseAdmin } = await import("@/integrations/supabase/client.server"); const { data: integrations, error } = await supabaseAdmin.from("pagbank_integrations" as any).select("access_token, environment").eq("status", "configured"); if (error) throw error; const valid = await Promise.all((integrations ?? []).map((i: any) => signatureValid(raw, signature, i.access_token, i.environment))); if (!valid.some(Boolean)) return new Response("Assinatura inválida.", { status: 401 });
-    const payload = JSON.parse(raw) as any; const orderId = payload?.id; const pgCharge = payload?.charges?.[0]; if (!orderId || !pgCharge?.id) return new Response("Evento ignorado.", { status: 200 }); const { data: charge } = await supabaseAdmin.from("company_charges").select("id, status, pagbank_last_event_id").eq("pagbank_order_id", orderId).maybeSingle(); if (!charge || charge.pagbank_last_event_id === pgCharge.id || charge.status === "cancelado") return new Response("OK", { status: 200 }); const paid = pgCharge.status === "PAID"; const failed = ["DECLINED", "CANCELED"].includes(pgCharge.status); if (paid || failed) { const { error: updateError } = await supabaseAdmin.from("company_charges").update({ status: paid ? "pago" : "atrasado", paid_at: paid ? new Date().toISOString() : null, pagbank_last_event_id: pgCharge.id, updated_at: new Date().toISOString() } as any).eq("id", charge.id); if (updateError) throw updateError; } return new Response("OK", { status: 200 });
-  } catch (error) { console.error("[pagbank-webhook-v1] processing failure", error); return new Response("Erro interno.", { status: 500 }); }
-} } } });
+
+async function signatureValid(raw: string, signature: string, token: string, environment: string) {
+  const publicKey = await fetchPublicKey(token, environment);
+  if (!publicKey) return false;
+  try {
+    return verify("sha256", Buffer.from(raw, "utf8"), createPublicKey(pem(publicKey)), Buffer.from(signature, "base64"));
+  } catch {
+    return false;
+  }
+}
+
+export const Route = createFileRoute("/api/public/pagbank-webhook-v1")({
+  server: {
+    handlers: {
+      POST: async ({ request }) => {
+        const raw = await request.text();
+        const signature = request.headers.get("x-payload-signature");
+        if (!signature) return new Response("Assinatura ausente.", { status: 400 });
+        try {
+          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          const { data: integrations, error } = await supabaseAdmin
+            .from("pagbank_integrations" as any)
+            .select("access_token, environment")
+            .eq("status", "configured");
+          if (error) throw error;
+          const valid = await Promise.all(
+            (integrations ?? []).map((i: any) => signatureValid(raw, signature, i.access_token, i.environment)),
+          );
+          if (!valid.some(Boolean)) return new Response("Assinatura inválida.", { status: 401 });
+          const payload = JSON.parse(raw) as any;
+          const orderId = payload?.id;
+          const pgCharge = payload?.charges?.[0];
+          if (!orderId || !pgCharge?.id) return new Response("Evento ignorado.", { status: 200 });
+          const { data: charge } = await supabaseAdmin
+            .from("company_charges")
+            .select("id, status, pagbank_last_event_id")
+            .eq("pagbank_order_id", orderId)
+            .maybeSingle();
+          if (!charge || charge.pagbank_last_event_id === pgCharge.id || charge.status === "cancelado") {
+            return new Response("OK", { status: 200 });
+          }
+          const paid = pgCharge.status === "PAID";
+          const failed = ["DECLINED", "CANCELED"].includes(pgCharge.status);
+          if (paid || failed) {
+            const { error: updateError } = await supabaseAdmin
+              .from("company_charges")
+              .update({
+                status: paid ? "pago" : "atrasado",
+                paid_at: paid ? new Date().toISOString() : null,
+                pagbank_last_event_id: pgCharge.id,
+                updated_at: new Date().toISOString(),
+              } as any)
+              .eq("id", charge.id);
+            if (updateError) throw updateError;
+          }
+          return new Response("OK", { status: 200 });
+        } catch (error) {
+          console.error("[pagbank-webhook-v1] processing failure", error);
+          return new Response("Erro interno.", { status: 500 });
+        }
+      },
+    },
+  },
+});
