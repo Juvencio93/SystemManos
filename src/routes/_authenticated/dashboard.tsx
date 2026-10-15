@@ -314,15 +314,19 @@ function NetworkMapPanel({ devices, isLoading, overlay, onClose, onMouseLeave }:
       onMouseLeave={onMouseLeave}
     >
       <div className={overlay ? "relative mx-auto w-full max-w-7xl" : "relative"}>
-        <Button
-          variant="outline"
-          size="icon"
-          aria-label="Fechar mapa"
-          className="absolute right-4 top-4 z-[1000] rounded-full bg-background/90"
-          onClick={onClose}
-        >
-          <X className="size-4" />
-        </Button>
+        {overlay && (
+          <div className="mb-2 flex justify-end">
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Fechar mapa"
+              className="rounded-full bg-background/90"
+              onClick={onClose}
+            >
+              <X className="size-4" />
+            </Button>
+          </div>
+        )}
         <HotspotNetworkMap
           devices={devices}
           isLoading={isLoading}
