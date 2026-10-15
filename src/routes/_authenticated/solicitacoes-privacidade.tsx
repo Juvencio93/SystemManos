@@ -169,7 +169,7 @@ function PrivacyRequestsPage() {
                         )}
                       </TableCell>
                       <TableCell>
-                        {item.companies?.trade_name || item.companies?.name || "Não identificada"
+                        {item.companies?.trade_name || item.companies?.name || "Não identificada"}
                       </TableCell>
                       <TableCell>
                         {new Intl.DateTimeFormat("pt-BR", {
