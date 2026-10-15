@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Package, Plus, ArrowRightLeft, Download, RefreshCw } from "lucide-react";
+import { Package, Plus, ArrowRightLeft, Download, RefreshCw, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +21,7 @@ export function RbInventoryView({ data, loading, error, refresh, action, downloa
   const [label,setLabel] = useState("");
   const [target,setTarget] = useState("");
   const [busy,setBusy] = useState(false);
+  const [expanded,setExpanded] = useState(false);
   const [message,setMessage] = useState("");
   const [failure,setFailure] = useState("");
   const devices = data?.devices ?? [];
@@ -34,13 +35,16 @@ export function RbInventoryView({ data, loading, error, refresh, action, downloa
     finally { setBusy(false); }
   }
   return <Card className="border-cyan-400/20">
-    <CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div><CardTitle className="flex items-center gap-2"><Package className="size-5 text-primary" />Estoque e transferência de RBs</CardTitle>
-      <p className="mt-2 text-sm text-muted-foreground">Prepare uma vez. Atribua ao cliente e acompanhe a confirmação do equipamento.</p></div>
-      <div className="flex gap-2"><Button size="sm" variant="outline" disabled={busy || loading} onClick={() => void run(refresh,"Estoque atualizado.")}><RefreshCw className="size-4" />Atualizar</Button>
-      <Button size="sm" disabled={busy || loading || Boolean(error)} onClick={() => {setCreating(true);setLabel("");setFailure("");}}><Plus className="size-4" />Cadastrar RB</Button></div>
+    <CardHeader>
+      <button type="button" aria-expanded={expanded} aria-controls="rb-inventory-content" onClick={() => setExpanded(value => !value)} className="flex w-full items-center gap-2 text-left">
+        <Package className="size-5 text-primary" /><CardTitle>Estoque e transferência de RBs</CardTitle>
+        <ChevronDown className={`ml-auto size-4 text-primary transition-transform ${expanded ? "rotate-180" : ""}`} />
+      </button>
     </CardHeader>
-    <CardContent className="space-y-4">
+    <CardContent id="rb-inventory-content" hidden={!expanded} className="space-y-4">
+      <p className="text-sm text-muted-foreground">Prepare uma vez. Atribua ao cliente e acompanhe a confirmação do equipamento.</p>
+      <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={busy || loading} onClick={() => void run(refresh,"Estoque atualizado.")}><RefreshCw className="size-4" />Atualizar</Button>
+      <Button size="sm" disabled={busy || loading || Boolean(error)} onClick={() => {setCreating(true);setLabel("");setFailure("");}}><Plus className="size-4" />Cadastrar RB</Button></div>
       <div className="grid grid-cols-3 gap-3">{[["Equipamentos",devices.length],["Em estoque",devices.filter(d=>d.status==="stock").length],["Aguardando RB",devices.filter(d=>!assignmentReady(d)).length]].map(([title,count]) => <div key={title} className="rounded-xl border bg-background/50 p-3"><div className="text-xs text-muted-foreground">{title}</div><strong className="text-2xl">{count}</strong></div>)}</div>
       <Input aria-label="Buscar RB no estoque" placeholder="Buscar por nome ou identidade da RB..." value={search} onChange={e=>setSearch(e.target.value)} />
       {(error || failure) && <p role="alert" className="text-sm text-red-400">{failure || error}</p>}

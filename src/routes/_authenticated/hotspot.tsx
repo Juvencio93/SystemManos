@@ -79,6 +79,7 @@ function HotspotPage() {
   const [auditCleanupMessage, setAuditCleanupMessage] = useState("");
   const [syncMessage, setSyncMessage] = useState("");
   const [expandedSection, setExpandedSection] = useState<"kit" | "maintenance" | "audit" | null>(null);
+  const [policiesExpanded, setPoliciesExpanded] = useState(false);
   const [mapZoom, setMapZoom] = useState(1);
   const [heartbeatSeconds, setHeartbeatSeconds] = useState(5);
   useEffect(() => { const timer = window.setInterval(() => setHeartbeatSeconds((v) => v <= 1 ? 5 : v - 1), 1000); return () => window.clearInterval(timer); }, []);
@@ -186,8 +187,8 @@ function HotspotPage() {
   return (
     <div className="container max-w-5xl space-y-8 py-10">
       <PageHeader title="Hotspot" subtitle="Manuais e arquivos oficiais para instalação e atualização das RBs." />
+      <HotspotNetworkMap devices={clients} isLoading={clientsQuery.isLoading} onBlock={async (device, blocked) => { const response = await postHotspotAction("/api/internal/hotspot-device-status", { routerIdentity: device.router_identity, blocked }); const actionError = await hotspotActionError(response, "Não foi possível alterar o bloqueio."); if (actionError) { setSyncMessage(actionError); return; } await clientsQuery.refetch(); }} onReboot={requestReboot} />
       {canManageHotspot && <RbInventory />}
-        <HotspotNetworkMap devices={clients} isLoading={clientsQuery.isLoading} onBlock={async (device, blocked) => { const response = await postHotspotAction("/api/internal/hotspot-device-status", { routerIdentity: device.router_identity, blocked }); const actionError = await hotspotActionError(response, "Não foi possível alterar o bloqueio."); if (actionError) { setSyncMessage(actionError); return; } await clientsQuery.refetch(); }} onReboot={requestReboot} />
       <div className="-mt-2 grid gap-3 sm:grid-cols-5">
         <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Dispositivos cadastrados</p><p className="mt-1 text-2xl font-bold">{clients.length}</p></CardContent></Card>
         <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Homologados</p><p className="mt-1 text-2xl font-bold text-emerald-400">{clients.reduce((n, c) => n + (c.status === "operational" ? 1 : 0), 0)}</p></CardContent></Card>
@@ -209,7 +210,7 @@ function HotspotPage() {
           {!clients.length && <div className="absolute inset-0 grid place-items-center text-sm text-muted-foreground">Nenhuma RB cadastrada para exibir no mapa.</div>}
         </div></div></CardContent>
       </Card>
-      <Card className="glass-panel border-primary/20"><CardHeader><CardTitle>Cadastro e políticas das RBs</CardTitle></CardHeader><CardContent className="grid gap-3 sm:grid-cols-2">{portalItems.map((item) => item.kind === "Evento" ? null : <div key={item.id} className="rounded-lg border border-border p-3"><p className="font-medium">{item.name}</p><p className="mb-3 text-xs text-muted-foreground">Política RADIUS e homologação do Hotspot</p><HotspotConfigDialog kind={item.kind === "Sede" ? "company" : "branch"} targetId={item.id} unitName={item.name} portalSlug={item.slug} baseUrl={typeof window !== "undefined" ? window.location.origin : ""} /></div>)}</CardContent></Card>
+      <Card className="glass-panel border-primary/20"><CardHeader><button type="button" aria-expanded={policiesExpanded} aria-controls="hotspot-policies-content" onClick={() => setPoliciesExpanded(value => !value)} className="flex w-full items-center text-left"><CardTitle>Cadastro e políticas das RBs</CardTitle><span className="ml-auto text-primary">{policiesExpanded ? "−" : "+"}</span></button></CardHeader><CardContent id="hotspot-policies-content" hidden={!policiesExpanded} className="grid gap-3 sm:grid-cols-2">{portalItems.map((item) => item.kind === "Evento" ? null : <div key={item.id} className="rounded-lg border border-border p-3"><p className="font-medium">{item.name}</p><p className="mb-3 text-xs text-muted-foreground">Política RADIUS e homologação do Hotspot</p><HotspotConfigDialog kind={item.kind === "Sede" ? "company" : "branch"} targetId={item.id} unitName={item.name} portalSlug={item.slug} baseUrl={typeof window !== "undefined" ? window.location.origin : ""} /></div>)}</CardContent></Card>
       <Card className="glass-panel border-primary/20">
         <CardHeader><button type="button" onClick={() => setExpandedSection(expandedSection === "kit" ? null : "kit")} className="flex w-full items-center gap-2 text-left"><Router className="size-5 text-primary" /><CardTitle>Kit de instalação MikroTik</CardTitle><span className="ml-auto text-primary">{expandedSection === "kit" ? "−" : "+"}</span></button></CardHeader>
         {expandedSection === "kit" && <CardContent className="space-y-5">

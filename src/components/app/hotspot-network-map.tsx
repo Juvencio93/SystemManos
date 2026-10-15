@@ -139,27 +139,6 @@ export function HotspotNetworkMap({ devices, isLoading = false, onBlock, onReboo
 
   return (
     <div className="mt-6">
-      <div className="mb-4 flex w-full flex-col gap-1 rounded-lg border border-white/10 bg-black/20 p-3 text-xs sm:w-40">
-        <span className="flex justify-between text-muted-foreground">
-          Latência{" "}
-          <b className="text-foreground">
-            {selected?.latency_ms == null ? "—" : `${selected.latency_ms} ms`}
-          </b>
-        </span>
-        <span className="flex justify-between text-muted-foreground">
-          Perda{" "}
-          <b className="text-foreground">
-            {selected?.packet_loss_pct == null ? "—" : `${selected.packet_loss_pct}%`}
-          </b>
-        </span>
-        <span className="flex justify-between text-muted-foreground">
-          Online <b className="text-emerald-300">{counts.online}</b>
-        </span>
-        <span className="flex justify-between text-muted-foreground">
-          Offline <b className="text-red-300">{counts.offline}</b>
-        </span>
-      </div>
-
       <Card className="relative w-full overflow-hidden border-primary/30 bg-[#071017] shadow-2xl shadow-cyan-950/40">
         <CardHeader className="gap-4 border-b border-white/10 pb-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -205,6 +184,24 @@ export function HotspotNetworkMap({ devices, isLoading = false, onBlock, onReboo
                 {label}
               </Button>
             ))}
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="Indicadores da rede">
+            <div className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs">
+              <span className="text-muted-foreground">Latência</span>
+              <b className="truncate text-foreground">{selected?.latency_ms == null ? "—" : `${selected.latency_ms} ms`}</b>
+            </div>
+            <div className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs">
+              <span className="text-muted-foreground">Perda</span>
+              <b className="truncate text-foreground">{selected?.packet_loss_pct == null ? "—" : `${selected.packet_loss_pct}%`}</b>
+            </div>
+            <div className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs">
+              <span className="text-muted-foreground">Online</span>
+              <b className="text-emerald-300">{counts.online}</b>
+            </div>
+            <div className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs">
+              <span className="text-muted-foreground">Offline</span>
+              <b className="text-red-300">{counts.offline}</b>
+            </div>
           </div>
         </CardHeader>
 
