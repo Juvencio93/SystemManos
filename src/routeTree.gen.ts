@@ -437,6 +437,7 @@ export interface FileRoutesByTo {
   '/filiais': typeof AuthenticatedFiliaisRoute
   '/gerente-operacional': typeof AuthenticatedGerenteOperacionalRoute
   '/hotspot': typeof AuthenticatedHotspotRoute
+  '/estoque-rbs': typeof AuthenticatedEstoqueRbsRoute
   '/mensagens': typeof AuthenticatedMensagensRoute
   '/portais': typeof AuthenticatedPortaisRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
