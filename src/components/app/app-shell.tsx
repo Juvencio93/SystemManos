@@ -19,6 +19,7 @@ import {
   HandCoins,
   Handshake,
   Router,
+  Package,
 } from "lucide-react";
 
 import { useEffect, useState, type ReactNode } from "react";
@@ -55,6 +56,7 @@ const NAV: NavItem[] = [
   { to: "/empresas", label: "Empresas", icon: Building2, roles: ["adm", "revenda"] },
   { to: "/financeiro", label: "Financeiro", icon: Wallet, roles: ["adm", "revenda"] },
   { to: "/hotspot", label: "Hotspot", icon: Router, roles: ["adm", "revenda"] },
+  { to: "/estoque-rbs", label: "Estoque RBs", icon: Package, roles: ["adm", "revenda"] },
   { to: "/creditos", label: "Créditos", icon: HandCoins, roles: ["revenda"] },
   { to: "/eventos", label: "Eventos", icon: CalendarDays, roles: ["adm"] },
   { to: "/assinatura", label: "Minha Assinatura", icon: ReceiptText, roles: ["matriz"] },

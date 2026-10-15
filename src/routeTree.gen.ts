@@ -25,6 +25,7 @@ import { Route as AuthenticatedFiliaisRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedFinanceiroRouteRouteImport } from './routes/_authenticated/financeiro/route'
 import { Route as AuthenticatedGerenteOperacionalRouteImport } from './routes/_authenticated/gerente-operacional'
 import { Route as AuthenticatedHotspotRouteImport } from './routes/_authenticated/hotspot'
+import { Route as AuthenticatedEstoqueRbsRouteImport } from './routes/_authenticated/estoque-rbs'
 import { Route as AuthenticatedMensagensRouteImport } from './routes/_authenticated/mensagens'
 import { Route as AuthenticatedPortaisRouteImport } from './routes/_authenticated/portais'
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
@@ -144,6 +145,11 @@ const AuthenticatedGerenteOperacionalRoute =
 const AuthenticatedHotspotRoute = AuthenticatedHotspotRouteImport.update({
   id: '/hotspot',
   path: '/hotspot',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedEstoqueRbsRoute = AuthenticatedEstoqueRbsRouteImport.update({
+  id: '/estoque-rbs',
+  path: '/estoque-rbs',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedMensagensRoute = AuthenticatedMensagensRouteImport.update({
@@ -376,6 +382,7 @@ export interface FileRoutesByFullPath {
   '/filiais': typeof AuthenticatedFiliaisRoute
   '/gerente-operacional': typeof AuthenticatedGerenteOperacionalRoute
   '/hotspot': typeof AuthenticatedHotspotRoute
+  '/estoque-rbs': typeof AuthenticatedEstoqueRbsRoute
   '/mensagens': typeof AuthenticatedMensagensRoute
   '/portais': typeof AuthenticatedPortaisRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
@@ -430,6 +437,7 @@ export interface FileRoutesByTo {
   '/filiais': typeof AuthenticatedFiliaisRoute
   '/gerente-operacional': typeof AuthenticatedGerenteOperacionalRoute
   '/hotspot': typeof AuthenticatedHotspotRoute
+  '/estoque-rbs': typeof AuthenticatedEstoqueRbsRoute
   '/mensagens': typeof AuthenticatedMensagensRoute
   '/portais': typeof AuthenticatedPortaisRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
@@ -487,6 +495,7 @@ export interface FileRoutesById {
   '/_authenticated/filiais': typeof AuthenticatedFiliaisRoute
   '/_authenticated/gerente-operacional': typeof AuthenticatedGerenteOperacionalRoute
   '/_authenticated/hotspot': typeof AuthenticatedHotspotRoute
+  '/_authenticated/estoque-rbs': typeof AuthenticatedEstoqueRbsRoute
   '/_authenticated/mensagens': typeof AuthenticatedMensagensRoute
   '/_authenticated/portais': typeof AuthenticatedPortaisRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
@@ -840,6 +849,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHotspotRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/estoque-rbs': {
+      id: '/_authenticated/estoque-rbs'
+      path: '/estoque-rbs'
+      fullPath: '/estoque-rbs'
+      preLoaderRoute: typeof AuthenticatedEstoqueRbsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/mensagens': {
       id: '/_authenticated/mensagens'
       path: '/mensagens'
@@ -1146,6 +1162,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedFiliaisRoute: typeof AuthenticatedFiliaisRoute
   AuthenticatedGerenteOperacionalRoute: typeof AuthenticatedGerenteOperacionalRoute
   AuthenticatedHotspotRoute: typeof AuthenticatedHotspotRoute
+  AuthenticatedEstoqueRbsRoute: typeof AuthenticatedEstoqueRbsRoute
   AuthenticatedMensagensRoute: typeof AuthenticatedMensagensRoute
   AuthenticatedPortaisRoute: typeof AuthenticatedPortaisRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
@@ -1169,6 +1186,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedFiliaisRoute: AuthenticatedFiliaisRoute,
   AuthenticatedGerenteOperacionalRoute: AuthenticatedGerenteOperacionalRoute,
   AuthenticatedHotspotRoute: AuthenticatedHotspotRoute,
+  AuthenticatedEstoqueRbsRoute: AuthenticatedEstoqueRbsRoute,
   AuthenticatedMensagensRoute: AuthenticatedMensagensRoute,
   AuthenticatedPortaisRoute: AuthenticatedPortaisRoute,
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
