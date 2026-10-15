@@ -8,6 +8,40 @@ import {
   buildInitialOperationalSummary,
 } from "./operational.utils.server";
 
+/**
+ * Concurrency cap for the per-company passes in the operational job.
+ *
+ * `buildCompanyOperations` and the individual upsert fan out across every
+ * active company. Without a cap, a single bad day that doubles the company
+ * count can fan out to dozens of concurrent Supabase queries and the
+ * operational job trips the database. 8 is small enough to stay polite
+ * (well under typical connection pool sizes) and large enough that the job
+ * finishes quickly for the current base.
+ */
+const OPERATIONAL_JOB_CONCURRENCY = 8;
+
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  if (items.length === 0) return [];
+  const results: R[] = new Array(items.length);
+  const total = items.length;
+  let nextIndex = 0;
+  const workers = Array.from({ length: Math.min(limit, total) }, async () => {
+    while (true) {
+      const i = nextIndex++;
+      if (i >= total) return;
+      const item = items[i];
+      if (item === undefined) return;
+      results[i] = await fn(item, i);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
 export async function runOperationalAnalysisInternal(options?: {
   source: "daily" | "manual";
 }): Promise<{
@@ -42,8 +76,10 @@ export async function runOperationalAnalysisInternal(options?: {
     if (!activeCompanies) throw new Error("Nenhuma empresa ativa encontrada.");
 
     // 2. Processar operações de todas as empresas de forma paralela
-    const allOperationsResults = await Promise.all(
-      activeCompanies.map((c) => buildCompanyOperations(supabaseAdmin, c.id, now)),
+    const allOperationsResults = await mapWithConcurrency(
+      activeCompanies,
+      OPERATIONAL_JOB_CONCURRENCY,
+      (c) => buildCompanyOperations(supabaseAdmin, c.id, now),
     );
 
     const operations = allOperationsResults.flat();
@@ -160,8 +196,7 @@ export async function runOperationalAnalysisInternal(options?: {
 
     // 5. ATUALIZAR ANÁLISES INDIVIDUAIS (Matriz View)
     // Isso garante que a Matriz veja os dados atualizados sem esperar o job diário
-    await Promise.all(
-      activeCompanies.map(async (company) => {
+    await mapWithConcurrency(activeCompanies, OPERATIONAL_JOB_CONCURRENCY, async (company) => {
         const companyOps = operations.filter((o) => o.companyId === company.id);
         const companyIndicators = calculateStatusCounters(companyOps);
         const isCompanyInitial = companyOps.every((o) => o.status === "observacao");
@@ -200,8 +235,7 @@ export async function runOperationalAnalysisInternal(options?: {
           },
           { onConflict: "company_id, analysis_date" },
         );
-      }),
-    );
+    });
 
     return {
       success: true,

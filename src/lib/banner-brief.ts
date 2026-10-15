@@ -1198,7 +1198,7 @@ export function validatePromptConceptSeparation(first: string, second: string) {
       value,
     );
   const experienceLed = (value: string) =>
-    /\b(?:experi[eê]ncia\s+da\s+marca|contexto\s+de\s+uso|atmosfera\s+editorial|composi[cç][aã]o\s+(?:ampla|contextual)|cena\s+editorial|narrativa\s+contextual)\b/iu.test(
+    /\b(?:experi[eê]ncia\s+da\s+marca|contexto\s+de\s+uso|atmosfera\s+editorial|composi[cç][aã]o\s+(?:ampla|contextual)|cena\s+editorial|narrativa\s+contextual|tipografia\s+como\s+protagonista|tipografia\s+protagonista|cartaz\s+tipogr[aá]fico|design\s+gr[aá]fico\s+como\s+protagonista|mensagem\s+conduz\s+a\s+leitura|texto\s+conduz\s+a\s+leitura)\b/iu.test(
       value,
     );
 
@@ -1232,7 +1232,7 @@ export function validatePromptConceptSeparation(first: string, second: string) {
     },
     {
       first: /\b(?:texto|tipografia)\s+(?:discreto|discreta|secund[aá]rio|secund[aá]ria|em\s+segundo\s+plano)|hierarquia\s+visual\s+liderada\s+pela\s+imagem|area\s+de\s+texto\b/u,
-      second: /\b(?:texto\s+integrado\s+[àa]\s+cena|tipografia\s+organiza\s+a\s+mensagem|mensagem\s+integrada\s+[àa]\s+composicao|leitura\s+em\s+camadas)\b/u,
+      second: /\b(?:texto\s+integrado\s+[àa]\s+cena|tipografia\s+organiza\s+a\s+mensagem|mensagem\s+integrada\s+[àa]\s+composicao|leitura\s+em\s+camadas|tipografia\s+como\s+protagonista|texto\s+conduz\s+a\s+leitura|grade\s+modular\s+organiza\s+a\s+leitura)\b/u,
     },
   ] as const;
   const divergentAxes = axes.filter(

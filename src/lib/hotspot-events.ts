@@ -104,7 +104,7 @@ export function buildHotspotAlerts(devices: AlertDevice[], audits: AlertAudit[],
         alerts.push({
           id: `pending:${kind}:${device.id}:${requestedAt}`,
           severity: "warning",
-          title: `${label} falhou`,
+          title: `${label} não confirmada`,
           description: `${identity} não confirmou o comando em até 3 minutos. Confira a conexão e o log da RB.`,
           createdAt: requestedAt,
           deviceId: device.id,

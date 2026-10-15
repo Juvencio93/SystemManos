@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { SUPABASE_PUBLIC_FALLBACK } from "@/integrations/supabase/public-config";
+import { supabaseDevFallback } from "@/integrations/supabase/public-config";
 import type { Database } from "@/integrations/supabase/types";
 
 export async function authenticatedUserId(request: Request) {
@@ -8,8 +8,9 @@ export async function authenticatedUserId(request: Request) {
   const jwt = authorization.slice(7).trim();
   if (!jwt || jwt.split(".").length !== 3) return null;
 
-  const url = process.env["SUPABASE_URL"] || SUPABASE_PUBLIC_FALLBACK.url;
-  const key = process.env["SUPABASE_PUBLISHABLE_KEY"] || SUPABASE_PUBLIC_FALLBACK.publishableKey;
+  const fallback = supabaseDevFallback();
+  const url = process.env["SUPABASE_URL"] || fallback?.url;
+  const key = process.env["SUPABASE_PUBLISHABLE_KEY"] || fallback?.publishableKey;
   if (!url || !key) return null;
   const client = createClient<Database>(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },

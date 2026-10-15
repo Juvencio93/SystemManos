@@ -8,17 +8,20 @@ const unauthorized = () => new Response(JSON.stringify({}), {
   headers: { "content-type": "application/json", "cache-control": "no-store" },
 });
 
+/**
+ * FreeRADIUS reaches this endpoint over an internal HTTPS channel and
+ * authenticates with `Authorization: Bearer <RADIUS_API_TOKEN>`. Only Bearer
+ * is accepted: a shared static `Basic radius:<token>` credential would be
+ * recoverable from any process that ever held the FreeRADIUS host config and
+ * has no operational use after the v1 → v2 migration.
+ */
 function hasRadiusToken(request: Request, expected: string) {
   const authorization = request.headers.get("authorization") ?? "";
   const bearer = `Bearer ${expected}`;
-  if (authorization.length === bearer.length && timingSafeEqual(Buffer.from(authorization), Buffer.from(bearer))) {
-    return true;
-  }
-
-  if (!authorization.startsWith("Basic ")) return false;
-  const decoded = Buffer.from(authorization.slice(6), "base64").toString("utf8");
-  const basic = `radius:${expected}`;
-  return decoded.length === basic.length && timingSafeEqual(Buffer.from(decoded), Buffer.from(basic));
+  return (
+    authorization.length === bearer.length &&
+    timingSafeEqual(Buffer.from(authorization), Buffer.from(bearer))
+  );
 }
 
 /**
