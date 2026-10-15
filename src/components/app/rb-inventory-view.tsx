@@ -62,7 +62,7 @@ export function RbInventoryView({ data, loading, error, refresh, action, downloa
           </div>
         </div>;
       })}
-      <p className="text-xs text-muted-foreground">Na primeira preparação, importe o kit inicial uma vez na RB. Depois, transferências, credenciais e portal são atualizados automaticamente quando ela se conecta à internet.</p>
+      <p className="text-xs text-muted-foreground">Antes de reinstalar uma RB usada, confira o cadastro anterior para evitar duplicidade. Para cada equipamento, importe apenas seu Kit inicial uma vez; depois, transferências, credenciais e portal são atualizados quando ele se conecta à internet.</p>
     </CardContent>
     <Dialog open={creating || Boolean(selected)} onOpenChange={open=> {if(!open && !busy){setCreating(false);setSelected(null);}}}>
       <DialogContent><DialogHeader><DialogTitle>{creating ? "Cadastrar RB no estoque" : `Transferir ${selected?.inventory_label || selected?.router_identity}`}</DialogTitle>
