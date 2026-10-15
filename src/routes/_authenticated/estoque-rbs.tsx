@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Package } from "lucide-react";
 import { RbInventory } from "@/components/app/rb-inventory";
 import { PageHeader } from "@/components/app/page-header";
 import { Card, CardContent } from "@/components/ui/card";
