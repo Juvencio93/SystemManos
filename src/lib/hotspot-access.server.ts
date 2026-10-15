@@ -1,3 +1,4 @@
+import { grantMatchesAssignment } from "./rb-inventory";
 import { createHmac, randomBytes } from "node:crypto";
 import { registerLead, resolvePortalTarget } from "@/lib/portal.server";
 
@@ -133,6 +134,8 @@ function passwordFor(username: string) {
 export async function issueHotspotAccessGrant(
   admin: AdminClient,
   input: {
+    deviceId: string;
+    assignmentVersion: number;
     companyId: string;
     portalTargetId: string;
     portalTargetKind: "company" | "branch" | "event";
@@ -145,9 +148,16 @@ export async function issueHotspotAccessGrant(
   const mac = normalizeMacAddress(input.mac);
   if (!mac) throw new Error("Não foi possível identificar o dispositivo no HotSpot.");
 
+  const { data: device, error: deviceError } = await (admin as any).from("hotspot_devices").select("*").eq("id", input.deviceId).maybeSingle();
+  if (deviceError || !device || !grantMatchesAssignment(device, {
+    device_id: input.deviceId, assignment_version: input.assignmentVersion, company_id: input.companyId,
+    portal_target_id: input.portalTargetId, portal_target_kind: input.portalTargetKind,
+  })) throw new Error("O vínculo da RB mudou ou não está liberado. Reconecte à rede.");
   const username = `${USERNAME_PREFIX}${randomBytes(24).toString("base64url")}`;
   const expiresAt = new Date(Date.now() + CREDENTIAL_TTL_MS).toISOString();
   const { error } = await (admin as any).from("hotspot_access_grants").insert({
+    device_id: input.deviceId,
+    assignment_version: input.assignmentVersion,
     company_id: input.companyId,
     portal_target_id: input.portalTargetId,
     portal_target_kind: input.portalTargetKind,
@@ -171,20 +181,22 @@ export async function issueHotspotAccessGrant(
 
 export async function authorizeHotspotAccess(
   admin: AdminClient,
-  input: { username: string | null; mac: string | null },
+  input: { username: string | null; mac: string | null; routerIdentity: string },
 ) {
   if (!input.username?.startsWith(USERNAME_PREFIX)) return null;
   const mac = normalizeMacAddress(input.mac ?? undefined);
   const { data, error } = await (admin as any)
     .from("hotspot_access_grants")
     .select(
-      "id, username, mac_address, company_id, portal_target_id, portal_target_kind, pending_checkin, last_authenticated_at",
+      "id, device_id, assignment_version, username, mac_address, company_id, portal_target_id, portal_target_kind, pending_checkin, last_authenticated_at",
     )
     .eq("username", input.username)
     .is("revoked_at", null)
     .gt("expires_at", new Date().toISOString())
     .maybeSingle();
   if (error || !data) return null;
+  const { data: device, error: deviceError } = await (admin as any).from("hotspot_devices").select("*").eq("router_identity", input.routerIdentity).maybeSingle();
+  if (deviceError || !device || !grantMatchesAssignment(device, data)) return null;
   // Some RouterOS/RADIUS setups omit Calling-Station-Id or format it
   // differently. The grant username is random, short-lived, and single-use;
   // accept a missing MAC while still rejecting a verifiable mismatch.

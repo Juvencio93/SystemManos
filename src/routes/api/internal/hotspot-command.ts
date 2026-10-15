@@ -1,6 +1,8 @@
+import { assignmentCleanupScript } from "@/lib/rb-assignment.server";
+import { assignmentAllowsAccess } from "@/lib/rb-inventory";
 import { createFileRoute } from "@tanstack/react-router";
 import { createHash } from "node:crypto";
-import { hasHotspotRouterAuth, hotspotSyncAckSignature } from "@/lib/hotspot-router-auth";
+import { hasAssignedRouterAuth, hotspotSyncAckSignature } from "@/lib/hotspot-router-auth";
 
 const headers = { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store, no-cache, must-revalidate" };
 const noOp = () => new Response("# no-op\n", { headers });
@@ -39,7 +41,10 @@ function hotspotLoginFileSyncCommand() {
   :do {
     :local manosLoginFetch [/tool fetch url="https://manostech-system.com.br/mikrotik/login.html" mode=https dst-path="flash/hotspot/login.html" check-certificate=yes as-value]
     :if (($manosLoginFetch->"status") = "finished") do={
-      /tool fetch url="https://manostech-system.com.br/mikrotik/manos-login-v3.marker" mode=https dst-path="flash/manos-login-v3.marker" check-certificate=yes
+      :local manosAloginFetch [/tool fetch url="https://manostech-system.com.br/mikrotik/alogin.html" mode=https dst-path="flash/hotspot/alogin.html" check-certificate=yes as-value]
+      :if (($manosAloginFetch->"status") = "finished") do={
+        /tool fetch url="https://manostech-system.com.br/mikrotik/manos-login-v3.marker" mode=https dst-path="flash/manos-login-v3.marker" check-certificate=yes
+      }
     }
   } on-error={ :log warning "Manos Tech login page update failed; will retry" }
 }
@@ -100,16 +105,20 @@ export const Route = createFileRoute("/api/internal/hotspot-command")({
         const url = new URL(request.url);
         const identity = url.searchParams.get("routerIdentity") ?? "";
         const commandIdFromRouter = url.searchParams.get("rebootCommandId") ?? "";
-        if (!identity || !hasHotspotRouterAuth(request, identity)) return new Response("Unauthorized", { status: 401 });
+        if (!/^MT-[A-Z0-9-]{6,48}$/.test(identity)) return new Response("Unauthorized", { status: 401 });
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { data: device, error } = await (supabaseAdmin as any)
           .from("hotspot_devices")
-          .select("id,status,router_applied_status,reboot_requested_at,router_status_requested_at,router_status_applied_at,sync_requested_at,sync_applied_at")
+          .select("id,status,company_id,hotspot_config_id,assignment_version,credential_version,assignment_applied_version,verification_expires_at,router_applied_status,reboot_requested_at,router_status_requested_at,router_status_applied_at,sync_requested_at,sync_applied_at")
           .eq("router_identity", identity)
           .maybeSingle();
         if (error) return new Response("Could not read device", { status: 500 });
-        if (!device) return noOp();
+        if (!device || !hasAssignedRouterAuth(request, identity, device)) return new Response("Unauthorized", { status: 401 });
+
+        if (device.assignment_applied_version !== device.assignment_version) {
+          return new Response(statusCommand(true) + assignmentCleanupScript(identity, device.assignment_version), { headers });
+        }
 
         if (device.reboot_requested_at) {
           const expectedCommandId = String(Date.parse(device.reboot_requested_at));
@@ -155,7 +164,7 @@ export const Route = createFileRoute("/api/internal/hotspot-command")({
         const radiusCommand = radiusCredentialCommand();
         const syncPending = Boolean(device.sync_requested_at && device.sync_applied_at !== device.sync_requested_at);
         const statusPending = Boolean(device.router_status_requested_at && device.router_status_applied_at !== device.router_status_requested_at);
-        const blocked = device.status === "blocked";
+        const blocked = !assignmentAllowsAccess(device);
         const confirmation = syncPending && radiusCommand
           ? syncAcknowledgementCommand(identity, device.sync_requested_at, blocked)
           : "";

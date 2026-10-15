@@ -40,6 +40,7 @@ import { Route as AuthenticatedFinanceiroDespesasRouteImport } from './routes/_a
 import { Route as AuthenticatedFinanceiroEmAtrasoRouteImport } from './routes/_authenticated/financeiro/em-atraso'
 import { Route as AuthenticatedFinanceiroFaturamentoRouteImport } from './routes/_authenticated/financeiro/faturamento'
 import { Route as AuthenticatedMarketingCampaignIdRouteImport } from './routes/_authenticated/marketing.$campaignId'
+import { Route as ApiInternalHotspotAssignmentAckRouteImport } from './routes/api/internal/hotspot-assignment-ack'
 import { Route as ApiInternalHotspotAuditCleanupRouteImport } from './routes/api/internal/hotspot-audit-cleanup'
 import { Route as ApiInternalHotspotCommandRouteImport } from './routes/api/internal/hotspot-command'
 import { Route as ApiInternalHotspotDeviceStatusRouteImport } from './routes/api/internal/hotspot-device-status'
@@ -229,6 +230,12 @@ const AuthenticatedMarketingCampaignIdRoute =
     path: '/marketing/$campaignId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiInternalHotspotAssignmentAckRoute =
+  ApiInternalHotspotAssignmentAckRouteImport.update({
+    id: '/api/internal/hotspot-assignment-ack',
+    path: '/api/internal/hotspot-assignment-ack',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiInternalHotspotAuditCleanupRoute =
   ApiInternalHotspotAuditCleanupRouteImport.update({
     id: '/api/internal/hotspot-audit-cleanup',
@@ -382,6 +389,7 @@ export interface FileRoutesByFullPath {
   '/financeiro/em-atraso': typeof AuthenticatedFinanceiroEmAtrasoRoute
   '/financeiro/faturamento': typeof AuthenticatedFinanceiroFaturamentoRoute
   '/marketing/$campaignId': typeof AuthenticatedMarketingCampaignIdRoute
+  '/api/internal/hotspot-assignment-ack': typeof ApiInternalHotspotAssignmentAckRoute
   '/api/internal/hotspot-audit-cleanup': typeof ApiInternalHotspotAuditCleanupRoute
   '/api/internal/hotspot-command': typeof ApiInternalHotspotCommandRoute
   '/api/internal/hotspot-device-status': typeof ApiInternalHotspotDeviceStatusRoute
@@ -435,6 +443,7 @@ export interface FileRoutesByTo {
   '/financeiro/em-atraso': typeof AuthenticatedFinanceiroEmAtrasoRoute
   '/financeiro/faturamento': typeof AuthenticatedFinanceiroFaturamentoRoute
   '/marketing/$campaignId': typeof AuthenticatedMarketingCampaignIdRoute
+  '/api/internal/hotspot-assignment-ack': typeof ApiInternalHotspotAssignmentAckRoute
   '/api/internal/hotspot-audit-cleanup': typeof ApiInternalHotspotAuditCleanupRoute
   '/api/internal/hotspot-command': typeof ApiInternalHotspotCommandRoute
   '/api/internal/hotspot-device-status': typeof ApiInternalHotspotDeviceStatusRoute
@@ -491,6 +500,7 @@ export interface FileRoutesById {
   '/_authenticated/financeiro/em-atraso': typeof AuthenticatedFinanceiroEmAtrasoRoute
   '/_authenticated/financeiro/faturamento': typeof AuthenticatedFinanceiroFaturamentoRoute
   '/_authenticated/marketing/$campaignId': typeof AuthenticatedMarketingCampaignIdRoute
+  '/api/internal/hotspot-assignment-ack': typeof ApiInternalHotspotAssignmentAckRoute
   '/api/internal/hotspot-audit-cleanup': typeof ApiInternalHotspotAuditCleanupRoute
   '/api/internal/hotspot-command': typeof ApiInternalHotspotCommandRoute
   '/api/internal/hotspot-device-status': typeof ApiInternalHotspotDeviceStatusRoute
@@ -547,6 +557,7 @@ export interface FileRouteTypes {
     | '/financeiro/em-atraso'
     | '/financeiro/faturamento'
     | '/marketing/$campaignId'
+    | '/api/internal/hotspot-assignment-ack'
     | '/api/internal/hotspot-audit-cleanup'
     | '/api/internal/hotspot-command'
     | '/api/internal/hotspot-device-status'
@@ -600,6 +611,7 @@ export interface FileRouteTypes {
     | '/financeiro/em-atraso'
     | '/financeiro/faturamento'
     | '/marketing/$campaignId'
+    | '/api/internal/hotspot-assignment-ack'
     | '/api/internal/hotspot-audit-cleanup'
     | '/api/internal/hotspot-command'
     | '/api/internal/hotspot-device-status'
@@ -655,6 +667,7 @@ export interface FileRouteTypes {
     | '/_authenticated/financeiro/em-atraso'
     | '/_authenticated/financeiro/faturamento'
     | '/_authenticated/marketing/$campaignId'
+    | '/api/internal/hotspot-assignment-ack'
     | '/api/internal/hotspot-audit-cleanup'
     | '/api/internal/hotspot-command'
     | '/api/internal/hotspot-device-status'
@@ -689,6 +702,7 @@ export interface RootRouteChildren {
   PoliticaDePrivacidadeRoute: typeof PoliticaDePrivacidadeRoute
   TermosDeUsoRoute: typeof TermosDeUsoRoute
   PortalSlugRoute: typeof PortalSlugRoute
+  ApiInternalHotspotAssignmentAckRoute: typeof ApiInternalHotspotAssignmentAckRoute
   ApiInternalHotspotAuditCleanupRoute: typeof ApiInternalHotspotAuditCleanupRoute
   ApiInternalHotspotCommandRoute: typeof ApiInternalHotspotCommandRoute
   ApiInternalHotspotDeviceStatusRoute: typeof ApiInternalHotspotDeviceStatusRoute
@@ -931,6 +945,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMarketingCampaignIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/internal/hotspot-assignment-ack': {
+      id: '/api/internal/hotspot-assignment-ack'
+      path: '/api/internal/hotspot-assignment-ack'
+      fullPath: '/api/internal/hotspot-assignment-ack'
+      preLoaderRoute: typeof ApiInternalHotspotAssignmentAckRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/internal/hotspot-audit-cleanup': {
       id: '/api/internal/hotspot-audit-cleanup'
       path: '/api/internal/hotspot-audit-cleanup'
@@ -1171,6 +1192,7 @@ const rootRouteChildren: RootRouteChildren = {
   PoliticaDePrivacidadeRoute: PoliticaDePrivacidadeRoute,
   TermosDeUsoRoute: TermosDeUsoRoute,
   PortalSlugRoute: PortalSlugRoute,
+  ApiInternalHotspotAssignmentAckRoute: ApiInternalHotspotAssignmentAckRoute,
   ApiInternalHotspotAuditCleanupRoute: ApiInternalHotspotAuditCleanupRoute,
   ApiInternalHotspotCommandRoute: ApiInternalHotspotCommandRoute,
   ApiInternalHotspotDeviceStatusRoute: ApiInternalHotspotDeviceStatusRoute,

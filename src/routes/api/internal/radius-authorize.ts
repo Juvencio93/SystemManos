@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { timingSafeEqual } from "node:crypto";
 import { authorizeHotspotAccess } from "@/lib/hotspot-access.server";
-import { markRouterHomologated } from "@/lib/hotspot-device.server";
+import { normalizeRouterIdentity } from "@/lib/hotspot-device.server";
 
 const unauthorized = () => new Response(JSON.stringify({}), {
   status: 401,
@@ -45,19 +45,12 @@ export const Route = createFileRoute("/api/internal/radius-authorize")({
         const routerIdentity = typeof fields["NAS-Identifier"] === "string" ? fields["NAS-Identifier"] : null;
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        if (routerIdentity) {
-          const { data: device, error: deviceError } = await (supabaseAdmin as any)
-            .from("hotspot_devices")
-            .select("status")
-            .eq("router_identity", routerIdentity)
-            .maybeSingle();
-          // Only an operational router can receive grants. This also keeps
-          // suspended or retired duplicate hardware from authenticating.
-          if (deviceError || !device || device.status !== "operational") return unauthorized();
-        }
-        const grant = await authorizeHotspotAccess(supabaseAdmin, { username, mac });
+        const normalizedIdentity = normalizeRouterIdentity(routerIdentity);
+        if (!normalizedIdentity) return unauthorized();
+        const grant = await authorizeHotspotAccess(supabaseAdmin, { username, mac, routerIdentity: normalizedIdentity });
         if (!grant) return unauthorized();
-        await markRouterHomologated(supabaseAdmin, routerIdentity);
+        const { data: valid, error: validationError } = await (supabaseAdmin as any).rpc("validate_hotspot_assignment", { p_identity: normalizedIdentity, p_username: username });
+        if (validationError || valid !== true) return unauthorized();
 
         // RouterOS applies these attributes only to this authenticated HotSpot
         // session. Its rate notation is router-centric: rx is client upload

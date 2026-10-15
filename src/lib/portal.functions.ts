@@ -83,13 +83,14 @@ export const submitPortalLead = createServerFn({ method: "POST" })
     const { data: handoff } = data.hotspotHandoff
       ? await (supabaseAdmin as any)
           .from("hotspot_portal_handoffs")
-          .select("id, mac_address, ip_address, ap_mac, login_only_url, origin_url")
+          .select("id, device_id, assignment_version, mac_address, ip_address, ap_mac, login_only_url, origin_url")
           .eq("id", data.hotspotHandoff)
           .eq("slug", data.slug)
           .is("consumed_at", null)
           .gt("expires_at", new Date().toISOString())
           .maybeSingle()
       : { data: null };
+    if (data.hotspotHandoff && !handoff) throw new Error("A configuração do Wi-Fi mudou. Reconecte à rede para continuar.");
     const hotspotData = handoff
       ? {
           ...data,
@@ -161,7 +162,10 @@ export const submitPortalLead = createServerFn({ method: "POST" })
         if (!loginUrl) {
           throw new Error("Não foi possível confirmar o endereço local do HotSpot.");
         }
+        if (!handoff?.device_id) throw new Error("Abra o portal pela rede Wi-Fi para continuar.");
         hotspotAccess = await issueHotspotAccessGrant(supabaseAdmin, {
+          deviceId: handoff.device_id,
+          assignmentVersion: handoff.assignment_version,
           companyId: target.companyId,
           portalTargetId: target.id,
           portalTargetKind: target.kind,

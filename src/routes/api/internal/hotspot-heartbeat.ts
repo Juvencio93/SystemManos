@@ -1,6 +1,7 @@
+import { assignmentAllowsAccess } from "@/lib/rb-inventory";
 import { createFileRoute } from "@tanstack/react-router";
 import { heartbeatUpdate, routerUptimeSeconds, sanitizeRouterOsHeartbeat, validateHeartbeat, type HeartbeatInput } from "@/lib/hotspot-protocol";
-import { hasHotspotRouterAuth } from "@/lib/hotspot-router-auth";
+import { hasAssignedRouterAuth } from "@/lib/hotspot-router-auth";
 
 export const Route = createFileRoute("/api/internal/hotspot-heartbeat")({
   server: {
@@ -32,15 +33,15 @@ export const Route = createFileRoute("/api/internal/hotspot-heartbeat")({
         if (!body) return new Response("Invalid heartbeat", { status: 400 });
         const heartbeat = sanitizeRouterOsHeartbeat(body);
         if (!validateHeartbeat(heartbeat)) return new Response("Invalid heartbeat", { status: 400 });
-        if (!hasHotspotRouterAuth(request, heartbeat.routerIdentity!)) return new Response("Unauthorized", { status: 401 });
+
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { data: current, error: lookupError } = await (supabaseAdmin as any)
           .from("hotspot_devices")
-          .select("id,status,router_applied_status,router_status_requested_at,router_status_applied_at,reboot_requested_at,reboot_applied_at,last_seen_at,last_seen_uptime")
+          .select("*")
           .eq("router_identity", heartbeat.routerIdentity)
           .maybeSingle();
         if (lookupError) return new Response("Could not read device", { status: 500 });
-        if (!current) return new Response("Device not found", { status: 404 });
+        if (!current || !hasAssignedRouterAuth(request, heartbeat.routerIdentity!, current)) return new Response("Unauthorized", { status: 401 });
         const now = new Date().toISOString();
         const routerStatusPending = Boolean(current.router_status_requested_at &&
           current.router_status_applied_at !== current.router_status_requested_at);
@@ -66,7 +67,7 @@ export const Route = createFileRoute("/api/internal/hotspot-heartbeat")({
         const firewallConfirmed = heartbeat.firewallBlocked !== undefined && heartbeat.firewallBlocked !== "" &&
           (heartbeat.firewallBlocked === true || heartbeat.firewallBlocked === false || heartbeat.firewallBlocked === "yes" || heartbeat.firewallBlocked === "no");
         const firewallMatchesRequest = firewallConfirmed &&
-          reportedFirewallStatus === (current.status === "blocked" ? "blocked" : "unblocked");
+          reportedFirewallStatus === (assignmentAllowsAccess(current) ? "unblocked" : "blocked");
         const firewallStateChanged = firewallConfirmed && current.router_applied_status !== reportedFirewallStatus;
         const update = {
           ...heartbeatUpdate(heartbeat, now),

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { RbInventory } from "@/components/app/rb-inventory";
 import { BookOpen, Download, Router, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -49,7 +50,7 @@ function HotspotPage() {
       query = query.or(filters.join(","));
     } else if (access?.role === "matriz" && access.companyId) query = query.eq("company_id", access.companyId);
     else if (access?.role === "filial" && access.branchId) query = query.eq("branch_id", access.branchId);
-    const { data, error } = await query.neq("status", "suspended").order("last_seen_at", { ascending: false, nullsFirst: false });
+    const { data, error } = await query.not("company_id", "is", null).neq("status", "stock").neq("status", "transfer_pending").neq("status", "suspended").order("last_seen_at", { ascending: false, nullsFirst: false });
     if (error) throw error;
     return (data ?? []).map((device: any) => {
       const unit = device.branches ?? device.companies ?? {};
@@ -188,6 +189,7 @@ function HotspotPage() {
   return (
     <div className="container max-w-5xl space-y-8 py-10">
       <PageHeader title="Hotspot" subtitle="Manuais e arquivos oficiais para instalação e atualização das RBs." />
+      {canManageHotspot && <RbInventory />}
         <HotspotNetworkMap devices={clients} isLoading={clientsQuery.isLoading} onBlock={async (device, blocked) => { const response = await postHotspotAction("/api/internal/hotspot-device-status", { routerIdentity: device.router_identity, blocked }); const actionError = await hotspotActionError(response, "Não foi possível alterar o bloqueio."); if (actionError) { setSyncMessage(actionError); return; } await clientsQuery.refetch(); }} onReboot={requestReboot} />
       <div className="-mt-2 grid gap-3 sm:grid-cols-5">
         <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Dispositivos cadastrados</p><p className="mt-1 text-2xl font-bold">{clients.length}</p></CardContent></Card>

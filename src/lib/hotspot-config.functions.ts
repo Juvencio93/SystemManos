@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { createHmac, randomBytes } from "node:crypto";
+import { createHmac } from "node:crypto";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -18,7 +18,7 @@ export const getMikrotikActivationDownload = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const scope = await resolveScope(context.userId, data);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    let deviceQuery = (supabaseAdmin as any).from("hotspot_devices").select("router_identity").eq("company_id", scope.companyId);
+    let deviceQuery = (supabaseAdmin as any).from("hotspot_devices").select("router_identity,assignment_version").eq("company_id", scope.companyId);
     deviceQuery = scope.branchId ? deviceQuery.eq("branch_id", scope.branchId) : deviceQuery.is("branch_id", null);
     const { data: device } = await deviceQuery.maybeSingle();
     const secret = process.env["HOTSPOT_CREDENTIAL_SECRET"]?.trim();
@@ -27,8 +27,8 @@ export const getMikrotikActivationDownload = createServerFn({ method: "GET" })
       throw new Error("A integração RADIUS ainda não está configurada no servidor.");
     }
     const exp = String(Date.now() + 10 * 60 * 1000);
-    const sig = createHmac("sha256", secret).update(`${device.router_identity}.${exp}.${data.fileKind}`).digest("hex");
-    return `/api/internal/mikrotik-activation?router=${encodeURIComponent(device.router_identity)}&exp=${exp}&sig=${sig}&kind=${data.fileKind}`;
+    const sig = createHmac("sha256", secret).update(`${device.router_identity}.${exp}.${data.fileKind}.${device.assignment_version}`).digest("hex");
+    return `/api/internal/mikrotik-activation?router=${encodeURIComponent(device.router_identity)}&exp=${exp}&sig=${sig}&kind=${data.fileKind}&assignmentVersion=${device.assignment_version}`;
   });
 
 const nullableText = z
@@ -205,20 +205,7 @@ export const getMikrotikProvisioning = createServerFn({ method: "GET" })
       .maybeSingle();
     if (existing) return { routerIdentity: existing.router_identity as string, status: existing.status as string };
 
-    const routerIdentity = `MT-${randomBytes(6).toString("hex").toUpperCase()}`;
-    const { data: device, error } = await (supabaseAdmin as any)
-      .from("hotspot_devices")
-      .insert({
-        hotspot_config_id: config.id,
-        company_id: scope.companyId,
-        branch_id: scope.branchId,
-        router_identity: routerIdentity,
-        status: "awaiting_provisioning",
-      })
-      .select("router_identity, status")
-      .single();
-    if (error || !device) throw new Error("Não foi possível gerar a identidade do equipamento.");
-    return { routerIdentity: device.router_identity as string, status: device.status as string };
+    throw new Error("Cadastre a RB no Estoque e atribua este destino antes de baixar a ativação.");
   });
 
 export const saveHotspotConfig = createServerFn({ method: "POST" })
@@ -267,6 +254,14 @@ export const saveHotspotConfig = createServerFn({ method: "POST" })
     const { data: existing, error: lookupError } = await existingQuery.maybeSingle();
     if (lookupError) throw new Error("Não foi possível localizar a configuração atual.");
 
+    if (data.routerIdentity) {
+      const { data: physical, error: physicalError } = await (supabaseAdmin as any).from("hotspot_devices")
+        .select("hotspot_config_id").eq("router_identity", data.routerIdentity).maybeSingle();
+      if (physicalError || !physical || physical.hotspot_config_id !== existing?.id) {
+        throw new Error("Use o Estoque de RBs para cadastrar ou transferir este equipamento.");
+      }
+    }
+
     // Editing a working router's label or policy must never silently turn the
     // captive portal off. A vendor change is a different integration and does
     // deliberately return to homologation.
@@ -300,7 +295,6 @@ export const saveHotspotConfig = createServerFn({ method: "POST" })
         branch_id: scope.branchId,
         router_identity: data.routerIdentity,
         ap_mac: data.apMac || null,
-        status: record.status === "operational" ? "operational" : "awaiting_homologation",
         updated_at: new Date().toISOString(),
       };
       const { data: existingDevice } = await (supabaseAdmin as any).from("hotspot_devices").select("id").or(`hotspot_config_id.eq.${result.data.id},router_identity.eq.${data.routerIdentity}`).maybeSingle();
@@ -346,6 +340,12 @@ export const cancelHotspotHomologation = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const configId = await getScopedConfigId(context.userId, data);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: physical } = await (supabaseAdmin as any).from("hotspot_devices").select("id,assignment_version").eq("hotspot_config_id",configId).maybeSingle();
+    if (physical?.assignment_version > 0) {
+      const { error } = await (supabaseAdmin as any).rpc("manage_hotspot_inventory", { p_actor:context.userId,p_action:"transfer",p_device:physical.id,p_version:physical.assignment_version,p_config:configId });
+      if (error) throw new Error(error.message);
+      return { success:true };
+    }
     const now = new Date().toISOString();
     const { error } = await supabaseAdmin.from("hotspot_configs").update({ status: "awaiting_homologation", is_active: false, updated_at: now }).eq("id", configId);
     if (error) throw new Error("Não foi possível cancelar a homologação.");
@@ -361,6 +361,10 @@ export const activateHotspotHomologation = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const configId = await getScopedConfigId(context.userId, data);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: physical } = await (supabaseAdmin as any).from("hotspot_devices").select("id,assignment_version").eq("hotspot_config_id",configId).maybeSingle();
+    if (physical?.assignment_version > 0) {
+      throw new Error("A homologação desta RB começa automaticamente após a confirmação do novo vínculo pelo equipamento e termina no primeiro check-in validado pelo RADIUS.");
+    }
     const now = new Date().toISOString();
     const { error } = await supabaseAdmin
       .from("hotspot_configs")

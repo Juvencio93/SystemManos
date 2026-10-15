@@ -32,8 +32,10 @@ async function redirectToPortal(request: Request, input: URLSearchParams | FormD
   const explicitSlug = safeSlug(get("slug"));
   const routerIdentity = safeValue(get("router-id"), 80);
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const slug = explicitSlug ?? await portalSlugForRouterIdentity(supabaseAdmin, routerIdentity);
-  if (!slug) {
+  const slug = await portalSlugForRouterIdentity(supabaseAdmin, routerIdentity);
+  if (explicitSlug && explicitSlug !== slug) return new Response("Portal não corresponde à RB.", { status: 409 });
+  const { data: device } = await (supabaseAdmin as any).from("hotspot_devices").select("id,assignment_version").eq("router_identity", routerIdentity ?? "").maybeSingle();
+  if (!slug || !device) {
     return new Response("Portal inválido.", { status: 400 });
   }
 
@@ -44,6 +46,8 @@ async function redirectToPortal(request: Request, input: URLSearchParams | FormD
     .insert({
       slug,
       router_identity: routerIdentity,
+      device_id: device.id,
+      assignment_version: device.assignment_version,
       mac_address: value("mac", "client_mac"),
       ip_address: value("ip", "client_ip"),
       ap_mac: value("ap_mac", "called_station_id"),
