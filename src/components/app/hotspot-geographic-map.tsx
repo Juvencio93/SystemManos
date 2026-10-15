@@ -187,7 +187,8 @@ export function HotspotGeographicMap({
           className: "hotspot-company-marker-container",
           html: companyMarkerHtml(),
           iconSize: [150, 38],
-          iconAnchor: [16, 19],
+          // Keep the company marker above a router if both share the same city coordinates.
+          iconAnchor: [16, 50],
         });
         L.marker([HUB.latitude, HUB.longitude], { icon: hubIcon, zIndexOffset: 1000 })
           .addTo(map)
