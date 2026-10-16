@@ -72,7 +72,6 @@ function AuthPage() {
     <Suspense>
       <div className="grid min-h-screen lg:grid-cols-2">
         <div className="relative hidden flex-col justify-between overflow-hidden p-12 lg:flex">
-          <div className="absolute inset-0 grid-lines opacity-40" />
           <Link to="/" className="relative flex items-center gap-2">
             <img
               src={sidebarLogo}
