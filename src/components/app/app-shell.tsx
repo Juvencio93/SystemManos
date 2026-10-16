@@ -10,7 +10,6 @@ import {
   Menu,
   Megaphone,
   QrCode,
-  Radar,
   ReceiptText,
   Settings,
   Sparkles,
@@ -27,6 +26,7 @@ import { usePresence } from "@/components/app/chat/ChatPresenceProvider";
 import { HotspotNotificationCenter } from "@/components/app/hotspot-notification-center";
 
 import defaultLogo from "@/assets/manos-tech-logo-institutional.png";
+import sidebarLogo from "@/assets/manostech-sidebar-logo.svg";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -137,9 +137,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             <SheetContent side="left" className="w-72 border-sidebar-border bg-sidebar p-4">
               <SheetTitle className="sr-only">Menu do painel</SheetTitle>
               <div className="mb-6 flex items-center gap-2 px-1 pt-1">
-                <span className="grid size-9 place-items-center rounded-lg glow-ring">
-                  <Radar className="size-5 text-primary" />
-                </span>
+                <img
+                  src={sidebarLogo}
+                  alt="Logo Manos Tech"
+                  className="size-11 shrink-0 rounded-full object-contain"
+                />
                 <span className="font-display text-sm font-semibold leading-tight">
                   Manos Tech
                   <span className="block text-[10px] font-normal uppercase tracking-[0.2em] text-muted-foreground">

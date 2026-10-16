@@ -1,6 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState, Suspense } from "react";
-import { Radar } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -9,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import manosTechLogo from "@/assets/manos-tech-logo-institutional.png";
+import sidebarLogo from "@/assets/manostech-sidebar-logo.svg";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -72,11 +72,12 @@ function AuthPage() {
     <Suspense>
       <div className="grid min-h-screen lg:grid-cols-2">
         <div className="relative hidden flex-col justify-between overflow-hidden p-12 lg:flex">
-          <div className="absolute inset-0 grid-lines opacity-40" />
           <Link to="/" className="relative flex items-center gap-2">
-            <span className="grid size-10 place-items-center rounded-xl glow-ring">
-              <Radar className="size-5 text-primary" />
-            </span>
+            <img
+              src={sidebarLogo}
+              alt="Logo Manos Tech"
+              className="size-11 shrink-0 rounded-full object-contain"
+            />
             <span className="font-display text-2xl font-black tracking-tight">Manos Tech</span>
           </Link>
           <div className="relative max-w-md">
