@@ -20,7 +20,7 @@ type AppNotification = {
   title: string;
   description: string;
   createdAt: string;
-  href?: NotificationHref;
+  href?: NotificationHref | undefined;
 };
 
 function notificationHref(category: string): NotificationHref | undefined {
