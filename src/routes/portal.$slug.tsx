@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useMemo, useState, useEffect } from "react";
 import {
   CheckCircle2,
@@ -34,12 +34,14 @@ import { getPortal, submitPortalLead } from "@/lib/portal.functions";
 import { defaultPortalAppearance, type PortalAppearance, type PortalVisualStyle } from "@/lib/campaign-appearance";
 import { portalTheme } from "@/lib/portal-theme";
 import { portalLayoutFor, portalLayoutMaxWidth } from "@/components/app/portal/portal-layouts";
-import { getMarketingPortalDemo } from "@/lib/marketing-portal-demo";
+import { getMarketingPortalSourceSlug } from "@/lib/marketing-portal-demo";
 
 
 export const Route = createFileRoute("/portal/$slug")({
   loader: ({ params }) =>
-    getMarketingPortalDemo(params.slug) ?? getPortal({ data: { slug: params.slug } }),
+    getPortal({
+      data: { slug: getMarketingPortalSourceSlug(params.slug) ?? params.slug },
+    }),
   head: ({ loaderData }) => {
     const title = loaderData
       ? `${loaderData.companyName} | Wi-Fi Grátis`
@@ -144,8 +146,18 @@ const FieldLabel = ({
 );
 
 function PortalPage() {
-  const portal = Route.useLoaderData();
+  const initialPortal = Route.useLoaderData();
   const { slug } = Route.useParams();
+  const sourceSlug = getMarketingPortalSourceSlug(slug);
+  const { data: refreshedPortal } = useQuery({
+    queryKey: ["marketing-portal-demo", slug],
+    queryFn: () => getPortal({ data: { slug: sourceSlug ?? slug } }),
+    enabled: Boolean(sourceSlug),
+    initialData: initialPortal,
+    refetchOnMount: false,
+    refetchOnWindowFocus: "always",
+  });
+  const portal = sourceSlug ? refreshedPortal : initialPortal;
   const submit = useServerFn(submitPortalLead);
   const [done, setDone] = useState<{
     isReturning: boolean;
@@ -961,3 +973,4 @@ function PortalSuccess({
     </PortalShell>
   );
 }
+
