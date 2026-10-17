@@ -28,13 +28,18 @@ const STYLE_META: Record<PortalVisualStyle, { nome: string; descricao: string }>
   },
 };
 
-/** Largura interna da miniatura (o preview é renderizado grande e reduzido via scale). */
-const THUMB_INNER_WIDTH = 1100;
-const THUMB_HEIGHT = 232;
+/**
+ * Largura interna da miniatura em modo mobile: o portal cativo é usado no
+ * celular do cliente, então a amostra mostra o layout mobile (legível e fiel
+ * ao uso real) em vez de uma página desktop encolhida até ficar ilegível.
+ */
+const THUMB_INNER_WIDTH = 390;
+const THUMB_HEIGHT = 320;
 
 /**
- * Miniatura viva do portal: renderiza o CampaignPortalPreview real em tamanho
- * grande e reduz com transform, dentro de uma janela de altura fixa.
+ * Miniatura viva do portal: renderiza o CampaignPortalPreview real em modo
+ * mobile e reduz com transform, dentro de uma janela de altura fixa com
+ * fade inferior (indica que o conteúdo continua).
  * Sem autoplay e sem pointer events — é só uma amostra visual.
  */
 function StyleThumb({
@@ -70,7 +75,7 @@ function StyleThumb({
   return (
     <div
       ref={ref}
-      className="relative overflow-hidden bg-black/50"
+      className="relative overflow-hidden bg-black/40"
       style={{ height: THUMB_HEIGHT }}
     >
       {scale > 0 && (
@@ -89,10 +94,14 @@ function StyleThumb({
             callout={callout}
             logoUrl={logoUrl}
             bannerUrls={bannerUrls}
-            mode="desktop"
+            mode="mobile"
           />
         </div>
       )}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-background via-background/50 to-transparent"
+      />
     </div>
   );
 }
