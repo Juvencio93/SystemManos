@@ -57,10 +57,10 @@ import {
   type UploadProgress,
 } from "@/components/app/campaigns/campaign-editor-model";
 import { CampaignPortalPreview } from "@/components/app/campaign-portal-preview";
+import { StylePickerCards } from "@/components/app/campaigns/style-picker-cards";
 import {
   normalizePortalAppearance,
   portalLogoPositions,
-  portalVisualStyles,
   type PortalAppearance,
 } from "@/lib/campaign-appearance";
 import {
@@ -95,7 +95,6 @@ function CampaignsPage() {
   const [open, setOpen] = useState(false);
 
   const [editing, setEditing] = useState<EditingCampaignState | null>(null);
-  const [colorsConfigured, setColorsConfigured] = useState(false);
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
   const [form, setForm] = useState<CampaignFormState>({
     name: "",
@@ -263,7 +262,6 @@ function CampaignsPage() {
   };
 
   const updateAppearance = (changes: Partial<PortalAppearance>) => {
-    if ("primaryColor" in changes || "accentColor" in changes) setColorsConfigured(true);
     setForm((current) => ({
       ...current,
       appearance: normalizePortalAppearance({ ...current.appearance, ...changes }),
@@ -327,7 +325,6 @@ function CampaignsPage() {
       redirect_url: "",
       appearance: normalizePortalAppearance(),
     });
-    setColorsConfigured(false);
 
     // Revoke object URLs to avoid memory leaks
     localPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
@@ -380,7 +377,6 @@ function CampaignsPage() {
         quickInfo: [campaign.quick_info_1 ?? "", campaign.quick_info_2 ?? "", campaign.quick_info_3 ?? ""],
       }),
     });
-    setColorsConfigured(Boolean(campaign.primary_color && campaign.accent_color));
     setLogoUrl(null);
     setBannerUrls([]);
     setLocalPreviewUrls([]);
@@ -1562,18 +1558,19 @@ function CampaignsPage() {
                     </div>
                     <div className="space-y-2">
                       <Label>Estilo visual</Label>
-                      <Select
-                        value={colorsConfigured ? form.appearance.visualStyle : ""}
-                        disabled={!colorsConfigured}
-                        onValueChange={(value) => updateAppearance({ visualStyle: value as PortalAppearance["visualStyle"] })}
-                      >
-                        <SelectTrigger><SelectValue placeholder={colorsConfigured ? "Escolha um estilo" : "Defina as cores primeiro"} /></SelectTrigger>
-                        <SelectContent>
-                          {portalVisualStyles.map((style) => (
-                            <SelectItem key={style} value={style} className="capitalize">{style}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Compare os 4 modelos e clique no seu favorito. A prévia abaixo acompanha a
+                        escolha.
+                      </p>
+                      <StylePickerCards
+                        appearance={form.appearance}
+                        value={form.appearance.visualStyle}
+                        onChange={(visualStyle) => updateAppearance({ visualStyle })}
+                        companyName={previewCompanyName}
+                        callout={form.description}
+                        logoUrl={previewLogoUrl}
+                        bannerUrls={previewBannerUrls}
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label>Posicionamento da logo</Label>
