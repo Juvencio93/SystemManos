@@ -20,12 +20,12 @@ import { Route as AuthenticatedCampanhasRouteImport } from './routes/_authentica
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedCreditosRouteImport } from './routes/_authenticated/creditos'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedEstoqueRbsRouteImport } from './routes/_authenticated/estoque-rbs'
 import { Route as AuthenticatedEventosRouteImport } from './routes/_authenticated/eventos'
 import { Route as AuthenticatedFiliaisRouteImport } from './routes/_authenticated/filiais'
 import { Route as AuthenticatedFinanceiroRouteRouteImport } from './routes/_authenticated/financeiro/route'
 import { Route as AuthenticatedGerenteOperacionalRouteImport } from './routes/_authenticated/gerente-operacional'
 import { Route as AuthenticatedHotspotRouteImport } from './routes/_authenticated/hotspot'
-import { Route as AuthenticatedEstoqueRbsRouteImport } from './routes/_authenticated/estoque-rbs'
 import { Route as AuthenticatedMensagensRouteImport } from './routes/_authenticated/mensagens'
 import { Route as AuthenticatedPortaisRouteImport } from './routes/_authenticated/portais'
 import { Route as AuthenticatedPreVendaRouteImport } from './routes/_authenticated/pre-venda'
@@ -61,6 +61,7 @@ import { Route as ApiPublicAsaasWebhookRouteImport } from './routes/api/public/a
 import { Route as ApiPublicAsaasWebhookV2RouteImport } from './routes/api/public/asaas-webhook-v2'
 import { Route as ApiPublicBillingAccessSyncRouteImport } from './routes/api/public/billing-access-sync'
 import { Route as ApiPublicHotspotEntryRouteImport } from './routes/api/public/hotspot-entry'
+import { Route as ApiPublicMarketingCrmSummaryRouteImport } from './routes/api/public/marketing-crm-summary'
 import { Route as ApiPublicOperationalJobRouteImport } from './routes/api/public/operational-job'
 import { Route as ApiPublicPagbankWebhookV1RouteImport } from './routes/api/public/pagbank-webhook-v1'
 import { Route as ApiPublicTelegramOperationalWebhookRouteImport } from './routes/api/public/telegram-operational-webhook'
@@ -121,6 +122,11 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedEstoqueRbsRoute = AuthenticatedEstoqueRbsRouteImport.update({
+  id: '/estoque-rbs',
+  path: '/estoque-rbs',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedEventosRoute = AuthenticatedEventosRouteImport.update({
   id: '/eventos',
   path: '/eventos',
@@ -146,11 +152,6 @@ const AuthenticatedGerenteOperacionalRoute =
 const AuthenticatedHotspotRoute = AuthenticatedHotspotRouteImport.update({
   id: '/hotspot',
   path: '/hotspot',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedEstoqueRbsRoute = AuthenticatedEstoqueRbsRouteImport.update({
-  id: '/estoque-rbs',
-  path: '/estoque-rbs',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedMensagensRoute = AuthenticatedMensagensRouteImport.update({
@@ -348,6 +349,12 @@ const ApiPublicHotspotEntryRoute = ApiPublicHotspotEntryRouteImport.update({
   path: '/api/public/hotspot-entry',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicMarketingCrmSummaryRoute =
+  ApiPublicMarketingCrmSummaryRouteImport.update({
+    id: '/api/public/marketing-crm-summary',
+    path: '/api/public/marketing-crm-summary',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicOperationalJobRoute = ApiPublicOperationalJobRouteImport.update({
   id: '/api/public/operational-job',
   path: '/api/public/operational-job',
@@ -384,11 +391,11 @@ export interface FileRoutesByFullPath {
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/creditos': typeof AuthenticatedCreditosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/estoque-rbs': typeof AuthenticatedEstoqueRbsRoute
   '/eventos': typeof AuthenticatedEventosRoute
   '/filiais': typeof AuthenticatedFiliaisRoute
   '/gerente-operacional': typeof AuthenticatedGerenteOperacionalRoute
   '/hotspot': typeof AuthenticatedHotspotRoute
-  '/estoque-rbs': typeof AuthenticatedEstoqueRbsRoute
   '/mensagens': typeof AuthenticatedMensagensRoute
   '/portais': typeof AuthenticatedPortaisRoute
   '/pre-venda': typeof AuthenticatedPreVendaRoute
@@ -422,6 +429,7 @@ export interface FileRoutesByFullPath {
   '/api/public/asaas-webhook-v2': typeof ApiPublicAsaasWebhookV2Route
   '/api/public/billing-access-sync': typeof ApiPublicBillingAccessSyncRoute
   '/api/public/hotspot-entry': typeof ApiPublicHotspotEntryRoute
+  '/api/public/marketing-crm-summary': typeof ApiPublicMarketingCrmSummaryRoute
   '/api/public/operational-job': typeof ApiPublicOperationalJobRoute
   '/api/public/pagbank-webhook-v1': typeof ApiPublicPagbankWebhookV1Route
   '/api/public/telegram-operational-webhook': typeof ApiPublicTelegramOperationalWebhookRoute
@@ -440,11 +448,11 @@ export interface FileRoutesByTo {
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/creditos': typeof AuthenticatedCreditosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/estoque-rbs': typeof AuthenticatedEstoqueRbsRoute
   '/eventos': typeof AuthenticatedEventosRoute
   '/filiais': typeof AuthenticatedFiliaisRoute
   '/gerente-operacional': typeof AuthenticatedGerenteOperacionalRoute
   '/hotspot': typeof AuthenticatedHotspotRoute
-  '/estoque-rbs': typeof AuthenticatedEstoqueRbsRoute
   '/mensagens': typeof AuthenticatedMensagensRoute
   '/portais': typeof AuthenticatedPortaisRoute
   '/pre-venda': typeof AuthenticatedPreVendaRoute
@@ -478,6 +486,7 @@ export interface FileRoutesByTo {
   '/api/public/asaas-webhook-v2': typeof ApiPublicAsaasWebhookV2Route
   '/api/public/billing-access-sync': typeof ApiPublicBillingAccessSyncRoute
   '/api/public/hotspot-entry': typeof ApiPublicHotspotEntryRoute
+  '/api/public/marketing-crm-summary': typeof ApiPublicMarketingCrmSummaryRoute
   '/api/public/operational-job': typeof ApiPublicOperationalJobRoute
   '/api/public/pagbank-webhook-v1': typeof ApiPublicPagbankWebhookV1Route
   '/api/public/telegram-operational-webhook': typeof ApiPublicTelegramOperationalWebhookRoute
@@ -499,11 +508,11 @@ export interface FileRoutesById {
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/_authenticated/creditos': typeof AuthenticatedCreditosRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/estoque-rbs': typeof AuthenticatedEstoqueRbsRoute
   '/_authenticated/eventos': typeof AuthenticatedEventosRoute
   '/_authenticated/filiais': typeof AuthenticatedFiliaisRoute
   '/_authenticated/gerente-operacional': typeof AuthenticatedGerenteOperacionalRoute
   '/_authenticated/hotspot': typeof AuthenticatedHotspotRoute
-  '/_authenticated/estoque-rbs': typeof AuthenticatedEstoqueRbsRoute
   '/_authenticated/mensagens': typeof AuthenticatedMensagensRoute
   '/_authenticated/portais': typeof AuthenticatedPortaisRoute
   '/_authenticated/pre-venda': typeof AuthenticatedPreVendaRoute
@@ -537,6 +546,7 @@ export interface FileRoutesById {
   '/api/public/asaas-webhook-v2': typeof ApiPublicAsaasWebhookV2Route
   '/api/public/billing-access-sync': typeof ApiPublicBillingAccessSyncRoute
   '/api/public/hotspot-entry': typeof ApiPublicHotspotEntryRoute
+  '/api/public/marketing-crm-summary': typeof ApiPublicMarketingCrmSummaryRoute
   '/api/public/operational-job': typeof ApiPublicOperationalJobRoute
   '/api/public/pagbank-webhook-v1': typeof ApiPublicPagbankWebhookV1Route
   '/api/public/telegram-operational-webhook': typeof ApiPublicTelegramOperationalWebhookRoute
@@ -558,6 +568,7 @@ export interface FileRouteTypes {
     | '/configuracoes'
     | '/creditos'
     | '/dashboard'
+    | '/estoque-rbs'
     | '/eventos'
     | '/filiais'
     | '/gerente-operacional'
@@ -595,6 +606,7 @@ export interface FileRouteTypes {
     | '/api/public/asaas-webhook-v2'
     | '/api/public/billing-access-sync'
     | '/api/public/hotspot-entry'
+    | '/api/public/marketing-crm-summary'
     | '/api/public/operational-job'
     | '/api/public/pagbank-webhook-v1'
     | '/api/public/telegram-operational-webhook'
@@ -613,6 +625,7 @@ export interface FileRouteTypes {
     | '/configuracoes'
     | '/creditos'
     | '/dashboard'
+    | '/estoque-rbs'
     | '/eventos'
     | '/filiais'
     | '/gerente-operacional'
@@ -650,6 +663,7 @@ export interface FileRouteTypes {
     | '/api/public/asaas-webhook-v2'
     | '/api/public/billing-access-sync'
     | '/api/public/hotspot-entry'
+    | '/api/public/marketing-crm-summary'
     | '/api/public/operational-job'
     | '/api/public/pagbank-webhook-v1'
     | '/api/public/telegram-operational-webhook'
@@ -670,6 +684,7 @@ export interface FileRouteTypes {
     | '/_authenticated/configuracoes'
     | '/_authenticated/creditos'
     | '/_authenticated/dashboard'
+    | '/_authenticated/estoque-rbs'
     | '/_authenticated/eventos'
     | '/_authenticated/filiais'
     | '/_authenticated/gerente-operacional'
@@ -707,6 +722,7 @@ export interface FileRouteTypes {
     | '/api/public/asaas-webhook-v2'
     | '/api/public/billing-access-sync'
     | '/api/public/hotspot-entry'
+    | '/api/public/marketing-crm-summary'
     | '/api/public/operational-job'
     | '/api/public/pagbank-webhook-v1'
     | '/api/public/telegram-operational-webhook'
@@ -742,6 +758,7 @@ export interface RootRouteChildren {
   ApiPublicAsaasWebhookV2Route: typeof ApiPublicAsaasWebhookV2Route
   ApiPublicBillingAccessSyncRoute: typeof ApiPublicBillingAccessSyncRoute
   ApiPublicHotspotEntryRoute: typeof ApiPublicHotspotEntryRoute
+  ApiPublicMarketingCrmSummaryRoute: typeof ApiPublicMarketingCrmSummaryRoute
   ApiPublicOperationalJobRoute: typeof ApiPublicOperationalJobRoute
   ApiPublicPagbankWebhookV1Route: typeof ApiPublicPagbankWebhookV1Route
   ApiPublicTelegramOperationalWebhookRoute: typeof ApiPublicTelegramOperationalWebhookRoute
@@ -826,6 +843,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/estoque-rbs': {
+      id: '/_authenticated/estoque-rbs'
+      path: '/estoque-rbs'
+      fullPath: '/estoque-rbs'
+      preLoaderRoute: typeof AuthenticatedEstoqueRbsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/eventos': {
       id: '/_authenticated/eventos'
       path: '/eventos'
@@ -859,13 +883,6 @@ declare module '@tanstack/react-router' {
       path: '/hotspot'
       fullPath: '/hotspot'
       preLoaderRoute: typeof AuthenticatedHotspotRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/estoque-rbs': {
-      id: '/_authenticated/estoque-rbs'
-      path: '/estoque-rbs'
-      fullPath: '/estoque-rbs'
-      preLoaderRoute: typeof AuthenticatedEstoqueRbsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/mensagens': {
@@ -1113,6 +1130,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHotspotEntryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/marketing-crm-summary': {
+      id: '/api/public/marketing-crm-summary'
+      path: '/api/public/marketing-crm-summary'
+      fullPath: '/api/public/marketing-crm-summary'
+      preLoaderRoute: typeof ApiPublicMarketingCrmSummaryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/operational-job': {
       id: '/api/public/operational-job'
       path: '/api/public/operational-job'
@@ -1177,11 +1201,11 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
   AuthenticatedCreditosRoute: typeof AuthenticatedCreditosRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedEstoqueRbsRoute: typeof AuthenticatedEstoqueRbsRoute
   AuthenticatedEventosRoute: typeof AuthenticatedEventosRoute
   AuthenticatedFiliaisRoute: typeof AuthenticatedFiliaisRoute
   AuthenticatedGerenteOperacionalRoute: typeof AuthenticatedGerenteOperacionalRoute
   AuthenticatedHotspotRoute: typeof AuthenticatedHotspotRoute
-  AuthenticatedEstoqueRbsRoute: typeof AuthenticatedEstoqueRbsRoute
   AuthenticatedMensagensRoute: typeof AuthenticatedMensagensRoute
   AuthenticatedPortaisRoute: typeof AuthenticatedPortaisRoute
   AuthenticatedPreVendaRoute: typeof AuthenticatedPreVendaRoute
@@ -1202,11 +1226,11 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
   AuthenticatedCreditosRoute: AuthenticatedCreditosRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedEstoqueRbsRoute: AuthenticatedEstoqueRbsRoute,
   AuthenticatedEventosRoute: AuthenticatedEventosRoute,
   AuthenticatedFiliaisRoute: AuthenticatedFiliaisRoute,
   AuthenticatedGerenteOperacionalRoute: AuthenticatedGerenteOperacionalRoute,
   AuthenticatedHotspotRoute: AuthenticatedHotspotRoute,
-  AuthenticatedEstoqueRbsRoute: AuthenticatedEstoqueRbsRoute,
   AuthenticatedMensagensRoute: AuthenticatedMensagensRoute,
   AuthenticatedPortaisRoute: AuthenticatedPortaisRoute,
   AuthenticatedPreVendaRoute: AuthenticatedPreVendaRoute,
@@ -1250,6 +1274,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicAsaasWebhookV2Route: ApiPublicAsaasWebhookV2Route,
   ApiPublicBillingAccessSyncRoute: ApiPublicBillingAccessSyncRoute,
   ApiPublicHotspotEntryRoute: ApiPublicHotspotEntryRoute,
+  ApiPublicMarketingCrmSummaryRoute: ApiPublicMarketingCrmSummaryRoute,
   ApiPublicOperationalJobRoute: ApiPublicOperationalJobRoute,
   ApiPublicPagbankWebhookV1Route: ApiPublicPagbankWebhookV1Route,
   ApiPublicTelegramOperationalWebhookRoute:

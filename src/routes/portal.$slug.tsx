@@ -34,10 +34,12 @@ import { getPortal, submitPortalLead } from "@/lib/portal.functions";
 import { defaultPortalAppearance, type PortalAppearance, type PortalVisualStyle } from "@/lib/campaign-appearance";
 import { portalTheme } from "@/lib/portal-theme";
 import { portalLayoutFor, portalLayoutMaxWidth } from "@/components/app/portal/portal-layouts";
+import { getMarketingPortalDemo } from "@/lib/marketing-portal-demo";
 
 
 export const Route = createFileRoute("/portal/$slug")({
-  loader: ({ params }) => getPortal({ data: { slug: params.slug } }),
+  loader: ({ params }) =>
+    getMarketingPortalDemo(params.slug) ?? getPortal({ data: { slug: params.slug } }),
   head: ({ loaderData }) => {
     const title = loaderData
       ? `${loaderData.companyName} | Wi-Fi Grátis`
@@ -168,6 +170,60 @@ function PortalPage() {
     consent: false,
     marketingConsent: false,
   });
+
+  useEffect(() => {
+    if (slug !== "demo-efraim" && slug !== "demo-barao") return;
+    if (new URLSearchParams(window.location.search).get("autoplay") !== "1") return;
+    let cancelled = false;
+    const demoFields = [
+      ["fullName", "Cliente Demonstração"],
+      ["email", "cliente@exemplo.com"],
+      ["phone", "(47) 99999-0000"],
+      ["city", slug === "demo-efraim" ? "Joinville" : "Camboriú"],
+    ] as const;
+    const pause = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+    const focusStep = (element: HTMLElement | null) => {
+      if (!element) return;
+      const offset = element.getBoundingClientRect().top - window.innerHeight * 0.48;
+      window.scrollTo({ top: window.scrollY + offset, behavior: "smooth" });
+    };
+    const run = async () => {
+      await pause(1300);
+      for (const [field, value] of demoFields) {
+        if (cancelled) return;
+        focusStep(document.getElementById(field));
+        await pause(600);
+        for (let position = 1; position <= value.length; position += 1) {
+          if (cancelled) return;
+          setForm((current) => ({ ...current, [field]: value.slice(0, position) }));
+          await pause(95);
+        }
+        await pause(500);
+      }
+      if (cancelled) return;
+      const consent = document.getElementById("consent") as HTMLInputElement | null;
+      focusStep(consent);
+      await pause(700);
+      if (cancelled) return;
+      if (consent && !consent.checked) consent.click();
+      await pause(800);
+      if (cancelled) return;
+      const button = document.querySelector('button[type="submit"]') as HTMLButtonElement | null;
+      focusStep(button);
+      await pause(800);
+      if (cancelled || !button || button.disabled) return;
+      button.animate(
+        [{ filter: "brightness(1)" }, { filter: "brightness(1.5)", transform: "scale(1.025)" }, { filter: "brightness(1)" }],
+        { duration: 650 },
+      );
+      await pause(680);
+      if (!cancelled) button.click();
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [slug]);
 
   const selectedCountry = useMemo(
     () => countries.find((c) => `${c.code}|${c.name}` === countryKey) ?? defaultCountry,
@@ -307,7 +363,14 @@ function PortalPage() {
     ? Math.max(0, Math.ceil((new Date(done.blockedUntil).getTime() - clock) / 1000))
     : 0;
   const remainingLabel = `${Math.floor(remainingSeconds / 60)}:${String(remainingSeconds % 60).padStart(2, "0")}`;
-    return <PortalSuccess portal={portal} done={done} remainingSeconds={remainingSeconds} />;
+    return (
+      <PortalSuccess
+        portal={portal}
+        done={done}
+        remainingSeconds={remainingSeconds}
+        isDemo={slug === "demo-efraim" || slug === "demo-barao"}
+      />
+    );
   }
 
   const theme = portalTheme(portal.appearance);
@@ -446,6 +509,10 @@ function PortalPage() {
       className={style === "minimalista" ? "space-y-6 max-sm:space-y-5" : "space-y-5 max-sm:space-y-3"}
       onSubmit={(event) => {
         event.preventDefault();
+        if (slug === "demo-efraim" || slug === "demo-barao") {
+          setDone({ isReturning: false, connectionsCount: 1 });
+          return;
+        }
         mutation.mutate();
       }}
     >
@@ -699,6 +766,7 @@ function PortalSuccess({
   portal,
   done,
   remainingSeconds,
+  isDemo = false,
 }: {
   portal: NonNullable<ReturnType<typeof Route.useLoaderData>>;
   done: {
@@ -709,6 +777,7 @@ function PortalSuccess({
     blockedUntil?: string | null;
   };
   remainingSeconds: number;
+  isDemo?: boolean;
 }) {
   const remainingLabel = `${Math.floor(remainingSeconds / 60)}:${String(remainingSeconds % 60).padStart(2, "0")}`;
   const sameName = portal.name.toLowerCase() === portal.companyName.toLowerCase();
@@ -743,7 +812,7 @@ function PortalSuccess({
   }, []);
 
   useEffect(() => {
-    if (done.checkinBlocked || !routerLoginUrl) return;
+    if (isDemo || done.checkinBlocked || !routerLoginUrl) return;
 
     // The check-in was submitted by the visitor; from here on the RouterOS
     // authentication hand-off must be automatic, with no second tap required.
@@ -752,13 +821,13 @@ function PortalSuccess({
     }, 700);
 
     return () => clearTimeout(timer);
-  }, [done.checkinBlocked, routerLoginUrl]);
+  }, [done.checkinBlocked, isDemo, routerLoginUrl]);
 
   useEffect(() => {
     // For MikroTik, RouterOS redirects only after FreeRADIUS accepts the
     // credential. Redirecting the portal page first could look like success
     // even though the device has not obtained Internet access.
-    if (!finalRedirectUrl || isInIframe || done.hotspotAccess) return;
+    if (isDemo || !finalRedirectUrl || isInIframe || done.hotspotAccess) return;
 
     const timer = setTimeout(() => {
       // Use window.location.replace to prevent back-button loops and handle same-tab navigation
@@ -766,7 +835,7 @@ function PortalSuccess({
     }, 3000);
 
     return () => clearTimeout(timer);
-  }, [finalRedirectUrl, isInIframe, done.hotspotAccess]);
+  }, [finalRedirectUrl, isDemo, isInIframe, done.hotspotAccess]);
 
   const theme = portalTheme(portal.appearance);
 
@@ -780,16 +849,24 @@ function PortalSuccess({
 
           <div className="space-y-3">
             <h1 className="font-display text-4xl font-bold tracking-tight text-white">
-              {done.checkinBlocked ? "Limite de check-ins atingido" : done.hotspotAccess ? "Confirmando acesso..." : "Check-in concluído!"}
+              {isDemo
+                ? "Check-in de demonstração"
+                : done.checkinBlocked
+                  ? "Limite de check-ins atingido"
+                  : done.hotspotAccess
+                    ? "Confirmando acesso..."
+                    : "Check-in concluído!"}
             </h1>
             <p className="text-sm leading-relaxed text-[color:var(--portal-muted)]">
-              {done.checkinBlocked
-                ? "Este dispositivo atingiu o limite de check-ins. Aguarde o prazo abaixo para tentar novamente."
-                : done.hotspotAccess
-                ? "Aguarde enquanto a rede autentica seu dispositivo e libera a conexão."
-                : done.hotspotRedirectUrl
-                ? "Seu cadastro foi registrado. Volte ao HotSpot para concluir a autenticação do Wi-Fi."
-                : "Seu cadastro foi registrado com sucesso."}
+              {isDemo
+                ? "Esta é uma simulação. Nenhum cadastro foi enviado e nenhuma conexão Wi-Fi foi liberada."
+                : done.checkinBlocked
+                  ? "Este dispositivo atingiu o limite de check-ins. Aguarde o prazo abaixo para tentar novamente."
+                  : done.hotspotAccess
+                    ? "Aguarde enquanto a rede autentica seu dispositivo e libera a conexão."
+                    : done.hotspotRedirectUrl
+                      ? "Seu cadastro foi registrado. Volte ao HotSpot para concluir a autenticação do Wi-Fi."
+                      : "Seu cadastro foi registrado com sucesso."}
             </p>
           </div>
 
@@ -804,33 +881,44 @@ function PortalSuccess({
 
           <div className="flex items-center justify-center gap-2 text-sm font-semibold text-primary">
             <div className="size-1.5 animate-pulse rounded-full bg-primary" />
-            {done.checkinBlocked
-              ? remainingSeconds > 0 ? `Nova tentativa disponível em ${remainingLabel}` : "Você já pode tentar novamente."
-              : done.hotspotAccess
-              ? "Seu acesso está sendo liberado automaticamente."
-              : done.connectionsCount === 1
-              ? "Primeiro acesso registrado."
-              : `Este é o seu ${done.connectionsCount}º acesso aqui.`}
+            {isDemo
+              ? "Próximo passo: destino configurado da campanha."
+              : done.checkinBlocked
+                ? remainingSeconds > 0 ? `Nova tentativa disponível em ${remainingLabel}` : "Você já pode tentar novamente."
+                : done.hotspotAccess
+                  ? "Seu acesso está sendo liberado automaticamente."
+                  : done.connectionsCount === 1
+                    ? "Primeiro acesso registrado."
+                    : `Este é o seu ${done.connectionsCount}º acesso aqui.`}
           </div>
 
           {!done.checkinBlocked && finalRedirectUrl && (
             <div className="space-y-4 pt-4">
-              {!isInIframe && (
+              {!isInIframe && !isDemo && (
                 <div className="flex items-center justify-center gap-2 text-[10px] font-medium uppercase tracking-widest text-[color:var(--portal-muted)]">
                   Redirecionando...
                 </div>
               )}
 
-              {isInIframe && (
+              {(isInIframe || isDemo) && (
                 <div className="rounded-lg bg-primary/5 p-3 text-xs text-[color:var(--portal-muted)]">
-                  O{" "}
-                  {isSocial
-                    ? finalRedirectUrl.includes("instagram.com")
-                      ? "Instagram"
-                      : "Facebook"
-                    : "site"}{" "}
-                  não permite abertura automática dentro desta visualização. Clique abaixo para
-                  continuar.
+                  {isDemo ? (
+                    <>
+                      Esta demonstração não abre sites externos automaticamente. Use o botão abaixo
+                      para visitar {isSocial && finalRedirectUrl.includes("instagram.com") ? "o Instagram." : "o site configurado."}
+                    </>
+                  ) : (
+                    <>
+                      O{" "}
+                      {isSocial
+                        ? finalRedirectUrl.includes("instagram.com")
+                          ? "Instagram"
+                          : "Facebook"
+                        : "site"}{" "}
+                      não permite abertura automática dentro desta visualização. Clique abaixo para
+                      continuar.
+                    </>
+                  )}
                 </div>
               )}
 
