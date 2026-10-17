@@ -60,7 +60,7 @@ def header_footer(canvas, doc):
     canvas.line(18*mm, 16*mm, 192*mm, 16*mm)
     canvas.setFont("Helvetica", 8)
     canvas.setFillColor(colors.HexColor("#64748b"))
-    canvas.drawString(18*mm, 11*mm, "Manual revisado em 14/10/2026 - RouterOS v7")
+    canvas.drawString(18*mm, 11*mm, "Manual revisado em 17/10/2026 - RouterOS v7")
     canvas.drawRightString(192*mm, 11*mm, f"Página {doc.page}")
     canvas.restoreState()
 
@@ -125,6 +125,20 @@ story = [
     C('/import file-name=MANOS-BACKUP-EXPORT.rsc'),
     P("Copie a exportação final de flash para fora da RB. O arquivo de proteção desativa FTP, Telnet, Bandwidth Test, API e API-SSL; mantém WinBox e SSH.", "body"),
     P("MANOS-PREFLIGHT.rsc e MANOS-SECURITY-AUDIT.rsc são diagnósticos. MANOS-ISOLATION-UPDATE.rsc, MANOS-HOTSPOT-FIREWALL-UPDATE.rsc, MANOS-WAN-FIREWALL-UPDATE.rsc e MANOS-INSTALL-HOTSPOT-PAGES.rsc são arquivos de manutenção ou recuperação. Não compõem a instalação padrão pelo kit individual.", "body"),
+
+    PageBreak(),
+    P("Monitoramento Hermes (agente IA)", "h1"),
+    P("O Hermes é o agente IA da Manos Tech que monitora as RBs de forma proativa. A cada 5 minutos ele coleta CPU, memória, sessões PPPoE, interfaces, temperatura e logs, e envia alertas no Telegram. É somente leitura: nenhuma ação de escrita acontece sem a sua aprovação.", "body"),
+    P("Instalador do agente na RB", "h2"),
+    P("Baixe o arquivo MANOS-HERMES-SETUP.rsc no sistema, em Hotspot &gt; Monitoramento Hermes. É um arquivo universal: o mesmo em todas as RBs, sem editar nada.", "body"),
+    P("Envie o arquivo para a raiz de Files no WinBox. No Terminal, execute:", "body"),
+    C('/import file-name=MANOS-HERMES-SETUP.rsc'),
+    P("Na importação, a RB gera o próprio par de chaves WireGuard (a chave privada nunca sai da RB) e se cadastra sozinha na central. Nada é aplicado antes da sua aprovação.", "body"),
+    P("Aprove o cadastro no Telegram: chega uma mensagem com os botões Aprovar e Rejeitar. Aprovada, a RB recebe o endereço do túnel e o usuário de leitura, e entra no monitoramento.", "ok"),
+    P("Para conferir, execute:", "body"),
+    C('/log print where message~"HERMES"'),
+    C('/ping 10.77.0.1 count=3'),
+    P("Pré-requisitos: RouterOS v7 e RB com saída para a internet. Importe o instalador do Hermes depois do MANOS-MANAGEMENT-HARDENING.rsc.", "warn"),
     P("Referências oficiais", "h2"),
     P("MikroTik: Configuration Management (reset e importação) e Netinstall (reinstalação e formatação do armazenamento).", "small"),
 ]
