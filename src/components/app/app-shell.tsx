@@ -1,5 +1,6 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import {
   Building2,
   CalendarDays,
@@ -17,11 +18,14 @@ import {
   Wallet,
   HandCoins,
   Handshake,
+  ClipboardList,
+  Bell,
   Router,
   Package,
 } from "lucide-react";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { toast } from "sonner";
 import { usePresence } from "@/components/app/chat/ChatPresenceProvider";
 import { HotspotNotificationCenter } from "@/components/app/hotspot-notification-center";
 
@@ -32,6 +36,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { roleLabel, useAccess, type AppRole } from "@/hooks/use-access";
 import { supabase } from "@/integrations/supabase/client";
+import { getUnreadPreSalesCount } from "@/lib/pre-sales.functions";
 
 type NavItem = {
   to: string;
@@ -59,6 +64,7 @@ const NAV: NavItem[] = [
   { to: "/estoque-rbs", label: "Estoque RBs", icon: Package, roles: ["adm", "revenda"] },
   { to: "/creditos", label: "Créditos", icon: HandCoins, roles: ["revenda"] },
   { to: "/eventos", label: "Eventos", icon: CalendarDays, roles: ["adm"] },
+  { to: "/pre-venda", label: "Pré-venda", icon: ClipboardList, roles: ["adm"] },
   { to: "/assinatura", label: "Minha Assinatura", icon: ReceiptText, roles: ["matriz"] },
   { to: "/portais", label: "Portais & QR", icon: QrCode, roles: ["adm", "matriz", "filial", "revenda"] },
   { to: "/campanhas", label: "Campanhas", icon: Megaphone, roles: ["adm", "matriz", "filial", "revenda"] },
@@ -86,6 +92,15 @@ const NAV: NavItem[] = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { data: access, isLoading: accessLoading } = useAccess();
+  const fetchPreSalesCount = useServerFn(getUnreadPreSalesCount);
+  const preSalesCount = useQuery({
+    queryKey: ["pre-sales-unread-count"],
+    queryFn: () => fetchPreSalesCount(),
+    enabled: access?.role === "adm",
+    refetchInterval: 30_000,
+    retry: false,
+  });
+  const previousPreSalesCount = useRef<number | null>(null);
   // usePresence is now consumed by components that need it,
   // and the side effect is managed by the Provider in the route.
 
@@ -97,6 +112,18 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    const count = preSalesCount.data?.count;
+    if (access?.role !== "adm" || count === undefined) return;
+    if (previousPreSalesCount.current !== null && count > previousPreSalesCount.current) {
+      const difference = count - previousPreSalesCount.current;
+      toast.info(difference === 1 ? "Nova solicitação de pré-venda" : `${difference} novas solicitações de pré-venda`, {
+        description: "Acesse o menu Pré-venda para ver os dados e acompanhar o contato.",
+      });
+    }
+    previousPreSalesCount.current = count;
+  }, [access?.role, preSalesCount.data?.count]);
 
   const role = access?.role ?? null;
   const blockedAccess =
@@ -166,6 +193,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                     >
                       <item.icon className="size-4" />
                       {item.label}
+                      {item.to === "/pre-venda" && (preSalesCount.data?.count ?? 0) > 0 ? (
+                        <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-cyan-400 px-1.5 py-0.5 text-[10px] font-bold text-slate-950">
+                          {preSalesCount.data!.count > 99 ? "99+" : preSalesCount.data!.count}
+                        </span>
+                      ) : null}
                     </Link>
                   );
                 })}
@@ -204,6 +236,18 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
+          {role === "adm" ? (
+            <Button asChild variant="ghost" size="icon" className="relative" aria-label="Notificações de pré-venda">
+              <Link to="/pre-venda">
+                <Bell className="size-4" />
+                {(preSalesCount.data?.count ?? 0) > 0 ? (
+                  <span className="absolute -right-0.5 -top-0.5 min-w-4 rounded-full bg-rose-500 px-1 text-[9px] font-bold leading-4 text-white">
+                    {preSalesCount.data!.count > 99 ? "99+" : preSalesCount.data!.count}
+                  </span>
+                ) : null}
+              </Link>
+            </Button>
+          ) : null}
           {access?.userId && (role === "adm" || role === "revenda") ? (
             <HotspotNotificationCenter userId={access.userId} />
           ) : null}

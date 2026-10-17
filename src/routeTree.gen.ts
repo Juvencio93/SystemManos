@@ -28,6 +28,7 @@ import { Route as AuthenticatedHotspotRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedEstoqueRbsRouteImport } from './routes/_authenticated/estoque-rbs'
 import { Route as AuthenticatedMensagensRouteImport } from './routes/_authenticated/mensagens'
 import { Route as AuthenticatedPortaisRouteImport } from './routes/_authenticated/portais'
+import { Route as AuthenticatedPreVendaRouteImport } from './routes/_authenticated/pre-venda'
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
 import { Route as AuthenticatedRevendasRouteImport } from './routes/_authenticated/revendas'
 import { Route as AuthenticatedSolicitacoesPrivacidadeRouteImport } from './routes/_authenticated/solicitacoes-privacidade'
@@ -160,6 +161,11 @@ const AuthenticatedMensagensRoute = AuthenticatedMensagensRouteImport.update({
 const AuthenticatedPortaisRoute = AuthenticatedPortaisRouteImport.update({
   id: '/portais',
   path: '/portais',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPreVendaRoute = AuthenticatedPreVendaRouteImport.update({
+  id: '/pre-venda',
+  path: '/pre-venda',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedRelatoriosRoute = AuthenticatedRelatoriosRouteImport.update({
@@ -385,6 +391,7 @@ export interface FileRoutesByFullPath {
   '/estoque-rbs': typeof AuthenticatedEstoqueRbsRoute
   '/mensagens': typeof AuthenticatedMensagensRoute
   '/portais': typeof AuthenticatedPortaisRoute
+  '/pre-venda': typeof AuthenticatedPreVendaRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/revendas': typeof AuthenticatedRevendasRoute
   '/solicitacoes-privacidade': typeof AuthenticatedSolicitacoesPrivacidadeRoute
@@ -440,6 +447,7 @@ export interface FileRoutesByTo {
   '/estoque-rbs': typeof AuthenticatedEstoqueRbsRoute
   '/mensagens': typeof AuthenticatedMensagensRoute
   '/portais': typeof AuthenticatedPortaisRoute
+  '/pre-venda': typeof AuthenticatedPreVendaRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/revendas': typeof AuthenticatedRevendasRoute
   '/solicitacoes-privacidade': typeof AuthenticatedSolicitacoesPrivacidadeRoute
@@ -498,6 +506,7 @@ export interface FileRoutesById {
   '/_authenticated/estoque-rbs': typeof AuthenticatedEstoqueRbsRoute
   '/_authenticated/mensagens': typeof AuthenticatedMensagensRoute
   '/_authenticated/portais': typeof AuthenticatedPortaisRoute
+  '/_authenticated/pre-venda': typeof AuthenticatedPreVendaRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
   '/_authenticated/revendas': typeof AuthenticatedRevendasRoute
   '/_authenticated/solicitacoes-privacidade': typeof AuthenticatedSolicitacoesPrivacidadeRoute
@@ -555,6 +564,7 @@ export interface FileRouteTypes {
     | '/hotspot'
     | '/mensagens'
     | '/portais'
+    | '/pre-venda'
     | '/relatorios'
     | '/revendas'
     | '/solicitacoes-privacidade'
@@ -609,6 +619,7 @@ export interface FileRouteTypes {
     | '/hotspot'
     | '/mensagens'
     | '/portais'
+    | '/pre-venda'
     | '/relatorios'
     | '/revendas'
     | '/solicitacoes-privacidade'
@@ -665,6 +676,7 @@ export interface FileRouteTypes {
     | '/_authenticated/hotspot'
     | '/_authenticated/mensagens'
     | '/_authenticated/portais'
+    | '/_authenticated/pre-venda'
     | '/_authenticated/relatorios'
     | '/_authenticated/revendas'
     | '/_authenticated/solicitacoes-privacidade'
@@ -868,6 +880,13 @@ declare module '@tanstack/react-router' {
       path: '/portais'
       fullPath: '/portais'
       preLoaderRoute: typeof AuthenticatedPortaisRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/pre-venda': {
+      id: '/_authenticated/pre-venda'
+      path: '/pre-venda'
+      fullPath: '/pre-venda'
+      preLoaderRoute: typeof AuthenticatedPreVendaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/relatorios': {
@@ -1165,6 +1184,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedEstoqueRbsRoute: typeof AuthenticatedEstoqueRbsRoute
   AuthenticatedMensagensRoute: typeof AuthenticatedMensagensRoute
   AuthenticatedPortaisRoute: typeof AuthenticatedPortaisRoute
+  AuthenticatedPreVendaRoute: typeof AuthenticatedPreVendaRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
   AuthenticatedRevendasRoute: typeof AuthenticatedRevendasRoute
   AuthenticatedSolicitacoesPrivacidadeRoute: typeof AuthenticatedSolicitacoesPrivacidadeRoute
@@ -1189,6 +1209,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedEstoqueRbsRoute: AuthenticatedEstoqueRbsRoute,
   AuthenticatedMensagensRoute: AuthenticatedMensagensRoute,
   AuthenticatedPortaisRoute: AuthenticatedPortaisRoute,
+  AuthenticatedPreVendaRoute: AuthenticatedPreVendaRoute,
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
   AuthenticatedRevendasRoute: AuthenticatedRevendasRoute,
   AuthenticatedSolicitacoesPrivacidadeRoute:
