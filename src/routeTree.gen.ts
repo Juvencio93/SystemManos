@@ -619,6 +619,7 @@ export interface FileRouteTypes {
     | '/hotspot'
     | '/mensagens'
     | '/portais'
+    | '/pre-venda'
     | '/relatorios'
     | '/revendas'
     | '/solicitacoes-privacidade'
