@@ -766,31 +766,6 @@ function SalesHomePage() {
 
       <PreSaleForm />
 
-      <section className="border-y border-white/[.07] bg-[#080e18]">
-        <ScrollReveal>
-        <div className="mx-auto flex max-w-7xl flex-col gap-7 px-5 py-12 sm:px-8 md:flex-row md:items-center md:justify-between">
-          <div className="flex gap-4">
-            <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-cyan-300/10 text-cyan-300">
-              <MessageCircle className="size-5" />
-            </span>
-            <div>
-              <h2 className="text-xl font-semibold">Vamos entender sua operação?</h2>
-              <p className="mt-1 text-sm text-slate-400">
-                Converse com a equipe e solicite uma proposta.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={openPreSaleChat}
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-cyan-300/30 px-6 font-semibold text-cyan-100 transition hover:bg-cyan-300/10"
-          >
-            Abrir conversa <ArrowRight className="size-4" />
-          </button>
-        </div>
-        </ScrollReveal>
-      </section>
-
       <ScrollReveal>
       <footer className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-8 text-xs text-slate-500 sm:px-8 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
