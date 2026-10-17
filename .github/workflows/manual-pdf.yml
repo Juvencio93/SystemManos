@@ -1,0 +1,44 @@
+name: Manual PDF
+
+# Regenera os PDFs do manual de instalação (guia-instalacao-mikrotik-manos-tech)
+# sempre que o gerador mudar. O conector GitHub não transporta binários, então
+# os PDFs são gerados e commitados aqui, no próprio GitHub.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - tmp/make_manual.py
+      - public/mikrotik/manos-tech-logo.jpg
+  pull_request:
+    paths:
+      - tmp/make_manual.py
+      - public/mikrotik/manos-tech-logo.jpg
+
+permissions:
+  contents: write
+
+concurrency:
+  group: manual-pdf
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Gerar PDFs do manual
+        run: |
+          pip install reportlab
+          python3 tmp/make_manual.py
+      - name: Publicar PDFs no main
+        if: github.event_name == 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/mikrotik/guia-instalacao-mikrotik-manos-tech-v2.pdf public/mikrotik/guia-instalacao-mikrotik-manos-tech.pdf
+          git diff --staged --quiet || git commit -m "Regenera PDFs do manual de instalação"
+          git push
