@@ -73,7 +73,7 @@ export function NotificationCenter({
     queryKey: ["system-notifications", userId, includeHotspotAlerts],
     refetchInterval: 30_000,
     queryFn: async () => {
-      const systemQuery = supabase
+      const systemQuery = (supabase as any)
         .from("system_notifications")
         .select("id,event_key,category,severity,title,description,created_at")
         .eq("recipient_user_id", userId)
