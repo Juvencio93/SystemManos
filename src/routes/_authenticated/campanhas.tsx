@@ -190,6 +190,7 @@ function CampaignsPage() {
   const isAdm = access?.role === "adm";
   const isMatriz = access?.role === "matriz";
   const isBranch = access?.role === "filial";
+  const editingCampaign = campaigns.data?.find((campaign) => campaign.id === editing?.id);
 
   const targetOptions: { value: string; label: string; isHeadquarters?: boolean }[] =
     useMemo(() => {
@@ -547,8 +548,16 @@ function CampaignsPage() {
       let campaignId = editing?.id ?? null;
 
       if (editing) {
-        const { error } = await supabase.from("campaigns").update(payload).eq("id", editing.id);
+        const { data: updated, error } = await supabase
+          .from("campaigns")
+          .update(payload)
+          .eq("id", editing.id)
+          .select("id")
+          .maybeSingle();
         if (error) throw error;
+        if (!updated) {
+          throw new Error("Nenhuma campanha foi atualizada. Atualize a lista e verifique se você ainda tem acesso a esta campanha.");
+        }
       } else {
         const { data: created, error } = await supabase
           .from("campaigns")
@@ -601,7 +610,14 @@ function CampaignsPage() {
       return;
     },
     onSuccess: () => {
-      toast.success(editing ? "Campanha atualizada." : "Campanha criada e ativada.");
+      const isClosedCampaign = editing && editingCampaign?.status === "encerrada";
+      toast.success(
+        isClosedCampaign
+          ? "Alterações salvas. Esta campanha está encerrada e não aparece no portal até ser ativada."
+          : editing
+            ? "Campanha atualizada."
+            : "Campanha criada e ativada.",
+      );
       setOpen(false);
       resetForm();
       queryClient.invalidateQueries({ queryKey: ["campaigns"] });
@@ -622,8 +638,14 @@ function CampaignsPage() {
 
   const changeStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: "ativa" | "encerrada" }) => {
-      const { error } = await supabase.from("campaigns").update({ status }).eq("id", id);
+      const { data: updated, error } = await supabase
+        .from("campaigns")
+        .update({ status })
+        .eq("id", id)
+        .select("id")
+        .maybeSingle();
       if (error) throw error;
+      if (!updated) throw new Error("Nenhuma campanha foi atualizada. Atualize a lista e verifique suas permissões.");
     },
     onSuccess: (_data, variables) => {
       toast.success(variables.status === "ativa" ? "Campanha ativada." : "Campanha encerrada.");
@@ -654,7 +676,7 @@ function CampaignsPage() {
     <div>
       <PageHeader
         title={<span className="font-display font-black tracking-tight">Campanhas</span>}
-        subtitle={<span className="text-base opacity-80">Crie e ative campanhas por filial ou evento para sua operação.</span>}
+        subtitle={<span className="text-base opacity-80">O portal exibe a campanha ativa de cada matriz, filial ou evento.</span>}
         action={
           <Dialog
             open={open}
@@ -672,6 +694,11 @@ function CampaignsPage() {
               <DialogHeader>
                 <DialogTitle>{editing ? "Editar campanha" : "Nova campanha"}</DialogTitle>
               </DialogHeader>
+              {editing && editingCampaign?.status === "encerrada" && (
+                <div role="status" className="mb-4 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+                  Esta campanha está encerrada. As alterações serão salvas, mas o portal continuará exibindo a campanha ativa. Ative esta campanha para aplicar estas configurações ao portal.
+                </div>
+              )}
               <div className="max-h-[70vh] space-y-8 overflow-y-auto pr-1">
                 {/* CONFIGURAÇÃO DA CAMPANHA */}
                 <section className="space-y-4">

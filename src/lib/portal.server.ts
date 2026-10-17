@@ -178,6 +178,8 @@ export async function resolvePortalTarget(
       .eq("status", "ativa")
       .is("branch_id", null)
       .is("event_id", null)
+      .order("updated_at", { ascending: false })
+      .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
@@ -348,6 +350,8 @@ async function activeCampaign(admin: AdminClient, scope: { branchId?: string; ev
     .from("campaigns")
     .select(`id, name, description, logo_url, banner_urls, redirect_url, ${campaignAppearanceFields}`)
     .eq("status", "ativa")
+    .order("updated_at", { ascending: false })
+    .order("created_at", { ascending: false })
     .limit(1);
   query = scope.branchId
     ? query.eq("branch_id", scope.branchId)
