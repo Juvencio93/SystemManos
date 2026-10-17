@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowRight,
   Bot,
@@ -11,20 +11,73 @@ import {
   MessageCircle,
   ChevronLeft,
   ChevronRight,
-  Phone,
   RadioTower,
   Wifi,
 } from "lucide-react";
 import logo from "@/assets/manos-tech-logo-institutional.png";
 import { LiveCrmPreview } from "@/components/marketing/live-crm-preview";
-import { PreSaleForm } from "@/components/app/pre-sale-form";
+import { openPreSaleChat, PreSaleForm } from "@/components/app/pre-sale-form";
 
-const WHATSAPP_URL =
-  "https://wa.me/5547997049730?text=" +
-  encodeURIComponent(
-    "Olá! Gostaria de saber como o ManosTech System pode funcionar no meu negócio.",
-  );
 const SOCIAL_IMAGE_URL = new URL(logo, "https://manostech-system.com.br").toString();
+
+function ScrollReveal({
+  children,
+  className = "",
+  delay = 0,
+}: {
+  children: ReactNode;
+  className?: string;
+  delay?: number;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(true);
+  const [reducedMotion, setReducedMotion] = useState(false);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+
+    const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const updateMotionPreference = () => setReducedMotion(motionPreference.matches);
+    updateMotionPreference();
+    motionPreference.addEventListener("change", updateMotionPreference);
+
+    let frame = 0;
+    const updateVisibility = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        const bounds = node.getBoundingClientRect();
+        const readingBandTop = window.innerHeight * 0.16;
+        const readingBandBottom = window.innerHeight * 0.84;
+        setVisible(bounds.bottom > readingBandTop && bounds.top < readingBandBottom);
+      });
+    };
+
+    updateVisibility();
+    // Capture scroll events from the document and nested scroll containers too.
+    document.addEventListener("scroll", updateVisibility, { passive: true, capture: true });
+    window.addEventListener("resize", updateVisibility);
+    return () => {
+      document.removeEventListener("scroll", updateVisibility, true);
+      window.removeEventListener("resize", updateVisibility);
+      motionPreference.removeEventListener("change", updateMotionPreference);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      className={`${reducedMotion ? "transition-none" : "transition-[opacity,transform] duration-500 ease-out"} ${
+        visible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
+      } ${className}`}
+      style={{ transitionDelay: visible ? `${delay}ms` : "0ms" }}
+    >
+      {children}
+    </div>
+  );
+}
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -455,16 +508,6 @@ function SalesHomePage() {
             >
               Como contratar
             </a>
-            <a
-              href={WHATSAPP_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Falar com a Manos Tech pelo WhatsApp"
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 text-sm font-semibold text-emerald-200 transition hover:border-emerald-300/60 hover:bg-emerald-400/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
-            >
-              <Phone className="size-4" aria-hidden="true" />
-              <span className="hidden md:inline">WhatsApp</span>
-            </a>
             <Link
               to="/auth"
               className="rounded-full border border-white/15 px-4 py-2 text-sm font-semibold transition hover:border-cyan-300/60 hover:text-cyan-200"
@@ -478,6 +521,7 @@ function SalesHomePage() {
       <section className="relative isolate">
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_20%_0%,rgba(0,194,204,.15),transparent_42%),radial-gradient(ellipse_at_95%_25%,rgba(25,98,190,.16),transparent_36%)]" />
         <div className="mx-auto grid max-w-7xl items-center gap-12 px-5 pb-20 pt-16 sm:px-8 sm:pb-28 sm:pt-24 lg:grid-cols-[1.1fr_.9fr] lg:gap-16">
+          <ScrollReveal className="h-full">
           <div>
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/5 px-3 py-1.5 text-xs font-semibold tracking-wide text-cyan-200">
               <Wifi className="size-3.5" /> WI-FI PARA CLIENTES, COM A SUA MARCA
@@ -494,12 +538,13 @@ function SalesHomePage() {
               relacionamento com seu negócio.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <a
-                href="#contato"
+              <button
+                type="button"
+                onClick={openPreSaleChat}
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-cyan-400 px-6 font-bold text-slate-950 transition hover:bg-cyan-300"
               >
                 Solicitar uma proposta <ArrowRight className="size-4" />
-              </a>
+              </button>
               <a
                 href="#portais"
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/15 px-6 font-semibold text-white transition hover:border-white/35"
@@ -519,14 +564,15 @@ function SalesHomePage() {
               ))}
             </ul>
           </div>
+          </ScrollReveal>
 
-          <LiveCrmPreview />
+          <ScrollReveal className="h-full" delay={120}><LiveCrmPreview /></ScrollReveal>
         </div>
       </section>
 
       <section id="portais" className="scroll-mt-20 border-y border-white/[.07] bg-[#080e18]">
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
-          <div className="mx-auto max-w-2xl text-center">
+          <ScrollReveal className="mx-auto max-w-2xl text-center">
             <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-300">
               Exemplos publicados
             </p>
@@ -537,9 +583,9 @@ function SalesHomePage() {
               Acompanhe o preenchimento fictício nos portais reais da Padaria Efraim e do Boteco do
               Barão, da oferta ao redirecionamento para o Instagram. A demonstração não envia cadastros.
             </p>
-          </div>
+          </ScrollReveal>
           <div className="mt-12 grid items-end gap-12 lg:grid-cols-[.72fr_1.28fr] lg:gap-14">
-            <div className="mx-auto w-full max-w-sm">
+            <ScrollReveal className="mx-auto w-full max-w-sm">
               <div className="mb-5 flex items-center justify-between">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-[.17em] text-cyan-300">
@@ -563,8 +609,8 @@ function SalesHomePage() {
               >
                 Abrir portal da Padaria Efraim <ArrowRight className="size-4" aria-hidden="true" />
               </a>
-            </div>
-            <div className="min-w-0">
+            </ScrollReveal>
+            <ScrollReveal className="min-w-0" delay={120}>
               <div className="mb-5 flex items-center justify-between">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-[.17em] text-emerald-300">
@@ -588,16 +634,16 @@ function SalesHomePage() {
               >
                 Abrir portal do Boteco do Barão <ArrowRight className="size-4" aria-hidden="true" />
               </a>
-            </div>
+            </ScrollReveal>
           </div>
         </div>
       </section>
 
-      <ProductWalkthrough />
+      <ScrollReveal><ProductWalkthrough /></ScrollReveal>
 
       <section id="recursos" className="border-y border-white/[.07] bg-white/[.015]">
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
-          <div className="max-w-2xl">
+          <ScrollReveal className="max-w-2xl">
             <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-300">
               A plataforma
             </p>
@@ -608,14 +654,14 @@ function SalesHomePage() {
               Recursos para administrar o portal e acompanhar a operação, com configuração alinhada
               ao equipamento instalado e ao plano contratado.
             </p>
-          </div>
+          </ScrollReveal>
           <div
             className="mt-10 grid auto-rows-fr gap-4"
             style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))" }}
           >
-            {features.map(({ icon: Icon, title, body }) => (
+            {features.map(({ icon: Icon, title, body }, index) => (
+              <ScrollReveal key={title} className="h-full" delay={(index % 3) * 90}>
               <article
-                key={title}
                 className="group h-full min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-[#0a101c] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-300/50 hover:bg-cyan-300/[.04] hover:shadow-[0_14px_40px_rgba(34,211,238,.12)] focus-within:-translate-y-1 focus-within:border-cyan-300/50 active:scale-[.99] sm:p-6"
               >
                 <span className="grid size-11 place-items-center rounded-2xl border border-cyan-300/15 bg-cyan-300/[.07] text-cyan-300 transition-all duration-300 group-hover:border-cyan-300/40 group-hover:bg-cyan-300/15 group-hover:shadow-[0_0_22px_rgba(34,211,238,.18)]">
@@ -624,12 +670,14 @@ function SalesHomePage() {
                 <h3 className="mt-5 break-words font-semibold">{title}</h3>
                 <p className="mt-2 break-words text-sm leading-6 text-slate-400">{body}</p>
               </article>
+              </ScrollReveal>
             ))}
           </div>
         </div>
       </section>
 
       <section className="border-b border-white/[.07] bg-[#080e18]">
+        <ScrollReveal>
         <div className="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-10 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 className="font-display text-xl font-semibold">
@@ -641,26 +689,21 @@ function SalesHomePage() {
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row lg:shrink-0">
-            <a
-              href="#contato"
+            <button
+              type="button"
+              onClick={openPreSaleChat}
               className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-cyan-400 px-5 text-sm font-bold text-slate-950 transition hover:bg-cyan-300"
             >
               Solicitar proposta <ArrowRight className="size-4" aria-hidden="true" />
-            </a>
-            <a
-              href={WHATSAPP_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-emerald-400/30 px-5 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-400/10"
-            >
-              <Phone className="size-4" aria-hidden="true" /> Conversar pelo WhatsApp
-            </a>
+            </button>
           </div>
         </div>
+        </ScrollReveal>
       </section>
 
       <section id="planos" className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
         <div className="grid gap-10 lg:grid-cols-[.8fr_1.2fr] lg:items-start">
+          <ScrollReveal>
           <div>
             <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-300">
               Contratação simples
@@ -673,13 +716,16 @@ function SalesHomePage() {
               cobertura. Com isso, definimos a ativação, a mensalidade e os equipamentos previstos
               na proposta.
             </p>
-            <a
-              href="#contato"
+            <button
+              type="button"
+              onClick={openPreSaleChat}
               className="mt-7 inline-flex min-h-12 items-center gap-2 rounded-full bg-cyan-400 px-6 font-bold text-slate-950 transition hover:bg-cyan-300"
             >
               Falar com a Manos Tech <ArrowRight className="size-4" />
-            </a>
+            </button>
           </div>
+          </ScrollReveal>
+          <ScrollReveal delay={120}>
           <div className="grid auto-rows-fr gap-4 sm:grid-cols-2">
             {commercialTerms.map(({ icon: Icon, title, body }, index) => (
               <article
@@ -714,12 +760,14 @@ function SalesHomePage() {
               </div>
             </article>
           </div>
+          </ScrollReveal>
         </div>
       </section>
 
       <PreSaleForm />
 
       <section className="border-y border-white/[.07] bg-[#080e18]">
+        <ScrollReveal>
         <div className="mx-auto flex max-w-7xl flex-col gap-7 px-5 py-12 sm:px-8 md:flex-row md:items-center md:justify-between">
           <div className="flex gap-4">
             <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-cyan-300/10 text-cyan-300">
@@ -732,15 +780,18 @@ function SalesHomePage() {
               </p>
             </div>
           </div>
-          <a
-            href="#contato"
+          <button
+            type="button"
+            onClick={openPreSaleChat}
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-cyan-300/30 px-6 font-semibold text-cyan-100 transition hover:bg-cyan-300/10"
           >
-            Solicitar proposta <ArrowRight className="size-4" />
-          </a>
+            Abrir conversa <ArrowRight className="size-4" />
+          </button>
         </div>
+        </ScrollReveal>
       </section>
 
+      <ScrollReveal>
       <footer className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-8 text-xs text-slate-500 sm:px-8 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
           <img src={logo} alt="" className="size-8 rounded-full object-contain" />
@@ -755,6 +806,8 @@ function SalesHomePage() {
           </Link>
         </div>
       </footer>
+      </ScrollReveal>
     </main>
   );
 }
+
