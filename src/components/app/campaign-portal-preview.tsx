@@ -68,11 +68,11 @@ export function CampaignPortalPreview({
         <ImageIcon className="size-6 text-[color:var(--portal-muted)]" />
       )}
       <div className="min-w-0 space-y-1">
-        <p className={`truncate text-[color:var(--portal-text)] ${titleClass}`}>{companyName}</p>
+        <p className={`text-[color:var(--portal-text)] ${titleClass}`}>{companyName}</p>
         <p className={`flex items-center gap-1 text-[9px] text-[color:var(--portal-muted)] ${type.subtitleClass}`}>
           <MapPin className="size-3 shrink-0" style={{ color: theme.palette.accentOn }} /> Portal cativo
         </p>
-        <p className={`text-[10px] text-[color:var(--portal-text)] ${type.bodyClass}`}>
+        <p className={`text-[color:var(--portal-text)] ${type.bodyClass}`}>
           {callout || "Sua chamada exibida no portal aparecerá aqui."}
         </p>
       </div>
