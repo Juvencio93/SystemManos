@@ -1,19 +1,15 @@
 import { useEffect, useState } from "react";
 import { UsersRound } from "lucide-react";
 
-type CrmSummary = { total: number; interested: number; converted: number; pending: number; updatedAt: string };
+type CrmSummary = { total: number; pending: number; updatedAt: string };
 
 function isCrmSummary(value: unknown): value is CrmSummary {
   if (!value || typeof value !== "object") return false;
   const summary = value as Partial<CrmSummary>;
   return (
     Number.isSafeInteger(summary.total) &&
-    Number.isSafeInteger(summary.interested) &&
-    Number.isSafeInteger(summary.converted) &&
     Number.isSafeInteger(summary.pending) &&
     (summary.total ?? -1) >= 0 &&
-    (summary.interested ?? -1) >= 0 &&
-    (summary.converted ?? -1) >= 0 &&
     (summary.pending ?? -1) >= 0 &&
     typeof summary.updatedAt === "string" &&
     !Number.isNaN(Date.parse(summary.updatedAt))
@@ -85,14 +81,14 @@ export function LiveCrmPreview() {
 
         <div className="mt-7 grid grid-cols-2 gap-3" aria-live="polite">
           {[
-            { label: "Leads encontrados", value: summary?.total, accent: "text-cyan-300" },
-            { label: "Interessados", value: summary?.interested, accent: "text-amber-300" },
-            { label: "Convertidos", value: summary?.converted, accent: "text-emerald-300" },
-            { label: "Aguardando contato", value: summary?.pending, accent: "text-blue-300" },
+            { label: "Leads encontrados", value: summary?.total, accent: "text-cyan-300", playful: false },
+            { label: "Interessados", value: "Ficou curioso? 👀", accent: "text-amber-300", playful: true },
+            { label: "Convertidos", value: "Quer ver na prática? 🚀", accent: "text-emerald-300", playful: true },
+            { label: "Aguardando contato", value: summary?.pending, accent: "text-blue-300", playful: false },
           ].map((metric) => (
             <div key={metric.label} className="min-w-0 rounded-2xl border border-white/[.08] bg-gradient-to-br from-white/[.05] to-white/[.015] p-4 sm:p-5">
               <p className="text-[11px] font-medium leading-4 text-slate-400">{metric.label}</p>
-              <p className={`mt-3 font-display text-4xl font-bold leading-none ${metric.accent}`}>
+              <p className={`mt-3 font-display font-bold leading-tight ${metric.playful ? "text-base sm:text-lg" : "text-4xl"} ${metric.accent}`}>
                 {metric.value ?? "—"}
               </p>
             </div>
@@ -100,12 +96,13 @@ export function LiveCrmPreview() {
         </div>
         <p className="mt-5 text-[11px] leading-5 text-slate-500">
           {updatedTime
-            ? `Indicadores do CRM da Padaria Efraim, atualizados às ${updatedTime}. Dados pessoais não aparecem nesta prévia.`
+            ? `Visão agregada do CRM de todas as empresas, atualizada às ${updatedTime}. Dados pessoais não aparecem nesta prévia.`
             : state === "loading"
-              ? "Consultando os indicadores da operação piloto…"
+              ? "Consultando os indicadores da operação em tempo real…"
               : "Não foi possível consultar os indicadores agora. Tente novamente em instantes."}
         </p>
       </div>
     </div>
   );
 }
+

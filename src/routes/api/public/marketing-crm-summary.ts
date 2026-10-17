@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseDevFallback } from "@/integrations/supabase/public-config";
 
-// A RPC restringe a consulta à operação piloto e devolve somente agregados.
+// A RPC devolve somente indicadores agregados de toda a operação.
 // A chave aqui é pública; nenhuma chave privilegiada é enviada ao navegador.
 
 const jsonHeaders = {
@@ -27,7 +27,7 @@ export const Route = createFileRoute("/api/public/marketing-crm-summary")({
           const counts: unknown = await response.json();
           if (!counts || typeof counts !== "object") throw new Error("Resposta inválida do CRM");
           const data = counts as Record<string, unknown>;
-          for (const name of ["total", "interested", "converted", "pending"]) {
+          for (const name of ["total", "pending"]) {
             if (!Number.isSafeInteger(data[name]) || (data[name] as number) < 0) {
               throw new Error("Contagem inválida do CRM");
             }
@@ -36,8 +36,6 @@ export const Route = createFileRoute("/api/public/marketing-crm-summary")({
           return new Response(
             JSON.stringify({
               total: data["total"],
-              interested: data["interested"],
-              converted: data["converted"],
               pending: data["pending"],
               updatedAt: new Date().toISOString(),
             }),
@@ -54,3 +52,4 @@ export const Route = createFileRoute("/api/public/marketing-crm-summary")({
     },
   },
 });
+
