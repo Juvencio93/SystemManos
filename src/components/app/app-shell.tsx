@@ -19,7 +19,6 @@ import {
   HandCoins,
   Handshake,
   ClipboardList,
-  Bell,
   Router,
   Package,
 } from "lucide-react";
@@ -27,7 +26,7 @@ import {
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { usePresence } from "@/components/app/chat/ChatPresenceProvider";
-import { HotspotNotificationCenter } from "@/components/app/hotspot-notification-center";
+import { NotificationCenter } from "@/components/app/notification-center";
 
 import defaultLogo from "@/assets/manos-tech-logo-institutional.png";
 import sidebarLogo from "@/assets/manostech-sidebar-logo.svg";
@@ -246,20 +245,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
-          {role === "adm" ? (
-            <Button asChild variant="ghost" size="icon" className="relative" aria-label="Notificações de pré-venda">
-              <Link to="/pre-venda">
-                <Bell className="size-4" />
-                {(preSalesCount.data?.count ?? 0) > 0 ? (
-                  <span className="absolute -right-0.5 -top-0.5 min-w-4 rounded-full bg-rose-500 px-1 text-[9px] font-bold leading-4 text-white">
-                    {preSalesCount.data!.count > 99 ? "99+" : preSalesCount.data!.count}
-                  </span>
-                ) : null}
-              </Link>
-            </Button>
-          ) : null}
-          {access?.userId && (role === "adm" || role === "revenda") ? (
-            <HotspotNotificationCenter userId={access.userId} />
+          {access?.userId ? (
+            <NotificationCenter
+              userId={access.userId}
+              includeHotspotAlerts={role === "adm" || role === "revenda"}
+            />
           ) : null}
           <Button variant="ghost" size="sm" className="shrink-0" onClick={handleSignOut}>
             <LogOut className="size-4" />
