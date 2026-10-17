@@ -15,6 +15,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { getMikrotikActivationDownload } from "@/lib/hotspot-config.functions";
 import { useAccess } from "@/hooks/use-access";
 import { HotspotNetworkMap } from "@/components/app/hotspot-network-map";
+import { HermesSetupCard } from "@/components/app/hermes-setup-card";
 import { hotspotActionError, postHotspotAction } from "@/lib/hotspot-client";
 import { hotspotEventLabel } from "@/lib/hotspot-events";
 import { MikrotikPostflight } from "@/components/app/mikrotik-postflight";
@@ -77,7 +78,7 @@ function HotspotPage() {
   const [cleaningAudit, setCleaningAudit] = useState(false);
   const [auditCleanupMessage, setAuditCleanupMessage] = useState("");
   const [syncMessage, setSyncMessage] = useState("");
-  const [expandedSection, setExpandedSection] = useState<"kit" | "maintenance" | "audit" | null>(null);
+  const [expandedSection, setExpandedSection] = useState<"kit" | "hermes" | "maintenance" | "audit" | null>(null);
   const [policiesExpanded, setPoliciesExpanded] = useState(false);
   const [mapZoom, setMapZoom] = useState(1);
   const [heartbeatSeconds, setHeartbeatSeconds] = useState(5);
@@ -223,10 +224,12 @@ function HotspotPage() {
           <div className="rounded-lg border border-primary/25 bg-primary/5 p-4 text-sm"><p className="font-semibold">4. Sincronização e primeiro acesso</p><p className="text-muted-foreground">Aguarde a RB ficar Online. O heartbeat busca login.html e alogin.html; confira as páginas antes de homologar. Atribua a empresa ou filial com configuração MikroTik salva. Faça um check-in real pelo HotSpot para concluir a homologação.</p></div>
           <MikrotikPostflight />
           <div className="rounded-lg border border-border p-4 text-sm"><p className="font-semibold">Proteção de serviços e backup final</p><p className="text-muted-foreground">Após a conferência, aplique o endurecimento de serviços localmente e gere a exportação de backup. Guarde a cópia fora da RB.</p><div className="mt-2 flex flex-wrap gap-2"><Button variant="outline" size="sm" asChild><a href="/mikrotik/MANOS-MANAGEMENT-HARDENING.rsc" download>Baixar proteção .rsc</a></Button><Button variant="outline" size="sm" asChild><a href="/mikrotik/MANOS-BACKUP-EXPORT.rsc" download>Baixar exportação .rsc</a></Button></div><p className="text-xs text-muted-foreground"><code>/import file-name=MANOS-MANAGEMENT-HARDENING.rsc</code><br/><code>/import file-name=MANOS-BACKUP-EXPORT.rsc</code></p></div>
+          <div className="rounded-lg border border-primary/25 bg-primary/5 p-4 text-sm"><p className="font-semibold">5. Monitoramento Hermes (agente IA)</p><p className="text-muted-foreground">Ativa o monitoramento proativo da RB: o Hermes passa a acompanhar CPU, memória, sessões e logs, e avisa no Telegram se algo sair do normal. É somente leitura — nada muda na RB sem a sua aprovação.</p><div className="mt-2 flex flex-wrap gap-2"><Button variant="outline" size="sm" asChild><a href="/mikrotik/MANOS-HERMES-SETUP.rsc" download><Download className="size-4" /> Baixar instalador Hermes .rsc</a></Button></div><ol className="mt-3 list-decimal space-y-1.5 pl-5 text-muted-foreground"><li>Baixe o arquivo no botão acima e arraste para a <strong>raiz de Files</strong> no WinBox (a mesma pasta onde você colocou o kit).</li><li>No WinBox, abra o <strong>New Terminal</strong>, cole o comando abaixo e tecle Enter:<br /><code>/import file-name=MANOS-HERMES-SETUP.rsc</code></li><li><strong>Não edite nada</strong> no arquivo — ele é o mesmo para todas as RBs. A RB se cadastra sozinha.</li><li>Aprove o cadastro no <strong>Telegram</strong>: chega uma mensagem com os botões Aprovar / Rejeitar.</li><li>Para conferir, rode <code>/log print</code> e procure as linhas <strong>HERMES</strong>. Depois da aprovação, <code>/ping 10.77.0.1 count=3</code> deve responder.</li></ol><p className="mt-2 text-xs text-muted-foreground">Pré-requisitos: RouterOS v7 e RB com saída para a internet. Importe <strong>depois</strong> do endurecimento (passo anterior). Detalhes e solução de problemas na seção Monitoramento Hermes abaixo.</p></div>
           <p className="text-xs text-muted-foreground">MANOS-PREFLIGHT, atualizações avulsas e instalador manual das páginas são arquivos de diagnóstico ou recuperação. Não fazem parte da instalação padrão pelo kit individual.</p>
           <MikrotikSecurityAudit />
         </CardContent>}
       </Card>
+      <HermesSetupCard expanded={expandedSection === "hermes"} onToggle={() => setExpandedSection(expandedSection === "hermes" ? null : "hermes")} />
       <Card className="glass-panel border-amber-300/25">
         <CardHeader><button type="button" onClick={() => setExpandedSection(expandedSection === "maintenance" ? null : "maintenance")} className="flex w-full items-center gap-2 text-left"><Router className="size-5 text-amber-300" /><CardTitle>Arquivos de manutenção e recuperação</CardTitle><span className="ml-auto text-amber-300">{expandedSection === "maintenance" ? "−" : "+"}</span></button></CardHeader>
         {expandedSection === "maintenance" && <CardContent className="space-y-4"><p className="text-sm text-muted-foreground">Use somente em RB já instalada, conforme a necessidade descrita em cada arquivo. Gere um backup atualizado antes de importar qualquer atualização.</p>
