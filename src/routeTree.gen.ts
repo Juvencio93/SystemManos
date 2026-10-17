@@ -447,6 +447,7 @@ export interface FileRoutesByTo {
   '/estoque-rbs': typeof AuthenticatedEstoqueRbsRoute
   '/mensagens': typeof AuthenticatedMensagensRoute
   '/portais': typeof AuthenticatedPortaisRoute
+  '/pre-venda': typeof AuthenticatedPreVendaRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/revendas': typeof AuthenticatedRevendasRoute
   '/solicitacoes-privacidade': typeof AuthenticatedSolicitacoesPrivacidadeRoute
