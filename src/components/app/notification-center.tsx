@@ -111,15 +111,23 @@ export function NotificationCenter({
       const [systemResult, operationalAlerts] = await Promise.all([systemQuery, hotspotQuery]);
       if (systemResult.error) throw systemResult.error;
 
+      const systemRows = (systemResult.data ?? []) as Array<{
+        id: string;
+        category: string;
+        severity: AppNotification["severity"];
+        title: string;
+        description: string;
+        created_at: string;
+      }>;
       const savedHotspotTitles = new Set(
-        (systemResult.data ?? [])
+        systemRows
           .filter((item) => item.category === "hotspot")
           .map((item) => item.title),
       );
       const currentOperationalAlerts = operationalAlerts.filter(
         (alert) => !savedHotspotTitles.has(alert.title),
       );
-      const savedAlerts: AppNotification[] = (systemResult.data ?? []).map((item) => ({
+      const savedAlerts: AppNotification[] = systemRows.map((item) => ({
         id: "system:" + item.id,
         category: item.category,
         severity: item.severity,
