@@ -688,15 +688,7 @@ function SalesHomePage() {
               equipamentos previstos na proposta.
             </p>
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row lg:shrink-0">
-            <button
-              type="button"
-              onClick={openPreSaleChat}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-cyan-400 px-5 text-sm font-bold text-slate-950 transition hover:bg-cyan-300"
-            >
-              Solicitar proposta <ArrowRight className="size-4" aria-hidden="true" />
-            </button>
-          </div>
+
         </div>
         </ScrollReveal>
       </section>
@@ -716,13 +708,7 @@ function SalesHomePage() {
               cobertura. Com isso, definimos a ativação, a mensalidade e os equipamentos previstos
               na proposta.
             </p>
-            <button
-              type="button"
-              onClick={openPreSaleChat}
-              className="mt-7 inline-flex min-h-12 items-center gap-2 rounded-full bg-cyan-400 px-6 font-bold text-slate-950 transition hover:bg-cyan-300"
-            >
-              Falar com a Manos Tech <ArrowRight className="size-4" />
-            </button>
+
           </div>
           </ScrollReveal>
           <ScrollReveal delay={120}>
