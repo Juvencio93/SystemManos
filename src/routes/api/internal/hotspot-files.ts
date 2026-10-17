@@ -14,7 +14,7 @@ const files = [
   "/mikrotik/MANOS-INSTALL-HOTSPOT-PAGES.rsc",
   "/mikrotik/login.html",
   "/mikrotik/alogin.html",
-  "/mikrotik/guia-instalacao-mikrotik-manos-tech-v2.pdf",
+  "/mikrotik/MANUAL%20DE%20INSTALA%C3%87%C3%83O.pdf",
 ];
 export const Route = createFileRoute("/api/internal/hotspot-files")({
   server: { handlers: { GET: async ({ request }) => {

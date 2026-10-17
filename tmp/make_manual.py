@@ -8,8 +8,7 @@ from reportlab.platypus import Image, KeepTogether, PageBreak, Paragraph, Simple
 
 ROOT = Path("public/mikrotik")
 LOGO = ROOT / "manos-tech-logo.jpg"
-PDF_MAIN = ROOT / "guia-instalacao-mikrotik-manos-tech-v2.pdf"
-PDF_ALIAS = ROOT / "guia-instalacao-mikrotik-manos-tech.pdf"
+PDF_MAIN = ROOT / "MANUAL DE INSTALAÇÃO.pdf"
 
 base = getSampleStyleSheet()
 styles = {
@@ -145,6 +144,4 @@ story = [
 
 doc = SimpleDocTemplate(str(PDF_MAIN), pagesize=A4, leftMargin=18*mm, rightMargin=18*mm, topMargin=32*mm, bottomMargin=21*mm, title="Instalação padrão de RB - Manos Tech", author="Manos Tech")
 doc.build(story, onFirstPage=header_footer, onLaterPages=header_footer)
-PDF_ALIAS.write_bytes(PDF_MAIN.read_bytes())
 print(PDF_MAIN)
-print(PDF_ALIAS)
