@@ -35,7 +35,7 @@ type Props = {
 function stateOf(device: Device): GeographicDevice["state"] {
   if (isRebootPending(device)) return "unstable";
   const lastSeen = device.last_seen_at ? new Date(device.last_seen_at).getTime() : 0;
-  if (!lastSeen || Date.now() - lastSeen > 15_000) return "offline";
+  if (!lastSeen || Date.now() - lastSeen > 180_000) return "offline";
   if (Number(device.packet_loss_pct ?? 0) >= 20 || Number(device.latency_ms ?? 0) >= 250)
     return "unstable";
   return "online";
