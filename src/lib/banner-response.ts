@@ -11,6 +11,15 @@ const BannerPromptOptionSchema = z.object({
     .object({
       items: z.array(z.string().trim().min(1)).optional(),
       price: z.number().finite().optional(),
+      pricedItems: z
+        .array(
+          z.object({
+            item: z.string().trim().min(1),
+            price: z.number().finite(),
+            unit: z.string().trim().min(1).optional(),
+          }),
+        )
+        .optional(),
       validity: z.string().trim().min(1).optional(),
       unit: z.string().trim().min(1).optional(),
       business: z.string().trim().min(1).optional(),
@@ -164,11 +173,19 @@ export function safeBriefingFallbackQuestion(lastUserMessage: string) {
   if (/^\s*(?:sim|isso|correto|exato|perfeito|ok|certo)\b[.!]?\s*$/iu.test(subject))
     return "Certo, vou considerar isso na promoção.";
   if (
-    /^\s*(?:combo|oferta\s+completa|completa|completo|combo\s+completo)\s*[.!]?\s*$/iu.test(subject) ||
-    /^\s*(?:sim|isso|correto|exato|confirmo|pode\s+ser)\b.*\b(?:combo|oferta completa|completa|completo)\b/iu.test(subject)
+    /^\s*(?:combo|oferta\s+completa|completa|completo|combo\s+completo)\s*[.!]?\s*$/iu.test(
+      subject,
+    ) ||
+    /^\s*(?:sim|isso|correto|exato|confirmo|pode\s+ser)\b.*\b(?:combo|oferta completa|completa|completo)\b/iu.test(
+      subject,
+    )
   )
     return "Combinado! Vou tratar esses itens como uma única oferta.";
-  if (/\b(?:r\$\s*\d|\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila|money|kg|quilo|kilo|quilograma))\b/iu.test(subject))
+  if (
+    /\b(?:r\$\s*\d|\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila|money|kg|quilo|kilo|quilograma))\b/iu.test(
+      subject,
+    )
+  )
     return `Sobre “${subject}”: esse valor vale para a oferta toda ou para cada item?`;
   return `Certo, vou considerar “${subject}”. Esses itens fazem parte da mesma promoção?`;
 }

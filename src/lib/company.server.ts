@@ -253,6 +253,15 @@ CRITÉRIOS DE QUALIDADE PARA AMBAS AS OPÇÕES (ADAPTAR AO PEDIDO, SEM RECEITA V
 - Inclua ao final de cada prompt as restrições relevantes: sem poluição visual, sem informações extras, sem texto ilegível, sem logotipo deformado e sem produtos diferentes das referências.
 - Mencione formato e resolução apenas uma vez em cada prompt.
 
+QUALIDADE DO TEXTO NA IMAGEM (REGRA CRÍTICA — IAs distorcem letras):
+- Todo texto que aparece no banner deve ser CURTO e EXATO, sempre escrito entre aspas no prompt (ex: texto "SÓ HOJE" em bold sans-serif).
+- Hierarquia clara: título > oferta/informação principal > CTA. No máximo 4 textos distintos por peça.
+- Descreva a tipografia de cada texto (ex: "título em bold sans-serif caixa alta", "preço em numerals grandes").
+- Instrua renderização precisa: "renderizar o texto com precisão tipográfica, letras nítidas, sem inventar, trocar ou embaralhar letras ou palavras".
+- NUNCA peça textos longos, frases completas ou parágrafos — se a mensagem for longa, encurte para palavras-chave de impacto.
+- Se houver 3+ blocos de texto, oriente composição que isole o texto em área limpa de fundo (faixa sólida, espaço negativo, painel), longe de texturas e objetos.
+- Proibido: texto pequeno, texto sobre textura/foto complexa, mais de 4 textos, frase longa entre aspas.
+
 DIFERENÇA REAL ENTRE AS OPÇÕES:
 - Crie duas direções visuais distintas, mas deixe que a solicitação, o produto ou serviço, o público e a identidade da marca determinem quais são essas direções.
 - Não imponha macro, flat lay, cena de estabelecimento, grade assimétrica, faixa, composição lateral, tipos de lente, famílias tipográficas ou qualquer layout como padrão universal.
