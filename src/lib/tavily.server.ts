@@ -38,7 +38,12 @@ export function extractVisualEvidence(text: string) {
     .replace(/<[^>]*>/gu, " ")
     .replace(/&(?:nbsp|amp|quot|#\d+);/giu, " ")
     .split(/(?<=[.!?;])\s+|[\r\n|]+/u)
-    .map((sentence) => sentence.replace(/^[\s#>*•-]+/u, "").replace(/\s+/gu, " ").trim())
+    .map((sentence) =>
+      sentence
+        .replace(/^[\s#>*•-]+/u, "")
+        .replace(/\s+/gu, " ")
+        .trim(),
+    )
     .filter(
       (sentence) =>
         sentence.length >= 24 &&
@@ -115,7 +120,12 @@ function hostOf(url: string) {
   }
 }
 
-function hasExactSocialIdentity(title: string, _content: string, url: string, profile: CompanyEnvironmentProfile) {
+function hasExactSocialIdentity(
+  title: string,
+  _content: string,
+  url: string,
+  profile: CompanyEnvironmentProfile,
+) {
   const identity = normalizeSearchText(profile.tradeName || profile.name);
   if (!identity || identity.length < 5 || !SOCIAL_DOMAINS.has(hostOf(url))) return false;
   const identityCompact = identity.replace(/\s+/gu, "");
@@ -147,9 +157,10 @@ export function isIdentityMatch(
     addressTokens.filter((token) => haystack.includes(token)).length >= 2;
 
   return (
-    matchedTokens.length >= Math.min(2, Math.max(1, tokens.length)) &&
-    (cityMatches || addressMatches)
-  ) || hasExactSocialIdentity(title, content, url, profile);
+    (matchedTokens.length >= Math.min(2, Math.max(1, tokens.length)) &&
+      (cityMatches || addressMatches)) ||
+    hasExactSocialIdentity(title, content, url, profile)
+  );
 }
 
 export function needsCompanyEnvironmentResearch(profile: CompanyEnvironmentProfile) {
@@ -270,7 +281,10 @@ export async function searchCompanyEnvironment(
       });
 
     const matchingResults = mergedResults
-      .filter((item) => isIdentityMatch(item.title, item.content, profile, item.url) || isOfficial(item.url))
+      .filter(
+        (item) =>
+          isIdentityMatch(item.title, item.content, profile, item.url) || isOfficial(item.url),
+      )
       .sort((a, b) => Number(isOfficial(b.url)) - Number(isOfficial(a.url)) || b.score - a.score)
       .slice(0, 8);
     const domains = new Set(
@@ -286,7 +300,9 @@ export async function searchCompanyEnvironment(
       hasExactSocialIdentity(item.title, item.content, item.url, profile),
     );
     const verified =
-      matchingResults.some((item) => isOfficial(item.url)) || domains.size >= 2 || hasStrongSocialMatch;
+      matchingResults.some((item) => isOfficial(item.url)) ||
+      domains.size >= 2 ||
+      hasStrongSocialMatch;
 
     if (!verified) {
       return {
@@ -308,10 +324,9 @@ export async function searchCompanyEnvironment(
         !isOfficial(item.url) &&
         domains.size < 2 &&
         !hasExactSocialIdentity(item.title, item.content, item.url, profile)
-      ) return [];
-      return extractVisualEvidence(item.content).map(
-        (sentence) => sentence,
-      );
+      )
+        return [];
+      return extractVisualEvidence(item.content).map((sentence) => sentence);
     });
     const imageReferences = matchingResults.flatMap((item) =>
       (item.images ?? []).map((image) => ({
@@ -327,7 +342,13 @@ export async function searchCompanyEnvironment(
           .filter(({ image, official, sourceUrl }) =>
             Boolean(
               image.description &&
-                (official || domains.size >= 2 || matchingResults.some((item) => item.url === sourceUrl && hasExactSocialIdentity(item.title, item.content, item.url, profile))),
+              (official ||
+                domains.size >= 2 ||
+                matchingResults.some(
+                  (item) =>
+                    item.url === sourceUrl &&
+                    hasExactSocialIdentity(item.title, item.content, item.url, profile),
+                )),
             ),
           )
           .flatMap(({ image }) => extractVisualEvidence(image.description ?? "")),
@@ -367,6 +388,41 @@ export async function searchCompanyEnvironment(
       sources: [],
     };
   }
+}
+
+/**
+ * Cache da pesquisa de ambiente por empresa/dia. A conversa do banner é
+ * stateless no servidor (um POST por turno), então pesquisar o Tavily a cada
+ * turno custava 2-3 buscas avançadas por mensagem. O perfil da empresa não
+ * muda entre turnos — uma pesquisa por empresa/dia basta.
+ * Best-effort em serverless (Map em memória por instância); nunca quebra.
+ */
+const researchCache = new Map<string, { expiresAt: number; result: CompanyEnvironmentResearch }>();
+const RESEARCH_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const RESEARCH_CACHE_MAX = 500;
+
+function researchCacheKey(profile: CompanyEnvironmentProfile): string {
+  const identity = (profile.tradeName || profile.name || profile.legalName || "")
+    .trim()
+    .toLowerCase();
+  const loc = [profile.city, profile.state].filter(Boolean).join("/").toLowerCase();
+  const day = new Date().toISOString().slice(0, 10);
+  return `${identity}::${loc}::${day}`;
+}
+
+export async function searchCompanyEnvironmentCached(
+  profile: CompanyEnvironmentProfile,
+): Promise<CompanyEnvironmentResearch> {
+  const key = researchCacheKey(profile);
+  const cached = researchCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.result;
+  const result = await searchCompanyEnvironment(profile);
+  researchCache.set(key, { expiresAt: Date.now() + RESEARCH_CACHE_TTL_MS, result });
+  if (researchCache.size > RESEARCH_CACHE_MAX) {
+    const oldest = researchCache.keys().next();
+    if (!oldest.done) researchCache.delete(oldest.value);
+  }
+  return result;
 }
 
 export async function searchWeb(query: string) {

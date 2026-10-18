@@ -219,6 +219,7 @@ export type Database = {
           address: string | null
           ai_usage_last_reset_at: string | null
           ai_usage_today: number
+          ai_questions_today: number
           city: string | null
           company_id: string
           contact_phone: string | null
@@ -245,6 +246,7 @@ export type Database = {
           address?: string | null
           ai_usage_last_reset_at?: string | null
           ai_usage_today?: number
+          ai_questions_today?: number
           city?: string | null
           company_id: string
           contact_phone?: string | null
@@ -271,6 +273,7 @@ export type Database = {
           address?: string | null
           ai_usage_last_reset_at?: string | null
           ai_usage_today?: number
+          ai_questions_today?: number
           city?: string | null
           company_id?: string
           contact_phone?: string | null
@@ -620,6 +623,7 @@ export type Database = {
           ai_insights_updated_at: string | null
           ai_usage_last_reset_at: string
           ai_usage_today: number
+          ai_questions_today: number
           asaas_customer_id: string | null
           billing_blocked: boolean
           billing_blocked_at: string | null
@@ -666,6 +670,7 @@ export type Database = {
           ai_insights_updated_at?: string | null
           ai_usage_last_reset_at?: string
           ai_usage_today?: number
+          ai_questions_today?: number
           asaas_customer_id?: string | null
           billing_blocked?: boolean
           billing_blocked_at?: string | null
@@ -712,6 +717,7 @@ export type Database = {
           ai_insights_updated_at?: string | null
           ai_usage_last_reset_at?: string
           ai_usage_today?: number
+          ai_questions_today?: number
           asaas_customer_id?: string | null
           billing_blocked?: boolean
           billing_blocked_at?: string | null
@@ -2513,6 +2519,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      increment_ai_question_usage_safe: {
+        Args: { _branch_id?: string; _company_id: string; _user_id: string }
+        Returns: Json
       }
       increment_ai_usage_safe: {
         Args: { _branch_id?: string; _company_id: string; _user_id: string }

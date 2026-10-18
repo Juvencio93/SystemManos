@@ -32,17 +32,23 @@ export function mergeBrief(previous: BannerBrief, facts: SemanticFacts): BannerB
 }
 
 export function normalizePrice(text: string): number | undefined {
+  // Gírias de milhar: "2 barão" = R$ 2.000, "3 conto" = R$ 3.000.
+  // Expande antes do parsing normal para reaproveitar toda a lógica.
+  const withMilhar = text.replace(
+    /\b(\d{1,3}(?:\.\d{3})*|\d+)\s*(?:bar(?:ão|ao|ões|oes)|conto?s?)\b/gi,
+    (_m, n: string) => `${Number(n.replace(/\./g, "")) * 1000} reais`,
+  );
   const matches = [
-    ...text
+    ...withMilhar
       .toLowerCase()
       .matchAll(
-        /(?:r\$\s*(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d{1,2}))?)|(?:\b(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d{1,2}))?\s*(?:reais?|pila|money)\b)/g,
+        /(?:r\$\s*(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d{1,2}))?)|(?:\b(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d{1,2}))?\s*(?:reais?|pila|money|bar(?:ão|ao|ões|oes)|conto?s?)\b)/g,
       ),
   ];
   const match = matches.at(-1);
   if (!match) {
     const fallback = [
-      ...text.toLowerCase().matchAll(/\b(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d{1,2}))?\b/g),
+      ...withMilhar.toLowerCase().matchAll(/\b(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d{1,2}))?\b/g),
     ].at(-1);
     if (!fallback?.[1]) return undefined;
     return Number(`${fallback[1].replace(/\./g, "")}.${(fallback[2] || "0").padEnd(2, "0")}`);
@@ -81,7 +87,7 @@ export function normalizeCurrencyCopy(copy: string) {
   );
 
   return withoutRedundantSuffix.replace(
-    /(^|[^\w$])(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d{1,2}))?\s*(?:reais?|pila|money)\b/gi,
+    /(^|[^\w$])(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d{1,2}))?\s*(?:reais?|pila|money|bar(?:ão|ao|ões|oes)|conto?s?)\b/gi,
     (_match, prefix: string, integer: string, decimals: string | undefined) => {
       const normalized = Number(
         `${integer.replace(/\./g, "")}.${(decimals || "0").padEnd(2, "0")}`,
@@ -205,6 +211,10 @@ export type BannerConversationBrief = {
   subject?: string | undefined;
   /** Individual commercial items, kept separately from the free-form subject. */
   offerItems?: string[] | undefined;
+  /** Objetivo da peça (ex: "atrair clientes para a padaria", "divulgar evento"). */
+  objective?: string | undefined;
+  /** Textos que devem aparecer literalmente no banner. */
+  mandatoryTexts?: string[] | undefined;
   price?: number | undefined;
   priceUnit?: string | undefined;
   /** Bare values such as "35" stay pending until the user confirms that they are the offer price. */
@@ -225,6 +235,7 @@ export type BannerConversationBrief = {
   compatibilityConfirmed?: boolean | undefined;
   pendingQuestion?:
     | "subject"
+    | "objective"
     | "offer_scope_confirmation"
     | "offer_scope_correction"
     | "price_confirmation"
@@ -260,7 +271,10 @@ export function extractOfferItems(subject: string | undefined) {
           "",
         )
         .replace(/^combo\s+com\s+/iu, "")
-        .replace(/\s+(?:por\s+)?(?:r\$\s*)?\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila|money)\b.*$/iu, "")
+        .replace(
+          /\s+(?:por\s+)?(?:r\$\s*)?\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila|money|bar(?:ão|ao|ões|oes)|conto?s?)\b.*$/iu,
+          "",
+        )
         .replace(/^\s*(?:um(?:a)?|o|a|os|as)\s+/iu, "")
         .trim(),
     )
@@ -277,7 +291,7 @@ const COMMERCIAL_SUBJECT =
 const EVENT_OR_OFFER_SUBJECT =
   /\b(?:festival|feira|evento|edi[çc][aã]o\s+especial|rod[ií]zio|degusta[çc][aã]o)\b/iu;
 const PRICE_MENTION =
-  /(?:r\$\s*\d|\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila|money)\b|\b(?:valor|pre[cç]o)\s*(?:de|:)?\s*r?\$?\s*\d|\b(?:gr[aá]tis|gratuita?|sem\s+custo|por\s+conta\s+da\s+casa)\b)/iu;
+  /(?:r\$\s*\d|\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila|money|bar(?:ão|ao|ões|oes)|conto?s?)\b|\b(?:valor|pre[cç]o)\s*(?:de|:)?\s*r?\$?\s*\d|\b(?:gr[aá]tis|gratuita?|sem\s+custo|por\s+conta\s+da\s+casa)\b)/iu;
 const SCOPE_CONFIRMATION =
   /\b(?:mesma\s+(?:promo[çc][aã]o|oferta)|combo\s*(?:completo|inclui)?|oferta\s+completa|oferta\s+completa|inclui\s+(?:o|a|os|as)|valor\s+(?:do|da)\s+(?:combo|oferta)|isso|sim|correto|exato|pode\s+ser|perfeito)\b/i;
 
@@ -285,7 +299,7 @@ const FREE_OFFER = /\b(?:gr[aá]tis|gratuita?|sem\s+custo|por\s+conta\s+da\s+cas
 const NEGATED_FREE_OFFER =
   /\b(?:n[aã]o|nunca|jamais)\s+(?:[eé]\s+)?(?:gr[aá]tis|gratuita?|sem\s+custo|por\s+conta\s+da\s+casa)\b/iu;
 const PRICE_FACT =
-  /(?:r\$\s*\d|\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila|money)\b|\b(?:valor|pre[cç]o)\b[^\d]{0,24}\d)/i;
+  /(?:r\$\s*\d|\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila|money|bar(?:ão|ao|ões|oes)|conto?s?)\b|\b(?:valor|pre[cç]o)\b[^\d]{0,24}\d)/i;
 const BARE_PRICE = /^\s*\d{1,6}(?:[.,]\d{1,2})?\s*$/u;
 
 function extractPriceFact(message: string) {
@@ -394,20 +408,155 @@ function extractCommercialCondition(message: string) {
   return message.match(/\b(?:gr[aá]tis|gratuita?|sem\s+custo|por\s+conta\s+da\s+casa)\b/iu)?.[0];
 }
 
+/**
+ * Extrai o objetivo da peça a partir da intenção declarada.
+ * Ex: "atrair clientes pra padaria", "divulgar meu evento", "promover a queima de estoque".
+ * Retorna undefined quando não há objetivo explícito (não é obrigatório).
+ */
+function extractObjectiveFact(message: string): string | undefined {
+  const m = message.match(
+    /\b(?:quero|preciso|gostaria\s+de)\s+(atrair|trazer|chamar|conquistar|divulgar|promover|anunciar|lotar|movimentar|vender|mostrar)\b([^,.!?;]{0,80})/iu,
+  );
+  if (m?.[1]) {
+    const objetivo = `${m[1]}${m[2] ?? ""}`.trim().replace(/\s+/g, " ");
+    if (objetivo.length >= 4) return objetivo;
+  }
+  return undefined;
+}
+
+/**
+ * Textos que o cliente marca explicitamente para aparecer no banner.
+ * Ex: 'escreve "SÓ HOJE" bem grande', 'tem que ter o telefone'.
+ */
+function extractMandatoryTexts(message: string): string[] {
+  const out: string[] = [];
+  for (const m of message.matchAll(
+    /\b(?:escrev(?:a|er)|coloc(?:a|ar|que)|tem\s+que\s+ter|inclu[ai](?:r)?|aparecer)\b[^,.!?;]{0,10}["“]([^"”]{2,60})["”]/giu,
+  )) {
+    if (m[1]?.trim()) out.push(m[1].trim());
+  }
+  return out;
+}
+
+/**
+ * BRIEFING formal: conjunto de informações que explica o que o banner precisa
+ * comunicar e para quem. Montado a partir da conversa + cadastro da empresa.
+ */
+export type BannerBriefing = {
+  /** O que será divulgado (itens). */
+  oQueDivulgar: string[];
+  /** Objetivo da peça, se declarado. */
+  objetivo?: string | undefined;
+  /** Preço/condição comercial, se houver. */
+  preco?: string | undefined;
+  /** Validade/período, se houver. */
+  validade?: string | undefined;
+  /** Textos que devem aparecer literalmente. */
+  textosObrigatorios: string[];
+  /** Identidade visual vinda do cadastro. */
+  identidadeVisual: {
+    cores: string[];
+    temLogo: boolean;
+    estilo?: string | undefined;
+  };
+  /** Nome oficial da empresa. */
+  empresa: string;
+  /** O que é essencial e ainda está faltando (para decidir se pergunta). */
+  faltando: string[];
+  /** true quando há informação suficiente para gerar sem perguntas. */
+  pronto: boolean;
+};
+
+export type BannerCompanyIdentity = {
+  nome?: string | null | undefined;
+  cores?: string[] | undefined;
+  temLogo?: boolean | undefined;
+  estilo?: string | null | undefined;
+};
+
+/**
+ * Monta o briefing formal. Regra: o que será divulgado é essencial;
+ * preço/validade só entram se o cliente mencionou; objetivo e identidade
+ * vêm do cadastro quando não declarados. Se faltar algo essencial,
+ * `faltando` indica o que perguntar; se `pronto`, segue sem perguntas.
+ */
+export function montarBriefing(
+  brief: BannerConversationBrief,
+  identidade: BannerCompanyIdentity,
+): BannerBriefing {
+  const oQueDivulgar = brief.offerItems?.length
+    ? brief.offerItems
+    : extractOfferItems(brief.subject);
+  const faltando: string[] = [];
+  if (!oQueDivulgar.length && !brief.subject?.trim()) {
+    faltando.push("o que será divulgado");
+  }
+  const preco =
+    brief.price !== undefined
+      ? formatOfferPrice(brief.price)
+      : (brief.commercialCondition ?? undefined);
+  const validade =
+    brief.validity ??
+    (brief.weekday
+      ? brief.recurrence === "WEEKLY"
+        ? `toda ${brief.weekday}`
+        : brief.weekday
+      : undefined);
+  return {
+    oQueDivulgar,
+    ...(brief.objective ? { objetivo: brief.objective } : {}),
+    ...(preco ? { preco } : {}),
+    ...(validade ? { validade } : {}),
+    textosObrigatorios: brief.mandatoryTexts ?? [],
+    identidadeVisual: {
+      cores: identidade.cores ?? [],
+      temLogo: identidade.temLogo ?? false,
+      ...(identidade.estilo ? { estilo: identidade.estilo } : {}),
+    },
+    empresa: identidade.nome ?? "empresa",
+    faltando,
+    pronto: faltando.length === 0,
+  };
+}
+
+/** Formata o briefing para injeção no system prompt, em linguagem simples. */
+export function formatarBriefing(briefing: BannerBriefing): string {
+  const linhas = [
+    "BRIEFING OFICIAL (base para os 2 prompts):",
+    `- O que divulgar: ${briefing.oQueDivulgar.join(" + ") || "(a definir)"}`,
+  ];
+  if (briefing.objetivo) linhas.push(`- Objetivo: ${briefing.objetivo}`);
+  if (briefing.preco) linhas.push(`- Preço/condição: ${briefing.preco}`);
+  if (briefing.validade) linhas.push(`- Validade: ${briefing.validade}`);
+  if (briefing.textosObrigatorios.length)
+    linhas.push(
+      `- Textos obrigatórios: ${briefing.textosObrigatorios.map((t) => `"${t}"`).join(", ")}`,
+    );
+  const id = briefing.identidadeVisual;
+  const idParts = [
+    id.cores.length ? `cores ${id.cores.join(", ")}` : null,
+    id.temLogo ? "logo oficial" : null,
+    id.estilo ? `estilo ${id.estilo}` : null,
+  ].filter(Boolean);
+  if (idParts.length) linhas.push(`- Identidade visual: ${idParts.join("; ")}`);
+  linhas.push(`- Empresa: ${briefing.empresa}`);
+  return linhas.join("\n");
+}
+
 function extractCommercialSubject(message: string) {
   if (/^\s*(?:o\s+)?(?:pre[cç]o|valor)\b/iu.test(message)) return undefined;
 
   // A common promotion structure combines a purchased item with a courtesy
   // item. Keep only those products in the structured subject; the full user
   // message remains available to the model for the exact condition/copy.
-  const purchaseItem = message.match(
-    /\bna\s+compra\s+(?:de\s+)?(?:qualquer\s+)?([^,.!?;]+?)(?=[,.!?;]|$)/iu,
-  )?.[1]
+  const purchaseItem = message
+    .match(/\bna\s+compra\s+(?:de\s+)?(?:qualquer\s+)?([^,.!?;]+?)(?=[,.!?;]|$)/iu)?.[1]
     ?.replace(/^\s*(?:qualquer|um(?:a)?|o|a|os|as)\s+/iu, "")
     .trim();
-  const courtesyItem = message.match(
-    /\b(?:oferece|oferecer|ganhe|ganhar|ganha|receba|receber|recebe|leva|leve|d[aá]|d[eê])\s+(?:um|uma|o|a)\s+([^,.!?;]+?)\s+(?:de\s+)?(?:cortesia|gr[aá]tis|gratuit[oa]s?|sem\s+custo)\b/iu,
-  )?.[1]
+  const courtesyItem = message
+    .match(
+      /\b(?:oferece|oferecer|ganhe|ganhar|ganha|receba|receber|recebe|leva|leve|d[aá]|d[eê])\s+(?:um|uma|o|a)\s+([^,.!?;]+?)\s+(?:de\s+)?(?:cortesia|gr[aá]tis|gratuit[oa]s?|sem\s+custo)\b/iu,
+    )?.[1]
     ?.replace(/^\s*(?:qualquer|um(?:a)?|o|a|os|as)\s+/iu, "")
     .trim();
   if (purchaseItem && courtesyItem) return `${purchaseItem} e ${courtesyItem}`;
@@ -432,7 +581,9 @@ function extractCommercialSubject(message: string) {
     )
   )
     return undefined;
-  const normalized = messageCore.replace(/[.!?]+\s*$/u, "").replace(/\s+/gu, " ")
+  const normalized = messageCore
+    .replace(/[.!?]+\s*$/u, "")
+    .replace(/\s+/gu, " ")
     .replace(
       /^\s*(?:(?:quero|queria|preciso|gostaria(?:\s+de)?|vamos)\s+)?(?:criar|fazer|faz|montar|divulgar)\s*(?:um[ao]?\s+)?(?:banner|arte|imagem)?\s*(?:de|para|pro|pra|sobre)?\s*/iu,
       "",
@@ -443,7 +594,10 @@ function extractCommercialSubject(message: string) {
     )
     .replace(/^\s*(?:promo(?:ç|c)[aã]o|oferta)\s*:\s*/iu, "")
     .replace(/(?:por\s+)?r?\$\s*\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?/giu, "")
-    .replace(/\b\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?\s*(?:reais?|pila|money)\b/giu, "")
+    .replace(
+      /\b\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?\s*(?:reais?|pila|money|bar(?:ão|ao|ões|oes)|conto?s?)\b/giu,
+      "",
+    )
     // "Avaliação gratuita" is the commercial subject itself and should stay
     // readable; standalone free-price expressions are conditions, not items.
     .replace(/\b(?:gr[aá]tis|sem\s+custo|por\s+conta\s+da\s+casa)\b/giu, "")
@@ -485,6 +639,16 @@ export function extractBannerTurnFacts(
   const commercialCondition = extractCommercialCondition(message);
   if (commercialCondition) facts.commercialCondition = commercialCondition;
   if (FREE_OFFER.test(message) && !NEGATED_FREE_OFFER.test(message)) facts.freeCopyConfirmed = true;
+  const objective = extractObjectiveFact(message);
+  if (objective) facts.objective = objective;
+  const mandatoryTexts = extractMandatoryTexts(message);
+  if (mandatoryTexts.length) {
+    const prev = context as BannerConversationBrief | undefined;
+    const merged = [...(prev?.mandatoryTexts ?? []), ...mandatoryTexts].filter(
+      (t, i, arr) => arr.indexOf(t) === i,
+    );
+    facts.mandatoryTexts = merged;
+  }
   const validity = extractValidityFact(message);
   if (validity) facts.validity = validity;
   const weekdays = extractWeekdayFacts(message);
@@ -554,6 +718,8 @@ export function mergeBannerConversationBrief(
     ...previous,
     ...(facts.subject !== undefined ? { subject: facts.subject } : {}),
     ...(facts.subject !== undefined ? { offerItems: extractOfferItems(subject) } : {}),
+    ...(facts.objective !== undefined ? { objective: facts.objective } : {}),
+    ...(facts.mandatoryTexts !== undefined ? { mandatoryTexts: facts.mandatoryTexts } : {}),
     ...(facts.price !== undefined ? { price: facts.price } : {}),
     ...(facts.price !== undefined ? { priceCandidate: undefined } : {}),
     ...(facts.priceUnit !== undefined ? { priceUnit: facts.priceUnit } : {}),
@@ -931,9 +1097,10 @@ export function nextCommercialQuestion(
     const items = activeBrief.offerItems?.length
       ? activeBrief.offerItems
       : extractOfferItems(activeBrief.subject);
-    const price = activeBrief.price !== undefined
-      ? activeBrief.commercialCondition ?? formatOfferPrice(activeBrief.price)
-      : "Esse valor";
+    const price =
+      activeBrief.price !== undefined
+        ? (activeBrief.commercialCondition ?? formatOfferPrice(activeBrief.price))
+        : "Esse valor";
     if (items.length === 2)
       return `${price} é pelos dois itens juntos — ${items[0]} e ${items[1]} — ou cada um tem esse valor?`;
     return `${price} vale para a oferta toda ou para cada item?`;
@@ -1219,20 +1386,28 @@ export function validatePromptConceptSeparation(first: string, second: string) {
   const normalizedSecond = normalizedWords(second);
   const axes = [
     {
-      first: /\b(?:macro|close[- ]up|enquadramento\s+proximo|plano\s+fechado|detalhe\s+ampliado|tres\s+quartos)\b/u,
-      second: /\b(?:zenital|vista\s+de\s+cima|vista\s+superior|top[- ]down|plano\s+aberto|visao\s+ampla|visao\s+geral)\b/u,
+      first:
+        /\b(?:macro|close[- ]up|enquadramento\s+proximo|plano\s+fechado|detalhe\s+ampliado|tres\s+quartos)\b/u,
+      second:
+        /\b(?:zenital|vista\s+de\s+cima|vista\s+superior|top[- ]down|plano\s+aberto|visao\s+ampla|visao\s+geral)\b/u,
     },
     {
-      first: /\b(?:ponto\s+focal|assimetric[ao]|area\s+negativa|espaco\s+negativo|produto\s+dominante|produto\s+ocupa)\b/u,
-      second: /\b(?:composicao\s+(?:ampla|contextual)|leitura\s+em\s+camadas|cena\s+editorial|contexto\s+de\s+uso|atmosfera\s+editorial)\b/u,
+      first:
+        /\b(?:ponto\s+focal|assimetric[ao]|area\s+negativa|espaco\s+negativo|produto\s+dominante|produto\s+ocupa)\b/u,
+      second:
+        /\b(?:composicao\s+(?:ampla|contextual)|leitura\s+em\s+camadas|cena\s+editorial|contexto\s+de\s+uso|atmosfera\s+editorial)\b/u,
     },
     {
-      first: /\b(?:luz\s+(?:lateral|direcional|recortada|dram[aá]tica)|iluminacao\s+(?:lateral|direcional|dram[aá]tica)|contraluz)\b/u,
-      second: /\b(?:luz\s+(?:difusa|uniforme|frontal)|iluminacao\s+(?:difusa|uniforme|frontal)|luz\s+suave\s+e\s+uniforme)\b/u,
+      first:
+        /\b(?:luz\s+(?:lateral|direcional|recortada|dram[aá]tica)|iluminacao\s+(?:lateral|direcional|dram[aá]tica)|contraluz)\b/u,
+      second:
+        /\b(?:luz\s+(?:difusa|uniforme|frontal)|iluminacao\s+(?:difusa|uniforme|frontal)|luz\s+suave\s+e\s+uniforme)\b/u,
     },
     {
-      first: /\b(?:texto|tipografia)\s+(?:discreto|discreta|secund[aá]rio|secund[aá]ria|em\s+segundo\s+plano)|hierarquia\s+visual\s+liderada\s+pela\s+imagem|area\s+de\s+texto\b/u,
-      second: /\b(?:texto\s+integrado\s+[àa]\s+cena|tipografia\s+organiza\s+a\s+mensagem|mensagem\s+integrada\s+[àa]\s+composicao|leitura\s+em\s+camadas|tipografia\s+como\s+protagonista|texto\s+conduz\s+a\s+leitura|grade\s+modular\s+organiza\s+a\s+leitura)\b/u,
+      first:
+        /\b(?:texto|tipografia)\s+(?:discreto|discreta|secund[aá]rio|secund[aá]ria|em\s+segundo\s+plano)|hierarquia\s+visual\s+liderada\s+pela\s+imagem|area\s+de\s+texto\b/u,
+      second:
+        /\b(?:texto\s+integrado\s+[àa]\s+cena|tipografia\s+organiza\s+a\s+mensagem|mensagem\s+integrada\s+[àa]\s+composicao|leitura\s+em\s+camadas|tipografia\s+como\s+protagonista|texto\s+conduz\s+a\s+leitura|grade\s+modular\s+organiza\s+a\s+leitura)\b/u,
     },
   ] as const;
   const divergentAxes = axes.filter(
@@ -1251,10 +1426,38 @@ export function validatePromptConceptSeparation(first: string, second: string) {
   }
 
   const stopWords = new Set([
-    "para", "com", "sem", "uma", "um", "dos", "das", "que", "por", "mais", "sobre",
-    "usar", "use", "deve", "devera", "banner", "imagem", "opcao", "prompt", "profissional",
-    "publicitario", "publicitaria", "visual", "produto", "servico", "texto", "marca", "logo",
-    "exatamente", "confirmado", "confirmada", "confirmados",
+    "para",
+    "com",
+    "sem",
+    "uma",
+    "um",
+    "dos",
+    "das",
+    "que",
+    "por",
+    "mais",
+    "sobre",
+    "usar",
+    "use",
+    "deve",
+    "devera",
+    "banner",
+    "imagem",
+    "opcao",
+    "prompt",
+    "profissional",
+    "publicitario",
+    "publicitaria",
+    "visual",
+    "produto",
+    "servico",
+    "texto",
+    "marca",
+    "logo",
+    "exatamente",
+    "confirmado",
+    "confirmada",
+    "confirmados",
   ]);
   const tokens = (value: string) =>
     new Set(
@@ -1271,7 +1474,8 @@ export function validatePromptConceptSeparation(first: string, second: string) {
     ? [
         {
           reason: "SIMILAR_PROMPT_CONCEPTS",
-          detail: "Os conceitos estão próximos demais; reescreva um com outra narrativa e composição.",
+          detail:
+            "Os conceitos estão próximos demais; reescreva um com outra narrativa e composição.",
         },
       ]
     : [];
