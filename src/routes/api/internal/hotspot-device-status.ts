@@ -51,10 +51,10 @@ export const Route = createFileRoute("/api/internal/hotspot-device-status")({
           const nowMs = Date.now();
           const hasLiveTwin = (peers ?? []).some((peer: any) => {
             const seenAt = peer.last_seen_at ? Date.parse(peer.last_seen_at) : 0;
-            return peer.status === "operational" && Number.isFinite(seenAt) && nowMs - seenAt < 15_000;
+            return peer.status === "operational" && Number.isFinite(seenAt) && nowMs - seenAt < 180_000;
           });
           const deviceSeenAt = device.last_seen_at ? Date.parse(device.last_seen_at) : 0;
-          const deviceIsOnline = Number.isFinite(deviceSeenAt) && nowMs - deviceSeenAt < 15_000;
+          const deviceIsOnline = Number.isFinite(deviceSeenAt) && nowMs - deviceSeenAt < 180_000;
           if (!hasLiveTwin || deviceIsOnline) {
             return new Response("Only an offline duplicate of a currently online router can be archived", { status: 409 });
           }

@@ -81,10 +81,10 @@ function HotspotPage() {
   const [expandedSection, setExpandedSection] = useState<"kit" | "hermes" | "maintenance" | "audit" | null>(null);
   const [policiesExpanded, setPoliciesExpanded] = useState(false);
   const [mapZoom, setMapZoom] = useState(1);
-  const [heartbeatSeconds, setHeartbeatSeconds] = useState(5);
-  useEffect(() => { const timer = window.setInterval(() => setHeartbeatSeconds((v) => v <= 1 ? 5 : v - 1), 1000); return () => window.clearInterval(timer); }, []);
+  const [heartbeatSeconds, setHeartbeatSeconds] = useState(60);
+  useEffect(() => { const timer = window.setInterval(() => setHeartbeatSeconds((v) => v <= 1 ? 60 : v - 1), 1000); return () => window.clearInterval(timer); }, []);
   const isOnline = (lastSeen?: string) =>
-    Boolean(lastSeen && Date.now() - new Date(lastSeen).getTime() < 15_000);
+    Boolean(lastSeen && Date.now() - new Date(lastSeen).getTime() < 180_000);
   const hasOnlineTwin = (device: any) => Boolean(device.ap_mac && clients.some((other: any) =>
     other.id !== device.id && other.ap_mac === device.ap_mac && other.status === "operational" && isOnline(other.last_seen_at)
   ));

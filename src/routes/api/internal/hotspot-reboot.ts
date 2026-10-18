@@ -22,7 +22,7 @@ export const Route = createFileRoute("/api/internal/hotspot-reboot")({
         if (lookupError) return new Response("Could not read device", { status: 500 });
         if (!device) return new Response("Device not found", { status: 404 });
         if (!(await canManageHotspotDevice(userId, device))) return new Response("Forbidden", { status: 403 });
-        if (!device.last_seen_at || Date.now() - new Date(device.last_seen_at).getTime() > 90_000) {
+        if (!device.last_seen_at || Date.now() - new Date(device.last_seen_at).getTime() > 300_000) {
           return new Response("Router is not online; reboot was not queued", { status: 409 });
         }
         if (device.reboot_requested_at) return new Response("A reboot is already pending", { status: 409 });
