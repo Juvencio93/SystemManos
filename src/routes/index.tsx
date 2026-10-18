@@ -716,10 +716,10 @@ function SalesHomePage() {
             {commercialTerms.map(({ icon: Icon, title, body }, index) => (
               <article
                 key={title}
-                className="flex gap-4 rounded-2xl border border-white/10 bg-[#0a101c] p-5 sm:p-6"
+                className="group flex min-w-0 gap-4 rounded-2xl border border-white/10 bg-[#0a101c] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-300/45 hover:bg-cyan-300/[.035] hover:shadow-[0_12px_30px_rgba(34,211,238,.1)] focus-within:-translate-y-1 focus-within:border-cyan-300/45 active:scale-[.99] sm:p-6"
               >
-                <span className="grid size-11 shrink-0 place-items-center rounded-2xl border border-cyan-300/15 bg-cyan-300/[.07] text-cyan-300">
-                  <Icon className="size-5" />
+                <span className="grid size-11 shrink-0 place-items-center rounded-2xl border border-cyan-300/15 bg-cyan-300/[.07] text-cyan-300 transition-all duration-300 group-hover:border-cyan-300/40 group-hover:bg-cyan-300/15 group-hover:shadow-[0_0_22px_rgba(34,211,238,.18)]">
+                  <Icon className="size-5 transition-transform duration-300 group-hover:scale-110" />
                 </span>
                 <div>
                   <p className="text-[11px] font-bold uppercase tracking-[.15em] text-slate-500">
@@ -730,9 +730,9 @@ function SalesHomePage() {
                 </div>
               </article>
             ))}
-            <article className="flex min-w-0 gap-4 rounded-2xl border border-white/10 bg-[#0a101c] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-300/45 hover:bg-cyan-300/[.035] hover:shadow-[0_12px_30px_rgba(34,211,238,.1)] sm:p-6">
-              <span className="grid size-11 shrink-0 place-items-center rounded-2xl border border-cyan-300/15 bg-cyan-300/[.07] text-cyan-300">
-                <CircleDollarSign className="size-5" />
+            <article className="group flex min-w-0 gap-4 rounded-2xl border border-white/10 bg-[#0a101c] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-300/45 hover:bg-cyan-300/[.035] hover:shadow-[0_12px_30px_rgba(34,211,238,.1)] focus-within:-translate-y-1 focus-within:border-cyan-300/45 active:scale-[.99] sm:p-6">
+              <span className="grid size-11 shrink-0 place-items-center rounded-2xl border border-cyan-300/15 bg-cyan-300/[.07] text-cyan-300 transition-all duration-300 group-hover:border-cyan-300/40 group-hover:bg-cyan-300/15 group-hover:shadow-[0_0_22px_rgba(34,211,238,.18)]">
+                <CircleDollarSign className="size-5 transition-transform duration-300 group-hover:scale-110" />
               </span>
               <div className="min-w-0">
                 <p className="text-[11px] font-bold uppercase tracking-[.15em] text-slate-500">
