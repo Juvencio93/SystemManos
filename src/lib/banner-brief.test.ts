@@ -5,11 +5,14 @@ import {
   createBrief,
   deriveConversationCommercialState,
   extractOfferItems,
+  extractPricedItems,
   resolvePendingBannerQuestion,
+  resolveRelativeDateValidity,
   formatBRL,
   formatOfferPrice,
   keepGroundedPhysicalElements,
   mergeBrief,
+  mergeBannerConversationBrief,
   normalizeCurrencyCopy,
   normalizePrice,
   nextCommercialQuestion,
@@ -24,6 +27,7 @@ import {
   validatePromptVisualGrounding,
   extractBannerTurnFacts,
   validatePromptTemporalFacts,
+  validatePromptTextQuality,
   visualPolicy,
   validateSecondPromptCommercialDirection,
 } from "./banner-brief";
@@ -553,5 +557,322 @@ describe("weekday and recurrence semantics", () => {
     );
     const weekly = requiredOfferFactsFromBrief({ weekday: "quarta-feira", recurrence: "WEEKLY" });
     expect(validatePromptTemporalFacts("Oferta toda quarta-feira", weekly)).toEqual([]);
+  });
+});
+
+describe("multi-price offers (pricedItems)", () => {
+  it("extracts two items with different prices", () => {
+    const items = extractPricedItems("Centro de salgadinhos por 89,90 e 35 reais o quilo do bolo");
+    expect(items).toHaveLength(2);
+    expect(items[0]).toMatchObject({ price: 89.9 });
+    expect(items[0]?.item).toMatch(/salgadinho/i);
+    expect(items[1]).toMatchObject({ price: 35, unit: "quilo" });
+    expect(items[1]?.item).toMatch(/bolo/i);
+  });
+
+  it("returns [] for a single price (legacy flow)", () => {
+    expect(extractPricedItems("bolo de chocolate 35 reais")).toEqual([]);
+  });
+
+  it("extractBannerTurnFacts sets pricedItems instead of price for multi-price", () => {
+    const facts = extractBannerTurnFacts("salgadinhos 89,90 e bolo 35 reais o quilo");
+    expect(facts.pricedItems).toHaveLength(2);
+    expect(facts.price).toBeUndefined();
+  });
+
+  it("supports one free item and one paid item", () => {
+    const items = extractPricedItems("polenta por conta da casa e bolo 35 reais");
+    expect(items).toHaveLength(2);
+    const free = items.find((i) => i.price === 0);
+    const paid = items.find((i) => i.price === 35);
+    expect(free?.item).toMatch(/polenta/i);
+    expect(paid?.item).toMatch(/bolo/i);
+  });
+
+  it("merge replaces single price with pricedItems and vice-versa", () => {
+    const multi = mergeBannerConversationBrief(
+      { price: 35 },
+      {
+        pricedItems: [
+          { item: "a", price: 10 },
+          { item: "b", price: 20 },
+        ],
+      },
+    );
+    expect(multi.pricedItems).toHaveLength(2);
+    expect(multi.price).toBeUndefined();
+
+    const single = mergeBannerConversationBrief(
+      {
+        pricedItems: [
+          { item: "a", price: 10 },
+          { item: "b", price: 20 },
+        ],
+      },
+      { price: 35 },
+    );
+    expect(single.price).toBe(35);
+    expect(single.pricedItems).toBeUndefined();
+  });
+
+  it("validates two items/two prices correctly", () => {
+    const required = requiredOfferFactsFromBrief({
+      offerItems: ["salgadinhos", "bolo"],
+      pricedItems: [
+        { item: "salgadinhos", price: 89.9 },
+        { item: "bolo", price: 35, unit: "quilo" },
+      ],
+      scopeConfirmed: true,
+    });
+    expect(required.pricedItems).toHaveLength(2);
+
+    const ok = validateGeneratedCommercialFacts(
+      {
+        visualItems: ["salgadinhos", "bolo"],
+        commercialFacts: {
+          items: ["salgadinhos", "bolo"],
+          pricedItems: [
+            { item: "salgadinhos", price: 89.9 },
+            { item: "bolo", price: 35, unit: "quilo" },
+          ],
+          scope: "confirmed",
+        },
+      },
+      required,
+    );
+    expect(ok).toEqual([]);
+  });
+
+  it("fails when the second item has the wrong price", () => {
+    const required = requiredOfferFactsFromBrief({
+      offerItems: ["salgadinhos", "bolo"],
+      pricedItems: [
+        { item: "salgadinhos", price: 89.9 },
+        { item: "bolo", price: 35 },
+      ],
+      scopeConfirmed: true,
+    });
+    const violations = validateGeneratedCommercialFacts(
+      {
+        visualItems: ["salgadinhos", "bolo"],
+        commercialFacts: {
+          items: ["salgadinhos", "bolo"],
+          pricedItems: [
+            { item: "salgadinhos", price: 89.9 },
+            { item: "bolo", price: 39.9 },
+          ],
+          scope: "confirmed",
+        },
+      },
+      required,
+    );
+    expect(violations).toContainEqual(
+      expect.objectContaining({ reason: "WRONG_PRICE", detail: expect.stringContaining("bolo") }),
+    );
+  });
+
+  it("fails on an extra unconfirmed price", () => {
+    const required = requiredOfferFactsFromBrief({
+      offerItems: ["salgadinhos"],
+      pricedItems: [{ item: "salgadinhos", price: 89.9 }],
+      scopeConfirmed: true,
+    });
+    const violations = validateGeneratedCommercialFacts(
+      {
+        visualItems: ["salgadinhos", "refrigerante"],
+        commercialFacts: {
+          items: ["salgadinhos", "refrigerante"],
+          pricedItems: [
+            { item: "salgadinhos", price: 89.9 },
+            { item: "refrigerante", price: 8 },
+          ],
+          scope: "confirmed",
+        },
+      },
+      required,
+    );
+    expect(
+      violations.some((v) => v.reason === "WRONG_PRICE" && v.detail.includes("refrigerante")),
+    ).toBe(true);
+  });
+
+  it("keeps single-price backward compatibility", () => {
+    const required = requiredOfferFactsFromBrief({
+      subject: "bolo de chocolate",
+      offerItems: ["bolo de chocolate"],
+      price: 35,
+      scopeConfirmed: true,
+    });
+    // Preço único legado: sem pricedItems no required.
+    expect(required.pricedItems).toBeUndefined();
+    expect(required.price).toBe(35);
+
+    const ok = validateGeneratedCommercialFacts(
+      {
+        visualItems: ["bolo de chocolate"],
+        commercialFacts: {
+          items: ["bolo de chocolate"],
+          price: 35,
+          scope: "confirmed",
+        },
+      },
+      required,
+    );
+    expect(ok).toEqual([]);
+
+    const wrong = validateGeneratedCommercialFacts(
+      {
+        visualItems: ["bolo de chocolate"],
+        commercialFacts: {
+          items: ["bolo de chocolate"],
+          price: 39.9,
+          scope: "confirmed",
+        },
+      },
+      required,
+    );
+    expect(wrong).toContainEqual(expect.objectContaining({ reason: "WRONG_PRICE" }));
+  });
+});
+
+describe("relative date resolution", () => {
+  // Domingo, 18 de outubro de 2026 (America/Sao_Paulo).
+  const ref = new Date("2026-10-18T15:00:00-03:00");
+
+  it("resolves 'essa semana' to the current week range", () => {
+    expect(resolveRelativeDateValidity("válido pra essa semana", ref)).toBe(
+      "12 a 18 de outubro de 2026",
+    );
+  });
+
+  it("resolves 'esse mês' to the current month/year", () => {
+    expect(resolveRelativeDateValidity("promoção para esse mês", ref)).toBe("outubro de 2026");
+  });
+
+  it("resolves 'do dia 11 ao dia 15' with the current month/year", () => {
+    expect(resolveRelativeDateValidity("do dia 11 ao dia 15", ref)).toBe(
+      "11 a 15 de outubro de 2026",
+    );
+  });
+
+  it("resolves future '11/11' to this year", () => {
+    expect(resolveRelativeDateValidity("promoção 11/11", ref)).toBe("11 de novembro de 2026");
+  });
+
+  it("resolves past '10/10' to next year", () => {
+    expect(resolveRelativeDateValidity("promoção 10/10", ref)).toBe("10 de outubro de 2027");
+  });
+
+  it("prefers the resolved date over the raw validity text", () => {
+    const facts = extractBannerTurnFacts("promoção válida pra essa semana");
+    // Não deve manter o texto cru "essa semana".
+    expect(facts.validity).not.toMatch(/essa semana/i);
+    expect(facts.validity).toMatch(/\d{1,2} a \d{1,2} de \w+ de \d{4}/);
+  });
+});
+
+describe("multi-day offers", () => {
+  it("understands 'Terça e Quinta' as two weekdays", () => {
+    expect(extractBannerTurnFacts("música ao vivo terça e quinta")).toMatchObject({
+      weekday: "terça-feira",
+      weekdays: ["terça-feira", "quinta-feira"],
+    });
+  });
+
+  it("keeps WEEKLY recurrence for all listed days", () => {
+    const facts = extractBannerTurnFacts("toda terça e quinta tem música ao vivo");
+    expect(facts.weekdays).toEqual(["terça-feira", "quinta-feira"]);
+    expect(facts.recurrence).toBe("WEEKLY");
+    const required = requiredOfferFactsFromBrief(facts);
+    expect(required.weekdays).toEqual(["terça-feira", "quinta-feira"]);
+    expect(required.recurrence).toBe("WEEKLY");
+  });
+
+  it("rejects prompts missing one of the listed days", () => {
+    const required = requiredOfferFactsFromBrief({
+      weekdays: ["terça-feira", "quinta-feira"],
+      weekday: "terça-feira",
+      recurrence: "NONE",
+    });
+    const violations = validatePromptTemporalFacts(
+      "Música ao vivo toda terça-feira com entrada gratuita",
+      required,
+    );
+    expect(violations).toContainEqual(
+      expect.objectContaining({
+        reason: "MISSING_VALIDITY",
+        detail: expect.stringContaining("quinta-feira"),
+      }),
+    );
+  });
+
+  it("accepts prompts mentioning all days without invented recurrence", () => {
+    const required = requiredOfferFactsFromBrief({
+      weekdays: ["terça-feira", "quinta-feira"],
+      weekday: "terça-feira",
+      recurrence: "WEEKLY",
+    });
+    expect(
+      validatePromptTemporalFacts(
+        "Música ao vivo toda terça e quinta-feira, entrada gratuita",
+        required,
+      ),
+    ).toEqual([]);
+  });
+
+  it("asks proactively about date/day for commercial offers without date info", () => {
+    const question = nextCommercialQuestion(["quero um banner de salgadinhos 89,90"], {
+      subject: "salgadinhos",
+      pricedItems: [{ item: "salgadinhos", price: 89.9 }],
+    });
+    expect(question).toMatch(/data especial|dia da semana/i);
+  });
+
+  it("does not repeat the date question once asked", () => {
+    const brief = resolvePendingBannerQuestion(
+      { subject: "salgadinhos", pendingQuestion: "date_confirmation" },
+      "não, sem data específica",
+    );
+    expect(brief.dateAsked).toBe(true);
+    expect(brief.pendingQuestion).toBeUndefined();
+    const question = nextCommercialQuestion(["quero um banner de salgadinhos 89,90"], {
+      subject: "salgadinhos",
+      pricedItems: [{ item: "salgadinhos", price: 89.9 }],
+      dateAsked: true,
+    });
+    expect(question).toBeNull();
+  });
+});
+
+describe("prompt text quality", () => {
+  it("rejects long quoted texts", () => {
+    const violations = validatePromptTextQuality(
+      'Banner com o texto "Promoção imperdível de salgadinhos deliciosos para a sua festa de aniversário" em destaque',
+    );
+    expect(violations).toContainEqual(expect.objectContaining({ reason: "TEXT_TOO_LONG" }));
+  });
+
+  it("rejects too many distinct texts", () => {
+    const violations = validatePromptTextQuality(
+      'Textos "SÓ HOJE" e "50% OFF" e "FRETE GRÁTIS" e "PARCELE EM 12X" e "GARANTA JÁ" no banner',
+    );
+    expect(violations).toContainEqual(expect.objectContaining({ reason: "TOO_MANY_TEXTS" }));
+  });
+
+  it("accepts short exact texts with hierarchy", () => {
+    expect(
+      validatePromptTextQuality(
+        'Título "SÓ HOJE" em bold sans-serif, oferta "R$ 89,90" em destaque, CTA "PEÇA JÁ" no canto',
+      ),
+    ).toEqual([]);
+  });
+
+  it("flags vague text instructions without exact quoted text", () => {
+    const violations = validatePromptTextQuality(
+      "Incluir um texto sobre a promoção no canto superior do banner",
+    );
+    expect(violations).toContainEqual(
+      expect.objectContaining({ reason: "VAGUE_TEXT_INSTRUCTION" }),
+    );
   });
 });

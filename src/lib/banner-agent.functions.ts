@@ -23,6 +23,7 @@ import {
   validatePromptNoRegistryData,
   validatePromptCommercialCopy,
   validatePromptTemporalFacts,
+  validatePromptTextQuality,
 } from "@/lib/banner-brief";
 import {
   classifyBannerCompatibility,
@@ -51,12 +52,22 @@ export const BannerAgentInputSchema = z.object({
       mandatoryTexts: z.array(z.string()).optional(),
       price: z.number().finite().optional(),
       priceUnit: z.string().optional(),
+      pricedItems: z
+        .array(
+          z.object({
+            item: z.string(),
+            price: z.number().finite(),
+            unit: z.string().optional(),
+          }),
+        )
+        .optional(),
       priceCandidate: z.number().finite().optional(),
       commercialCondition: z.string().optional(),
       freeCopyConfirmed: z.boolean().optional(),
       validity: z.string().optional(),
       weekday: z.string().optional(),
       weekdays: z.array(z.string()).optional(),
+      dateAsked: z.boolean().optional(),
       dateContext: z.enum(["this", "next"]).optional(),
       recurrence: z.enum(["NONE", "WEEKLY"]).optional(),
       unit: z.string().optional(),
@@ -70,6 +81,7 @@ export const BannerAgentInputSchema = z.object({
           "offer_scope_confirmation",
           "offer_scope_correction",
           "price_confirmation",
+          "date_confirmation",
           "business_compatibility_confirmation",
         ])
         .optional(),
@@ -107,6 +119,7 @@ export type BannerAgentResponse =
             | "offer_scope_confirmation"
             | "offer_scope_correction"
             | "price_confirmation"
+            | "date_confirmation"
             | "business_compatibility_confirmation"
             | undefined;
         };
@@ -488,25 +501,38 @@ export const askBannerAgent = createServerFn({ method: "POST" })
         hasConfirmedVisualEvidence ? "CONFIRMED" : "UNCONFIRMED",
       );
       const requiredOfferFacts = requiredOfferFactsFromBrief(activeBrief, snapshot.name);
-      const commercialContractDirective = [
-        "CONTRATO COMERCIAL OBRIGATÓRIO:",
-        `itens visuais obrigatórios nas DUAS opções: ${requiredOfferFacts.items.join(" | ") || "nenhum item confirmado"}.`,
-        requiredOfferFacts.price !== undefined
+      const priceDirective = requiredOfferFacts.pricedItems?.length
+        ? `preços obrigatórios por item: ${requiredOfferFacts.pricedItems
+            .map((p) =>
+              p.price === 0
+                ? `${p.item} = GRÁTIS${requiredOfferFacts.commercialCopy ? ` (“${requiredOfferFacts.commercialCopy}”)` : ""}`
+                : `${p.item} = ${formatOfferPrice(p.price)}${p.unit ? ` (${p.unit})` : ""}`,
+            )
+            .join("; ")}. Cada item+preço deve aparecer exatamente assim.`
+        : requiredOfferFacts.price !== undefined
           ? requiredOfferFacts.price === 0
             ? `valor confirmado como gratuito (0), apenas para dispensar pergunta de preço${requiredOfferFacts.commercialCopy ? `; expressão obrigatória no texto do banner: “${requiredOfferFacts.commercialCopy}”; é proibido substituir por “GRÁTIS” ou alterar a expressão` : "; sem texto escolhido, exibir exatamente GRÁTIS"}.`
             : `preço obrigatório: ${formatOfferPrice(requiredOfferFacts.price)}.`
-          : "",
+          : "";
+      const weekdayDirective =
+        requiredOfferFacts.weekdays?.length && requiredOfferFacts.weekdays.length > 1
+          ? `dias obrigatórios: ${requiredOfferFacts.weekdays.join(" e ")}; todos precisam aparecer no texto do banner; recorrência: ${requiredOfferFacts.recurrence === "WEEKLY" ? "semanal explicitamente informada — vale para TODOS os dias listados" : "NÃO informada — jamais escreva toda/todos/semanal/semanalmente"}.`
+          : requiredOfferFacts.weekday
+            ? `dia obrigatório: ${requiredOfferFacts.weekday}; recorrência: ${requiredOfferFacts.recurrence === "WEEKLY" ? "semanal explicitamente informada" : "NÃO informada — jamais escreva toda/todos/semanal/semanalmente"}.`
+            : "";
+      const commercialContractDirective = [
+        "CONTRATO COMERCIAL OBRIGATÓRIO:",
+        `itens visuais obrigatórios nas DUAS opções: ${requiredOfferFacts.items.join(" | ") || "nenhum item confirmado"}.`,
+        priceDirective,
         requiredOfferFacts.priceUnit
           ? `base do preço obrigatória: ${requiredOfferFacts.priceUnit}.`
           : "",
         requiredOfferFacts.validity ? `validade obrigatória: ${requiredOfferFacts.validity}.` : "",
-        requiredOfferFacts.weekday
-          ? `dia obrigatório: ${requiredOfferFacts.weekday}; recorrência: ${requiredOfferFacts.recurrence === "WEEKLY" ? "semanal explicitamente informada" : "NÃO informada — jamais escreva toda/todos/semanal/semanalmente"}.`
-          : "",
+        weekdayDirective,
         requiredOfferFacts.unit ? `unidade/escopo obrigatório: ${requiredOfferFacts.unit}.` : "",
         `empresa obrigatória: ${requiredOfferFacts.business ?? "conforme cadastro"}.`,
         "A diferença criativa pode mudar somente câmera, composição, luz, tipografia e apresentação não contraditória; nunca pode remover, adicionar ou trocar um item comercial.",
-        "Em CADA promptOption, devolva também visualItems (itens que aparecem visualmente) e commercialFacts { items, price, validity, unit, business, scope }. Esses metadados não são texto da arte e precisam refletir exatamente o contrato; scope deve ser confirmed ou corrected.",
+        "Em CADA promptOption, devolva também visualItems (itens que aparecem visualmente) e commercialFacts { items, price, pricedItems [{ item, price, unit }], validity, unit, business, scope }. Quando o pedido tiver múltiplos preços, preencha pricedItems com um objeto por item+preço confirmado (incluindo itens gratuitos com price 0); o campo price legado pode ser omitido nesse caso. Esses metadados não são texto da arte e precisam refletir exatamente o contrato; scope deve ser confirmed ou corrected.",
         "A resposta será rejeitada se algum item existir apenas no texto e não em visualItems.",
       ]
         .filter(Boolean)
@@ -591,6 +617,7 @@ export const askBannerAgent = createServerFn({ method: "POST" })
                     ...validatePromptCommercialCopy(option.prompt, requiredOfferFacts),
                     ...validatePromptTemporalFacts(option.prompt, requiredOfferFacts),
                     ...validateGeneratedCommercialFacts(option, requiredOfferFacts),
+                    ...validatePromptTextQuality(option.prompt),
                   ].map((violation) => ({ ...violation, option: index + 1 })),
                 ),
                 ...validatePromptConceptSeparation(
@@ -634,6 +661,7 @@ export const askBannerAgent = createServerFn({ method: "POST" })
                 ...validatePromptCommercialCopy(option.prompt, requiredOfferFacts),
                 ...validatePromptTemporalFacts(option.prompt, requiredOfferFacts),
                 ...validateGeneratedCommercialFacts(option, requiredOfferFacts),
+                ...validatePromptTextQuality(option.prompt),
               ].map((violation) => ({ ...violation, option: index + 1 })),
             ),
             ...validatePromptConceptSeparation(

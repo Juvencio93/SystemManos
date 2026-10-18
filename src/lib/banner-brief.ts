@@ -206,7 +206,18 @@ export type CommercialScopeConfidence = "HIGH_CONFIDENCE" | "MEDIUM_CONFIDENCE" 
  * Serialized with every request so the banner dialog has no dependency on
  * process memory. An omitted field means "not mentioned this turn"; only an
  * explicit new fact may replace a confirmed one.
+ *
+ * Um item com preço individual. Usado quando o pedido tem múltiplos itens
+ * com preços diferentes (ex: "salgadinhos 89,90 e bolo 35 o quilo").
+ * Um item pode ser gratuito (price 0, "por conta da casa") enquanto outro
+ * tem preço — cada item carrega sua própria condição comercial.
  */
+export type PricedItem = {
+  item: string;
+  price: number;
+  unit?: string | undefined;
+};
+
 export type BannerConversationBrief = {
   subject?: string | undefined;
   /** Individual commercial items, kept separately from the free-form subject. */
@@ -217,6 +228,12 @@ export type BannerConversationBrief = {
   mandatoryTexts?: string[] | undefined;
   price?: number | undefined;
   priceUnit?: string | undefined;
+  /**
+   * Preços por item. Quando presente com 2+ itens, é a fonte autoritativa de
+   * preços (o `price`/`priceUnit` legado é ignorado). O legado continua
+   * válido para ofertas de preço único.
+   */
+  pricedItems?: PricedItem[] | undefined;
   /** Bare values such as "35" stay pending until the user confirms that they are the offer price. */
   priceCandidate?: number | undefined;
   commercialCondition?: string | undefined;
@@ -233,12 +250,15 @@ export type BannerConversationBrief = {
   time?: string | undefined;
   scopeConfirmed?: boolean | undefined;
   compatibilityConfirmed?: boolean | undefined;
+  /** Marcado quando a pergunta proativa de data/dia já foi feita (evita repetir). */
+  dateAsked?: boolean | undefined;
   pendingQuestion?:
     | "subject"
     | "objective"
     | "offer_scope_confirmation"
     | "offer_scope_correction"
     | "price_confirmation"
+    | "date_confirmation"
     | "business_compatibility_confirmation"
     | undefined;
 };
@@ -319,6 +339,145 @@ function extractPriceUnit(message: string) {
   return undefined;
 }
 
+type PriceOccurrence = { price: number; index: number; end: number };
+
+/**
+ * Encontra TODAS as ocorrências de preço na mensagem (numéricas + "por conta
+ * da casa"/"grátis" como preço 0), com posições. Usado para pedidos com
+ * múltiplos itens e preços diferentes — o `normalizePrice` pega só o último.
+ */
+function extractAllPriceOccurrences(message: string): PriceOccurrence[] {
+  // Expande gírias de milhar antes, igual ao normalizePrice, para reaproveitar
+  // a lógica. Os índices são relativos ao texto expandido.
+  const withMilhar = message.replace(
+    /\b(\d{1,3}(?:\.\d{3})*|\d+)\s*(?:bar(?:ão|ao|ões|oes)|conto?s?)\b/gi,
+    (_m, n: string) => `${Number(n.replace(/\./g, "")) * 1000} reais`,
+  );
+  const occurrences: PriceOccurrence[] = [];
+
+  for (const m of withMilhar.matchAll(new RegExp(FREE_OFFER.source, "giu"))) {
+    if (m.index === undefined) continue;
+    const before = withMilhar.slice(Math.max(0, m.index - 30), m.index);
+    if (NEGATED_FREE_OFFER.test(`${before} ${m[0]}`)) continue;
+    occurrences.push({ price: 0, index: m.index, end: m.index + m[0].length });
+  }
+
+  const priceRe =
+    /(?:r\$\s*(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d{1,2}))?)|(?:\b(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d{1,2}))?\s*(?:reais?|pila|money|bar(?:ão|ao|ões|oes)|conto?s?)\b)/g;
+  for (const m of withMilhar.matchAll(priceRe)) {
+    if (m.index === undefined) continue;
+    const integer = m[1] ?? m[3];
+    if (!integer) continue;
+    occurrences.push({
+      price: Number(`${integer.replace(/\./g, "")}.${(m[2] || m[4] || "0").padEnd(2, "0")}`),
+      index: m.index,
+      end: m.index + m[0].length,
+    });
+  }
+
+  // Preços "nus" com decimal (ex: "89,90" sem "reais"): só valem quando a
+  // mensagem já tem um preço explícito, para não capturar quantidades.
+  // Exclui medidas imediatas ("2,5 kg").
+  if (occurrences.length > 0) {
+    const bareRe = /\b(\d{1,3}(?:\.\d{3})*),(\d{2})\b/g;
+    for (const m of withMilhar.matchAll(bareRe)) {
+      if (m.index === undefined || !m[1] || !m[2]) continue;
+      if (occurrences.some((o) => m.index! >= o.index && m.index! < o.end)) continue;
+      const after = withMilhar.slice(m.index + m[0].length, m.index + m[0].length + 10);
+      if (/^\s*(?:kg|quilo|kilo|quilograma|g\b|ml|l\b|cm)\b/i.test(after)) continue;
+      occurrences.push({
+        price: Number(`${m[1].replace(/\./g, "")}.${m[2]}`),
+        index: m.index,
+        end: m.index + m[0].length,
+      });
+    }
+  }
+
+  const sorted = occurrences.sort((a, b) => a.index - b.index);
+  // Remove sobreposições (ex: "grátis" dentro de um trecho já capturado).
+  return sorted.filter((occ, i) => !sorted.slice(0, i).some((prev) => occ.index < prev.end));
+}
+
+/** Limpa o nome do item a partir do trecho de texto ao redor do preço. */
+function cleanPricedItemSegment(segment: string): string {
+  return (
+    segment
+      .replace(/(?:por\s+)?r?\$\s*\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?/giu, "")
+      .replace(
+        /\b\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?\s*(?:reais?|pila|money|bar(?:ão|ao|ões|oes)|conto?s?)\b/giu,
+        "",
+      )
+      .replace(/\b(?:gr[aá]tis|gratuita?|sem\s+custo|por\s+conta\s+da\s+casa)\b/giu, "")
+      // Preço "nu" com decimal, ex: "por 89,90".
+      .replace(/(?:por\s+)?\b\d{1,3}(?:\.\d{3})*,\d{2}\b/giu, "")
+      .replace(
+        /\b(?:o|a|os|as)\s+(?:quilo|kilo|kg|quilograma|unidade|cada|por[çc][aã]o|pessoa)\b/giu,
+        "",
+      )
+      // "centro de salgadinhos" = "cento (100) de salgadinhos"
+      .replace(/^\s*centro\s+de\s+/iu, "")
+      .replace(
+        /^\s*(?:e|mais|\+|,|por|de|do|da|dos|das|o|a|os|as|um|uma|uns|umas|no|na|nos|nas)\s+/iu,
+        "",
+      )
+      .replace(/\s*(?:e|mais|\+|,)\s*$/iu, "")
+      .replace(/\s+/g, " ")
+      .trim()
+  );
+}
+
+function extractUnitFromSegment(segment: string): string | undefined {
+  const n = segment.toLocaleLowerCase("pt-BR");
+  if (/\b(?:kg|quilo|kilo|quilograma)\b/.test(n)) return "quilo";
+  if (/\b(?:unidade|unit[aá]rio|cada)\b/.test(n)) return "unidade";
+  if (/\bpor[çc][aã]o\b/.test(n)) return "porção";
+  if (/\bpessoa\b/.test(n)) return "pessoa";
+  return undefined;
+}
+
+/**
+ * Extrai itens com preços individuais de um pedido multi-preço.
+ * Ex: "salgadinhos por 89,90 e 35 reais o quilo do bolo" →
+ * [{ item: "salgadinhos", price: 89.9 }, { item: "bolo", price: 35, unit: "quilo" }].
+ * Retorna [] quando há menos de 2 preços (o fluxo legado de preço único cuida).
+ * A mensagem é dividida por conectores ("e", ",", "+"); cada parte contribui
+ * com seu próprio item+preço.
+ */
+export function extractPricedItems(message: string): PricedItem[] {
+  // O texto expandido (gírias de milhar) é a base dos índices — mesmo
+  // pré-processamento do extractAllPriceOccurrences.
+  const withMilhar = message.replace(
+    /\b(\d{1,3}(?:\.\d{3})*|\d+)\s*(?:bar(?:ão|ao|ões|oes)|conto?s?)\b/gi,
+    (_m, n: string) => `${Number(n.replace(/\./g, "")) * 1000} reais`,
+  );
+  const occurrences = extractAllPriceOccurrences(message);
+  if (occurrences.length < 2) return [];
+
+  // Divide por conectores, sem quebrar decimais ("89,90").
+  const parts: { text: string; start: number; end: number }[] = [];
+  const splitter = /(?<!\d)\s*,\s*|\s+e\s+|\s*\+\s*/giu;
+  let lastIndex = 0;
+  for (const m of withMilhar.matchAll(splitter)) {
+    if (m.index === undefined) continue;
+    parts.push({ text: withMilhar.slice(lastIndex, m.index), start: lastIndex, end: m.index });
+    lastIndex = m.index + m[0].length;
+  }
+  parts.push({ text: withMilhar.slice(lastIndex), start: lastIndex, end: withMilhar.length });
+
+  const result: PricedItem[] = [];
+  for (const occ of occurrences) {
+    const part = parts.find((p) => occ.index >= p.start && occ.index < p.end);
+    if (!part) continue;
+    const item = cleanPricedItemSegment(part.text);
+    if (item.length < 2) continue;
+    // Uma parte, um preço: ignora duplicatas da mesma parte.
+    if (result.some((r) => r.item === item)) continue;
+    const unit = extractUnitFromSegment(part.text);
+    result.push({ item, price: occ.price, ...(unit ? { unit } : {}) });
+  }
+  return result.length >= 2 ? result : [];
+}
+
 function extractBarePriceCandidate(message: string) {
   if ((FREE_OFFER.test(message) && !NEGATED_FREE_OFFER.test(message)) || !BARE_PRICE.test(message))
     return undefined;
@@ -337,6 +496,113 @@ function extractValidityFact(message: string) {
   const week = message.match(/\b(?:para|durante|esta|essa)\s+(?:a\s+)?semana\b/iu);
   if (week?.[0]) return week[0];
   return message.match(MONTH_FACT)?.[1];
+}
+
+const MESES_PT = [
+  "janeiro",
+  "fevereiro",
+  "março",
+  "abril",
+  "maio",
+  "junho",
+  "julho",
+  "agosto",
+  "setembro",
+  "outubro",
+  "novembro",
+  "dezembro",
+] as const;
+
+type SaoPauloDate = { year: number; month: number; day: number; weekday: number };
+
+/** Data atual em America/Sao_Paulo (weekday: 0=domingo..6=sábado). `now` injetável para testes. */
+function saoPauloToday(now: Date = new Date()): SaoPauloDate {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    weekday: "short",
+  }).formatToParts(now);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  const weekdayMap: Record<string, number> = {
+    Sun: 0,
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6,
+  };
+  return {
+    year: Number(get("year")),
+    month: Number(get("month")),
+    day: Number(get("day")),
+    weekday: weekdayMap[get("weekday")] ?? 0,
+  };
+}
+
+function addDays(date: SaoPauloDate, days: number): SaoPauloDate {
+  const d = new Date(Date.UTC(date.year, date.month - 1, date.day + days));
+  return {
+    year: d.getUTCFullYear(),
+    month: d.getUTCMonth() + 1,
+    day: d.getUTCDate(),
+    weekday: d.getUTCDay(),
+  };
+}
+
+/**
+ * Resolve expressões relativas de data para datas concretas, usando a data
+ * atual (America/Sao_Paulo) como referência. Retorna a validade por extenso,
+ * pronta para o banner.
+ * - "válido pra essa semana" → "12 a 18 de outubro de 2026"
+ * - "para esse mês" → "outubro de 2026"
+ * - "do dia 11 ao dia 15" → "11 a 15 de outubro de 2026"
+ * - "10/10" → "10 de outubro de 2027" (próxima ocorrência; se já passou, ano seguinte)
+ */
+export function resolveRelativeDateValidity(
+  message: string,
+  now: Date = new Date(),
+): string | undefined {
+  const today = saoPauloToday(now);
+
+  // "10/10", "11/11", "12/12" — dia/mês. Usa a próxima ocorrência (hoje ou
+  // futuro); se a data já passou este ano, cai no ano seguinte.
+  const slash = message.match(/\b(\d{1,2})\/(\d{1,2})\b/);
+  if (slash?.[1] && slash?.[2]) {
+    const d = Number(slash[1]);
+    const m = Number(slash[2]);
+    if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+      let year = today.year;
+      if (m < today.month || (m === today.month && d < today.day)) year += 1;
+      return `${d} de ${MESES_PT[m - 1]} de ${year}`;
+    }
+  }
+
+  // "do dia 11 ao dia 15" — infere mês e ano atuais.
+  const range = message.match(/\bdo\s+dia\s+(\d{1,2})\s+ao\s+dia\s+(\d{1,2})\b/i);
+  if (range?.[1] && range?.[2]) {
+    return `${Number(range[1])} a ${Number(range[2])} de ${MESES_PT[today.month - 1]} de ${today.year}`;
+  }
+
+  // "válida pra essa semana" — segunda a domingo da semana atual.
+  if (/\b(?:ess[ae]|nest[ae])\s+semana\b/i.test(message)) {
+    const mondayOffset = (today.weekday + 6) % 7;
+    const monday = addDays(today, -mondayOffset);
+    const sunday = addDays(monday, 6);
+    if (monday.month === sunday.month && monday.year === sunday.year) {
+      return `${monday.day} a ${sunday.day} de ${MESES_PT[monday.month - 1]} de ${monday.year}`;
+    }
+    return `${monday.day} de ${MESES_PT[monday.month - 1]} a ${sunday.day} de ${MESES_PT[sunday.month - 1]} de ${sunday.year}`;
+  }
+
+  // "para esse mês" — mês/ano atual.
+  if (/\b(?:ess[ae]|nest[ae])\s+m[eê]s\b/i.test(message)) {
+    return `${MESES_PT[today.month - 1]} de ${today.year}`;
+  }
+
+  return undefined;
 }
 
 const WEEKDAY_FACT = /\b(segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo)(?:-?feira)?s?\b/iu;
@@ -491,17 +757,24 @@ export function montarBriefing(
   if (!oQueDivulgar.length && !brief.subject?.trim()) {
     faltando.push("o que será divulgado");
   }
-  const preco =
-    brief.price !== undefined
+  const preco = brief.pricedItems?.length
+    ? brief.pricedItems
+        .map((p) => `${p.item}: ${formatOfferPrice(p.price)}${p.unit ? ` (${p.unit})` : ""}`)
+        .join(" · ")
+    : brief.price !== undefined
       ? formatOfferPrice(brief.price)
       : (brief.commercialCondition ?? undefined);
   const validade =
     brief.validity ??
-    (brief.weekday
+    (brief.weekdays?.length
       ? brief.recurrence === "WEEKLY"
-        ? `toda ${brief.weekday}`
-        : brief.weekday
-      : undefined);
+        ? `toda ${brief.weekdays.join(" e ")}`
+        : brief.weekdays.join(" e ")
+      : brief.weekday
+        ? brief.recurrence === "WEEKLY"
+          ? `toda ${brief.weekday}`
+          : brief.weekday
+        : undefined);
   return {
     oQueDivulgar,
     ...(brief.objective ? { objetivo: brief.objective } : {}),
@@ -630,10 +903,17 @@ export function extractBannerTurnFacts(
   context?: Pick<BannerConversationBrief, "pendingQuestion" | "priceCandidate">,
 ): BannerTurnFacts {
   const facts: BannerTurnFacts = {};
-  const price = extractPriceFact(message);
-  if (price !== undefined) facts.price = price;
-  const priceUnit = extractPriceUnit(message);
-  if (priceUnit) facts.priceUnit = priceUnit;
+  // Pedido multi-preço: cada item carrega seu próprio preço (um pode ser
+  // grátis enquanto outro tem preço). O preço único legado é ignorado aqui.
+  const pricedItems = extractPricedItems(message);
+  if (pricedItems.length >= 2) {
+    facts.pricedItems = pricedItems;
+  } else {
+    const price = extractPriceFact(message);
+    if (price !== undefined) facts.price = price;
+    const priceUnit = extractPriceUnit(message);
+    if (priceUnit) facts.priceUnit = priceUnit;
+  }
   const barePrice = extractBarePriceCandidate(message);
   if (barePrice !== undefined) facts.priceCandidate = barePrice;
   const commercialCondition = extractCommercialCondition(message);
@@ -649,7 +929,9 @@ export function extractBannerTurnFacts(
     );
     facts.mandatoryTexts = merged;
   }
-  const validity = extractValidityFact(message);
+  // Expressões relativas ("essa semana", "10/10") viram datas concretas antes
+  // de qualquer outra interpretação de validade.
+  const validity = resolveRelativeDateValidity(message) ?? extractValidityFact(message);
   if (validity) facts.validity = validity;
   const weekdays = extractWeekdayFacts(message);
   if (weekdays.length) {
@@ -724,6 +1006,19 @@ export function mergeBannerConversationBrief(
     ...(facts.price !== undefined ? { priceCandidate: undefined } : {}),
     ...(facts.priceUnit !== undefined ? { priceUnit: facts.priceUnit } : {}),
     ...(facts.priceCandidate !== undefined ? { priceCandidate: facts.priceCandidate } : {}),
+    // Preços por item substituem o preço único (e vice-versa): as duas
+    // representações nunca coexistem para não gerar validação ambígua.
+    ...(facts.pricedItems !== undefined
+      ? {
+          pricedItems: facts.pricedItems,
+          price: undefined,
+          priceUnit: undefined,
+          priceCandidate: undefined,
+        }
+      : {}),
+    ...(facts.price !== undefined && facts.pricedItems === undefined
+      ? { pricedItems: undefined }
+      : {}),
     ...(facts.commercialCondition !== undefined
       ? { commercialCondition: facts.commercialCondition }
       : {}),
@@ -880,6 +1175,12 @@ export function resolvePendingBannerQuestion(
       return { ...brief, priceCandidate: undefined, pendingQuestion: "price_confirmation" };
     return brief;
   }
+  if (brief.pendingQuestion === "date_confirmation") {
+    // Dias/datas são extraídos automaticamente pelo extractBannerTurnFacts.
+    // Marca como perguntado para não repetir; a resposta (ou a ausência dela)
+    // encerra a pergunta pendente.
+    return { ...brief, dateAsked: true, pendingQuestion: undefined };
+  }
   if (brief.pendingQuestion === "business_compatibility_confirmation") {
     if (confirmationIntent(message) === "positive")
       return { ...brief, compatibilityConfirmed: true, pendingQuestion: undefined };
@@ -1021,7 +1322,7 @@ export function commercialStateFromBrief(
     : extractOfferItems(brief.subject).length;
   return {
     hasSubject,
-    hasPrice: brief.price !== undefined,
+    hasPrice: brief.price !== undefined || (brief.pricedItems?.length ?? 0) > 0,
     hasValidity: Boolean(brief.validity || brief.weekday),
     hasConfirmedScope: brief.scopeConfirmed === true || isSingleService || itemCount <= 1,
     isSingleService,
@@ -1074,6 +1375,20 @@ export function nextCommercialQuestion(
     return `Só confirmando: você quer destacar ${formatBRL(activeBrief.priceCandidate)} como o valor da oferta?`;
   if (!state.hasPrice && EXPLICIT_PRICE_INTENT.test(conversation))
     return "Qual valor exato você quer destacar nessa promoção?";
+  // Pergunta proativa de data/dia: oferta comercial sem nenhuma informação de
+  // data (validade, dia da semana). Não repete se já perguntou; ofertas
+  // temporais usam a pergunta de validade abaixo.
+  const hasDateInfo = Boolean(
+    activeBrief.validity || activeBrief.weekday || (activeBrief.weekdays?.length ?? 0) > 0,
+  );
+  if (
+    !temporal &&
+    !hasDateInfo &&
+    !activeBrief.dateAsked &&
+    (state.hasPrice || Boolean(activeBrief.commercialCondition || activeBrief.freeCopyConfirmed))
+  ) {
+    return "Essa promoção é para uma data especial? Um dia da semana? 📅";
+  }
   if (temporal && !state.hasValidity) {
     const isFestival = /\bfestival\b/iu.test(activeBrief.subject ?? "");
     if (/promo(?:ç|c)[aã]o\s+(?:da|de|para)\s+semana/iu.test(conversation)) {
@@ -1131,6 +1446,15 @@ export function pendingQuestionForCommercialState(
     (!state.hasPrice && EXPLICIT_PRICE_INTENT.test(conversation))
   )
     return "price_confirmation" as const;
+  // Espelha a pergunta proativa de data/dia do nextCommercialQuestion.
+  const hasDateInfo = Boolean(brief.validity || brief.weekday || (brief.weekdays?.length ?? 0) > 0);
+  if (
+    !temporal &&
+    !hasDateInfo &&
+    !brief.dateAsked &&
+    (state.hasPrice || Boolean(brief.commercialCondition || brief.freeCopyConfirmed))
+  )
+    return "date_confirmation" as const;
   if (
     state.hasPrice &&
     !state.hasConfirmedScope &&
@@ -1145,11 +1469,15 @@ export function pendingQuestionForCommercialState(
 export type RequiredOfferFacts = {
   items: string[];
   price?: number;
+  /** Preços por item. Quando presente, substitui o `price` único na validação. */
+  pricedItems?: PricedItem[];
   /** Exact benefit wording chosen by the user; zero price never rewrites it. */
   commercialCopy?: string;
   priceUnit?: string;
   validity?: string;
   weekday?: string;
+  /** Todos os dias citados; `weekday` segue como o primeiro por compatibilidade. */
+  weekdays?: string[];
   recurrence?: "NONE" | "WEEKLY";
   unit?: string;
   business?: string;
@@ -1177,6 +1505,8 @@ export type GeneratedCommercialMetadata = {
     | {
         items?: readonly string[] | undefined;
         price?: number | undefined;
+        /** Preços por item; quando o pedido tem múltiplos preços, é obrigatório. */
+        pricedItems?: readonly PricedItem[] | undefined;
         validity?: string | undefined;
         unit?: string | undefined;
         business?: string | undefined;
@@ -1189,13 +1519,18 @@ export function requiredOfferFactsFromBrief(
   brief: BannerConversationBrief,
   business?: string,
 ): RequiredOfferFacts {
+  const items = brief.offerItems?.length ? brief.offerItems : extractOfferItems(brief.subject);
   return {
-    items: brief.offerItems?.length ? brief.offerItems : extractOfferItems(brief.subject),
+    items,
     ...(brief.price !== undefined ? { price: brief.price } : {}),
+    // Preços por item só entram quando o briefing tem múltiplos preços; o
+    // preço único legado continua no campo `price`.
+    ...(brief.pricedItems?.length ? { pricedItems: brief.pricedItems } : {}),
     ...(brief.commercialCondition ? { commercialCopy: brief.commercialCondition } : {}),
     ...(brief.priceUnit ? { priceUnit: brief.priceUnit } : {}),
     ...(brief.validity ? { validity: brief.validity } : {}),
     ...(brief.weekday ? { weekday: brief.weekday } : {}),
+    ...(brief.weekdays?.length ? { weekdays: brief.weekdays } : {}),
     ...(brief.recurrence ? { recurrence: brief.recurrence } : {}),
     ...(brief.unit ? { unit: brief.unit } : {}),
     ...(business ? { business } : {}),
@@ -1253,11 +1588,46 @@ export function validateGeneratedCommercialFacts(
       violations.push({ reason: "EXTRA_OFFER_ITEM", detail: `Item não confirmado: ${item}` });
     }
   }
-  if (required.price !== undefined && facts.price !== required.price) {
-    violations.push({
-      reason: "WRONG_PRICE",
-      detail: `Preço deve ser ${formatOfferPrice(required.price)}`,
-    });
+  // Validação por item: cada item+preço confirmado precisa aparecer com o
+  // valor exato, e nenhum preço não confirmado pode aparecer. O preço único
+  // legado é tratado como um item precificado para compatibilidade.
+  const requiredHasPriced = (required.pricedItems?.length ?? 0) > 0;
+  const generatedHasPriced = (facts.pricedItems?.length ?? 0) > 0;
+  if (!requiredHasPriced && !generatedHasPriced) {
+    if (required.price !== undefined && facts.price !== required.price) {
+      violations.push({
+        reason: "WRONG_PRICE",
+        detail: `Preço deve ser ${formatOfferPrice(required.price)}`,
+      });
+    }
+  } else {
+    const requiredPriced: readonly PricedItem[] =
+      required.pricedItems ??
+      (required.price !== undefined
+        ? [{ item: required.items[0] ?? "", price: required.price }]
+        : []);
+    const generatedPriced: readonly PricedItem[] =
+      facts.pricedItems ??
+      (facts.price !== undefined ? [{ item: facts.items[0] ?? "", price: facts.price }] : []);
+    for (const req of requiredPriced) {
+      const match = generatedPriced.find(
+        (gen) => gen.price === req.price && sameCommercialItem(gen.item, req.item),
+      );
+      if (!match) {
+        violations.push({
+          reason: "WRONG_PRICE",
+          detail: `Preço de "${req.item}" deve ser ${formatOfferPrice(req.price)}`,
+        });
+      }
+    }
+    for (const gen of generatedPriced) {
+      if (!requiredPriced.some((req) => sameCommercialItem(req.item, gen.item))) {
+        violations.push({
+          reason: "WRONG_PRICE",
+          detail: `Preço não confirmado para "${gen.item}"`,
+        });
+      }
+    }
   }
   if (
     required.validity &&
@@ -1300,29 +1670,94 @@ export function validatePromptCommercialCopy(prompt: string, required: RequiredO
   ];
 }
 
-/** Reject weekly wording unless the user explicitly established a recurrence. */
+export type TextQualityViolation = {
+  reason: "TEXT_TOO_LONG" | "TOO_MANY_TEXTS" | "VAGUE_TEXT_INSTRUCTION";
+  detail: string;
+};
+
+/**
+ * IAs de imagem distorcem texto com frequência. Textos no banner precisam ser
+ * curtos, exatos (entre aspas) e poucos: título, oferta e CTA. Textos longos
+ * ou vagos ("texto sobre a promoção") quase sempre saem com letras
+ * bagunçadas — o validador prefere encurtar.
+ */
+export function validatePromptTextQuality(prompt: string): TextQualityViolation[] {
+  const violations: TextQualityViolation[] = [];
+  const quoted = [...prompt.matchAll(/["“]([^"”]{1,200})["”]/g)]
+    .map((m) => m[1]?.trim())
+    .filter((t): t is string => Boolean(t && t.length > 0));
+
+  for (const text of quoted) {
+    if (text.length > 40) {
+      violations.push({
+        reason: "TEXT_TOO_LONG",
+        detail: `Texto longo demais para renderização ("${text.slice(0, 32)}…", ${text.length} caracteres): encurte para no máximo 40 caracteres, mantendo o sentido.`,
+      });
+    }
+  }
+
+  if (quoted.length > 4) {
+    violations.push({
+      reason: "TOO_MANY_TEXTS",
+      detail: `Textos demais no banner (${quoted.length}): reduza para no máximo 4, priorizando título, oferta e CTA.`,
+    });
+  }
+
+  // Instrução vaga de texto sem o texto exato entre aspas.
+  if (
+    quoted.length === 0 &&
+    /\b(?:incluir|adicionar|colocar|escrever)\s+(?:um\s+)?texto\b/iu.test(prompt) &&
+    !/\btexto\s+["“]/iu.test(prompt)
+  ) {
+    violations.push({
+      reason: "VAGUE_TEXT_INSTRUCTION",
+      detail:
+        "Instrução de texto vaga sem o texto exato entre aspas: especifique o texto literal a renderizar.",
+    });
+  }
+
+  return violations;
+}
+
+/** Reject weekly wording unless the user explicitly established a recurrence.
+ *  All listed weekdays must be mentioned correctly in the prompt. */
 export function validatePromptTemporalFacts(
   prompt: string,
   required: RequiredOfferFacts,
 ): CommercialFactViolation[] {
-  if (required.recurrence !== "NONE") return [];
+  const violations: CommercialFactViolation[] = [];
+  const weekdays: string[] =
+    required.weekdays && required.weekdays.length > 0
+      ? required.weekdays
+      : required.weekday
+        ? [required.weekday]
+        : [];
   const normalized = normalizedWords(prompt);
-  const weekday = normalizedWords(required.weekday ?? "");
-  if (
-    weekday &&
-    new RegExp(
-      `\\b(?:toda|todo|todos|todas|semanal|semanalmente)\\s+${weekday.replace(" feira", "(?: feira)?")}\\b`,
-      "iu",
-    ).test(normalized)
-  ) {
-    return [
-      {
+  for (const weekday of weekdays) {
+    const weekdayPattern = normalizedWords(weekday).replace(" feira", "(?: feira)?");
+    // Recorrência inventada: só vale se o usuário informou WEEKLY.
+    if (
+      required.recurrence !== "WEEKLY" &&
+      new RegExp(
+        `\\b(?:toda|todo|todos|todas|semanal|semanalmente)\\s+${weekdayPattern}\\b`,
+        "iu",
+      ).test(normalized)
+    ) {
+      violations.push({
         reason: "INVENTED_RECURRENCE",
-        detail: `Recorrência não foi informada; preserve somente ${required.weekday}`,
-      },
-    ];
+        detail: `Recorrência não foi informada; preserve somente ${weekday}`,
+      });
+    }
+    // O dia precisa aparecer no prompt (por extenso ou abreviado).
+    const base = normalizedWords(weekday).replace(/-feira| feira/g, "");
+    if (!new RegExp(`\\b${base}(?:-feira| feira)?s?\\b`, "iu").test(normalized)) {
+      violations.push({
+        reason: "MISSING_VALIDITY",
+        detail: `Dia obrigatório ausente no prompt: ${weekday}`,
+      });
+    }
   }
-  return [];
+  return violations;
 }
 
 export type CommercialDirectionViolation = {
