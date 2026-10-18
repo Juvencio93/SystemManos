@@ -62,7 +62,7 @@ export function LiveCrmPreview() {
   return (
     <div className="relative mx-auto w-full max-w-lg">
       <div className="absolute -inset-5 rounded-[2rem] bg-cyan-400/10 blur-3xl" />
-      <div className="relative overflow-hidden rounded-[1.75rem] border border-cyan-300/15 bg-[#0b1220] p-5 shadow-2xl shadow-black/40 sm:p-7">
+      <div className="group relative overflow-hidden rounded-[1.75rem] border border-cyan-300/15 bg-[#0b1220] p-5 shadow-2xl shadow-black/40 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-300/45 hover:bg-[#0c1726] hover:shadow-[0_20px_60px_rgba(34,211,238,.14)] focus-within:-translate-y-1 focus-within:border-cyan-300/45 active:scale-[.99] sm:p-7">
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/60 to-transparent" />
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
