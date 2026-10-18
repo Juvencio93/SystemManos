@@ -362,11 +362,11 @@ export const getAiUsageSummary = createServerFn({ method: "GET" })
     if (role === "matriz") {
       const { data } = await context.supabase.from("companies").select("ai_usage_today").eq("id", companyId).single();
       const used = data?.ai_usage_today || 0;
-      return { limit: limits.matriz_limit, used, available: Math.max(0, limits.matriz_limit - used), retentionDays: 45 };
+      return { limit: limits.matriz_limit, used, available: Math.max(0, limits.matriz_limit - used) };
     }
     const { data } = await context.supabase.from("branches").select("ai_usage_today").eq("id", branchId!).single();
     const used = data?.ai_usage_today || 0;
-    return { limit: limits.filial_limit, used, available: Math.max(0, limits.filial_limit - used), retentionDays: 45 };
+    return { limit: limits.filial_limit, used, available: Math.max(0, limits.filial_limit - used) };
   });
 
 export type AskAgentResponse =

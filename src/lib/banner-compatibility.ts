@@ -55,31 +55,65 @@ const CLEAR_BUSINESS_DOMAINS = [
     name: "padaria/confeitaria",
     displayName: "uma padaria ou confeitaria",
     profile: /\b(?:padaria|panificadora|panifica[cç][aã]o|confeitaria)\b/iu,
-    subject: /\b(?:p[aã]o\s+franc[eê]s|p[aã]o\s+de\s+queijo|bolo|torta|doces?|confeitaria|caf[eé])\b/iu,
+    subject:
+      /\b(?:p[aã]o\s+franc[eê]s|p[aã]o\s+de\s+queijo|bolo|torta|doces?|confeitaria|caf[eé])\b/iu,
   },
   {
     name: "restaurante/bar",
     displayName: "um restaurante ou bar",
     profile: /\b(?:restaurante|bar|boteco|bistr[oô]|buffet|gastronomia)\b/iu,
-    subject: /\b(?:feijoada|churrasco|marmita|prato\s+feito|almo[cç]o\s+executivo|jantar\s+executivo|petiscos?)\b/iu,
+    subject:
+      /\b(?:feijoada|churrasco|marmita|prato\s+feito|almo[cç]o\s+executivo|jantar\s+executivo|petiscos?)\b/iu,
   },
   {
     name: "construção",
     displayName: "construção ou materiais de construção",
-    profile: /\b(?:construtora|constru[cç][aã]o|materiais?\s+de\s+constru[cç][aã]o|engenharia\s+civil)\b/iu,
-    subject: /\b(?:cimento|tijolos?|telhas?|reforma|obra|material\s+de\s+constru[cç][aã]o|engenharia\s+civil)\b/iu,
+    profile:
+      /\b(?:construtora|constru[cç][aã]o|materiais?\s+de\s+constru[cç][aã]o|engenharia\s+civil)\b/iu,
+    subject:
+      /\b(?:cimento|tijolos?|telhas?|reforma|obra|material\s+de\s+constru[cç][aã]o|engenharia\s+civil)\b/iu,
   },
   {
     name: "saúde",
     displayName: "saúde",
     profile: /\b(?:cl[ií]nica|consult[oó]rio|hospital|odontologia|dentista|farm[aá]cia)\b/iu,
-    subject: /\b(?:consulta\s+m[eé]dica|avalia[cç][aã]o\s+odontol[oó]gica|aparelho\s+ortod[oô]ntico|exame\s+cl[ií]nico|medicamento)\b/iu,
+    subject:
+      /\b(?:consulta\s+m[eé]dica|avalia[cç][aã]o\s+odontol[oó]gica|aparelho\s+ortod[oô]ntico|exame\s+cl[ií]nico|medicamento)\b/iu,
   },
   {
     name: "beleza",
     displayName: "beleza e estética",
     profile: /\b(?:sal[aã]o\s+de\s+beleza|barbearia|manicure|est[eé]tica|cabeleireir[oa])\b/iu,
-    subject: /\b(?:corte\s+de\s+cabelo|manicure|pedicure|design\s+de\s+sobrancelha|procedimento\s+est[eé]tico)\b/iu,
+    subject:
+      /\b(?:corte\s+de\s+cabelo|manicure|pedicure|design\s+de\s+sobrancelha|procedimento\s+est[eé]tico)\b/iu,
+  },
+  {
+    name: "vestuário/moda",
+    displayName: "vestuário e moda",
+    profile: /\b(?:loja\s+de\s+roupas?|vestu[aá]rio|moda|boutique|confec[cç][aã]o|brecho)\b/iu,
+    subject:
+      /\b(?:camisa|calça|vestido|blusa|shorts?|bermuda|casaco|jaqueta|moda\s+feminina|moda\s+masculina|cole[cç][aã]o\s+de\s+roupas)\b/iu,
+  },
+  {
+    name: "joalheria",
+    displayName: "joalheria e acessórios finos",
+    profile: /\b(?:joalheria|joalheira|ourivesaria|relojoaria)\b/iu,
+    subject:
+      /\b(?:j[oó]ias?|anel|aneis|aliança|brinco|colar|pulseira|pingente|ouro|prata\s+925|folheados?)\b/iu,
+  },
+  {
+    name: "oficina/mecânica",
+    displayName: "oficina mecânica",
+    profile: /\b(?:oficina|mec[aâ]nica|auto\s+center|borracharia)\b/iu,
+    subject:
+      /\b(?:troca\s+de\s+[óo]leo|alinhamento|balanceamento|revis[aã]o|freios?|suspens[aã]o|motor)\b/iu,
+  },
+  {
+    name: "pet",
+    displayName: "pet shop e cuidados animais",
+    profile: /\b(?:pet\s*shop|petshop|cl[ií]nica\s+veterin[aá]ria|banho\s+e\s+tosa)\b/iu,
+    subject:
+      /\b(?:banho|tosa|ra[cç][aã]o|petisco\s+para\s+cachorro|adestramento|creche\s+canina)\b/iu,
   },
 ] as const;
 
@@ -130,10 +164,7 @@ export function classifyBannerCompatibility(
   };
 }
 
-export function compatibilityConfirmationQuestion(
-  company: BannerCompanyContext,
-  subject?: string,
-) {
+export function compatibilityConfirmationQuestion(company: BannerCompanyContext, subject?: string) {
   const name = company.name?.trim() || "empresa cadastrada";
   const segment = company.segment?.trim() || "cadastro atual";
   const profile = [company.name, company.segment, company.description, company.products]
@@ -142,7 +173,7 @@ export function compatibilityConfirmationQuestion(
   const companyDomain = CLEAR_BUSINESS_DOMAINS.find((domain) => domain.profile.test(profile));
   const requestDomain = CLEAR_BUSINESS_DOMAINS.find((domain) => domain.subject.test(subject ?? ""));
   if (companyDomain && requestDomain && companyDomain.name !== requestDomain.name) {
-    return `Esse banner é mesmo para ${name}? Pelo cadastro, a empresa atua em ${companyDomain.displayName}, enquanto ${subject} parece ser uma oferta de ${requestDomain.displayName}. Se for uma ação especial dessa empresa, me confirma para eu continuar.`;
+    return `Desculpe, mas essa informação não consta em seu cadastro. 😕 A empresa está registrada como ${companyDomain.displayName}, e ${subject} parece ser uma oferta de ${requestDomain.displayName}. Se for uma ação especial dessa empresa mesmo, me confirma que eu continuo! 👍`;
   }
   const readableSegment = /^(?:outro|outros|n[aã]o informado|n[aã]o cadastrad[oa])$/iu.test(segment)
     ? "o ramo identificado no nome e na descrição do cadastro"

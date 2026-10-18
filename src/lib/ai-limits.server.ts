@@ -124,3 +124,76 @@ export async function checkAiLimitAndIncrement(supabase: SupabaseClient<Database
 
   return { allowed: true, error: null, increment };
 }
+
+/**
+ * Cota leve para turnos de pergunta do Manos Tech IA (gerador de banners).
+ * Cada pergunta custa Tavily + DeepSeek; sem cota, daria para conversar o dia
+ * todo de graça. Limite: 30 perguntas/dia (matriz = empresa, filial = unidade).
+ * Segue o mesmo padrão de checkAiLimitAndIncrement: pré-checagem sem débito,
+ * débito via increment() somente quando a pergunta for realmente enviada.
+ */
+export async function checkAiQuestionLimit(supabase: SupabaseClient<Database>, userId: string) {
+  await supabase.rpc("reset_daily_ai_usage");
+
+  const { data: roleData, error: roleError } = await supabase
+    .from("user_roles")
+    .select("role, company_id, branch_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (roleError)
+    throw new Error(`Não foi possível validar as permissões de IA: ${roleError.message}`);
+  if (!roleData) return { allowed: false, error: "Usuário sem permissões." };
+
+  const { role, company_id, branch_id } = roleData;
+
+  if (role === "adm") {
+    return { allowed: true, error: null };
+  }
+
+  if (!company_id) return { allowed: false, error: "Identificação da empresa ausente." };
+
+  const increment = async () => {
+    const args =
+      role === "filial" && branch_id
+        ? { _user_id: userId, _company_id: company_id, _branch_id: branch_id }
+        : { _user_id: userId, _company_id: company_id };
+    const { data: result, error } = await supabase.rpc("increment_ai_question_usage_safe", args);
+    if (error) throw new Error(`Não foi possível registrar a pergunta: ${error.message}`);
+    return IncrementAiUsageResultSchema.parse(result);
+  };
+
+  // Pré-checagem sem débito: lê o contador atual.
+  if (role === "matriz") {
+    const { data } = await supabase
+      .from("companies")
+      .select("ai_questions_today")
+      .eq("id", company_id)
+      .maybeSingle();
+    if ((data?.ai_questions_today ?? 0) >= 30) {
+      return {
+        allowed: false,
+        error: "Limite diário de perguntas à IA atingido. Tente novamente amanhã.",
+        increment,
+      };
+    }
+  } else if (role === "filial") {
+    if (!branch_id) return { allowed: false, error: "Contexto de unidade ausente." };
+    const { data } = await supabase
+      .from("branches")
+      .select("ai_questions_today")
+      .eq("id", branch_id)
+      .maybeSingle();
+    if ((data?.ai_questions_today ?? 0) >= 30) {
+      return {
+        allowed: false,
+        error: "Limite diário de perguntas à IA atingido para sua unidade. Tente novamente amanhã.",
+        increment,
+      };
+    }
+  } else {
+    return { allowed: false, error: "Papel não suportado." };
+  }
+
+  return { allowed: true, error: null, increment };
+}

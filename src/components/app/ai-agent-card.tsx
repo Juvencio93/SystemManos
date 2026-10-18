@@ -617,7 +617,7 @@ function ClientAiAgentCard({
                     <span className="text-muted-foreground">{aiUsageQuery.data.used} usados · {aiUsageQuery.data.available} disponíveis · limite {aiUsageQuery.data.limit}</span>
                   </div>
                   <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.min(100, (aiUsageQuery.data.used / Math.max(1, aiUsageQuery.data.limit)) * 100)}%` }} /></div>
-                  <p className="mt-2 text-[10px] text-muted-foreground">O histórico é removido automaticamente após {aiUsageQuery.data.retentionDays} dias sem novas mensagens relevantes.</p>
+                  <p className="mt-2 text-[10px] text-muted-foreground">As conversas não são salvas — ao fechar esta janela, o histórico se perde.</p>
                 </div>
               )}
 
