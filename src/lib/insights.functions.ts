@@ -350,101 +350,23 @@ async function ensureOperationalAiConversation(
   return created as OperationalAiConversation;
 }
 
-async function requireOperationalAdm(supabase: any, userId: string) {
-  const { role } = await resolveContext(supabase, userId);
-  if (role !== "adm") throw new Error("Disponível apenas para o perfil ADM.");
-}
-
-export const getOperationalAiConversation = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .validator((input: { conversationId?: string } | undefined) =>
-    z.object({ conversationId: z.string().uuid().optional() }).parse(input || {}),
-  )
-  .handler(async ({ context, data }) => {
-    await requireOperationalAdm(context.supabase, context.userId);
-    const conversation = await ensureOperationalAiConversation(
-      context.supabase,
-      context.userId,
-      data.conversationId,
-    );
-    const { data: messagesData, error } = await context.supabase
-      .from("operational_ai_messages")
-      .select("id, role, content, created_at")
-      .eq("conversation_id", conversation.id)
-      .eq("user_id", context.userId)
-      .order("created_at", { ascending: true });
-    if (error) throw new Error(error.message);
-    return { conversation, messages: (messagesData || []) as OperationalAiMessage[] };
-  });
-
-export const listOperationalAiConversations = createServerFn({ method: "GET" })
+export const getAiUsageSummary = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await requireOperationalAdm(context.supabase, context.userId);
-
-    const { data: conversations, error: conversationsError } = await context.supabase
-      .from("operational_ai_conversations")
-      .select("id, title, created_at, updated_at, is_pinned, hidden_at")
-      .eq("user_id", context.userId)
-      .is("hidden_at", null)
-      .order("updated_at", { ascending: false });
-    if (conversationsError) throw new Error(conversationsError.message);
-
-    const ids = (conversations || []).map((conversation: OperationalAiConversation) => conversation.id);
-    if (ids.length === 0) return [];
-
-    const { data: messages, error: messagesError } = await context.supabase
-      .from("operational_ai_messages")
-      .select("conversation_id, content, created_at")
-      .eq("user_id", context.userId)
-      .eq("role", "user")
-      .in("conversation_id", ids)
-      .order("created_at", { ascending: true });
-    if (messagesError) throw new Error(messagesError.message);
-
-    const firstQuestionByConversation = new Map<string, string>();
-    for (const message of messages || []) {
-      if (!firstQuestionByConversation.has(message.conversation_id)) {
-        firstQuestionByConversation.set(message.conversation_id, message.content);
-      }
+    await context.supabase.rpc("reset_daily_ai_usage");
+    const { role, companyId, branchId } = await resolveContext(context.supabase, context.userId);
+    if (!companyId || (role !== "matriz" && role !== "filial")) return null;
+    const { data: distribution, error } = await context.supabase.rpc("get_ai_limits_distribution", { _company_id: companyId });
+    if (error) throw new Error(error.message);
+    const limits = distribution as { matriz_limit: number; filial_limit: number };
+    if (role === "matriz") {
+      const { data } = await context.supabase.from("companies").select("ai_usage_today").eq("id", companyId).single();
+      const used = data?.ai_usage_today || 0;
+      return { limit: limits.matriz_limit, used, available: Math.max(0, limits.matriz_limit - used), retentionDays: 45 };
     }
-
-    return (conversations || []).map((conversation: OperationalAiConversation) => ({
-      ...conversation,
-      title: firstQuestionByConversation.get(conversation.id) || "Nova conversa",
-    }));
-  });
-
-export const setOperationalAiConversationPreference = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .validator((input: { conversationId: string; action: "pin" | "unpin" | "delete" }) =>
-    z.object({ conversationId: z.string().uuid(), action: z.enum(["pin", "unpin", "delete"]) }).parse(input),
-  )
-  .handler(async ({ context, data }) => {
-    await requireOperationalAdm(context.supabase, context.userId);
-    const update = data.action === "delete"
-      ? { hidden_at: new Date().toISOString(), is_pinned: false }
-      : { is_pinned: data.action === "pin" };
-    const { error } = await context.supabase
-      .from("operational_ai_conversations")
-      .update(update)
-      .eq("id", data.conversationId)
-      .eq("user_id", context.userId);
-    if (error) throw new Error(error.message);
-    return { success: true };
-  });
-
-export const createOperationalAiConversation = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    await requireOperationalAdm(context.supabase, context.userId);
-    const { data, error } = await context.supabase
-      .from("operational_ai_conversations")
-      .insert({ user_id: context.userId, title: "Nova conversa" })
-      .select("id, title, created_at, updated_at")
-      .single();
-    if (error) throw new Error(error.message);
-    return { conversation: data as OperationalAiConversation, messages: [] as OperationalAiMessage[] };
+    const { data } = await context.supabase.from("branches").select("ai_usage_today").eq("id", branchId!).single();
+    const used = data?.ai_usage_today || 0;
+    return { limit: limits.filial_limit, used, available: Math.max(0, limits.filial_limit - used), retentionDays: 45 };
   });
 
 export type AskAgentResponse =
@@ -464,25 +386,6 @@ export type AskAgentResponse =
       stage: string;
       code?: string;
     };
-
-export const getAiUsageSummary = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    await context.supabase.rpc("reset_daily_ai_usage");
-    const { role, companyId, branchId } = await resolveContext(context.supabase, context.userId);
-    if (!companyId || (role !== "matriz" && role !== "filial")) return null;
-    const { data: distribution, error } = await context.supabase.rpc("get_ai_limits_distribution", { _company_id: companyId });
-    if (error) throw new Error(error.message);
-    const limits = distribution as { matriz_limit: number; filial_limit: number };
-    if (role === "matriz") {
-      const { data } = await context.supabase.from("companies").select("ai_usage_today").eq("id", companyId).single();
-      const used = data?.ai_usage_today || 0;
-      return { limit: limits.matriz_limit, used, available: Math.max(0, limits.matriz_limit - used), retentionDays: 45 };
-    }
-    const { data } = await context.supabase.from("branches").select("ai_usage_today").eq("id", branchId!).single();
-    const used = data?.ai_usage_today || 0;
-    return { limit: limits.filial_limit, used, available: Math.max(0, limits.filial_limit - used), retentionDays: 45 };
-  });
 
 export const askAgent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -529,227 +432,17 @@ export const askAgent = createServerFn({ method: "POST" })
       let response;
 
       if (role === "adm") {
-        const { computePlatformSnapshot, platformPrompt, scanSystemData, ADM_CHAT_SYSTEM } =
-          await import("@/lib/platform.server");
-        const snapshot = await computePlatformSnapshot(context.supabase);
-        const systemData = await scanSystemData(context.supabase);
-        const conversation = await ensureOperationalAiConversation(
-          context.supabase,
-          context.userId,
-          data.conversationId,
-        );
-
-        const { data: storedMessages, error: storedMessagesError } = await context.supabase
-          .from("operational_ai_messages")
-          .select("role, content, created_at")
-          .eq("conversation_id", conversation.id)
-          .eq("user_id", context.userId)
-          .order("created_at", { ascending: false })
-          .limit(16);
-        if (storedMessagesError) throw new Error(storedMessagesError.message);
-
-        const { error: saveUserMessageError } = await context.supabase
-          .from("operational_ai_messages")
-          .insert({
-            conversation_id: conversation.id,
-            user_id: context.userId,
-            role: "user",
-            content: data.question.trim(),
-          });
-        if (saveUserMessageError) throw new Error(saveUserMessageError.message);
-        const { data: firstQuestion } = await context.supabase
-          .from("operational_ai_messages")
-          .select("id")
-          .eq("conversation_id", conversation.id)
-          .eq("user_id", context.userId)
-          .eq("role", "user")
-          .limit(2);
-
-        const conversationUpdate: { updated_at: string; title?: string } = {
-          updated_at: new Date().toISOString(),
+        // Bate-papo do Gerente Operacional IA desabilitado (decisão 2026-10-18).
+        // Ações operacionais agora são 100% via Hermes no Telegram.
+        // O ramo matriz/filial (chat da empresa) abaixo continua funcionando.
+        return {
+          ok: false,
+          text: null,
+          requestId,
+          error:
+            "O bate-papo do Gerente Operacional IA foi desabilitado. Para ações operacionais, use o Hermes no Telegram.",
+          stage: "disabled",
         };
-        if ((firstQuestion || []).length === 1) {
-          conversationUpdate.title = data.question.trim().replace(/\s+/g, " ").slice(0, 80);
-        }
-        await context.supabase
-          .from("operational_ai_conversations")
-          .update(conversationUpdate)
-          .eq("id", conversation.id)
-          .eq("user_id", context.userId);
-
-        // Memória Operacional e Detecção de Intenção de Memória
-        const memoryTriggers = {
-          forget: ["esqueça", "limpar memória", "apagar informação", "remova essa estratégia"],
-          recall: ["o que você lembra", "quais são minhas preferências", "minhas metas"],
-          correct: ["corrija essa informação", "não é mais isso", "mude a preferência"],
-          save: [
-            "quero priorizar",
-            "guarde isso",
-            "salve a estratégia",
-            "preferência:",
-            "meta:",
-            "decisão:",
-          ],
-        };
-
-        const questionLower = data.question.toLowerCase().trim();
-        const affirmativeShort = [
-          "sim",
-          "pode",
-          "quero",
-          "monte",
-          "faça",
-          "ok",
-          "beleza",
-          "concordo",
-        ];
-        const isAffirmative = affirmativeShort.some(
-          (a) => questionLower === a || questionLower === a + ".",
-        );
-
-        // Read memories with the authenticated client that already belongs to this
-        // server request. Calling another createServerFn from here loses the
-        // request context on some serverless runtimes.
-        const searchTerm = isAffirmative
-          ? "meta"
-          : data.question.trim().split(/\s+/).slice(0, 3).join(" ");
-
-        let memoriesQuery = context.supabase
-          .from("ai_memories")
-          .select("category, content")
-          .eq("user_id", context.userId)
-          .order("created_at", { ascending: false });
-
-        if (searchTerm) {
-          memoriesQuery = memoriesQuery.ilike("content", `%${searchTerm}%`);
-        }
-
-        const { data: memoriesData, error: memoriesError } = await memoriesQuery;
-        if (memoriesError) throw new Error(memoriesError.message);
-        const memories = memoriesData || [];
-
-        const memoryContext =
-          memories.length > 0
-            ? `\n\nMEMÓRIAS OPERACIONAIS DO ADM:\n${memories.map((m) => `- [${m.category}] ${m.content}`).join("\n")}`
-            : "";
-
-        // Lógica de manipulação de memória baseada na pergunta
-        let memoryFeedback = "";
-        if (memoryTriggers.forget.some((t) => questionLower.includes(t))) {
-          // Simplificando: Limpa tudo ou tenta encontrar algo específico
-          if (
-            questionLower.includes("estratégia") ||
-            questionLower.includes("tudo") ||
-            questionLower.includes("informação")
-          ) {
-            const { error: clearMemoryError } = await context.supabase
-              .from("ai_memories")
-              .delete()
-              .eq("user_id", context.userId);
-            if (clearMemoryError) throw new Error(clearMemoryError.message);
-            memoryFeedback = "Memória limpa conforme solicitado. ";
-          }
-        } else if (memoryTriggers.save.some((t) => questionLower.includes(t))) {
-          // Tenta extrair e salvar se parecer uma decisão/preferência
-          const contentToSave = data.question
-            .replace(/quero priorizar|guarde isso|salve a estratégia/gi, "")
-            .trim();
-          if (contentToSave.length > 5) {
-            const { error: saveMemoryError } = await context.supabase.from("ai_memories").insert({
-              user_id: context.userId,
-              content: contentToSave,
-              category: "preference",
-              related_id: null,
-            });
-            if (saveMemoryError) throw new Error(saveMemoryError.message);
-            memoryFeedback = "Entendido, registrei essa preferência na minha memória operacional. ";
-          }
-        }
-
-        // Detecção de intenção de pesquisa externa para ADM
-        const searchKeywords = [
-          "pesquisar",
-          "analisar site",
-          "mercado",
-          "concorrente",
-          "externo",
-          "internet",
-          "www.",
-          "http",
-          "ideia",
-          "melhorar",
-          "melhoria",
-          "tendência",
-          "tendencias",
-          "como fazer",
-          "o que é",
-          "o que e",
-          "recomend",
-          "estratégia",
-          "estrategia",
-        ];
-        const systemKeywords = [
-          "cliente", "clientes", "empresa", "empresas", "filial", "filiais", "lead", "leads",
-          "campanha", "campanhas", "portal", "portais", "receita", "financeiro", "faturamento",
-          "inadimpl", "operação", "operacao", "sistema", "manos tech", "usuário", "usuario",
-        ];
-        const conversationalOnly = /^(oi|olá|ola|bom dia|boa tarde|boa noite|obrigad[oa]|valeu|tudo bem)[!.? ]*$/i.test(questionLower);
-        const needsSearch = !conversationalOnly && (
-          searchKeywords.some((kw) => questionLower.includes(kw)) ||
-          !systemKeywords.some((kw) => questionLower.includes(kw))
-        );
-
-        let externalContext = "";
-        if (needsSearch) {
-          try {
-            const { searchWeb } = await import("./tavily.server");
-            const searchResult = await searchWeb(data.question);
-            if (searchResult.ok && searchResult.context) {
-              externalContext = `\n\nCONTEXTO DE PESQUISA EXTERNA (TAVILY):\n${searchResult.context}`;
-            }
-          } catch (e) {
-            console.error("[askAgent ADM] Tavily search failed:", e);
-          }
-        }
-
-        const history = (storedMessages || [])
-          .reverse()
-          .map((m: any) => ({
-            role: m.role as "user" | "assistant",
-            content: m.content,
-          }))
-          .slice(-10); // Contexto ampliado para manter decisões e pendências recentes
-
-        const catalogContext = systemData.length
-          ? `\n\nVARREDURA DINÂMICA DO SISTEMA (resumo agregado atualizado agora, sem registros individuais):\n${systemData.map((t: any) => `- ${t.table_name}: total ${t.total}; status ${JSON.stringify(t.statusCounts)}; segmentos ${JSON.stringify(t.segmentCounts)}`).join("\n")}`
-          : "";
-        response = await callGateway(
-          ADM_CHAT_SYSTEM,
-          `Dados consolidados da Manos Tech:\n${platformPrompt(snapshot)}${catalogContext}${externalContext}${memoryContext}\n\nPergunta do ADM: ${data.question}`,
-          history,
-        );
-
-        if (response.ok && response.text && memoryFeedback) {
-          response.text = memoryFeedback + response.text;
-        }
-
-        if (response.ok && response.text) {
-          const { error: saveAssistantMessageError } = await context.supabase
-            .from("operational_ai_messages")
-            .insert({
-              conversation_id: conversation.id,
-              user_id: context.userId,
-              role: "assistant",
-              content: response.text,
-            });
-          if (saveAssistantMessageError) throw new Error(saveAssistantMessageError.message);
-          await context.supabase
-            .from("operational_ai_conversations")
-            .update({ updated_at: new Date().toISOString() })
-            .eq("id", conversation.id)
-            .eq("user_id", context.userId);
-        }
-
       } else if (role === "matriz" || role === "filial") {
         const {
           computeCompanySnapshot,
