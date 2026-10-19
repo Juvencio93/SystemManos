@@ -196,7 +196,20 @@ export function HotspotConfigDialog({
       : action === "cancel"
         ? cancelHomologation({ data: { kind, targetId } })
         : changeBlocked({ data: { kind, targetId, blocked: action === "block" } }),
-    onSuccess: async () => { toast.success("Status do equipamento atualizado."); await queryClient.invalidateQueries({ queryKey }); },
+    onSuccess: async (result, action) => {
+      toast.success(
+        action === "cancel"
+          ? result?.unlinked
+            ? "Homologação cancelada. A RB foi desvinculada deste cliente e ficará disponível no estoque após confirmar a limpeza."
+            : "Homologação cancelada."
+          : "Status do equipamento atualizado.",
+      );
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey }),
+        queryClient.invalidateQueries({ queryKey: ["hotspot-approved-clients"] }),
+        queryClient.invalidateQueries({ queryKey: ["rb-inventory"] }),
+      ]);
+    },
     onError: (error) => toast.error(error instanceof Error ? error.message : "Não foi possível atualizar o equipamento."),
   });
 
