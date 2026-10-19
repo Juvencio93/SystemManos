@@ -131,12 +131,12 @@ const features = [
   {
     icon: Building2,
     title: "Visão da operação",
-    body: "Gerencie matriz, filiais e equipamentos MikroTik em uma plataforma centralizada.",
+    body: "Gerencie matriz e filiais em uma plataforma centralizada.",
   },
   {
     icon: Bot,
     title: "Gerente Operacional IA",
-    body: "Faça perguntas sobre a operação e consulte informações disponíveis no sistema.",
+    body: "Consulte a operação e as informações disponíveis no sistema.",
   },
 ];
 
