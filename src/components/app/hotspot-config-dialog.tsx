@@ -199,7 +199,7 @@ export function HotspotConfigDialog({
     onSuccess: async (result, action) => {
       toast.success(
         action === "cancel"
-          ? result?.unlinked
+          ? "unlinked" in result && result.unlinked
             ? "Homologação cancelada. A RB foi desvinculada deste cliente e ficará disponível no estoque após confirmar a limpeza."
             : "Homologação cancelada."
           : "Status do equipamento atualizado.",
