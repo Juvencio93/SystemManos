@@ -340,11 +340,25 @@ export const cancelHotspotHomologation = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const configId = await getScopedConfigId(context.userId, data);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: physical } = await (supabaseAdmin as any).from("hotspot_devices").select("id,assignment_version").eq("hotspot_config_id",configId).maybeSingle();
-    if (physical?.assignment_version > 0) {
-      const { error } = await (supabaseAdmin as any).rpc("manage_hotspot_inventory", { p_actor:context.userId,p_action:"transfer",p_device:physical.id,p_version:physical.assignment_version,p_config:configId });
+    const { data: physical, error: physicalLookupError } = await (supabaseAdmin as any)
+      .from("hotspot_devices")
+      .select("id,assignment_version")
+      .eq("hotspot_config_id", configId)
+      .maybeSingle();
+    if (physicalLookupError) throw new Error("Não foi possível localizar a RB para cancelar a homologação.");
+
+    if (physical) {
+      // A canceled assignment must be detached from this customer, including legacy
+      // devices that predate inventory assignment versions.
+      const { error } = await (supabaseAdmin as any).rpc("manage_hotspot_inventory", {
+        p_actor: context.userId,
+        p_action: "transfer",
+        p_device: physical.id,
+        p_version: physical.assignment_version,
+        p_config: null,
+      });
       if (error) throw new Error(error.message);
-      return { success:true };
+      return { success: true, unlinked: true };
     }
     const now = new Date().toISOString();
     const { error } = await supabaseAdmin.from("hotspot_configs").update({ status: "awaiting_homologation", is_active: false, updated_at: now }).eq("id", configId);
