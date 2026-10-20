@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getRequest } from "@tanstack/react-start/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -7,12 +6,20 @@ import type { Database } from "@/integrations/supabase/types";
 
 // Redefinição de senha COM APROVAÇÃO (2026-10-20): o "Esqueci minha
 // senha" grava uma solicitação pendente em password_reset_requests; o
-// ADM aprova aqui no painel ou pelo Hermes (Telegram) e só então o link
-// é gerado via generateLink (a validade de 1h começa na aprovação).
-// O link NUNCA é persistido — ele volta uma única vez na resposta da
-// aprovação pra ser enviado ao cliente (WhatsApp/cópia).
+// ADM aprova aqui no painel ou pelo Hermes (Telegram) e o sistema gera
+// uma SENHA TEMPORÁRIA de 1h (gravada no usuário via API admin). O
+// cliente entra com ela e o painel obriga a troca definitiva
+// (profiles.must_change_password). A temporária NUNCA é persistida —
+// volta uma única vez na resposta da aprovação.
 
 type AdminClient = (typeof import("@/integrations/supabase/client.server"))["supabaseAdmin"];
+
+// Senha temporária legível (sem caracteres ambíguos: 0/O, 1/l/I).
+const ALFABETO_TEMP = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+function gerarSenhaTemporaria(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(10));
+  return Array.from(bytes, (b) => ALFABETO_TEMP[b % ALFABETO_TEMP.length]).join("");
+}
 
 async function admin(): Promise<AdminClient> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -131,7 +138,7 @@ export const approvePasswordResetRequest = createServerFn({ method: "POST" })
 
     const { data: row } = await supabaseAdmin
       .from("password_reset_requests")
-      .select("id, email, user_label, phone, status, expires_at")
+      .select("id, email, user_id, user_label, phone, status, expires_at")
       .eq("id", data.id)
       .maybeSingle();
     if (!row) throw new Error("Solicitação não encontrada.");
@@ -144,15 +151,35 @@ export const approvePasswordResetRequest = createServerFn({ method: "POST" })
       throw new Error("Solicitação expirada (mais de 24h). Peça pra pessoa solicitar de novo.");
     }
 
-    const request = getRequest();
-    const origin = request ? new URL(request.url).origin : "";
-    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: "recovery",
-      email: row.email,
-      options: { redirectTo: `${origin}/auth` },
+    // Aprovar = gerar uma SENHA TEMPORÁRIA (vale 1h), NÃO um link.
+    // O link dependia das URLs do Supabase (allowlist/Site URL em
+    // localhost) e quebrava. A temporária é gravada direto no cadastro
+    // e o painel obriga a troca no acesso (profiles.must_change_password
+    // + temp_password_until, lidos pelo app-shell). A temporária NÃO é
+    // salva em lugar nenhum — volta uma vez nesta resposta.
+    let userId = row.user_id;
+    if (!userId) {
+      const { data: profile } = await supabaseAdmin
+        .from("profiles")
+        .select("id")
+        .eq("email", row.email)
+        .maybeSingle();
+      userId = profile?.id ?? null;
+    }
+    if (!userId) throw new Error("Conta não encontrada pra este e-mail.");
+
+    const temporaria = gerarSenhaTemporaria();
+    const { error: pwError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+      password: temporaria,
     });
-    const link = linkData?.properties?.action_link;
-    if (linkError || !link) throw new Error("Não foi possível gerar o link de redefinição.");
+    if (pwError) throw new Error("Não foi possível gerar a senha temporária.");
+
+    const ateIso = new Date(Date.now() + 3600_000).toISOString();
+    const { error: flagError } = await supabaseAdmin
+      .from("profiles")
+      .update({ must_change_password: true, temp_password_until: ateIso })
+      .eq("id", userId);
+    if (flagError) throw new Error("Não foi possível marcar a troca obrigatória.");
 
     const nowIso = new Date().toISOString();
     await supabaseAdmin
@@ -168,7 +195,7 @@ export const approvePasswordResetRequest = createServerFn({ method: "POST" })
       .eq("id", row.id);
 
     return {
-      link,
+      tempPassword: temporaria,
       email: row.email,
       userLabel: row.user_label,
       phone: row.phone,

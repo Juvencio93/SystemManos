@@ -283,5 +283,12 @@ export const updatePassword = createServerFn({ method: "POST" })
     });
     if (error) throw new Error(error.message);
 
+    // Se era uma senha temporária (redefinição aprovada), a troca
+    // definitiva desliga a troca obrigatória e libera o painel.
+    await supabaseAdmin
+      .from("profiles")
+      .update({ must_change_password: false, temp_password_until: null })
+      .eq("id", userId);
+
     return { success: true };
   });

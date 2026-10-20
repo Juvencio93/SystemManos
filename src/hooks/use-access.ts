@@ -21,6 +21,8 @@ export type AccessInfo = {
   platformLogo?: string | null;
   platformLogoRelatorios?: string | null;
   activationLimit?: number | null;
+  mustChangePassword?: boolean;
+  tempPasswordUntil?: string | null;
 };
 
 const ROLE_PRIORITY: AppRole[] = ["adm", "revenda", "matriz", "filial"];
@@ -89,7 +91,7 @@ export function useAccess() {
           .eq("user_id", user.id),
         supabase
           .from("profiles")
-          .select("full_name, display_name, email")
+          .select("full_name, display_name, email, must_change_password, temp_password_until")
           .eq("id", user.id)
           .maybeSingle(),
         supabase
@@ -164,6 +166,10 @@ export function useAccess() {
         email: profile?.email ?? user.email ?? null,
         fullName: profile?.full_name ?? null,
         displayName: profile?.display_name ?? null,
+        // Senha temporária ativa (redefinição aprovada): o shell
+        // bloqueia o painel até a troca definitiva (ou vencer 1h).
+        mustChangePassword: profile?.must_change_password ?? false,
+        tempPasswordUntil: profile?.temp_password_until ?? null,
         role: (primary?.role as AppRole | undefined) ?? null,
         companyId: primary?.company_id ?? null,
         branchId: primary?.branch_id ?? null,
