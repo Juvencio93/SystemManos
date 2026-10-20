@@ -33,6 +33,7 @@ import { countries, defaultCountry } from "@/lib/countries";
 import {
   getPortal,
   getPortalConnectionCount,
+  getPortalSessionState,
   submitPortalLead,
 } from "@/lib/portal.functions";
 import { defaultPortalAppearance, type PortalAppearance, type PortalVisualStyle } from "@/lib/campaign-appearance";
@@ -164,6 +165,7 @@ function PortalPage() {
   const portal = sourceSlug ? refreshedPortal : initialPortal;
   const submit = useServerFn(submitPortalLead);
   const fetchConnectionCount = useServerFn(getPortalConnectionCount);
+  const fetchSessionState = useServerFn(getPortalSessionState);
   const [done, setDone] = useState<{
     isReturning: boolean;
     connectionsCount: number;
@@ -208,6 +210,40 @@ function PortalPage() {
       }
     };
     void buscar(0);
+    return () => {
+      vivo = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // Auto-recuperacao: se a pagina abriu LIMPA (sem ?conectado=1) mas este
+  // aparelho ja autenticou ha poucos minutos, o navegador cativo quase
+  // certamente recarregou a URL original no meio do fluxo — abrir direto
+  // na tela final em vez de mostrar o formulario de novo.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("conectado") === "1") return;
+    const handoffCookie = document.cookie
+      .split(";")
+      .map((item) => item.trim())
+      .find((item) => item.startsWith("manos_hotspot_handoff="))
+      ?.slice("manos_hotspot_handoff=".length);
+    if (!handoffCookie) return;
+    let vivo = true;
+    (async () => {
+      try {
+        const r = await fetchSessionState({
+          data: { slug, handoff: decodeURIComponent(handoffCookie) },
+        });
+        if (vivo && r.autenticado) {
+          setDone({
+            isReturning: r.count > 1,
+            connectionsCount: r.count,
+          });
+        }
+      } catch {
+        /* segue no formulario */
+      }
+    })();
     return () => {
       vivo = false;
     };
