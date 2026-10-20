@@ -182,12 +182,21 @@ function PortalPage() {
     setDone({ isReturning: true, connectionsCount: 0 });
     // A conexao real foi registrada na autenticacao (RADIUS): buscar a
     // contagem verdadeira deste dispositivo pelo MAC, em vez de mostrar 0.
-    const mac = params.get("mac");
-    if (!mac) return;
+    // O MAC vem na URL (retorno social) ou do cookie de handoff (retorno
+    // via alogin.html, que nao carrega parametros).
+    const mac = params.get("mac") ?? undefined;
+    const handoffCookie = document.cookie
+      .split(";")
+      .map((item) => item.trim())
+      .find((item) => item.startsWith("manos_hotspot_handoff="))
+      ?.slice("manos_hotspot_handoff=".length);
+    const handoff =
+      !mac && handoffCookie ? decodeURIComponent(handoffCookie) : undefined;
+    if (!mac && !handoff) return;
     let vivo = true;
     const buscar = async (tentativa: number) => {
       try {
-        const r = await fetchConnectionCount({ data: { slug, mac } });
+        const r = await fetchConnectionCount({ data: { slug, mac, handoff } });
         if (!vivo) return;
         if (r.count > 0) {
           setDone({ isReturning: r.count > 1, connectionsCount: r.count });
