@@ -109,7 +109,7 @@ export const getHermesRbSeries = createServerFn({ method: "GET" })
       .select("role")
       .eq("user_id", userId)
       .maybeSingle();
-    if (!roleData || !["adm", "matriz"].includes(roleData.role)) {
+    if (!roleData || roleData.role !== "adm") {
       return { ok: false, erro: "sem-permissao" };
     }
 
@@ -151,7 +151,7 @@ export const getHermesResumo = createServerFn({ method: "GET" })
       .select("role")
       .eq("user_id", userId)
       .maybeSingle();
-    if (!roleData || !["adm", "matriz"].includes(roleData.role)) {
+    if (!roleData || roleData.role !== "adm") {
       return { ok: false, erro: "sem-permissao" };
     }
 
