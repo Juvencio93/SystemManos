@@ -31,17 +31,24 @@ const ownerScope = (query: any, ownerType: string, ownerId: string | null) => ow
 
 async function notifyPagBankFailure(supabaseAdmin: any, company: any, companyId: string, detail: string) {
   const resellerId = company?.reseller_id ?? null;
-  let recipients = supabaseAdmin.from("user_roles").select("user_id");
-  recipients = resellerId
-    ? recipients.eq("role", "revenda").eq("reseller_id", resellerId)
-    : recipients.eq("role", "adm");
-  const { data: responsibleUsers } = await recipients;
-  if (!responsibleUsers?.length) return;
+  const [responsibleUsersResult, companyManagersResult] = await Promise.all([
+    (resellerId
+      ? supabaseAdmin.from("user_roles").select("user_id").eq("role", "revenda").eq("reseller_id", resellerId)
+      : supabaseAdmin.from("user_roles").select("user_id").eq("role", "adm")),
+    supabaseAdmin.from("user_roles").select("user_id").eq("role", "matriz").eq("company_id", companyId),
+  ]);
+  const recipients = [
+    ...new Set([
+      ...(responsibleUsersResult.data ?? []).map(({ user_id }: { user_id: string }) => user_id),
+      ...(companyManagersResult.data ?? []).map(({ user_id }: { user_id: string }) => user_id),
+    ]),
+  ];
+  if (!recipients.length) return;
   const companyName = company?.trade_name || company?.name || "Matriz";
   const now = new Date().toISOString();
   await supabaseAdmin.from("system_notifications").upsert(
-    responsibleUsers.map(({ user_id }: { user_id: string }) => ({
-      recipient_user_id: user_id,
+    recipients.map((userId) => ({
+      recipient_user_id: userId,
       event_key: `pagbank-payment:${companyId}`,
       category: "payment",
       severity: "critical",
@@ -85,3 +92,4 @@ export const getOrCreatePagBankPix = createServerFn({ method: "POST" }).middlewa
   try { const dataUrl = await QRCode.toDataURL(copyPaste, { margin: 1, width: 360 }); qrCode = dataUrl.replace(/^data:image\/png;base64,/, ""); } catch { /* o copia e cola continua válido */ }
   return { success: true, available: true, provider: "pagbank" as const, qrCode, copyPaste };
 });
+
