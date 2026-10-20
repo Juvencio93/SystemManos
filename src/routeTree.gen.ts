@@ -27,6 +27,7 @@ import { Route as AuthenticatedFinanceiroRouteRouteImport } from './routes/_auth
 import { Route as AuthenticatedGerenteOperacionalRouteImport } from './routes/_authenticated/gerente-operacional'
 import { Route as AuthenticatedHotspotRouteImport } from './routes/_authenticated/hotspot'
 import { Route as AuthenticatedMensagensRouteImport } from './routes/_authenticated/mensagens'
+import { Route as AuthenticatedMonitoramentoRouteImport } from './routes/_authenticated/monitoramento'
 import { Route as AuthenticatedPortaisRouteImport } from './routes/_authenticated/portais'
 import { Route as AuthenticatedPreVendaRouteImport } from './routes/_authenticated/pre-venda'
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
@@ -159,6 +160,12 @@ const AuthenticatedMensagensRoute = AuthenticatedMensagensRouteImport.update({
   path: '/mensagens',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedMonitoramentoRoute =
+  AuthenticatedMonitoramentoRouteImport.update({
+    id: '/monitoramento',
+    path: '/monitoramento',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedPortaisRoute = AuthenticatedPortaisRouteImport.update({
   id: '/portais',
   path: '/portais',
@@ -397,6 +404,7 @@ export interface FileRoutesByFullPath {
   '/gerente-operacional': typeof AuthenticatedGerenteOperacionalRoute
   '/hotspot': typeof AuthenticatedHotspotRoute
   '/mensagens': typeof AuthenticatedMensagensRoute
+  '/monitoramento': typeof AuthenticatedMonitoramentoRoute
   '/portais': typeof AuthenticatedPortaisRoute
   '/pre-venda': typeof AuthenticatedPreVendaRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
@@ -454,6 +462,7 @@ export interface FileRoutesByTo {
   '/gerente-operacional': typeof AuthenticatedGerenteOperacionalRoute
   '/hotspot': typeof AuthenticatedHotspotRoute
   '/mensagens': typeof AuthenticatedMensagensRoute
+  '/monitoramento': typeof AuthenticatedMonitoramentoRoute
   '/portais': typeof AuthenticatedPortaisRoute
   '/pre-venda': typeof AuthenticatedPreVendaRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
@@ -514,6 +523,7 @@ export interface FileRoutesById {
   '/_authenticated/gerente-operacional': typeof AuthenticatedGerenteOperacionalRoute
   '/_authenticated/hotspot': typeof AuthenticatedHotspotRoute
   '/_authenticated/mensagens': typeof AuthenticatedMensagensRoute
+  '/_authenticated/monitoramento': typeof AuthenticatedMonitoramentoRoute
   '/_authenticated/portais': typeof AuthenticatedPortaisRoute
   '/_authenticated/pre-venda': typeof AuthenticatedPreVendaRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
@@ -574,6 +584,7 @@ export interface FileRouteTypes {
     | '/gerente-operacional'
     | '/hotspot'
     | '/mensagens'
+    | '/monitoramento'
     | '/portais'
     | '/pre-venda'
     | '/relatorios'
@@ -631,6 +642,7 @@ export interface FileRouteTypes {
     | '/gerente-operacional'
     | '/hotspot'
     | '/mensagens'
+    | '/monitoramento'
     | '/portais'
     | '/pre-venda'
     | '/relatorios'
@@ -690,6 +702,7 @@ export interface FileRouteTypes {
     | '/_authenticated/gerente-operacional'
     | '/_authenticated/hotspot'
     | '/_authenticated/mensagens'
+    | '/_authenticated/monitoramento'
     | '/_authenticated/portais'
     | '/_authenticated/pre-venda'
     | '/_authenticated/relatorios'
@@ -890,6 +903,13 @@ declare module '@tanstack/react-router' {
       path: '/mensagens'
       fullPath: '/mensagens'
       preLoaderRoute: typeof AuthenticatedMensagensRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/monitoramento': {
+      id: '/_authenticated/monitoramento'
+      path: '/monitoramento'
+      fullPath: '/monitoramento'
+      preLoaderRoute: typeof AuthenticatedMonitoramentoRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/portais': {
@@ -1207,6 +1227,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedGerenteOperacionalRoute: typeof AuthenticatedGerenteOperacionalRoute
   AuthenticatedHotspotRoute: typeof AuthenticatedHotspotRoute
   AuthenticatedMensagensRoute: typeof AuthenticatedMensagensRoute
+  AuthenticatedMonitoramentoRoute: typeof AuthenticatedMonitoramentoRoute
   AuthenticatedPortaisRoute: typeof AuthenticatedPortaisRoute
   AuthenticatedPreVendaRoute: typeof AuthenticatedPreVendaRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
@@ -1232,6 +1253,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedGerenteOperacionalRoute: AuthenticatedGerenteOperacionalRoute,
   AuthenticatedHotspotRoute: AuthenticatedHotspotRoute,
   AuthenticatedMensagensRoute: AuthenticatedMensagensRoute,
+  AuthenticatedMonitoramentoRoute: AuthenticatedMonitoramentoRoute,
   AuthenticatedPortaisRoute: AuthenticatedPortaisRoute,
   AuthenticatedPreVendaRoute: AuthenticatedPreVendaRoute,
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
