@@ -115,9 +115,11 @@ export const getPortal = createServerFn({ method: "GET" })
  */
 export const getPortalConnectionCount = createServerFn({ method: "GET" })
   .validator((data: unknown) => {
-    const d = data as { slug?: string; mac?: string };
-    if (!d?.slug || !d?.mac) throw new Error("Parâmetros inválidos");
-    return { slug: d.slug, mac: d.mac };
+    const d = data as { slug?: string; mac?: string; handoff?: string };
+    if (!d?.slug || (!d?.mac && !d?.handoff)) {
+      throw new Error("Parâmetros inválidos");
+    }
+    return { slug: d.slug, mac: d.mac, handoff: d.handoff };
   })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import(
@@ -125,9 +127,22 @@ export const getPortalConnectionCount = createServerFn({ method: "GET" })
     );
     const target = await resolvePortalTarget(supabaseAdmin, data.slug);
     if (!target) return { count: 0 };
-    const mac = normalizeMacAddress(data.mac);
+    // Sem MAC na URL, o MAC vem do handoff (cookie da entrada no portal):
+    // e o caminho do retorno via alogin.html (?conectado=1 sem parametros).
+    let macRaw = data.mac;
+    if (!macRaw && data.handoff) {
+      const { data: h } = await (supabaseAdmin as any)
+        .from("hotspot_portal_handoffs")
+        .select("mac_address")
+        .eq("id", data.handoff)
+        .eq("slug", data.slug)
+        .maybeSingle();
+      macRaw = h?.mac_address ?? undefined;
+    }
+    if (!macRaw) return { count: 0 };
+    const mac = normalizeMacAddress(macRaw);
     if (!mac) return { count: 0 };
-    const variantes = Array.from(new Set([mac, data.mac.trim()]));
+    const variantes = Array.from(new Set([mac, macRaw.trim()]));
     const { count } = await (supabaseAdmin as any)
       .from("connections")
       .select("id", { count: "exact", head: true })
