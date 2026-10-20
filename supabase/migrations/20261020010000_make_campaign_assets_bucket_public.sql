@@ -1,0 +1,29 @@
+-- Migration: torna o bucket "campaign-assets" PÚBLICO para leitura.
+--
+-- Motivo: os assets do portal cativo (logo da empresa, banners da campanha e
+-- imagens de patrocinadores de eventos) são exibidos para QUALQUER visitante
+-- que conecta no Wi-Fi — não são conteúdo privado. O portal gerava uma URL
+-- assinada NOVA a cada carregamento, então nenhum navegador nem a CDN
+-- reaproveitavam o cache: cada visita baixava todas as imagens de novo.
+-- Em 17/10/2026 o Storage respondeu por 95% de todo o egress do projeto
+-- (2,2 GB).
+--
+-- Com o bucket público, o portal passa a usar URL pública ESTÁVEL
+-- (getPublicUrl), que navegador e CDN cacheiam normalmente.
+--
+-- O que NÃO muda:
+--   * Buckets privados continuam privados — ex.: "chat_attachments"
+--     (anexos de conversa) segue com URL assinada e expiração curta.
+--   * As políticas de UPLOAD/DELETE do bucket continuam as mesmas
+--     (só a leitura pública é habilitada pela flag "public").
+--   * URLs assinadas antigas continuam funcionando (createSignedUrl
+--     funciona normalmente em bucket público).
+--
+-- >>> ORDEM DE EXECUÇÃO OBRIGATÓRIA <<<
+-- Rode ESTE SQL no Supabase SQL Editor ANTES de mergear/deployar o PR
+-- fix/portal-urls-publicas-cache. Se o código novo entrar no ar antes do
+-- bucket virar público, as URLs públicas retornam erro e o portal fica
+-- sem imagens. O inverso é seguro: bucket público + código antigo
+-- (URLs assinadas) continua funcionando normalmente.
+
+UPDATE storage.buckets SET public = true WHERE id = 'campaign-assets';
