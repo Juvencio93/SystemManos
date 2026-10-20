@@ -5,6 +5,7 @@ import {
   HotspotGeographicMap,
   type GeographicDevice,
 } from "@/components/app/hotspot-geographic-map";
+import { RbHermesPanel } from "@/components/app/rb-hermes-panel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -329,6 +330,8 @@ export function HotspotNetworkMap({ devices, isLoading = false, onBlock, onReboo
                   Abrir localização no Google Maps <ExternalLink className="size-3.5" />
                 </a>
               </div>
+
+              <RbHermesPanel identity={selected.router_identity} />
             </div>
           ) : null}
         </CardContent>
