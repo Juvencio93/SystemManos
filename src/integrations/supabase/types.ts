@@ -2041,6 +2041,60 @@ export type Database = {
           },
         ]
       }
+      password_reset_requests: {
+        Row: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decided_via: string | null
+          email: string
+          expires_at: string
+          id: string
+          link_generated_at: string | null
+          notified_at: string | null
+          phone: string | null
+          requested_at: string
+          status: string
+          updated_at: string
+          user_id: string | null
+          user_label: string | null
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decided_via?: string | null
+          email: string
+          expires_at?: string
+          id?: string
+          link_generated_at?: string | null
+          notified_at?: string | null
+          phone?: string | null
+          requested_at?: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+          user_label?: string | null
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decided_via?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          link_generated_at?: string | null
+          notified_at?: string | null
+          phone?: string | null
+          requested_at?: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+          user_label?: string | null
+        }
+        Relationships: []
+      }
       platform_settings: {
         Row: {
           document: string | null

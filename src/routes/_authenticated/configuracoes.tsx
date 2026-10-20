@@ -23,6 +23,9 @@ import {
   WalletCards,
   ChevronDown,
   Scale,
+  KeyRound,
+  Copy,
+  Check,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -47,6 +50,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { getSettingsData, updateSettings, updatePassword } from "@/lib/settings.functions";
+import {
+  listPasswordResetRequests,
+  approvePasswordResetRequest,
+  denyPasswordResetRequest,
+} from "@/lib/password-reset.functions";
 import {
   getAsaasIntegration,
   removeAsaasIntegration,
@@ -87,6 +95,192 @@ const asaasEnvironmentNotes = {
       "Use para testar API, webhook e QR Code sem cobrança real. Exige chave de sandbox/testes da Asaas.",
   },
 } as const;
+
+function PasswordResetRequestsCard() {
+  const queryClient = useQueryClient();
+  const listFn = useServerFn(listPasswordResetRequests);
+  const approveFn = useServerFn(approvePasswordResetRequest);
+  const denyFn = useServerFn(denyPasswordResetRequest);
+  const [approved, setApproved] = useState<{
+    link: string;
+    email: string;
+    userLabel: string | null;
+    phone: string | null;
+  } | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const {
+    data: requests,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["password-reset-requests"],
+    queryFn: () => listFn(),
+    refetchInterval: 60_000,
+  });
+
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ["password-reset-requests"] });
+
+  const approveMutation = useMutation({
+    mutationFn: (id: string) => approveFn({ data: { id } }),
+    onSuccess: (result) => {
+      setApproved(result);
+      setCopied(false);
+      invalidate();
+      toast.success("Aprovada! Link gerado — vale 1 hora.");
+    },
+    onError: (e) =>
+      toast.error(e instanceof Error ? e.message : "Não foi possível aprovar."),
+  });
+  const denyMutation = useMutation({
+    mutationFn: (id: string) => denyFn({ data: { id } }),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Solicitação negada.");
+    },
+    onError: (e) =>
+      toast.error(e instanceof Error ? e.message : "Não foi possível negar."),
+  });
+
+  const pendings = (requests ?? []).filter((r) => r.status === "pending");
+  const decided = (requests ?? []).filter((r) => r.status !== "pending").slice(0, 10);
+  const statusLabel: Record<string, string> = {
+    approved: "Aprovada",
+    denied: "Negada",
+    expired: "Expirada",
+  };
+
+  const waDigits = approved?.phone ? approved.phone.replace(/\D/g, "") : "";
+  const waPhone = waDigits.length > 0 && waDigits.length <= 11 ? `55${waDigits}` : waDigits;
+  const whatsappUrl = approved
+    ? `https://wa.me/${waPhone}?text=${encodeURIComponent(
+        `Olá! Aqui está seu link para redefinir a senha do painel Manos Tech (vale 1 hora): ${approved.link}`,
+      )}`
+    : null;
+
+  return (
+    <Card className="glass-panel border-primary/10">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <KeyRound className="size-5 text-primary" />
+          <CardTitle>Redefinições de senha</CardTitle>
+        </div>
+        <CardDescription>
+          Pedidos de quem esqueceu a senha. Ao aprovar, o link é gerado na hora (vale 1
+          hora) pra você enviar ao cliente. O Hermes também avisa no Telegram.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {error ? (
+          <p className="text-sm text-red-300">Não foi possível carregar as solicitações.</p>
+        ) : isLoading ? (
+          <p className="text-sm text-muted-foreground">Carregando…</p>
+        ) : (
+          <>
+            {approved ? (
+              <div className="space-y-3 rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-3">
+                <p className="text-sm font-medium text-emerald-200">
+                  Link gerado para {approved.userLabel ?? approved.email} — envie agora
+                  (vale 1 hora):
+                </p>
+                <p className="break-all rounded-lg bg-black/30 p-2 font-mono text-[11px] text-emerald-100">
+                  {approved.link}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {approved.phone ? (
+                    <Button asChild size="sm" variant="secondary">
+                      <a href={whatsappUrl ?? undefined} target="_blank" rel="noreferrer">
+                        <MessageCircle className="size-4" /> Enviar pelo WhatsApp
+                      </a>
+                    </Button>
+                  ) : null}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      await navigator.clipboard
+                        .writeText(approved.link)
+                        .catch(() => undefined);
+                      setCopied(true);
+                    }}
+                  >
+                    {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+                    {copied ? "Copiado!" : "Copiar link"}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setApproved(null)}>
+                    Concluir
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
+            {pendings.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhuma solicitação pendente.</p>
+            ) : (
+              <div className="space-y-2">
+                {pendings.map((req) => (
+                  <div
+                    key={req.id}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">
+                        {req.user_label ?? req.email}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {req.email} · pediu em{" "}
+                        {new Date(req.requested_at).toLocaleString("pt-BR")}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={approveMutation.isPending || denyMutation.isPending}
+                        onClick={() => approveMutation.mutate(req.id)}
+                      >
+                        Aprovar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-red-300 hover:text-red-200"
+                        disabled={approveMutation.isPending || denyMutation.isPending}
+                        onClick={() => denyMutation.mutate(req.id)}
+                      >
+                        Negar
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {decided.length > 0 ? (
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Últimas decisões
+                </p>
+                {decided.map((req) => (
+                  <p key={req.id} className="text-xs text-muted-foreground">
+                    {statusLabel[req.status] ?? req.status} · {req.user_label ?? req.email}
+                    {req.decided_at
+                      ? ` · ${new Date(req.decided_at).toLocaleString("pt-BR")}`
+                      : ""}
+                    {req.decided_via
+                      ? ` · via ${req.decided_via === "painel" ? "painel" : "Telegram"}`
+                      : ""}
+                  </p>
+                ))}
+              </div>
+            ) : null}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 function SettingsPage() {
   const queryClient = useQueryClient();
@@ -1133,6 +1327,9 @@ function SettingsPage() {
             </form>
           </CardContent>
         </Card>
+
+        {/* Redefinições de senha com aprovação — só o ADM decide. */}
+        {isAdm && <PasswordResetRequestsCard />}
       </div>
 
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>

@@ -1,7 +1,9 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState, Suspense } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
+import { requestPasswordReset } from "@/lib/password-reset.functions";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +41,7 @@ type AuthMode = "login" | "forgot" | "reset";
 
 function AuthPage() {
   const navigate = useNavigate();
+  const requestResetFn = useServerFn(requestPasswordReset);
   const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
@@ -92,16 +95,21 @@ function AuthPage() {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(parsedEmail.data, {
-      redirectTo: `${window.location.origin}/auth`,
-    });
-    setLoading(false);
-    if (error) {
-      toast.error("Não foi possível enviar o link agora. Tente de novo em instantes.");
+    // Fluxo com aprovação (2026-10-20): o pedido NÃO dispara e-mail —
+    // registra uma solicitação que o ADM aprova no painel ou pelo
+    // Hermes, e o link é enviado ao cliente pela equipe.
+    try {
+      await requestResetFn({ data: { email: parsedEmail.data } });
+    } catch {
+      setLoading(false);
+      toast.error("Não foi possível registrar o pedido agora. Tente de novo em instantes.");
       return;
     }
+    setLoading(false);
     // Mensagem neutra de propósito: não confirmamos se o e-mail existe.
-    toast.success("Se este e-mail estiver cadastrado, você receberá um link para redefinir a senha.");
+    toast.success(
+      "Pedido registrado! Se este e-mail tiver uma conta, nossa equipe vai te enviar o link de redefinição.",
+    );
     setMode("login");
   }
 
@@ -200,7 +208,8 @@ function AuthPage() {
             ) : mode === "forgot" ? (
               <form onSubmit={handleForgot} className="space-y-5 text-left">
                 <p className="text-sm text-muted-foreground">
-                  Informe seu e-mail e enviaremos um link para você criar uma nova senha.
+                  Informe seu e-mail: nossa equipe confirma o pedido e te envia o link para
+                  criar uma nova senha.
                 </p>
                 <div className="space-y-2.5">
                   <Label htmlFor="email" className="text-[11px] font-black uppercase tracking-widest opacity-60 ml-1">E-mail</Label>
@@ -213,7 +222,7 @@ function AuthPage() {
                   />
                 </div>
                 <Button type="submit" className="w-full shadow-glow" disabled={loading || !ready}>
-                  {loading ? "Enviando..." : "Enviar link de recuperação"}
+                  {loading ? "Registrando..." : "Pedir redefinição de senha"}
                 </Button>
                 <p className="text-center">
                   <button
