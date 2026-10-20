@@ -136,16 +136,26 @@ export function RbHermesPanel({ identity }: { identity: string }) {
             fase: "aviso",
             texto: "Esta RB ainda não é monitorada pelo Hermes.",
           });
+        } else if (res.erro === "indisponivel") {
+          setEstado({
+            fase: "aviso",
+            texto:
+              "Não consegui falar com o Hermes na VPS." +
+              (res.detalhe ? ` (${res.detalhe})` : ""),
+          });
         } else {
           setEstado({
             fase: "aviso",
-            texto: "Hermes indisponível no momento.",
+            texto: `O Hermes respondeu: ${res.erro}`,
           });
         }
       })
       .catch(() => {
         if (vivo)
-          setEstado({ fase: "aviso", texto: "Hermes indisponível no momento." });
+          setEstado({
+            fase: "aviso",
+            texto: "Não consegui falar com o Hermes na VPS.",
+          });
       });
     return () => {
       vivo = false;
@@ -155,7 +165,7 @@ export function RbHermesPanel({ identity }: { identity: string }) {
   if (estado.fase === "oculto") return null;
 
   return (
-    <div className="mt-4 lg:col-span-2">
+    <div className="mt-4">
       <div className="flex items-center gap-2">
         <Activity className="size-4 text-primary" />
         <h4 className="text-sm font-semibold">Monitoramento Hermes</h4>
