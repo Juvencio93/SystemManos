@@ -4,12 +4,12 @@ import { useMutation } from "@tanstack/react-query";
 import { CheckCircle2, ExternalLink, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { LegalPageShell, LegalSection } from "@/components/legal/legal-page-shell";
 import {
-  LegalCompanyDetails,
-  LegalList,
-  LegalPageShell,
-  LegalSection,
-} from "@/components/legal/legal-page-shell";
+  PrivacyCenterContactContent,
+  PrivacyCenterHowToContent,
+  PrivacyCenterRequestsContent,
+} from "@/components/legal/legal-contents";
 import { LEGAL_DOCUMENTS } from "@/lib/legal-document-versions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,27 +62,8 @@ function DataSubjectRightsPage() {
       updatedAt={LEGAL_DOCUMENTS.dataSubjectRights.updatedAt}
       version={LEGAL_DOCUMENTS.dataSubjectRights.version}
     >
-      <LegalSection title="1 Solicitações disponíveis">
-        <LegalList
-          items={[
-            "Confirmar se seus dados pessoais são tratados.",
-            "Solicitar acesso e informações sobre finalidades e compartilhamentos.",
-            "Corrigir dados incompletos, inexatos ou desatualizados.",
-            "Solicitar anonimização, bloqueio ou eliminação quando aplicável.",
-            "Revogar consentimento e interromper comunicações de marketing.",
-            "Solicitar portabilidade ou revisão de decisão automatizada, quando cabível.",
-          ]}
-        />
-      </LegalSection>
-      <LegalSection title="2 Como solicitar">
-        <p>
-          Confirmação da existência de tratamento e acesso em formato simplificado devem ser
-          providenciados imediatamente. Quando você pedir uma declaração completa de confirmação ou
-          acesso, o prazo é de até 15 dias, ressalvada regra específica da ANPD. Para os demais
-          direitos, a resposta deve seguir a regra aplicável; se não for possível atender de
-          imediato, a equipe informará o motivo. Podemos confirmar sua identidade quando necessário.
-          O protocolo comprova o recebimento, mas não substitui a resposta material ao pedido.
-        </p>
+      <PrivacyCenterRequestsContent />
+      <PrivacyCenterHowToContent>
         {result ? (
           <div className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-5">
             <CheckCircle2 className="size-6 text-emerald-300" />
@@ -192,24 +173,8 @@ function DataSubjectRightsPage() {
             </div>
           </form>
         )}
-        <p className="text-xs text-slate-400">
-          Para proteger o titular, poderá ser necessário confirmar a identidade antes de fornecer,
-          corrigir ou excluir dados. O pedido de interrupção de ofertas é aplicado quando os dados
-          enviados correspondem ao cadastro; se não for localizado, a equipe analisará a
-          solicitação. O atendimento também pode ser solicitado pelo e-mail
-          manostech.suporte@gmail.com.
-        </p>
-      </LegalSection>
-      <LegalSection title="3 Responsável pelo atendimento">
-        <p>
-          A Manos Tech LTDA indicou a própria empresa como encarregada para os tratamentos sob sua
-          responsabilidade, com Gabriel Juvencio como pessoa natural responsável pelo contato.
-          Quando o pedido se referir a uma campanha ou portal Wi-Fi de um estabelecimento, a Manos
-          Tech poderá encaminhá-lo à empresa responsável pela finalidade do tratamento e acompanhar
-          o atendimento da solicitação.
-        </p>
-        <LegalCompanyDetails />
-      </LegalSection>
+      </PrivacyCenterHowToContent>
+      <PrivacyCenterContactContent />
       <LegalSection title="4 Informações adicionais">
         <p>
           Consulte também a{" "}
