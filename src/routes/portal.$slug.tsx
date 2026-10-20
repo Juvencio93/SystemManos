@@ -375,6 +375,76 @@ function PortalPage() {
 
   const isBrazil = selectedCountry.code === "+55";
 
+  // Parte 3 (Zeigarnik): lembrar quem já fez check-in NESTE aparelho.
+  // Os dados do formulário ficam no localStorage (por slug) e voltam
+  // pré-preenchidos na próxima visita. Os consentimentos NUNCA voltam
+  // marcados: o aceite é sempre uma ação nova do visitante.
+  const [prefilled, setPrefilled] = useState(false);
+  const prefillKey = `manos:portal:lead:${slug}`;
+  const saveLeadLocal = () => {
+    try {
+      window.localStorage.setItem(
+        prefillKey,
+        JSON.stringify({
+          fullName: form.fullName,
+          email: form.email,
+          phone: form.phone,
+          city: form.city,
+          countryCode: selectedCountry.code,
+        }),
+      );
+    } catch {
+      // Armazenamento indisponível (modo privado/CNA): segue sem lembrar.
+    }
+  };
+  const clearPrefill = () => {
+    try {
+      window.localStorage.removeItem(prefillKey);
+    } catch {
+      // Sem armazenamento: só limpa o formulário.
+    }
+    setForm({ fullName: "", email: "", phone: "", city: "", consent: false, marketingConsent: false });
+    setPrefilled(false);
+  };
+
+  useEffect(() => {
+    // Pré-preenche uma única vez, na abertura, e só se o formulário ainda
+    // estiver virgem (não atropela o autoplay da demonstração).
+    if (new URLSearchParams(window.location.search).get("autoplay") === "1") return;
+    try {
+      const raw = window.localStorage.getItem(prefillKey);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as {
+        fullName?: string;
+        email?: string;
+        phone?: string;
+        city?: string;
+        countryCode?: string;
+      };
+      if (!saved.fullName && !saved.email && !saved.phone) return;
+      setForm((current) =>
+        current.fullName || current.email || current.phone
+          ? current
+          : {
+              fullName: saved.fullName ?? "",
+              email: saved.email ?? "",
+              phone: saved.phone ?? "",
+              city: saved.city ?? "",
+              consent: false,
+              marketingConsent: false,
+            },
+      );
+      if (saved.countryCode) {
+        const country = countries.find((c) => c.code === saved.countryCode);
+        if (country) setCountryKey(`${country.code}|${country.name}`);
+      }
+      setPrefilled(true);
+    } catch {
+      // Sem armazenamento ou JSON inválido: fluxo normal, form vazio.
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug]);
+
   const mutation = useMutation({
     mutationFn: async () => {
       // Capture parameters from URL
@@ -444,6 +514,8 @@ function PortalPage() {
       });
     },
     onSuccess: (result) => {
+      // Check-in aceito: lembra os dados neste aparelho (Parte 3).
+      if (!result.checkinBlocked) saveLeadLocal();
       if (result.checkinBlocked) {
         setDone({ isReturning: false, connectionsCount: 0, checkinBlocked: true, blockedUntil: result.blockedUntil });
         return;
@@ -733,12 +805,21 @@ function PortalPage() {
         // Formulário válido: comportamento idêntico ao anterior — demo
         // conclui localmente; portal real envia o cadastro.
         if (slug === "demo-efraim" || slug === "demo-barao") {
+          saveLeadLocal();
           setDone({ isReturning: false, connectionsCount: 1 });
           return;
         }
         mutation.mutate();
       }}
     >
+      {prefilled && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-white/25 bg-white/10 px-3.5 py-2.5 text-sm backdrop-blur">
+          <span>👋 Que bom te ver de novo! Seus dados já estão preenchidos — confira e toque em Conectar.</span>
+          <button type="button" onClick={clearPrefill} className="shrink-0 font-medium underline underline-offset-2">
+            Não sou eu
+          </button>
+        </div>
+      )}
       <div className={style === "minimalista" ? "grid gap-5 sm:grid-cols-2" : "grid gap-4 sm:grid-cols-2"}>
 
                   <div className="space-y-1.5 sm:col-span-2">
