@@ -15,8 +15,10 @@
   }
   /file copy [:pick $loginSource 0] name="flash/hotspot/login.html"
   :if ([:len [/file find where name="flash/hotspot/login.html"]] > 0) do={
+    :local loginSize [/file get [:pick [/file find where name="flash/hotspot/login.html"] 0] size]
     /file remove [:pick $loginSource 0]
-    :put "MANOS-HOTSPOT-PAGES|LOGIN|INSTALLED"
+    :put ("MANOS-HOTSPOT-PAGES|LOGIN|INSTALLED|" . $loginSize)
+    :if ($loginSize <= 10000) do={ :put "MANOS-HOTSPOT-PAGES|LOGIN|WARN-SIZE" }
   } else={
     :put "MANOS-HOTSPOT-PAGES|LOGIN|FAILED"
   }

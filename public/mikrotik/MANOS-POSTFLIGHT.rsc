@@ -1,6 +1,6 @@
 # Manos Tech - leitura apos a instalacao. Nao altera a configuracao.
 :put "MANOS-POSTFLIGHT|BEGIN|1"
-:put "MANOS-POSTFLIGHT|VERSION|5"
+:put "MANOS-POSTFLIGHT|VERSION|6"
 :foreach port in={"ether1";"ether2";"ether3";"ether4";"ether5"} do={
   :local bridge "none"
   :local memberships [/interface bridge port find where interface=$port]
@@ -31,6 +31,27 @@
 :put ("MANOS-POSTFLIGHT|LOGIN-FILE|flash/hotspot/login.html|" . $loginFileOk)
 :put ("MANOS-POSTFLIGHT|LOGIN-FILE|flash/hotspot/alogin.html|" . $aloginFileOk)
 :put ("MANOS-POSTFLIGHT|LOGIN|" . ($loginFileOk && $aloginFileOk))
+# Assinatura da pagina PROPRIA Manos Tech: o login.html da Manos tem
+# ~23 KB; o padrao MikroTik (ex.: apos um "Reset HTML") tem ~3 KB.
+# Arquivo existir NAO basta - sem esta checagem, um portal padrao
+# passava no postflight como se estivesse tudo certo.
+:local loginSize 0
+:if ($loginFileOk) do={ :set loginSize [/file get [:pick [/file find where name="flash/hotspot/login.html"] 0] size] }
+:put ("MANOS-POSTFLIGHT|LOGIN-SIZE|" . $loginSize)
+:put ("MANOS-POSTFLIGHT|LOGIN-CUSTOM|" . ($loginSize > 10000))
+# Prontidao Hermes: API ligada e restrita ao tunel + usuarios criados.
+# Sem isso a RB fica "matriculada" mas o Hermes nao coleta nada.
+:local apiId [/ip service find where name="api"]
+:local apiOn false
+:local apiAddr ""
+:if ([:len $apiId] > 0) do={
+  :local apiRow [:pick $apiId 0]
+  :if (![/ip service get $apiRow disabled]) do={ :set apiOn true }
+  :set apiAddr [/ip service get $apiRow address]
+}
+:put ("MANOS-POSTFLIGHT|HERMES-API|" . $apiOn . "|" . $apiAddr)
+:put ("MANOS-POSTFLIGHT|HERMES-USER-RO|" . ([:len [/user find where name="hermes-ro"]] > 0))
+:put ("MANOS-POSTFLIGHT|HERMES-USER-RW|" . ([:len [/user find where name="hermes-rw"]] > 0))
 :foreach rule in={"MANOS-ISOLATE-HOTSPOT-LIVRE";"MANOS-ISOLATE-LIVRE-HOTSPOT"} do={
   :local rules [/ip firewall filter find where comment=$rule disabled=no]
   :put ("MANOS-POSTFLIGHT|ISOLATION|" . $rule . "|" . ([:len $rules] > 0))
