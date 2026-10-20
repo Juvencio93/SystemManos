@@ -145,6 +145,17 @@ const FieldLabel = ({
   </Label>
 );
 
+/** Mensagem de erro de validação exibida logo abaixo do campo. */
+const FieldError = ({ id, message }: { id: string; message: string | null }) =>
+  message ? (
+    <p id={id} role="alert" className="ml-1 text-xs font-medium leading-snug text-red-500">
+      {message}
+    </p>
+  ) : null;
+
+/** Cor do anel/borda que destaca um campo com erro em qualquer estilo visual. */
+const PORTAL_ERROR_COLOR = "#f87171";
+
 function PortalPage() {
   const initialPortal = Route.useLoaderData();
   const { slug } = Route.useParams();
@@ -182,6 +193,19 @@ function PortalPage() {
     consent: false,
     marketingConsent: false,
   });
+  // Feedback de validação por campo: o erro aparece quando o campo foi
+  // tocado (blur) ou quando houve uma tentativa de envio com o form inválido.
+  const [touched, setTouched] = useState({
+    fullName: false,
+    email: false,
+    phone: false,
+    city: false,
+    consent: false,
+    marketingConsent: false,
+  });
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const markTouched = (field: keyof typeof touched) =>
+    setTouched((current) => (current[field] ? current : { ...current, [field]: true }));
 
   useEffect(() => {
     if (slug !== "demo-efraim" && slug !== "demo-barao") return;
@@ -343,7 +367,7 @@ function PortalPage() {
     },
   });
 
-  const isFormValid = useMemo(() => {
+  const fieldValidity = useMemo(() => {
     const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim());
     const isNameValid = form.fullName.trim().length >= 3;
 
@@ -357,15 +381,56 @@ function PortalPage() {
 
     const isCityValid = form.city.trim().length >= 2;
 
-    return (
-      isNameValid &&
-      isEmailValid &&
-      isPhoneValid &&
-      isCityValid &&
-      form.consent &&
-      !mutation.isPending
-    );
-  }, [form, selectedCountry, mutation.isPending]);
+    return {
+      fullName: isNameValid,
+      email: isEmailValid,
+      phone: isPhoneValid,
+      city: isCityValid,
+      consent: form.consent,
+      // Consentimento de marketing é opcional: nunca bloqueia o envio nem
+      // gera erro — o mecanismo de erro cobre os dois consentimentos, mas só
+      // o obrigatório pode ficar inválido.
+      marketingConsent: true,
+    };
+  }, [form, selectedCountry]);
+
+  const isFormValid =
+    fieldValidity.fullName &&
+    fieldValidity.email &&
+    fieldValidity.phone &&
+    fieldValidity.city &&
+    fieldValidity.consent &&
+    !mutation.isPending;
+
+  // Erro visível por campo: só aparece depois do toque (blur) ou de uma
+  // tentativa de envio, para não assustar quem ainda está preenchendo.
+  const fieldErrors: Record<keyof typeof touched, string | null> = {
+    fullName:
+      !fieldValidity.fullName && (touched.fullName || submitAttempted)
+        ? form.fullName.trim()
+          ? "Nome muito curto — digite seu nome completo"
+          : "Digite seu nome completo"
+        : null,
+    email:
+      !fieldValidity.email && (touched.email || submitAttempted)
+        ? form.email.trim()
+          ? "E-mail inválido — confira o endereço digitado"
+          : "Digite seu e-mail"
+        : null,
+    phone:
+      !fieldValidity.phone && (touched.phone || submitAttempted)
+        ? form.phone.replace(/\D/g, "")
+          ? "WhatsApp incompleto — confira o número"
+          : "Digite seu WhatsApp"
+        : null,
+    city:
+      !fieldValidity.city && (touched.city || submitAttempted) ? "Digite sua cidade" : null,
+    consent:
+      !fieldValidity.consent && (touched.consent || submitAttempted)
+        ? "Marque para continuar"
+        : null,
+    marketingConsent: null,
+  };
 
   if (!portal) return <PortalUnavailable />;
 
@@ -388,6 +453,17 @@ function PortalPage() {
   const theme = portalTheme(portal.appearance);
   const style = portal.appearance.visualStyle as PortalVisualStyle;
   const Layout = portalLayoutFor(style);
+
+  // O estilo inline do tema define a cor da borda; para destacar o erro,
+  // sobrescrevemos borda + anel mantendo o restante do estilo do campo.
+  const inputStyleWithError = (hasError: boolean): React.CSSProperties =>
+    hasError
+      ? {
+          ...theme.inputStyle,
+          borderColor: PORTAL_ERROR_COLOR,
+          boxShadow: `0 0 0 1px ${PORTAL_ERROR_COLOR}`,
+        }
+      : theme.inputStyle;
 
   const logoMaxClass =
     style === "vibrante"
@@ -518,9 +594,41 @@ function PortalPage() {
 
   const formNode = (
     <form
+      // noValidate: a validação é nossa (erros por campo em pt-BR). Sem isso,
+      // o navegador bloquearia o submit com seus balões nativos em inglês e o
+      // feedback por campo nunca apareceria.
+      noValidate
       className={style === "minimalista" ? "space-y-6 max-sm:space-y-5" : "space-y-5 max-sm:space-y-3"}
       onSubmit={(event) => {
         event.preventDefault();
+        if (mutation.isPending) return;
+        if (!isFormValid) {
+          // O botão responde ao toque mesmo inválido: revela todos os erros
+          // e leva o visitante até o primeiro campo que precisa de atenção.
+          setSubmitAttempted(true);
+          const firstInvalid = (
+            [
+              ["fullName", fieldValidity.fullName],
+              ["email", fieldValidity.email],
+              ["phone", fieldValidity.phone],
+              ["city", fieldValidity.city],
+              ["consent", fieldValidity.consent],
+            ] as const
+          ).find(([, valid]) => !valid)?.[0];
+          if (firstInvalid) {
+            window.requestAnimationFrame(() => {
+              const element = document.getElementById(firstInvalid);
+              if (!element) return;
+              element.scrollIntoView({ behavior: "smooth", block: "center" });
+              if (element instanceof HTMLInputElement && element.type !== "checkbox") {
+                element.focus({ preventScroll: true });
+              }
+            });
+          }
+          return;
+        }
+        // Formulário válido: comportamento idêntico ao anterior — demo
+        // conclui localmente; portal real envia o cadastro.
         if (slug === "demo-efraim" || slug === "demo-barao") {
           setDone({ isReturning: false, connectionsCount: 1 });
           return;
@@ -538,10 +646,14 @@ function PortalPage() {
                       autoComplete="name"
                       value={form.fullName}
                       onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))}
+                      onBlur={() => markTouched("fullName")}
+                      aria-invalid={fieldErrors.fullName ? true : undefined}
+                      aria-describedby={fieldErrors.fullName ? "fullName-error" : undefined}
                       placeholder="Ex: João Silva"
                       className={`${fieldSizeClass} transition-all placeholder:text-[color:var(--portal-faint)] ${theme.inputClass}`}
-                      style={theme.inputStyle}
+                      style={inputStyleWithError(Boolean(fieldErrors.fullName))}
                     />
+                    <FieldError id="fullName-error" message={fieldErrors.fullName} />
                   </div>
 
                   <div className="space-y-1.5 sm:col-span-2">
@@ -553,10 +665,14 @@ function PortalPage() {
                       autoComplete="email"
                       value={form.email}
                       onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                      onBlur={() => markTouched("email")}
+                      aria-invalid={fieldErrors.email ? true : undefined}
+                      aria-describedby={fieldErrors.email ? "email-error" : undefined}
                       placeholder="email@exemplo.com"
                       className={`${fieldSizeClass} transition-all placeholder:text-[color:var(--portal-faint)] ${theme.inputClass}`}
-                      style={theme.inputStyle}
+                      style={inputStyleWithError(Boolean(fieldErrors.email))}
                     />
+                    <FieldError id="email-error" message={fieldErrors.email} />
                   </div>
 
                   <div className="space-y-1.5 sm:col-span-2">
@@ -614,11 +730,15 @@ function PortalPage() {
                             phone: isBrazil ? formatBrazilPhone(e.target.value) : e.target.value.replace(/[^\d\s()+.-]/g, ""),
                           }))
                         }
+                        onBlur={() => markTouched("phone")}
+                        aria-invalid={fieldErrors.phone ? true : undefined}
+                        aria-describedby={fieldErrors.phone ? "phone-error" : undefined}
                         placeholder={isBrazil ? "(00) 00000-0000" : "Número"}
                         className={`${fieldSizeClass} flex-1 transition-all placeholder:text-[color:var(--portal-faint)] ${theme.inputClass}`}
-                        style={theme.inputStyle}
+                        style={inputStyleWithError(Boolean(fieldErrors.phone))}
                       />
                     </div>
+                    <FieldError id="phone-error" message={fieldErrors.phone} />
                   </div>
 
                   <div className="space-y-1.5 sm:col-span-2">
@@ -628,10 +748,14 @@ function PortalPage() {
                       required
                       value={form.city}
                       onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+                      onBlur={() => markTouched("city")}
+                      aria-invalid={fieldErrors.city ? true : undefined}
+                      aria-describedby={fieldErrors.city ? "city-error" : undefined}
                       placeholder="Sua cidade atual"
                       className={`${fieldSizeClass} transition-all placeholder:text-[color:var(--portal-faint)] ${theme.inputClass}`}
-                      style={theme.inputStyle}
+                      style={inputStyleWithError(Boolean(fieldErrors.city))}
                     />
+                    <FieldError id="city-error" message={fieldErrors.city} />
                   </div>
                 </div>
 
@@ -688,9 +812,19 @@ function PortalPage() {
                       id="consent"
                       type="checkbox"
                       checked={form.consent}
-                      onChange={(e) => setForm((f) => ({ ...f, consent: e.target.checked }))}
+                      onChange={(e) => {
+                        setForm((f) => ({ ...f, consent: e.target.checked }));
+                        markTouched("consent");
+                      }}
+                      aria-invalid={fieldErrors.consent ? true : undefined}
+                      aria-describedby={fieldErrors.consent ? "consent-error" : undefined}
                       className="mt-1 size-4 shrink-0 rounded border-[color:var(--portal-border)] bg-[color:var(--portal-surface-alt)] transition-all focus:ring-offset-transparent"
-                      style={{ accentColor: theme.palette.accentOn }}
+                      style={{
+                        accentColor: theme.palette.accentOn,
+                        ...(fieldErrors.consent
+                          ? { outline: `2px solid ${PORTAL_ERROR_COLOR}`, outlineOffset: "2px" }
+                          : {}),
+                      }}
                     />
                     <span className={`text-[color:var(--portal-muted)] ${theme.typography.lgpdClass}`}>
                       <strong className="text-[color:var(--portal-text)]">Obrigatório:</strong> aceito os{" "}
@@ -699,6 +833,7 @@ function PortalPage() {
                       para o tratamento necessário à liberação e à segurança do Wi-Fi.
                     </span>
                   </label>
+                  <FieldError id="consent-error" message={fieldErrors.consent} />
                   <label
                     htmlFor="marketingConsent"
                     className="flex cursor-pointer items-start gap-2.5 pt-1"
@@ -707,8 +842,13 @@ function PortalPage() {
                       id="marketingConsent"
                       type="checkbox"
                       checked={form.marketingConsent}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, marketingConsent: e.target.checked }))
+                      onChange={(e) => {
+                        setForm((f) => ({ ...f, marketingConsent: e.target.checked }));
+                        markTouched("marketingConsent");
+                      }}
+                      aria-invalid={fieldErrors.marketingConsent ? true : undefined}
+                      aria-describedby={
+                        fieldErrors.marketingConsent ? "marketingConsent-error" : undefined
                       }
                       className="mt-1 size-4 shrink-0 rounded border-[color:var(--portal-border)] bg-[color:var(--portal-surface-alt)] transition-all focus:ring-offset-transparent"
                       style={{ accentColor: theme.palette.accentOn }}
@@ -718,6 +858,7 @@ function PortalPage() {
                       ofertas comerciais desta empresa pelo WhatsApp informado neste cadastro.
                     </span>
                   </label>
+                  <FieldError id="marketingConsent-error" message={fieldErrors.marketingConsent} />
                   <p className={`text-[color:var(--portal-faint)] ${theme.typography.lgpdClass}`}>
                     Você pode revogar essa autorização ou exercer seus direitos na{" "}
                     <Link to="/direitos-do-titular" target="_blank" className="underline">
@@ -740,7 +881,12 @@ function PortalPage() {
                 : "h-12 text-sm max-sm:sticky max-sm:bottom-2"
         } ${theme.buttonClass}`}
         style={!isFormValid || mutation.isPending ? theme.buttonDisabledStyle : theme.buttonStyle}
-        disabled={!isFormValid || mutation.isPending}
+        // Não usamos `disabled` quando o formulário está inválido: o botão
+        // precisa responder ao toque para revelar os erros e rolar até o
+        // primeiro campo inválido (ver onSubmit). Ele só desabilita de fato
+        // durante o envio. A aparência atenuada vem de buttonDisabledStyle.
+        disabled={mutation.isPending}
+        aria-disabled={!isFormValid && !mutation.isPending}
       >
         {mutation.isPending ? (
           <div className="flex items-center gap-2">
