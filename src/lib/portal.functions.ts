@@ -13,6 +13,7 @@ import { Json } from "@/integrations/supabase/types";
 import { HotspotVendor } from "@/lib/adapters";
 import {
   issueHotspotAccessGrant,
+  normalizeMacAddress,
   safeHotspotLoginUrl,
   type HotspotLogin,
 } from "@/lib/hotspot-access.server";
@@ -30,6 +31,7 @@ function destinoAposLogin(
   hotspotData: {
     hotspotOrig?: string | null | undefined;
     hotspotLinkOrig?: string | null | undefined;
+    mac?: string | null | undefined;
   },
   request: Request | undefined,
   slug: string,
@@ -39,7 +41,13 @@ function destinoAposLogin(
     const host =
       request.headers.get("x-forwarded-host") || request.headers.get("host");
     const proto = request.headers.get("x-forwarded-proto") || "https";
-    if (host) return `${proto}://${host}/portal/${slug}?conectado=1`;
+    if (host) {
+      // O MAC vai junto para a tela de retorno mostrar a contagem REAL de
+      // acessos deste dispositivo (a conexao e registrada na autenticacao).
+      const mac = normalizeMacAddress(hotspotData.mac ?? undefined);
+      const extra = mac ? `&mac=${encodeURIComponent(mac)}` : "";
+      return `${proto}://${host}/portal/${slug}?conectado=1${extra}`;
+    }
   }
   return campanha ?? hotspotData.hotspotOrig ?? hotspotData.hotspotLinkOrig ?? null;
 }
@@ -97,6 +105,35 @@ export const getPortal = createServerFn({ method: "GET" })
       appearance: target.appearance,
       sponsors,
     };
+  });
+
+/**
+ * Contagem REAL de acessos de um dispositivo (pelo MAC) na empresa do
+ * portal. Usada pela tela de retorno pos-autenticacao (?conectado=1):
+ * a conexao e registrada quando o RADIUS confirma, entao a tela busca
+ * o numero verdadeiro em vez de chutar.
+ */
+export const getPortalConnectionCount = createServerFn({ method: "GET" })
+  .validator((data: unknown) => {
+    const d = data as { slug?: string; mac?: string };
+    if (!d?.slug || !d?.mac) throw new Error("Parâmetros inválidos");
+    return { slug: d.slug, mac: d.mac };
+  })
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import(
+      "@/integrations/supabase/client.server"
+    );
+    const target = await resolvePortalTarget(supabaseAdmin, data.slug);
+    if (!target) return { count: 0 };
+    const mac = normalizeMacAddress(data.mac);
+    if (!mac) return { count: 0 };
+    const variantes = Array.from(new Set([mac, data.mac.trim()]));
+    const { count } = await (supabaseAdmin as any)
+      .from("connections")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", target.companyId)
+      .in("mac_address", variantes);
+    return { count: count ?? 0 };
   });
 
 export const submitPortalLead = createServerFn({ method: "POST" })
