@@ -41,6 +41,7 @@ import {
 
 import { AiAgentCard } from "@/components/app/ai-agent-card";
 import { HotspotNetworkMap } from "@/components/app/hotspot-network-map";
+import { MonitorPreviewPanel } from "@/components/app/monitor-preview-panel";
 const RealtimeHeatmapLazy = lazy(() =>
   import("@/components/app/dashboard/RealtimeHeatmap").then((m) => ({ default: m.RealtimeHeatmap })),
 );
@@ -511,7 +512,7 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
           <ModuleCard key={module.label} module={module} isLoading={module.label === "Hotspot" ? hotspotDevices.isLoading : insights.isLoading} {...(module.label === "Hotspot" ? { onHotspotClick: () => setHotspotExpanded((value) => !value), onHotspotHover: setHotspotHovering } : {})} />
         ))}
       </div>
-      {hotspotOpen && <NetworkMapPanel devices={hotspotDevices.data ?? []} isLoading={hotspotDevices.isLoading} overlay={hotspotHovering} onClose={() => { setHotspotHovering(false); setHotspotExpanded(false); }} onMouseLeave={() => hotspotHovering && setHotspotHovering(false)} />}
+      {hotspotOpen && <MonitorPreviewPanel devices={hotspotDevices.data ?? []} isLoading={hotspotDevices.isLoading} overlay={hotspotHovering} onClose={() => { setHotspotHovering(false); setHotspotExpanded(false); }} onMouseLeave={() => hotspotHovering && setHotspotHovering(false)} />}
 
       <div className="mt-10">
         <RealtimeHeatmap />
