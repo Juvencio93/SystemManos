@@ -448,12 +448,25 @@ export function HotspotConfigDialog({
           </div>
         )}
 
+        {/* UX parte 6: as ações secundárias/destrutivas saem do rodapé
+            (que tinha 5 botões competindo) e ficam recolhidas aqui. O
+            rodapé mantém só a ação principal + Cancelar + Salvar. */}
+        {!isClientPolicyView && configQuery.data?.config ? (
+          <details className="mt-2">
+            <summary className="cursor-pointer text-xs text-muted-foreground">
+              Ações avançadas
+            </summary>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button type="button" size="sm" variant="outline" disabled={actionMutation.isPending} onClick={() => actionMutation.mutate("cancel")}>Cancelar homologação</Button>
+              <Button type="button" size="sm" variant="destructive" disabled={actionMutation.isPending} onClick={() => actionMutation.mutate("block")}>Bloquear equipamento</Button>
+            </div>
+          </details>
+        ) : null}
+
         <DialogFooter>
           {!isClientPolicyView && configQuery.data?.config ? (
             <div className="mr-auto flex flex-wrap gap-2">
               <Button type="button" size="sm" variant="default" disabled={actionMutation.isPending} onClick={() => actionMutation.mutate("activate")}>Ativar/Homologar equipamento</Button>
-              <Button type="button" size="sm" variant="outline" disabled={actionMutation.isPending} onClick={() => actionMutation.mutate("cancel")}>Cancelar homologação</Button>
-              <Button type="button" size="sm" variant="destructive" disabled={actionMutation.isPending} onClick={() => actionMutation.mutate("block")}>Bloquear equipamento</Button>
             </div>
           ) : null}
           <Button variant="ghost" onClick={() => setOpen(false)}>
