@@ -25,35 +25,37 @@ export const getPortal = createServerFn({ method: "GET" })
     const target = await resolvePortalTarget(supabaseAdmin, data.slug);
     if (!target) return null;
 
-    const sign = async (path: string | null) => {
+    // Os assets do portal (logo, banners, patrocinadores) são exibidos para
+    // QUALQUER visitante do Wi-Fi cativo: o bucket "campaign-assets" é público
+    // para leitura (ver migration correspondente). Por isso usamos URL pública
+    // ESTÁVEL em vez de assinada — cada portal gera a mesma URL, permitindo
+    // cache de navegador + CDN e eliminando o re-download a cada visita
+    // (o Storage era 95% do egress do projeto em 17/10/2026).
+    const publicUrlFor = (path: string | null) => {
       if (!path) return null;
-      // If it's already a full URL (signed or public), return as is
+      // Se já é uma URL completa (pública ou legada), mantém como está
       if (path.startsWith("http")) return path;
-      const { data: signed } = await supabaseAdmin.storage
-        .from("campaign-assets")
-        .createSignedUrl(path, 60 * 60 * 6);
-      return signed?.signedUrl ?? null;
+      const { data } = supabaseAdmin.storage.from("campaign-assets").getPublicUrl(path);
+      return data?.publicUrl ?? null;
     };
 
-    const logoUrl = await sign(target.logoPath);
+    const logoUrl = publicUrlFor(target.logoPath);
 
-    const bannerUrls = (
-      await Promise.all((target.bannerPaths ?? []).map((path) => sign(path)))
-    ).filter((url): url is string => Boolean(url));
+    const bannerUrls = (target.bannerPaths ?? [])
+      .map((path) => publicUrlFor(path))
+      .filter((url): url is string => Boolean(url));
 
     // Patrocinadores só existem em campanhas do tipo Evento (garantido no servidor).
     const sponsors =
       target.kind === "event"
-        ? await Promise.all(
-            target.sponsors.map(async (sponsor) => ({
-              id: sponsor.id,
-              name: sponsor.name,
-              displayType: sponsor.displayType,
-              logoUrl: await sign(sponsor.logoPath),
-              bannerUrl: await sign(sponsor.bannerPath),
-              linkUrl: sponsor.linkUrl,
-            })),
-          )
+        ? target.sponsors.map((sponsor) => ({
+            id: sponsor.id,
+            name: sponsor.name,
+            displayType: sponsor.displayType,
+            logoUrl: publicUrlFor(sponsor.logoPath),
+            bannerUrl: publicUrlFor(sponsor.bannerPath),
+            linkUrl: sponsor.linkUrl,
+          }))
         : [];
 
     return {
