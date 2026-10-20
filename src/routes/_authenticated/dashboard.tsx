@@ -512,7 +512,9 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
           <ModuleCard key={module.label} module={module} isLoading={module.label === "Hotspot" ? hotspotDevices.isLoading : insights.isLoading} {...(module.label === "Hotspot" ? { onHotspotClick: () => setHotspotExpanded((value) => !value), onHotspotHover: setHotspotHovering } : {})} />
         ))}
       </div>
-      {hotspotOpen && <MonitorPreviewPanel devices={hotspotDevices.data ?? []} isLoading={hotspotDevices.isLoading} overlay={hotspotHovering} onClose={() => { setHotspotHovering(false); setHotspotExpanded(false); }} onMouseLeave={() => hotspotHovering && setHotspotHovering(false)} />}
+      {hotspotOpen && (access?.role === "adm"
+        ? <MonitorPreviewPanel devices={hotspotDevices.data ?? []} isLoading={hotspotDevices.isLoading} overlay={hotspotHovering} onClose={() => { setHotspotHovering(false); setHotspotExpanded(false); }} onMouseLeave={() => hotspotHovering && setHotspotHovering(false)} />
+        : <NetworkMapPanel devices={hotspotDevices.data ?? []} isLoading={hotspotDevices.isLoading} overlay={hotspotHovering} onClose={() => { setHotspotHovering(false); setHotspotExpanded(false); }} onMouseLeave={() => hotspotHovering && setHotspotHovering(false)} />)}
 
       <div className="mt-10">
         <RealtimeHeatmap />

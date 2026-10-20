@@ -27,7 +27,7 @@ const onlineAgora = (lastSeen?: string | null) =>
 
 function MonitoramentoPage() {
   const { data: access } = useAccess();
-  const canSee = access?.role === "adm" || access?.role === "matriz";
+  const canSee = access?.role === "adm";
   const fetchResumo = useServerFn(getHermesResumo);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -81,7 +81,7 @@ function MonitoramentoPage() {
           <CardContent className="p-6">
             <PageHeader
               title="Acesso restrito"
-              subtitle="O Monitoramento é exclusivo para administradores e matrizes."
+              subtitle="O Monitoramento é exclusivo para administradores."
             />
           </CardContent>
         </Card>

@@ -61,7 +61,7 @@ const NAV: NavItem[] = [
   { to: "/empresas", label: "Empresas", icon: Building2, roles: ["adm", "revenda"] },
   { to: "/financeiro", label: "Financeiro", icon: Wallet, roles: ["adm", "revenda"] },
   { to: "/hotspot", label: "Hotspot", icon: Router, roles: ["adm", "revenda"] },
-  { to: "/monitoramento", label: "Monitoramento", icon: Activity, roles: ["adm", "matriz"] },
+  { to: "/monitoramento", label: "Monitoramento", icon: Activity, roles: ["adm"] },
   { to: "/estoque-rbs", label: "Estoque RBs", icon: Package, roles: ["adm", "revenda"] },
   { to: "/creditos", label: "Créditos", icon: HandCoins, roles: ["revenda"] },
   { to: "/eventos", label: "Eventos", icon: CalendarDays, roles: ["adm"] },
