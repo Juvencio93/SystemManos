@@ -110,7 +110,9 @@ async function uploadBranchLogo(file: File) {
   if (authError || !authData.user) throw new Error("Sessão inválida para enviar a logo.");
   const path = `users/${authData.user.id}/branch-logos/${crypto.randomUUID()}.${ext}`;
   const { error } = await supabase.storage.from("campaign-assets").upload(path, file, {
-    cacheControl: "3600",
+    // Caminho contém UUID (arquivo imutável/versionado): cache longo reduz
+    // drasticamente o egress do Storage em carregamentos repetidos do portal.
+    cacheControl: "31536000",
     upsert: false,
     contentType: file.type,
   });
