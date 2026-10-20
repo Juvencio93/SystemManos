@@ -13,7 +13,6 @@ import {
   CheckCircle2,
   Clock,
   FileBarChart,
-  LayoutDashboard,
   Megaphone,
   MonitorSmartphone,
   Plus,
@@ -459,20 +458,14 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
 
   const modules = [
     {
+      // UX parte 5: um destino, um card. "Empresas" e "Filiais" levavam
+      // os dois para /empresas — agora é um card só, com os dois números.
       to: "/empresas",
       label: "Empresas",
       icon: Building2,
       count: data?.empresasTotal,
-      countLabel: "empresas ativas",
+      countLabel: `empresas ativas · ${data?.filiaisTotal ?? 0} filiais`,
       order: 1,
-    },
-    {
-      to: "/empresas",
-      label: "Filiais",
-      icon: Store,
-      count: data?.filiaisTotal,
-      countLabel: "filiais reais",
-      order: 2,
     },
     {
       to: "/portais",
@@ -480,7 +473,7 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
       icon: QrCode,
       count: data?.portaisAtivos,
       countLabel: "Portais cativos e códigos QR ativos",
-      order: 3,
+      order: 2,
     },
     {
       to: "/visitantes",
@@ -488,11 +481,11 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
       icon: Users,
       count: data?.leadsBase,
       countLabel: "Gerencie visitantes e leads captados",
-      order: 4,
+      order: 3,
     },
-    { to: "/financeiro", label: "Financeiro", icon: Wallet, order: 5 },
-    { to: "/relatorios", label: "Relatórios", icon: FileBarChart, order: 6 },
-    { to: "/hotspot", label: "Hotspot", icon: Wifi, count: connectedClients, countLabel: "clientes conectados agora", order: 5.5 },
+    { to: "/financeiro", label: "Financeiro", icon: Wallet, order: 4 },
+    { to: "/relatorios", label: "Relatórios", icon: FileBarChart, order: 5 },
+    { to: "/hotspot", label: "Hotspot", icon: Wifi, count: connectedClients, countLabel: "clientes conectados agora", order: 4.5 },
   ].sort((a, b) => a.order - b.order);
 
   return (
@@ -557,11 +550,13 @@ function MatrizDashboard({ access }: { access: AccessInfo | null }) {
   const canUseBranches = access?.role === "adm" || planLimit > 1;
 
   const modules = [
-    { to: "/relatorios", label: "Dashboard", icon: LayoutDashboard, order: 1 },
-    { to: "/gerente-operacional", label: "Gerente IA", icon: Activity, order: 2 },
-    { to: "/assinatura", label: "Minha Assinatura", icon: Wallet, order: 3 },
-    { to: "/relatorios", label: "Relatórios", icon: FileBarChart, order: 4 },
-    canUseBranches && { to: "/filiais", label: "Filiais", icon: Store, order: 5 },
+    // UX parte 5: /relatorios tinha dois cards ("Dashboard" e
+    // "Relatórios"); fica um só, com o nome do menu. E o card do gerente
+    // usa o nome completo do menu: "Gerente Operacional IA".
+    { to: "/gerente-operacional", label: "Gerente Operacional IA", icon: Activity, order: 1 },
+    { to: "/assinatura", label: "Minha Assinatura", icon: Wallet, order: 2 },
+    { to: "/relatorios", label: "Relatórios", icon: FileBarChart, order: 3 },
+    canUseBranches && { to: "/filiais", label: "Filiais", icon: Store, order: 4 },
   ].filter((m): m is Exclude<typeof m, false | 0 | null | undefined> => Boolean(m))
    .sort((a, b) => a.order - b.order);
 
@@ -611,7 +606,8 @@ function FilialDashboard({ access }: { access: AccessInfo | null }) {
   const data = insights.data as Insights | undefined;
 
   const modules = [
-    { to: "/relatorios", label: "Dashboard", icon: LayoutDashboard },
+    // UX parte 5: sem o card duplicado "Dashboard" (levava a /relatorios,
+    // mesmo destino de "Relatórios").
     { to: "/campanhas", label: "Campanhas", icon: Megaphone },
     { to: "/relatorios", label: "Relatórios", icon: FileBarChart },
   ];
