@@ -96,6 +96,16 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
     if (updated) setSelected({ ...updated, state: stateOf(updated) });
   }, [devices, seconds, selectedId]);
 
+  // Esc fecha o painel da RB (o clique fora fecha no layout do radar).
+  useEffect(() => {
+    if (!selected) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSelected(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selected]);
+
   const mappedDevices = useMemo(
     () => devices.map((device) => ({ ...device, state: stateOf(device) })),
     [devices, seconds],
@@ -143,7 +153,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
   }
 
   const selectedPanel = selected ? (
-            <div className="absolute inset-0 z-[600] overflow-y-auto rounded-xl border border-primary/20 bg-[#071017]/95 p-4 backdrop-blur-sm">
+            <div className="w-full rounded-xl border border-primary/20 bg-[#071017] p-4 shadow-2xl">
               <div>
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -217,7 +227,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
               />
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute inset-0 rounded-full"
+                className="pointer-events-none absolute inset-0 z-[640] rounded-full"
                 style={{
                   background:
                     "repeating-radial-gradient(circle at 50% 50%, transparent 0, transparent 23.5%, rgba(125,211,252,0.16) 24%, transparent 24.6%), linear-gradient(rgba(125,211,252,0.13), rgba(125,211,252,0.13)), linear-gradient(rgba(125,211,252,0.13), rgba(125,211,252,0.13))",
@@ -228,10 +238,10 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
               />
               <div
                 aria-hidden="true"
-                className={`radar-sweep ${hasOffline ? "radar-sweep--alert" : ""} pointer-events-none absolute inset-0 rounded-full`}
+                className={`radar-sweep ${hasOffline ? "radar-sweep--alert" : ""} pointer-events-none absolute inset-0 z-[645] rounded-full`}
               />
               {isLoading ? (
-                <div className="absolute inset-0 z-[500] grid place-items-center rounded-full bg-[#071017]/80 text-sm text-muted-foreground">
+                <div className="absolute inset-0 z-[700] grid place-items-center rounded-full bg-[#071017]/80 text-sm text-muted-foreground">
                   Carregando localizações das RBs…
                 </div>
               ) : null}
@@ -310,7 +320,24 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
           </div>
         </div>
 
-        {selectedPanel}
+        {selected ? (
+          <div
+            className="fixed inset-0 z-[800] overflow-y-auto bg-black/60 backdrop-blur-[2px]"
+            onClick={() => setSelected(null)}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Painel da RB ${selected.router_identity}`}
+          >
+            <div className="flex min-h-full items-center justify-center p-3 sm:p-6">
+              <div
+                className="w-full max-w-4xl"
+                onClick={(event) => event.stopPropagation()}
+              >
+                {selectedPanel}
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     );
   }
@@ -387,7 +414,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
 
         <CardContent className="relative p-3 sm:p-5">
           <div
-            className={`relative overflow-hidden rounded-xl border border-white/10 ${selected ? "min-h-[min(72vh,620px)]" : ""}`}
+            className="relative overflow-hidden rounded-xl border border-white/10"
           >
             {isLoading ? (
               <div className="absolute inset-0 z-[500] grid place-items-center bg-[#071017]/80 text-sm text-muted-foreground">
@@ -415,7 +442,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
             <p className="py-5 text-center text-sm text-muted-foreground">Nenhuma RB encontrada.</p>
           ) : null}
 
-          {selectedPanel}
+          {selected ? <div className="mt-4">{selectedPanel}</div> : null}
         </CardContent>
       </Card>
     </div>

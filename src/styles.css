@@ -638,15 +638,19 @@
 }
 
 .radar-sweep {
+  /* Sem mix-blend: sobre o mapa claro o blend lavava a varredura. Alfa
+     mais forte + borda dianteira brilhante = visível o tempo todo. */
   background: conic-gradient(
     from 0deg,
-    rgba(52, 211, 153, 0.45),
-    rgba(250, 204, 21, 0.25) 60deg,
-    rgba(248, 113, 113, 0.2) 120deg,
-    transparent 170deg
+    rgba(52, 211, 153, 0.65),
+    rgba(52, 211, 153, 0.34) 40deg,
+    rgba(250, 204, 21, 0.28) 85deg,
+    rgba(248, 113, 113, 0.22) 130deg,
+    transparent 175deg
   );
-  mix-blend-mode: screen;
+  box-shadow: inset 0 0 60px rgba(56, 189, 248, 0.12);
   animation: radar-spin 5s linear infinite;
+  will-change: transform;
 }
 
 /* Com RB offline, o radar pede atenção: varredura vermelha e mais rápida,
@@ -654,8 +658,8 @@
 .radar-sweep--alert {
   background: conic-gradient(
     from 0deg,
-    rgba(248, 113, 113, 0.55),
-    rgba(248, 113, 113, 0.25) 70deg,
+    rgba(248, 113, 113, 0.7),
+    rgba(248, 113, 113, 0.34) 70deg,
     transparent 160deg
   );
   animation-duration: 2.6s;
