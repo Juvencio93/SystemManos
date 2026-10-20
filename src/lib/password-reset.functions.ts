@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getRequest } from "@tanstack/react-start/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -144,15 +143,36 @@ export const approvePasswordResetRequest = createServerFn({ method: "POST" })
       throw new Error("Solicitação expirada (mais de 24h). Peça pra pessoa solicitar de novo.");
     }
 
-    const request = getRequest();
-    const origin = request ? new URL(request.url).origin : "";
+    // Destino FIXO de produção (não depende de onde o ADM clicou —
+    // aprovar de um preview gerava link pro preview). E o Supabase só
+    // honra o redirect_to se ele estiver na lista de Redirect URLs do
+    // projeto; fora dela, ele troca em silêncio pelo Site URL (que já
+    // esteve como localhost:3000 e entregava link QUEBRADO). Por isso
+    // conferimos o link devolvido: redirect errado = erro explícito
+    // pro ADM, nunca um link morto pro cliente.
+    const redirectTo = "https://system-manos.vercel.app/auth";
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: "recovery",
       email: row.email,
-      options: { redirectTo: `${origin}/auth` },
+      options: { redirectTo },
     });
     const link = linkData?.properties?.action_link;
     if (linkError || !link) throw new Error("Não foi possível gerar o link de redefinição.");
+    let linkOk = false;
+    try {
+      const destino = new URL(link).searchParams.get("redirect_to");
+      linkOk = !!destino && destino.startsWith("https://system-manos.vercel.app");
+    } catch {
+      linkOk = false;
+    }
+    if (!linkOk) {
+      throw new Error(
+        "O Supabase recusou o destino do link (caiu no endereço errado). " +
+          "Ajuste em Authentication → URL Configuration: Site URL = " +
+          "https://system-manos.vercel.app e Redirect URLs com " +
+          "https://system-manos.vercel.app/** — depois aprove de novo.",
+      );
+    }
 
     const nowIso = new Date().toISOString();
     await supabaseAdmin
