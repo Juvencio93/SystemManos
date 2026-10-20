@@ -79,6 +79,7 @@ function googleMapsUrl(device: Device) {
 
 export function HotspotNetworkMap({ devices, isLoading = false, compact = false, onBlock, onReboot }: Props) {
   const [selected, setSelected] = useState<Device | null>(null);
+  const [recenterSignal, setRecenterSignal] = useState(0);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | GeographicDevice["state"]>("all");
   const [seconds, setSeconds] = useState(0);
@@ -171,54 +172,19 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
                       {selected.last_seen_at
                         ? new Date(selected.last_seen_at).toLocaleString("pt-BR")
                         : "nunca"}
+                      {" "}· IP {selected.last_seen_ip ?? "—"}
+                      {" "}· RouterOS {selected.router_version ?? "—"}
                     </p>
                   </div>
                   <Button variant="ghost" size="icon" onClick={() => setSelected(null)}>
                     <X className="size-4" />
                   </Button>
                 </div>
-
-                <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                  <span>
-                    IP: <b className="text-foreground">{selected.last_seen_ip ?? "—"}</b>
-                  </span>
-                  <span>
-                    RouterOS: <b className="text-foreground">{selected.router_version ?? "—"}</b>
-                  </span>
-                  <span>
-                    Sessões: <b className="text-foreground">{selected.active_sessions ?? 0}</b>
-                  </span>
-                  <span>
-                    Qualidade:{" "}
-                    <b
-                      className={
-                        selected.state === "online" ? "text-emerald-300" : "text-amber-300"
-                      }
-                    >
-                      {isRebootPending(selected)
-                        ? "Reiniciando"
-                        : selected.state === "online"
-                          ? "Boa"
-                          : selected.state === "unstable"
-                            ? "Instável"
-                            : "Sem comunicação"}
-                    </b>
-                  </span>
-                  <span>
-                    TX:{" "}
-                    <b className="text-foreground">
-                      {(Number(selected.tx_bytes ?? 0) / 1_000_000).toFixed(1)} MB
-                    </b>
-                  </span>
-                  <span>
-                    RX:{" "}
-                    <b className="text-foreground">
-                      {(Number(selected.rx_bytes ?? 0) / 1_000_000).toFixed(1)} MB
-                    </b>
-                  </span>
-                </div>
               </div>
 
+              {/* O corpo do painel é o gráfico do Hermes (cartões + séries).
+                  A grade antiga de IP/TX/RX saiu — IP e RouterOS viraram
+                  uma linha só no cabeçalho. */}
               <RbHermesPanel identity={selected.router_identity} />
             </div>
   ) : null;
@@ -244,6 +210,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
                 devices={visible}
                 selectedId={selected?.id ?? null}
                 radar
+                recenterSignal={recenterSignal}
                 onSelect={(id) =>
                   setSelected(mappedDevices.find((device) => device.id === id) ?? null)
                 }
@@ -296,9 +263,22 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
               className="h-9 w-full max-w-sm rounded-md border border-white/10 bg-black/20 px-3 text-sm outline-none focus:border-primary"
             />
             <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  // Centralizar o radar: mostra TODAS as RBs e a sede no
+                  // enquadramento (limpa filtro e seleção e manda o mapa
+                  // reajustar a vista).
+                  setFilter("all");
+                  setSelected(null);
+                  setRecenterSignal((value) => value + 1);
+                }}
+              >
+                <LocateFixed className="size-4" /> Centralizar o radar
+              </Button>
               {(
                 [
-                  ["all", "Todas", "text-foreground"],
                   ["online", `Online ${counts.online}`, "text-emerald-400"],
                   ["unstable", `Instáveis/Reiniciando ${counts.unstable}`, "text-amber-400"],
                   ["offline", `Offline ${counts.offline}`, "text-red-400"],
@@ -309,7 +289,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
                   variant={filter === key ? "secondary" : "ghost"}
                   size="sm"
                   className={color}
-                  onClick={() => setFilter(key)}
+                  onClick={() => setFilter(filter === key ? "all" : key)}
                 >
                   {label}
                 </Button>

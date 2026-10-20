@@ -125,6 +125,7 @@ export function HotspotGeographicMap({
   selectedId,
   compact = false,
   radar = false,
+  recenterSignal = 0,
   onSelect,
 }: {
   devices: GeographicDevice[];
@@ -134,6 +135,9 @@ export function HotspotGeographicMap({
   // enquadramento, RBs espalhadas com rótulo, sem controles de zoom —
   // a varredura e os anéis são camadas do componente pai.
   radar?: boolean;
+  // Incrementar recentraliza a vista (sede + todas as RBs) — botão
+  // "Centralizar o radar" do componente pai.
+  recenterSignal?: number;
   onSelect?: (id: string) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -236,7 +240,9 @@ export function HotspotGeographicMap({
       if (compact && located[0]) {
         map.setView(located[0].point, 16);
       } else if (bounds.length > 1) {
-        map.fitBounds(bounds, { padding: [48, 48], maxZoom: 12 });
+        // No radar o recorte é um círculo inscrito no quadrado: padding
+        // maior mantém os pontos longe das bordas do círculo.
+        map.fitBounds(bounds, { padding: radar ? [64, 64] : [48, 48], maxZoom: 12 });
       } else {
         map.setView([HUB.latitude, HUB.longitude], 10);
       }
@@ -277,6 +283,25 @@ export function HotspotGeographicMap({
     );
     marker.openPopup();
   }, [compact, radar, selectedId]);
+
+  const firstRecenter = useRef(true);
+  useEffect(() => {
+    if (firstRecenter.current) {
+      firstRecenter.current = false;
+      return;
+    }
+    if (!radar || !mapRef.current) return;
+    const points: [number, number][] = [[HUB.latitude, HUB.longitude]];
+    for (const device of devicesRef.current) {
+      const point = coordinates(device);
+      if (point) points.push(point);
+    }
+    if (points.length > 1) {
+      mapRef.current.fitBounds(points, { padding: [64, 64], maxZoom: 12 });
+    } else {
+      mapRef.current.setView([HUB.latitude, HUB.longitude], 10);
+    }
+  }, [radar, recenterSignal]);
 
   return (
     <div
