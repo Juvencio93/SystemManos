@@ -86,7 +86,30 @@ export function BannerCarousel({
                 fetchPriority={currentIndex === 0 ? "high" : "auto"}
                 decoding="async"
                 sizes="(max-width: 768px) 100vw, 960px"
+                ref={(el) => {
+                  // Imagem servida do cache pode completar ANTES de o
+                  // React ligar o onLoad (a pagina ja vem renderizada do
+                  // servidor) — nesse caso o evento nunca dispara e o
+                  // banner ficava invisivel (opacity-0) para sempre.
+                  // O ref detecta a imagem ja completa na montagem.
+                  if (el?.complete && el.naturalWidth > 0) {
+                    setLoadedUrls((current) => {
+                      if (current.has(url)) return current;
+                      const next = new Set(current);
+                      next.add(url);
+                      return next;
+                    });
+                  }
+                }}
                 onLoad={() =>
+                  setLoadedUrls((current) => {
+                    if (current.has(url)) return current;
+                    const next = new Set(current);
+                    next.add(url);
+                    return next;
+                  })
+                }
+                onError={() =>
                   setLoadedUrls((current) => {
                     if (current.has(url)) return current;
                     const next = new Set(current);
