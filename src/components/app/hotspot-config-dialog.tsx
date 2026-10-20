@@ -67,6 +67,27 @@ const STATUS_LABELS: Record<string, string> = {
   error: "Erro",
 };
 
+// Progresso da homologação (UX parte 4): etapas do caminho principal, na
+// ordem em que o servidor avança. Estados fora do caminho (simulação,
+// bloqueado, erro) não têm etapa — mostramos só o rótulo da situação.
+const STATUS_STEPS: Record<string, number> = {
+  not_configured: 1,
+  configuration_incomplete: 2,
+  awaiting_radius: 3,
+  awaiting_secret: 4,
+  awaiting_homologation: 5,
+  operational: 6,
+};
+const STATUS_TOTAL_STEPS = 6;
+
+function statusProgressLabel(status: string): string | null {
+  const step = STATUS_STEPS[status];
+  if (!step) return null;
+  return step >= STATUS_TOTAL_STEPS
+    ? "Homologação concluída ✓"
+    : `Etapa ${step} de ${STATUS_TOTAL_STEPS} · faltam ${STATUS_TOTAL_STEPS - step}`;
+}
+
 const VENDOR_HELP: Record<Vendor, string> = {
   test: "Somente para simulação. Não libera internet em equipamento real.",
   mikrotik_hotspot:
@@ -262,6 +283,11 @@ export function HotspotConfigDialog({
                 {STATUS_LABELS[configQuery.data?.config?.status ?? "not_configured"] ??
                   "Não configurado"}
               </Badge>
+              {statusProgressLabel(configQuery.data?.config?.status ?? "not_configured") ? (
+                <span className="text-xs text-muted-foreground">
+                  {statusProgressLabel(configQuery.data?.config?.status ?? "not_configured")}
+                </span>
+              ) : null}
             </div> : null}
 
             {!isClientPolicyView ? <div className="grid gap-2">
