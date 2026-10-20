@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowRight,
+  ArrowUp,
   Bot,
   Building2,
   Check,
@@ -485,6 +486,30 @@ function NotebookCheckinDemo() {
 }
 
 function SalesHomePage() {
+  const crmCardRef = useRef<HTMLDivElement>(null);
+  const [showBackToTop, setShowBackToTop] = useState(false);
+
+  useEffect(() => {
+    let frame = 0;
+    const updateVisibility = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        const crmCard = crmCardRef.current;
+        setShowBackToTop(Boolean(crmCard && crmCard.getBoundingClientRect().bottom <= 0));
+      });
+    };
+
+    updateVisibility();
+    document.addEventListener("scroll", updateVisibility, { passive: true, capture: true });
+    window.addEventListener("resize", updateVisibility);
+    return () => {
+      document.removeEventListener("scroll", updateVisibility, true);
+      window.removeEventListener("resize", updateVisibility);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, []);
+
   return (
     <main className="min-h-screen overflow-hidden bg-[#050912] text-slate-100">
       <header className="sticky top-0 z-30 border-b border-white/10 bg-[#050912]/90 backdrop-blur-xl">
@@ -510,7 +535,7 @@ function SalesHomePage() {
             </a>
             <Link
               to="/auth"
-              className="rounded-full border border-white/15 px-4 py-2 text-sm font-semibold transition hover:border-cyan-300/60 hover:text-cyan-200"
+              className="rounded-full border border-white/15 px-4 py-2 text-sm font-semibold transition hover:border-cyan-400 hover:bg-cyan-400 hover:text-slate-950 focus-visible:border-cyan-400 focus-visible:bg-cyan-400 focus-visible:text-slate-950 active:border-cyan-400 active:bg-cyan-400 active:text-slate-950"
             >
               Entrar
             </Link>
@@ -566,9 +591,28 @@ function SalesHomePage() {
           </div>
           </ScrollReveal>
 
-          <ScrollReveal className="h-full" delay={120}><LiveCrmPreview /></ScrollReveal>
+          <div ref={crmCardRef} className="h-full">
+            <ScrollReveal className="h-full" delay={120}><LiveCrmPreview /></ScrollReveal>
+          </div>
         </div>
       </section>
+
+      {showBackToTop ? (
+        <button
+          type="button"
+          onClick={() =>
+            window.scrollTo({
+              top: 0,
+              behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+            })
+          }
+          aria-label="Subir ao topo"
+          title="Subir ao topo"
+          className="fixed bottom-5 left-5 z-[150] grid size-14 place-items-center rounded-full border border-cyan-200/25 bg-[#0b1220] text-cyan-100 shadow-[0_12px_40px_rgba(0,0,0,.38)] transition duration-200 hover:-translate-y-0.5 hover:border-cyan-400 hover:bg-cyan-400 hover:text-slate-950 focus-visible:border-cyan-400 focus-visible:bg-cyan-400 focus-visible:text-slate-950 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-200 active:border-cyan-400 active:bg-cyan-400 active:text-slate-950 sm:bottom-6 sm:left-6"
+        >
+          <ArrowUp className="size-5" aria-hidden="true" />
+        </button>
+      ) : null}
 
       <section id="portais" className="scroll-mt-20 border-y border-white/[.07] bg-[#080e18]">
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
