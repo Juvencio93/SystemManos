@@ -124,11 +124,20 @@ export function HotspotGeographicMap({
   devices,
   selectedId,
   compact = false,
+  radar = false,
+  recenterSignal = 0,
   onSelect,
 }: {
   devices: GeographicDevice[];
   selectedId?: string | null;
   compact?: boolean;
+  // radar: quadrado (o pai recorta em círculo), sede no centro do
+  // enquadramento, RBs espalhadas com rótulo, sem controles de zoom —
+  // a varredura e os anéis são camadas do componente pai.
+  radar?: boolean;
+  // Incrementar recentraliza a vista (sede + todas as RBs) — botão
+  // "Centralizar o radar" do componente pai.
+  recenterSignal?: number;
   onSelect?: (id: string) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -163,9 +172,9 @@ export function HotspotGeographicMap({
       markers.clear();
 
       const map = L.map(containerRef.current, {
-        zoomControl: true,
-        attributionControl: !compact,
-        scrollWheelZoom: !compact,
+        zoomControl: !radar,
+        attributionControl: !compact && !radar,
+        scrollWheelZoom: !compact && !radar,
         dragging: true,
       });
       mapRef.current = map;
@@ -181,8 +190,9 @@ export function HotspotGeographicMap({
           Boolean(item.point),
         );
 
-      const bounds: [number, number][] = compact ? [] : [[HUB.latitude, HUB.longitude]];
-      if (!compact) {
+      const showHub = !compact || radar;
+      const bounds: [number, number][] = showHub ? [[HUB.latitude, HUB.longitude]] : [];
+      if (showHub) {
         const hubIcon = L.divIcon({
           className: "hotspot-company-marker-container",
           html: companyMarkerHtml(),
@@ -204,7 +214,7 @@ export function HotspotGeographicMap({
               ? "#fbbf24"
               : "#fb7185";
         const marker = L.circleMarker(point, {
-          radius: compact ? 8 : 9,
+          radius: compact && !radar ? 8 : 9,
           color: "rgba(255,255,255,.95)",
           weight: 2,
           fillColor: color,
@@ -214,7 +224,7 @@ export function HotspotGeographicMap({
         marker
           .addTo(map)
           .bindTooltip(escapeHtml(device.router_identity), {
-            permanent: !compact,
+            permanent: !compact || radar,
             direction: "right",
             offset: [10, 0],
             opacity: 1,
@@ -230,7 +240,9 @@ export function HotspotGeographicMap({
       if (compact && located[0]) {
         map.setView(located[0].point, 16);
       } else if (bounds.length > 1) {
-        map.fitBounds(bounds, { padding: [48, 48], maxZoom: 12 });
+        // No radar o recorte é um círculo inscrito no quadrado: padding
+        // maior mantém os pontos longe das bordas do círculo.
+        map.fitBounds(bounds, { padding: radar ? [64, 64] : [48, 48], maxZoom: 12 });
       } else {
         map.setView([HUB.latitude, HUB.longitude], 10);
       }
@@ -242,9 +254,12 @@ export function HotspotGeographicMap({
       mapRef.current = null;
       markers.clear();
     };
-  }, [compact, devicesKey]);
+  }, [compact, radar, devicesKey]);
 
   useEffect(() => {
+    // No radar, quem responde ao clique é o painel sobre o mapa — nada de
+    // voar até a RB nem abrir popup por baixo do painel.
+    if (radar) return;
     if (!selectedId) {
       if (compact || !mapRef.current) return;
       const points: [number, number][] = [[HUB.latitude, HUB.longitude]];
@@ -267,13 +282,34 @@ export function HotspotGeographicMap({
       },
     );
     marker.openPopup();
-  }, [compact, selectedId]);
+  }, [compact, radar, selectedId]);
+
+  const firstRecenter = useRef(true);
+  useEffect(() => {
+    if (firstRecenter.current) {
+      firstRecenter.current = false;
+      return;
+    }
+    if (!radar || !mapRef.current) return;
+    const points: [number, number][] = [[HUB.latitude, HUB.longitude]];
+    for (const device of devicesRef.current) {
+      const point = coordinates(device);
+      if (point) points.push(point);
+    }
+    if (points.length > 1) {
+      mapRef.current.fitBounds(points, { padding: [64, 64], maxZoom: 12 });
+    } else {
+      mapRef.current.setView([HUB.latitude, HUB.longitude], 10);
+    }
+  }, [radar, recenterSignal]);
 
   return (
     <div
       ref={containerRef}
-      className={compact ? "h-40 w-full" : "min-h-[min(58vh,520px)] w-full"}
-      aria-label={compact ? "Mapa da localização da RB" : "Mapa geográfico das RBs"}
+      className={
+        radar ? "aspect-square w-full" : compact ? "h-40 w-full" : "min-h-[min(58vh,520px)] w-full"
+      }
+      aria-label={radar ? "Radar da rede" : compact ? "Mapa da localização da RB" : "Mapa geográfico das RBs"}
     />
   );
 }

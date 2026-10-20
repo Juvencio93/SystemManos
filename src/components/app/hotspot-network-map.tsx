@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Building2, ExternalLink, LocateFixed, MapPin, Wifi, X } from "lucide-react";
+import { AlertTriangle, Building2, ExternalLink, LocateFixed, MapPin, Wifi, X } from "lucide-react";
 
 import {
   HotspotGeographicMap,
@@ -29,6 +29,9 @@ type Device = GeographicDevice & {
 type Props = {
   devices: Device[];
   isLoading?: boolean;
+  // compact: mapa em faixa (h-40) e sem a grade de indicadores — usado no
+  // Monitoramento. O painel da RB selecionada abre SOBRE o mapa.
+  compact?: boolean;
   onBlock?: (device: Device, blocked: boolean) => Promise<void> | void;
   onReboot?: (device: Device) => Promise<void> | void;
 };
@@ -74,8 +77,9 @@ function googleMapsUrl(device: Device) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query || device.router_identity)}`;
 }
 
-export function HotspotNetworkMap({ devices, isLoading = false, onBlock, onReboot }: Props) {
+export function HotspotNetworkMap({ devices, isLoading = false, compact = false, onBlock, onReboot }: Props) {
   const [selected, setSelected] = useState<Device | null>(null);
+  const [recenterSignal, setRecenterSignal] = useState(0);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | GeographicDevice["state"]>("all");
   const [seconds, setSeconds] = useState(0);
@@ -91,6 +95,16 @@ export function HotspotNetworkMap({ devices, isLoading = false, onBlock, onReboo
     const updated = devices.find((device) => device.id === selectedId);
     if (updated) setSelected({ ...updated, state: stateOf(updated) });
   }, [devices, seconds, selectedId]);
+
+  // Esc fecha o painel da RB (o clique fora fecha no layout do radar).
+  useEffect(() => {
+    if (!selected) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSelected(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selected]);
 
   const mappedDevices = useMemo(
     () => devices.map((device) => ({ ...device, state: stateOf(device) })),
@@ -136,6 +150,196 @@ export function HotspotNetworkMap({ devices, isLoading = false, onBlock, onReboo
       reboot_requested_at: new Date().toISOString(),
       reboot_applied_at: null,
     });
+  }
+
+  const selectedPanel = selected ? (
+            <div className="w-full rounded-xl border border-primary/20 bg-[#071017] p-4 shadow-2xl">
+              <div>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-semibold">{selected.router_identity}</h3>
+                      <Button
+                        size="sm"
+                        className="h-5 px-1.5 text-[9px]"
+                        variant={selected.status === "blocked" ? "default" : "destructive"}
+                        onClick={() => void changeBlock()}
+                      >
+                        {selected.status === "blocked" ? "Desbloquear" : "Bloquear"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="h-5 px-1.5 text-[9px]"
+                        variant="outline"
+                        onClick={() => void reboot()}
+                      >
+                        Reiniciar
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {stateLabel(selected)}{" "}
+                      · última comunicação{" "}
+                      {selected.last_seen_at
+                        ? new Date(selected.last_seen_at).toLocaleString("pt-BR")
+                        : "nunca"}
+                      {" "}· IP {selected.last_seen_ip ?? "—"}
+                      {" "}· RouterOS {selected.router_version ?? "—"}
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => setSelected(null)}>
+                    <X className="size-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* O corpo do painel é o gráfico do Hermes (cartões + séries).
+                  A grade antiga de IP/TX/RX saiu — IP e RouterOS viraram
+                  uma linha só no cabeçalho. */}
+              <RbHermesPanel identity={selected.router_identity} />
+            </div>
+  ) : null;
+
+  // Layout do Monitoramento (compact): sem a caixa gigante — radar à
+  // esquerda, busca e filtros compactos à direita. Com RB offline, a
+  // varredura entra em alerta (vermelha, mais rápida) e um selo piscando
+  // marca quantas estão offline; tudo ok, varredura no padrão de cores.
+  if (compact) {
+    const hasOffline = counts.offline > 0;
+    return (
+      <div className="relative">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start">
+          <div className="relative mx-auto w-full max-w-[330px] shrink-0 md:mx-0">
+            <div
+              className={`relative overflow-hidden rounded-full ${
+                hasOffline
+                  ? "radar-alert-ring"
+                  : "shadow-[0_0_0_2px_rgba(56,189,248,0.35),0_0_45px_rgba(14,116,144,0.35)]"
+              }`}
+            >
+              <HotspotGeographicMap
+                devices={visible}
+                selectedId={selected?.id ?? null}
+                radar
+                recenterSignal={recenterSignal}
+                onSelect={(id) =>
+                  setSelected(mappedDevices.find((device) => device.id === id) ?? null)
+                }
+              />
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 z-[640] rounded-full"
+                style={{
+                  background:
+                    "repeating-radial-gradient(circle at 50% 50%, transparent 0, transparent 23.5%, rgba(125,211,252,0.16) 24%, transparent 24.6%), linear-gradient(rgba(125,211,252,0.13), rgba(125,211,252,0.13)), linear-gradient(rgba(125,211,252,0.13), rgba(125,211,252,0.13))",
+                  backgroundSize: "100% 100%, 1px 100%, 100% 1px",
+                  backgroundPosition: "center, center, center",
+                  backgroundRepeat: "no-repeat",
+                }}
+              />
+              <div
+                aria-hidden="true"
+                className={`radar-sweep ${hasOffline ? "radar-sweep--alert" : ""} pointer-events-none absolute inset-0 z-[645] rounded-full`}
+              />
+              {isLoading ? (
+                <div className="absolute inset-0 z-[700] grid place-items-center rounded-full bg-[#071017]/80 text-sm text-muted-foreground">
+                  Carregando localizações das RBs…
+                </div>
+              ) : null}
+            </div>
+            {hasOffline ? (
+              <div className="radar-alert-badge absolute -top-1 right-2 z-[700] flex items-center gap-1.5 rounded-full border border-red-300/60 bg-red-500 px-2.5 py-1 text-[11px] font-bold text-white shadow-lg">
+                <AlertTriangle className="size-3.5" />
+                {counts.offline} offline
+              </div>
+            ) : null}
+            <p className="mt-2 text-center text-[10px] text-muted-foreground">
+              © OpenStreetMap · toque numa RB para abrir o painel do Hermes
+            </p>
+          </div>
+
+          <div className="min-w-0 flex-1 space-y-3">
+            <div>
+              <p className="flex items-center gap-2 font-semibold">
+                <Wifi className="size-4 text-primary" /> Mapa da rede
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Heartbeat em {seconds}s · mapa operacional atualizado a cada 5s
+              </p>
+            </div>
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Buscar RB ou cidade"
+              className="h-9 w-full max-w-sm rounded-md border border-white/10 bg-black/20 px-3 text-sm outline-none focus:border-primary"
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  // Centralizar o radar: mostra TODAS as RBs e a sede no
+                  // enquadramento (limpa filtro e seleção e manda o mapa
+                  // reajustar a vista).
+                  setFilter("all");
+                  setSelected(null);
+                  setRecenterSignal((value) => value + 1);
+                }}
+              >
+                <LocateFixed className="size-4" /> Centralizar o radar
+              </Button>
+              {(
+                [
+                  ["online", `Online ${counts.online}`, "text-emerald-400"],
+                  ["unstable", `Instáveis/Reiniciando ${counts.unstable}`, "text-amber-400"],
+                  ["offline", `Offline ${counts.offline}`, "text-red-400"],
+                ] as const
+              ).map(([key, label, color]) => (
+                <Button
+                  key={key}
+                  variant={filter === key ? "secondary" : "ghost"}
+                  size="sm"
+                  className={color}
+                  onClick={() => setFilter(filter === key ? "all" : key)}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
+            {hasOffline ? (
+              <p className="flex items-center gap-2 text-sm font-medium text-red-300">
+                <AlertTriangle className="size-4 shrink-0" />
+                {counts.offline} RB{counts.offline > 1 ? "s" : ""} offline — precisa
+                {counts.offline > 1 ? "m" : ""} de atenção.
+              </p>
+            ) : (
+              <p className="text-sm text-emerald-300">Todas as RBs respondendo normalmente.</p>
+            )}
+            {!isLoading && !visible.length ? (
+              <p className="text-sm text-muted-foreground">Nenhuma RB encontrada.</p>
+            ) : null}
+          </div>
+        </div>
+
+        {selected ? (
+          <div
+            className="fixed inset-0 z-[800] overflow-y-auto bg-black/60 backdrop-blur-[2px]"
+            onClick={() => setSelected(null)}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Painel da RB ${selected.router_identity}`}
+          >
+            <div className="flex min-h-full items-center justify-center p-3 sm:p-6">
+              <div
+                className="w-full max-w-4xl"
+                onClick={(event) => event.stopPropagation()}
+              >
+                {selectedPanel}
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    );
   }
 
   return (
@@ -186,6 +390,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, onBlock, onReboo
               </Button>
             ))}
           </div>
+          {!compact ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="Indicadores da rede">
             <div className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs">
               <span className="text-muted-foreground">Latência</span>
@@ -204,10 +409,13 @@ export function HotspotNetworkMap({ devices, isLoading = false, onBlock, onReboo
               <b className="text-red-300">{counts.offline}</b>
             </div>
           </div>
+          ) : null}
         </CardHeader>
 
-        <CardContent className="p-3 sm:p-5">
-          <div className="relative overflow-hidden rounded-xl border border-white/10">
+        <CardContent className="relative p-3 sm:p-5">
+          <div
+            className="relative overflow-hidden rounded-xl border border-white/10"
+          >
             {isLoading ? (
               <div className="absolute inset-0 z-[500] grid place-items-center bg-[#071017]/80 text-sm text-muted-foreground">
                 Carregando localizações das RBs…
@@ -234,87 +442,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, onBlock, onReboo
             <p className="py-5 text-center text-sm text-muted-foreground">Nenhuma RB encontrada.</p>
           ) : null}
 
-          {selected ? (
-            <div className="mt-4 rounded-xl border border-primary/20 bg-black/20 p-4">
-              <div>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="font-semibold">{selected.router_identity}</h3>
-                      <Button
-                        size="sm"
-                        className="h-5 px-1.5 text-[9px]"
-                        variant={selected.status === "blocked" ? "default" : "destructive"}
-                        onClick={() => void changeBlock()}
-                      >
-                        {selected.status === "blocked" ? "Desbloquear" : "Bloquear"}
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="h-5 px-1.5 text-[9px]"
-                        variant="outline"
-                        onClick={() => void reboot()}
-                      >
-                        Reiniciar
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {stateLabel(selected)}{" "}
-                      · última comunicação{" "}
-                      {selected.last_seen_at
-                        ? new Date(selected.last_seen_at).toLocaleString("pt-BR")
-                        : "nunca"}
-                    </p>
-                  </div>
-                  <Button variant="ghost" size="icon" onClick={() => setSelected(null)}>
-                    <X className="size-4" />
-                  </Button>
-                </div>
-
-                <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                  <span>
-                    IP: <b className="text-foreground">{selected.last_seen_ip ?? "—"}</b>
-                  </span>
-                  <span>
-                    RouterOS: <b className="text-foreground">{selected.router_version ?? "—"}</b>
-                  </span>
-                  <span>
-                    Sessões: <b className="text-foreground">{selected.active_sessions ?? 0}</b>
-                  </span>
-                  <span>
-                    Qualidade:{" "}
-                    <b
-                      className={
-                        selected.state === "online" ? "text-emerald-300" : "text-amber-300"
-                      }
-                    >
-                      {isRebootPending(selected)
-                        ? "Reiniciando"
-                        : selected.state === "online"
-                          ? "Boa"
-                          : selected.state === "unstable"
-                            ? "Instável"
-                            : "Sem comunicação"}
-                    </b>
-                  </span>
-                  <span>
-                    TX:{" "}
-                    <b className="text-foreground">
-                      {(Number(selected.tx_bytes ?? 0) / 1_000_000).toFixed(1)} MB
-                    </b>
-                  </span>
-                  <span>
-                    RX:{" "}
-                    <b className="text-foreground">
-                      {(Number(selected.rx_bytes ?? 0) / 1_000_000).toFixed(1)} MB
-                    </b>
-                  </span>
-                </div>
-              </div>
-
-              <RbHermesPanel identity={selected.router_identity} />
-            </div>
-          ) : null}
+          {selected ? <div className="mt-4">{selectedPanel}</div> : null}
         </CardContent>
       </Card>
     </div>

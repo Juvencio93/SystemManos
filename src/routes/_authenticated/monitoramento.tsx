@@ -16,6 +16,8 @@ import {
   casarResumo,
   type MonitorDevice,
 } from "@/components/app/rb-monitor-card";
+import { HotspotNetworkMap } from "@/components/app/hotspot-network-map";
+import { hotspotActionError, postHotspotAction } from "@/lib/hotspot-client";
 
 export const Route = createFileRoute("/_authenticated/monitoramento")({
   head: () => ({ meta: [{ title: "Monitoramento | Manos Tech" }] }),
@@ -39,7 +41,7 @@ function MonitoramentoPage() {
       let query = (supabase as any)
         .from("hotspot_devices")
         .select(
-          "id,router_identity,status,company_id,branch_id,last_seen_at,active_sessions,latency_ms,packet_loss_pct,companies(name,trade_name,city),branches(name,trade_name,city)",
+          "id,router_identity,ap_mac,status,company_id,branch_id,last_seen_at,last_seen_ip,router_version,active_sessions,rx_bytes,tx_bytes,latency_ms,packet_loss_pct,sync_requested_at,sync_applied_at,reboot_requested_at,reboot_applied_at,latitude,longitude,maps_url,companies(name,trade_name,address,neighborhood,city,state,zip_code),branches(name,trade_name,address,neighborhood,city,state,zip_code)",
         );
       if (access?.role === "matriz" && access.companyId)
         query = query.eq("company_id", access.companyId);
@@ -53,6 +55,7 @@ function MonitoramentoPage() {
       return (data ?? []).map((device: any) => {
         const unit = device.branches ?? device.companies ?? {};
         return {
+          ...device,
           id: device.id,
           router_identity: device.router_identity,
           status: device.status,
@@ -61,8 +64,12 @@ function MonitoramentoPage() {
           latency_ms: device.latency_ms,
           packet_loss_pct: device.packet_loss_pct,
           unit_name: unit.trade_name ?? unit.name ?? device.router_identity,
+          address: unit.address ?? null,
+          neighborhood: unit.neighborhood ?? null,
           city: unit.city ?? null,
-        } as MonitorDevice;
+          location_state: unit.state ?? null,
+          zip_code: unit.zip_code ?? null,
+        };
       });
     },
   });
@@ -90,6 +97,34 @@ function MonitoramentoPage() {
   }
 
   const devices: MonitorDevice[] = devicesQuery.data ?? [];
+  const mapDevices = (devicesQuery.data ?? []) as any[];
+
+  // Ações do mapa (vieram da tela Hotspot junto com ele): bloquear e
+  // reiniciar continuam disponíveis, agora no painel sobre o mapa.
+  async function handleMapBlock(device: any, blocked: boolean) {
+    const response = await postHotspotAction("/api/internal/hotspot-device-status", {
+      routerIdentity: device.router_identity,
+      blocked,
+    });
+    const actionError = await hotspotActionError(response, "Não foi possível alterar o bloqueio.");
+    if (actionError) {
+      window.alert(actionError);
+      return;
+    }
+    await devicesQuery.refetch();
+  }
+
+  async function handleMapReboot(device: any) {
+    const response = await postHotspotAction("/api/internal/hotspot-reboot", {
+      routerIdentity: device.router_identity,
+    });
+    const actionError = await hotspotActionError(response, "Não foi possível solicitar a reinicialização.");
+    if (actionError) {
+      window.alert(actionError);
+      return;
+    }
+    await devicesQuery.refetch();
+  }
   const resumoOk =
     resumoQuery.data && resumoQuery.data.ok ? resumoQuery.data : null;
   const listaResumo = resumoOk ? resumoOk.rbs : [];
@@ -126,6 +161,18 @@ function MonitoramentoPage() {
             Hermes: {resumoQuery.data.erro}
           </span>
         )}
+      </div>
+
+      {/* Mapa da rede: morava na tela Hotspot; aqui é a faixa compacta no
+          topo e clicar numa RB abre o painel do Hermes sobre o mapa. */}
+      <div className="-mt-2 mb-6">
+        <HotspotNetworkMap
+          devices={mapDevices}
+          isLoading={devicesQuery.isLoading}
+          compact
+          onBlock={handleMapBlock}
+          onReboot={handleMapReboot}
+        />
       </div>
 
       {devicesQuery.isLoading ? (
