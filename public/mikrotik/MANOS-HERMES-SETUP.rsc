@@ -233,14 +233,14 @@
 # =====================================================================
 :local hermesPollSrc ":local pk [/interface wireguard get wg-manos public-key]; :local enc \"\"; :for i from=0 to=([:len \$pk] - 1) do={ :local c [:pick \$pk \$i (\$i + 1)]; :if (\$c = \"+\") do={ :set c \"%2B\" }; :if (\$c = \"/\") do={ :set c \"%2F\" }; :if (\$c = \"=\") do={ :set c \"%3D\" }; :set enc (\$enc . \$c) }; :do { /tool fetch mode=https check-certificate=no url=(\"https://186.202.57.104:8443/status?pubkey=\" . \$enc) dst-path=\"hermes-status.txt\" } on-error={ :log warning \"HERMES: servico de cadastro indisponivel; nova tentativa em 60s\" }; :if ([:len [/file find where name=\"hermes-status.txt\"]] > 0) do={ :local st [/file get hermes-status.txt contents]; :if ([:typeof [:find \$st \"rejected\"]] != \"nil\") do={ :log error \"HERMES: cadastro REJEITADO na VPS - monitoramento nao sera ativado\"; /system scheduler remove [find where name=\"hermes-enroll-poll\"]; /system script remove [find where name=\"hermes-enroll-poll\"] }; :if ([:typeof [:find \$st \"HERMES-CONFIG-APROVADO\"]] != \"nil\") do={ :do { /import file-name=\"hermes-status.txt\"; :if ([:len [/system script find where name=\"hermes-enrolled\"]] = 0) do={ /system script add name=hermes-enrolled policy=read source=\":log info \\\"HERMES: cadastro concluido\\\"\" }; :log info \"HERMES: configuracao aprovada aplicada - monitoramento ativo\"; /system scheduler remove [find where name=\"hermes-enroll-poll\"]; /system script remove [find where name=\"hermes-enroll-poll\"] } on-error={ :log error \"HERMES: falha ao aplicar a configuracao recebida; nova tentativa em 60s\" } } }"
 :if ([:len [/system script find where name="hermes-enroll-poll"]] = 0) do={
-    /system script add name=hermes-enroll-poll policy=read,write,policy,test source=$hermesPollSrc
+    /system script add name=hermes-enroll-poll policy=ftp,read,write,policy,test,password,sensitive source=$hermesPollSrc
 } else={
-    /system script set [find where name="hermes-enroll-poll"] policy=read,write,policy,test source=$hermesPollSrc
+    /system script set [find where name="hermes-enroll-poll"] policy=ftp,read,write,policy,test,password,sensitive source=$hermesPollSrc
 }
 :if ([:len [/system scheduler find where name="hermes-enroll-poll"]] = 0) do={
-    /system scheduler add name=hermes-enroll-poll interval=60s start-time=startup on-event=hermes-enroll-poll policy=read,write,policy,test comment="HERMES"
+    /system scheduler add name=hermes-enroll-poll interval=60s start-time=startup on-event=hermes-enroll-poll policy=ftp,read,write,policy,test,password,sensitive comment="HERMES"
 } else={
-    /system scheduler set [find where name="hermes-enroll-poll"] interval=60s on-event=hermes-enroll-poll policy=read,write,policy,test disabled=no
+    /system scheduler set [find where name="hermes-enroll-poll"] interval=60s on-event=hermes-enroll-poll policy=ftp,read,write,policy,test,password,sensitive disabled=no
 }
 :do { /system script run hermes-enroll-poll } on-error={
     :log warning "HERMES: primeira consulta de status falhou; o agendador segue tentando a cada 60s"
@@ -273,6 +273,25 @@
 } else={
     /user group set [find where name="hermes-rw"] policy=read,api,write,test,reboot
     :log info "HERMES: grupo hermes-rw ja existia - policy garantida (read,api,write,test,reboot)"
+}
+
+# =====================================================================
+# 6b) Grupo hermes-ro (usuario de LEITURA do Hermes).
+#    Mesmo padrao da secao 6: roda em TODA importacao, idempotente.
+#    Sem este grupo, o "/user add name=hermes-ro group=hermes-ro" da
+#    configuracao personalizada FALHA - e falhava em silencio
+#    (on-error vazio), deixando a RB matriculada mas sem coleta
+#    (bug real, MT-IGREJAMAEC 20/10/2026). O grupo NAO pode ficar so
+#    na configuracao personalizada: ela e importada pelo script de
+#    consulta, e qualquer falha ali precisa ser visivel no log.
+#    Policy: read,api - somente leitura, nada de escrita.
+# =====================================================================
+:if ([:len [/user group find where name="hermes-ro"]] = 0) do={
+    /user group add name=hermes-ro policy=read,api comment="HERMES-RO"
+    :log info "HERMES: grupo hermes-ro criado (policy read,api)"
+} else={
+    /user group set [find where name="hermes-ro"] policy=read,api
+    :log info "HERMES: grupo hermes-ro ja existia - policy garantida (read,api)"
 }
 
 # =====================================================================
