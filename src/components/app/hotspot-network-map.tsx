@@ -29,6 +29,9 @@ type Device = GeographicDevice & {
 type Props = {
   devices: Device[];
   isLoading?: boolean;
+  // compact: mapa em faixa (h-40) e sem a grade de indicadores — usado no
+  // Monitoramento. O painel da RB selecionada abre SOBRE o mapa.
+  compact?: boolean;
   onBlock?: (device: Device, blocked: boolean) => Promise<void> | void;
   onReboot?: (device: Device) => Promise<void> | void;
 };
@@ -74,7 +77,7 @@ function googleMapsUrl(device: Device) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query || device.router_identity)}`;
 }
 
-export function HotspotNetworkMap({ devices, isLoading = false, onBlock, onReboot }: Props) {
+export function HotspotNetworkMap({ devices, isLoading = false, compact = false, onBlock, onReboot }: Props) {
   const [selected, setSelected] = useState<Device | null>(null);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | GeographicDevice["state"]>("all");
@@ -186,6 +189,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, onBlock, onReboo
               </Button>
             ))}
           </div>
+          {!compact ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="Indicadores da rede">
             <div className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs">
               <span className="text-muted-foreground">Latência</span>
@@ -204,10 +208,13 @@ export function HotspotNetworkMap({ devices, isLoading = false, onBlock, onReboo
               <b className="text-red-300">{counts.offline}</b>
             </div>
           </div>
+          ) : null}
         </CardHeader>
 
-        <CardContent className="p-3 sm:p-5">
-          <div className="relative overflow-hidden rounded-xl border border-white/10">
+        <CardContent className="relative p-3 sm:p-5">
+          <div
+            className={`relative overflow-hidden rounded-xl border border-white/10 ${selected ? "min-h-[min(72vh,620px)]" : ""}`}
+          >
             {isLoading ? (
               <div className="absolute inset-0 z-[500] grid place-items-center bg-[#071017]/80 text-sm text-muted-foreground">
                 Carregando localizações das RBs…
@@ -224,6 +231,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, onBlock, onReboo
             <HotspotGeographicMap
               devices={visible}
               selectedId={selected?.id ?? null}
+              compact={compact}
               onSelect={(id) =>
                 setSelected(mappedDevices.find((device) => device.id === id) ?? null)
               }
@@ -235,7 +243,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, onBlock, onReboo
           ) : null}
 
           {selected ? (
-            <div className="mt-4 rounded-xl border border-primary/20 bg-black/20 p-4">
+            <div className="absolute inset-0 z-[600] overflow-y-auto rounded-xl border border-primary/20 bg-[#071017]/95 p-4 backdrop-blur-sm">
               <div>
                 <div className="flex items-start justify-between gap-3">
                   <div>
