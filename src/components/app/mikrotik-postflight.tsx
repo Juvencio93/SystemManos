@@ -1,13 +1,45 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { analyzeMikrotikPostflight } from "@/lib/mikrotik-postflight";
 
+const POSTFLIGHT_STORAGE_KEY = "manos:postflight";
+
 export function MikrotikPostflight() {
   const [output, setOutput] = useState("");
   const [visitorInternet, setVisitorInternet] = useState(false);
   const [visitorSpeed, setVisitorSpeed] = useState(false);
+  // UX parte 4: andamento salvo neste navegador, como na pré-verificação.
+  const [restored, setRestored] = useState(false);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(POSTFLIGHT_STORAGE_KEY) ?? "null") as {
+        output?: string;
+        visitorInternet?: boolean;
+        visitorSpeed?: boolean;
+      } | null;
+      if (saved) {
+        if (saved.output !== undefined) setOutput(saved.output);
+        if (saved.visitorInternet !== undefined) setVisitorInternet(saved.visitorInternet);
+        if (saved.visitorSpeed !== undefined) setVisitorSpeed(saved.visitorSpeed);
+      }
+    } catch {
+      // Sem armazenamento: comportamento padrão.
+    }
+    setRestored(true);
+  }, []);
+  useEffect(() => {
+    if (!restored) return;
+    try {
+      window.localStorage.setItem(
+        POSTFLIGHT_STORAGE_KEY,
+        JSON.stringify({ output, visitorInternet, visitorSpeed }),
+      );
+    } catch {
+      // Sem armazenamento: nada a persistir.
+    }
+  }, [output, visitorInternet, visitorSpeed, restored]);
   const report = useMemo(() => output.trim() ? analyzeMikrotikPostflight(output) : null, [output]);
   const blockers = report?.findings.filter((finding) => finding.level === "blocker") ?? [];
   const ready = report?.valid && blockers.length === 0 && visitorInternet && visitorSpeed;

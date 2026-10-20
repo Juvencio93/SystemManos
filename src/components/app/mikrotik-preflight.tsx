@@ -1,14 +1,49 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { analyzeMikrotikPreflight } from "@/lib/mikrotik-preflight";
+
+const PREFLIGHT_STORAGE_KEY = "manos:preflight";
 
 export function MikrotikPreflight() {
   const [output, setOutput] = useState("");
   const [backupSaved, setBackupSaved] = useState(false);
   const [providerDhcp, setProviderDhcp] = useState(false);
   const [localAccess, setLocalAccess] = useState(false);
+  // UX parte 4: o andamento fica salvo neste navegador — sair e voltar
+  // não apaga o diagnóstico colado nem as confirmações.
+  const [restored, setRestored] = useState(false);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(PREFLIGHT_STORAGE_KEY) ?? "null") as {
+        output?: string;
+        backupSaved?: boolean;
+        providerDhcp?: boolean;
+        localAccess?: boolean;
+      } | null;
+      if (saved) {
+        if (saved.output !== undefined) setOutput(saved.output);
+        if (saved.backupSaved !== undefined) setBackupSaved(saved.backupSaved);
+        if (saved.providerDhcp !== undefined) setProviderDhcp(saved.providerDhcp);
+        if (saved.localAccess !== undefined) setLocalAccess(saved.localAccess);
+      }
+    } catch {
+      // Sem armazenamento: comportamento padrão.
+    }
+    setRestored(true);
+  }, []);
+  useEffect(() => {
+    if (!restored) return;
+    try {
+      window.localStorage.setItem(
+        PREFLIGHT_STORAGE_KEY,
+        JSON.stringify({ output, backupSaved, providerDhcp, localAccess }),
+      );
+    } catch {
+      // Sem armazenamento: nada a persistir.
+    }
+  }, [output, backupSaved, providerDhcp, localAccess, restored]);
   const report = useMemo(() => output.trim() ? analyzeMikrotikPreflight(output) : null, [output]);
   const blockers = report?.findings.filter((finding) => finding.level === "blocker") ?? [];
   const ready = report?.valid && blockers.length === 0 && backupSaved && providerDhcp && localAccess;
