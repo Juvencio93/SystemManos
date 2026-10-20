@@ -54,7 +54,7 @@ export type HermesRbResult =
       serie: HermesPonto[];
       problemas: HermesProblema[];
     }
-  | { ok: false; erro: string };
+  | { ok: false; erro: string; detalhe?: string };
 
 function buscarJson(url: string, token: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -111,10 +111,15 @@ export const getHermesRbSeries = createServerFn({ method: "GET" })
       const corpo = await buscarJson(url, token);
       const json = JSON.parse(corpo) as HermesRbResult & { erro?: string };
       if (!json || typeof json !== "object" || !("ok" in json)) {
-        return { ok: false, erro: "indisponivel" };
+        return { ok: false, erro: "indisponivel", detalhe: "resposta vazia" };
       }
       return json;
-    } catch {
-      return { ok: false, erro: "indisponivel" };
+    } catch (err) {
+      const e = err as { code?: string; message?: string };
+      return {
+        ok: false,
+        erro: "indisponivel",
+        detalhe: String(e.code || e.message || err).slice(0, 80),
+      };
     }
   });

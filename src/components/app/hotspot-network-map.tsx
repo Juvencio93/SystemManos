@@ -235,7 +235,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, onBlock, onReboo
           ) : null}
 
           {selected ? (
-            <div className="mt-4 grid gap-4 rounded-xl border border-primary/20 bg-black/20 p-4 lg:grid-cols-[1.1fr_.9fr]">
+            <div className="mt-4 rounded-xl border border-primary/20 bg-black/20 p-4">
               <div>
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -313,22 +313,18 @@ export function HotspotNetworkMap({ devices, isLoading = false, onBlock, onReboo
                 <p className="mt-4 flex items-start gap-2 text-xs text-muted-foreground">
                   <MapPin className="mt-0.5 size-4 shrink-0 text-primary" />
                   {locationLabel(selected) || "Endereço ainda não cadastrado para esta RB."}
+                  <a
+                    href={googleMapsUrl(selected)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex shrink-0 items-center gap-1 font-medium text-primary hover:underline"
+                  >
+                    Google Maps <ExternalLink className="size-3" />
+                  </a>
                 </p>
                 {selected.latitude == null || selected.longitude == null ? (
                   <p className="mt-2 text-xs text-amber-300">O ponto no mapa é aproximado e usa o município cadastrado. Informe as coordenadas da instalação para mostrar o local exato.</p>
                 ) : null}
-              </div>
-
-              <div className="overflow-hidden rounded-lg border border-white/10 bg-[#071017]">
-                <HotspotGeographicMap devices={[selected]} selectedId={selected.id} compact />
-                <a
-                  href={googleMapsUrl(selected)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-center gap-2 border-t border-white/10 px-3 py-2 text-xs font-medium text-primary hover:bg-white/5"
-                >
-                  Abrir localização no Google Maps <ExternalLink className="size-3.5" />
-                </a>
               </div>
 
               <RbHermesPanel identity={selected.router_identity} />
