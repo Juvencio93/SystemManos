@@ -30,12 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { countries, defaultCountry } from "@/lib/countries";
-import {
-  getPortal,
-  getPortalConnectionCount,
-  getPortalSessionState,
-  submitPortalLead,
-} from "@/lib/portal.functions";
+import { getPortal, submitPortalLead } from "@/lib/portal.functions";
 import { defaultPortalAppearance, type PortalAppearance, type PortalVisualStyle } from "@/lib/campaign-appearance";
 import { portalTheme } from "@/lib/portal-theme";
 import { portalLayoutFor, portalLayoutMaxWidth } from "@/components/app/portal/portal-layouts";
@@ -164,8 +159,6 @@ function PortalPage() {
   });
   const portal = sourceSlug ? refreshedPortal : initialPortal;
   const submit = useServerFn(submitPortalLead);
-  const fetchConnectionCount = useServerFn(getPortalConnectionCount);
-  const fetchSessionState = useServerFn(getPortalSessionState);
   const [done, setDone] = useState<{
     isReturning: boolean;
     connectionsCount: number;
@@ -175,80 +168,6 @@ function PortalPage() {
     blockedUntil?: string | null;
   } | null>(null);
   const [clock, setClock] = useState(Date.now());
-  // Retorno pos-autenticacao do HotSpot (campanhas de rede social): a RB
-  // redireciona para ca depois de liberar o acesso, e a tela final abre o
-  // destino da campanha com a sessao ja estabelecida.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("conectado") !== "1") return;
-    setDone({ isReturning: true, connectionsCount: 0 });
-    // A conexao real foi registrada na autenticacao (RADIUS): buscar a
-    // contagem verdadeira deste dispositivo pelo MAC, em vez de mostrar 0.
-    // O MAC vem na URL (retorno social) ou do cookie de handoff (retorno
-    // via alogin.html, que nao carrega parametros).
-    const mac = params.get("mac") ?? undefined;
-    const handoffCookie = document.cookie
-      .split(";")
-      .map((item) => item.trim())
-      .find((item) => item.startsWith("manos_hotspot_handoff="))
-      ?.slice("manos_hotspot_handoff=".length);
-    const handoff =
-      !mac && handoffCookie ? decodeURIComponent(handoffCookie) : undefined;
-    if (!mac && !handoff) return;
-    let vivo = true;
-    const buscar = async (tentativa: number) => {
-      try {
-        const r = await fetchConnectionCount({ data: { slug, mac, handoff } });
-        if (!vivo) return;
-        if (r.count > 0) {
-          setDone({ isReturning: r.count > 1, connectionsCount: r.count });
-        } else if (tentativa === 0) {
-          window.setTimeout(() => void buscar(1), 2500);
-        }
-      } catch {
-        /* mantem o texto neutro da tela final */
-      }
-    };
-    void buscar(0);
-    return () => {
-      vivo = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  // Auto-recuperacao: se a pagina abriu LIMPA (sem ?conectado=1) mas este
-  // aparelho ja autenticou ha poucos minutos, o navegador cativo quase
-  // certamente recarregou a URL original no meio do fluxo — abrir direto
-  // na tela final em vez de mostrar o formulario de novo.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("conectado") === "1") return;
-    const handoffCookie = document.cookie
-      .split(";")
-      .map((item) => item.trim())
-      .find((item) => item.startsWith("manos_hotspot_handoff="))
-      ?.slice("manos_hotspot_handoff=".length);
-    if (!handoffCookie) return;
-    let vivo = true;
-    (async () => {
-      try {
-        const r = await fetchSessionState({
-          data: { slug, handoff: decodeURIComponent(handoffCookie) },
-        });
-        if (vivo && r.autenticado) {
-          setDone({
-            isReturning: r.count > 1,
-            connectionsCount: r.count,
-          });
-        }
-      } catch {
-        /* segue no formulario */
-      }
-    })();
-    return () => {
-      vivo = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
   useEffect(() => {
     if (!done?.checkinBlocked) return;
     const timer = window.setInterval(() => setClock(Date.now()), 1000);
@@ -876,21 +795,6 @@ function PortalSuccess({
   const sameName = portal.name.toLowerCase() === portal.companyName.toLowerCase();
   const finalRedirectUrl = useMemo(() => normalizeUrl(portal.redirectUrl), [portal.redirectUrl]);
   const isSocial = useMemo(() => isSocialUrl(finalRedirectUrl), [finalRedirectUrl]);
-  // Versao "embed" do perfil do Instagram (mostra o perfil sem tentar
-  // abrir o app). Usada no botao apenas no iPhone cativo (ver hrefBotao).
-  const botaoUrl = useMemo(() => {
-    if (!finalRedirectUrl || !isSocial) return finalRedirectUrl;
-    try {
-      const u = new URL(finalRedirectUrl);
-      if (u.hostname.includes("instagram.com")) {
-        const m = u.pathname.match(/^\/([A-Za-z0-9._]+)\/?$/);
-        if (m) return `${u.origin}/${m[1]}/embed/`;
-      }
-    } catch {
-      /* mantem a URL original */
-    }
-    return finalRedirectUrl;
-  }, [finalRedirectUrl, isSocial]);
   const routerLoginUrl = useMemo(() => {
     if (!done.hotspotAccess) return null;
     const url = new URL(done.hotspotAccess.loginUrl);
@@ -903,18 +807,6 @@ function PortalSuccess({
     return url.toString();
   }, [done.hotspotAccess]);
   const [isInIframe, setIsInIframe] = useState(false);
-  const [iosCaptive, setIosCaptive] = useState(false);
-  // iOS Captive Network Assistant: a janelinha do Wi-Fi do iPhone bloqueia
-  // QUALQUER abertura de app (esquema instagram:/fb:) vinda de paginas
-  // dentro dela — inclusive o salto automatico que a propria pagina do
-  // Instagram tenta. Por isso, nesse ambiente, rede social NAO pode ser
-  // aberta por redirecionamento automatico (ver efeitos e UI abaixo).
-  useEffect(() => {
-    const ua = window.navigator.userAgent;
-    setIosCaptive(
-      /CaptiveNetworkSupport/i.test(ua) && /iPhone|iPad|iPod/i.test(ua),
-    );
-  }, []);
   // A HotSpot login points at the router's private HTTP address.  Do not send
   // it through an iframe from this HTTPS page: current browsers can block that
   // as mixed content. Navigate the top-level portal page to the router's local
@@ -948,22 +840,16 @@ function PortalSuccess({
     // credential. Redirecting the portal page first could look like success
     // even though the device has not obtained Internet access.
     if (isDemo || !finalRedirectUrl || isInIframe || done.hotspotAccess) return;
-    // No iPhone (janelinha do Wi-Fi), rede social nao abre por redirect:
-    // o iOS bloqueia a abertura do app e mostra um erro de sistema. A tela
-    // final orienta o visitante a concluir (✓) e usar o botao.
-    if (iosCaptive && isSocial) return;
 
     const timer = setTimeout(() => {
       // Use window.location.replace to prevent back-button loops and handle same-tab navigation
       window.location.replace(finalRedirectUrl);
-    }, isSocial ? 5000 : 3000);
+    }, 3000);
 
     return () => clearTimeout(timer);
-  }, [finalRedirectUrl, isDemo, isInIframe, done.hotspotAccess, iosCaptive, isSocial]);
+  }, [finalRedirectUrl, isDemo, isInIframe, done.hotspotAccess]);
 
   const theme = portalTheme(portal.appearance);
-  const hrefBotao =
-    iosCaptive && isSocial ? (botaoUrl ?? finalRedirectUrl) : finalRedirectUrl;
 
   return (
     <PortalShell appearance={portal.appearance}>
@@ -1022,20 +908,9 @@ function PortalSuccess({
 
           {!done.checkinBlocked && finalRedirectUrl && (
             <div className="space-y-4 pt-4">
-              {!isInIframe && !isDemo && !(iosCaptive && isSocial) && (
+              {!isInIframe && !isDemo && (
                 <div className="flex items-center justify-center gap-2 text-[10px] font-medium uppercase tracking-widest text-[color:var(--portal-muted)]">
                   Redirecionando...
-                </div>
-              )}
-
-              {iosCaptive && isSocial && !isDemo && (
-                <div className="rounded-lg bg-primary/5 p-3 text-xs text-[color:var(--portal-muted)]">
-                  Internet liberada! No iPhone, toque no <b>✓ azul (Concluir)</b>{" "}
-                  no topo da tela para finalizar. Para ver{" "}
-                  {finalRedirectUrl.includes("instagram.com")
-                    ? "o Instagram"
-                    : "a rede social"}{" "}
-                  agora, use o botão abaixo.
                 </div>
               )}
 
@@ -1066,7 +941,7 @@ function PortalSuccess({
                 variant="outline"
                 className="h-12 w-full gap-2 border-[color:var(--portal-border)] bg-white/5 text-white transition-all hover:bg-white/10"
               >
-                <a href={hrefBotao ?? undefined} target="_blank" rel="noopener noreferrer">
+                <a href={finalRedirectUrl} target="_blank" rel="noopener noreferrer">
                   {isSocial ? (
                     finalRedirectUrl.includes("instagram.com") ? (
                       <Instagram className="size-4 text-[#E4405F]" />

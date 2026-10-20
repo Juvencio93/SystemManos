@@ -3,31 +3,9 @@
   <head>
     <meta charset="utf-8">
     <meta http-equiv="cache-control" content="no-cache">
-    <!-- Pos-login: a RouterOS serve esta pagina apos autenticar.
-         O link-orig desta instalacao e a propria pagina do portal
-         (foi ela que o navegador cativo abriu antes do login), entao
-         voltar para la sem marcacao mostraria o FORMULARIO de check-in
-         de novo. Marcamos ?conectado=1: o portal abre direto na tela
-         final, que mostra a contagem real e cuida do destino da
-         campanha (site ou rede social). -->
-    <script>
-      (function () {
-        var orig = "$(link-orig)";
-        if (!orig) return;
-        var destino = orig;
-        try {
-          var u = new URL(orig);
-          if (/^\/portal\/[^/]+\/?$/.test(u.pathname) &&
-              !u.searchParams.has("conectado")) {
-            u.searchParams.set("conectado", "1");
-            destino = u.toString();
-          }
-        } catch (e) { /* mantem o link-orig como veio */ }
-        window.location.replace(destino);
-      })();
-    </script>
+    <!-- RouterOS supplies link-orig with the configured post-login destination. -->
+    <meta http-equiv="refresh" content="0; url=$(link-orig)">
+    <script>window.location.replace("$(link-orig)");</script>
   </head>
-  <body>
-    <p>Conectado! Se nada acontecer, <a href="$(link-orig)">toque aqui para continuar</a>.</p>
-  </body>
+  <body></body>
 </html>

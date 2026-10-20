@@ -13,44 +13,10 @@ import { Json } from "@/integrations/supabase/types";
 import { HotspotVendor } from "@/lib/adapters";
 import {
   issueHotspotAccessGrant,
-  normalizeMacAddress,
   safeHotspotLoginUrl,
   type HotspotLogin,
 } from "@/lib/hotspot-access.server";
-import { isSocialUrl, normalizeUrl } from "@/lib/url-utils";
-
-/**
- * Destino que a RB usa no redirecionamento pos-autenticacao (dst).
- * Campanha normal: a propria URL da campanha. Rede social: a tela final
- * do portal (?conectado=1), que abre a rede social com a sessao ja
- * liberada — direto para o Instagram/Facebook, o navegador cativo do
- * iOS bloqueia a abertura do app com erro de sistema.
- */
-function destinoAposLogin(
-  redirectUrl: string | null | undefined,
-  hotspotData: {
-    hotspotOrig?: string | null | undefined;
-    hotspotLinkOrig?: string | null | undefined;
-    mac?: string | null | undefined;
-  },
-  request: Request | undefined,
-  slug: string,
-): string | null {
-  const campanha = normalizeUrl(redirectUrl);
-  if (campanha && isSocialUrl(campanha) && request) {
-    const host =
-      request.headers.get("x-forwarded-host") || request.headers.get("host");
-    const proto = request.headers.get("x-forwarded-proto") || "https";
-    if (host) {
-      // O MAC vai junto para a tela de retorno mostrar a contagem REAL de
-      // acessos deste dispositivo (a conexao e registrada na autenticacao).
-      const mac = normalizeMacAddress(hotspotData.mac ?? undefined);
-      const extra = mac ? `&mac=${encodeURIComponent(mac)}` : "";
-      return `${proto}://${host}/portal/${slug}?conectado=1${extra}`;
-    }
-  }
-  return campanha ?? hotspotData.hotspotOrig ?? hotspotData.hotspotLinkOrig ?? null;
-}
+import { normalizeUrl } from "@/lib/url-utils";
 
 export const getPortal = createServerFn({ method: "GET" })
   .validator((data: unknown) => portalSlugSchema.parse(data))
@@ -105,106 +71,6 @@ export const getPortal = createServerFn({ method: "GET" })
       appearance: target.appearance,
       sponsors,
     };
-  });
-
-/**
- * Contagem REAL de acessos de um dispositivo (pelo MAC) na empresa do
- * portal. Usada pela tela de retorno pos-autenticacao (?conectado=1):
- * a conexao e registrada quando o RADIUS confirma, entao a tela busca
- * o numero verdadeiro em vez de chutar.
- */
-export const getPortalConnectionCount = createServerFn({ method: "GET" })
-  .validator((data: unknown) => {
-    const d = data as { slug?: string; mac?: string; handoff?: string };
-    if (!d?.slug || (!d?.mac && !d?.handoff)) {
-      throw new Error("Parâmetros inválidos");
-    }
-    return { slug: d.slug, mac: d.mac, handoff: d.handoff };
-  })
-  .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import(
-      "@/integrations/supabase/client.server"
-    );
-    const target = await resolvePortalTarget(supabaseAdmin, data.slug);
-    if (!target) return { count: 0 };
-    // Sem MAC na URL, o MAC vem do handoff (cookie da entrada no portal):
-    // e o caminho do retorno via alogin.html (?conectado=1 sem parametros).
-    let macRaw = data.mac;
-    if (!macRaw && data.handoff) {
-      const { data: h } = await (supabaseAdmin as any)
-        .from("hotspot_portal_handoffs")
-        .select("mac_address")
-        .eq("id", data.handoff)
-        .eq("slug", data.slug)
-        .maybeSingle();
-      macRaw = h?.mac_address ?? undefined;
-    }
-    if (!macRaw) return { count: 0 };
-    const mac = normalizeMacAddress(macRaw);
-    if (!mac) return { count: 0 };
-    const variantes = Array.from(new Set([mac, macRaw.trim()]));
-    const { count } = await (supabaseAdmin as any)
-      .from("connections")
-      .select("id", { count: "exact", head: true })
-      .eq("company_id", target.companyId)
-      .in("mac_address", variantes);
-    return { count: count ?? 0 };
-  });
-
-/**
- * Estado da sessao HotSpot deste aparelho (via cookie de handoff).
- * Se ja existe uma liberacao AUTENTICADA nos ultimos minutos para o
- * mesmo aparelho/MAC, a pagina do portal abre direto na tela final —
- * mesmo que o navegador cativo tenha recarregado a URL limpa do portal
- * no meio do fluxo (comportamento comum do CNA do iOS/Android, que
- * fazia a tela de check-in reaparecer depois do login).
- */
-export const getPortalSessionState = createServerFn({ method: "GET" })
-  .validator((data: unknown) => {
-    const d = data as { slug?: string; handoff?: string };
-    if (!d?.slug || !d?.handoff) throw new Error("Parâmetros inválidos");
-    return { slug: d.slug, handoff: d.handoff };
-  })
-  .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import(
-      "@/integrations/supabase/client.server"
-    );
-    const target = await resolvePortalTarget(supabaseAdmin, data.slug);
-    if (!target) return { autenticado: false as const, count: 0 };
-    const { data: h } = await (supabaseAdmin as any)
-      .from("hotspot_portal_handoffs")
-      .select("device_id, mac_address")
-      .eq("id", data.handoff)
-      .eq("slug", data.slug)
-      .maybeSingle();
-    if (!h?.device_id || !h?.mac_address) {
-      return { autenticado: false as const, count: 0 };
-    }
-    const desde = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-    const { data: grant } = await (supabaseAdmin as any)
-      .from("hotspot_access_grants")
-      .select("id")
-      .eq("device_id", h.device_id)
-      .eq("mac_address", h.mac_address)
-      .gte("last_authenticated_at", desde)
-      .order("last_authenticated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (!grant) return { autenticado: false as const, count: 0 };
-    const mac = normalizeMacAddress(h.mac_address);
-    let count = 0;
-    if (mac) {
-      const variantes = Array.from(
-        new Set([mac, String(h.mac_address).trim()]),
-      );
-      const r = await (supabaseAdmin as any)
-        .from("connections")
-        .select("id", { count: "exact", head: true })
-        .eq("company_id", target.companyId)
-        .in("mac_address", variantes);
-      count = r.count ?? 0;
-    }
-    return { autenticado: true as const, count };
   });
 
 export const submitPortalLead = createServerFn({ method: "POST" })
@@ -328,15 +194,7 @@ export const submitPortalLead = createServerFn({ method: "POST" })
           // The campaign redirect is the visitor's intended destination.  It
           // must win over RouterOS's original-request fields, which are often
           // a captive-portal probe URL rather than the configured campaign URL.
-          //
-          // EXCECAO (redes sociais): o dst sai da RB direto para o navegador
-          // cativo AINDA no inicio da sessao; a pagina do Instagram tenta
-          // abrir o app (esquema instagram:) e o iOS bloqueia com um erro de
-          // sistema ("nao pode redirecionar para localizacoes que comecam
-          // com instagram:"). Para social, a RB devolve o visitante para a
-          // tela final do portal (?conectado=1) e ELA abre a rede social
-          // com a sessao ja liberada.
-          destination: destinoAposLogin(target.redirectUrl, hotspotData, request, data.slug),
+          destination: normalizeUrl(target.redirectUrl) ?? hotspotData.hotspotOrig ?? hotspotData.hotspotLinkOrig ?? null,
         });
         await (supabaseAdmin as any)
           .from("hotspot_portal_handoffs")
