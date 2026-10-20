@@ -56,6 +56,19 @@ export type HermesRbResult =
     }
   | { ok: false; erro: string; detalhe?: string };
 
+export interface HermesResumoRb {
+  rb_id: number;
+  cliente: string | null;
+  vault_ref: string | null;
+  host: string | null;
+  agora: HermesAgora | null;
+  problemas: { total: number; pior: string | null };
+}
+
+export type HermesResumoResult =
+  | { ok: true; rbs: HermesResumoRb[] }
+  | { ok: false; erro: string; detalhe?: string };
+
 function buscarJson(url: string, token: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const req = https.get(
@@ -110,6 +123,50 @@ export const getHermesRbSeries = createServerFn({ method: "GET" })
     try {
       const corpo = await buscarJson(url, token);
       const json = JSON.parse(corpo) as HermesRbResult & { erro?: string };
+      if (!json || typeof json !== "object" || !("ok" in json)) {
+        return { ok: false, erro: "indisponivel", detalhe: "resposta vazia" };
+      }
+      return json;
+    } catch (err) {
+      const e = err as { code?: string; message?: string };
+      return {
+        ok: false,
+        erro: "indisponivel",
+        detalhe: String(e.code || e.message || err).slice(0, 80),
+      };
+    }
+  });
+
+/**
+ * Resumo de TODAS as RBs monitoradas (pagina Monitoramento): estado
+ * atual de cada uma + contagem de problemas (7 dias). Mesma regra de
+ * acesso e mesma configuracao da serie individual.
+ */
+export const getHermesResumo = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<HermesResumoResult> => {
+    const { supabase, userId } = context;
+    const { data: roleData } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (!roleData || !["adm", "matriz"].includes(roleData.role)) {
+      return { ok: false, erro: "sem-permissao" };
+    }
+
+    const base = process.env["HERMES_API_URL"];
+    const token = process.env["HERMES_API_TOKEN"];
+    if (!base || !token) return { ok: false, erro: "nao-configurado" };
+
+    try {
+      const corpo = await buscarJson(
+        `${base.replace(/\/$/, "")}/rb-resumo`,
+        token,
+      );
+      const json = JSON.parse(corpo) as HermesResumoResult & {
+        erro?: string;
+      };
       if (!json || typeof json !== "object" || !("ok" in json)) {
         return { ok: false, erro: "indisponivel", detalhe: "resposta vazia" };
       }
