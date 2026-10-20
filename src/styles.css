@@ -630,3 +630,21 @@
 }
 
 .chat-now-playing:hover { animation-play-state: paused; }
+
+/* Radar do Monitoramento: varredura girando nas cores dos status
+   (verde -> amarelo -> vermelho) sobre o mapa recortado em círculo. */
+@keyframes radar-spin {
+  to { transform: rotate(360deg); }
+}
+
+.radar-sweep {
+  background: conic-gradient(
+    from 0deg,
+    rgba(52, 211, 153, 0.45),
+    rgba(250, 204, 21, 0.25) 60deg,
+    rgba(248, 113, 113, 0.2) 120deg,
+    transparent 170deg
+  );
+  mix-blend-mode: screen;
+  animation: radar-spin 5s linear infinite;
+}

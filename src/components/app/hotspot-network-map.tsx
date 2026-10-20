@@ -220,22 +220,53 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
                 Carregando localizações das RBs…
               </div>
             ) : null}
-            <div className="absolute right-3 top-3 z-[500] flex gap-3 rounded-md border border-white/10 bg-black/70 px-3 py-2 text-[11px] backdrop-blur">
-              <span className="flex items-center gap-1 text-cyan-300">
-                <Building2 className="size-3" /> Sede
-              </span>
-              <span className="text-emerald-400">● Online</span>
-              <span className="text-amber-400">● Instável/Reiniciando</span>
-              <span className="text-red-400">● Offline</span>
-            </div>
-            <HotspotGeographicMap
-              devices={visible}
-              selectedId={selected?.id ?? null}
-              compact={compact}
-              onSelect={(id) =>
-                setSelected(mappedDevices.find((device) => device.id === id) ?? null)
-              }
-            />
+            {!compact ? (
+              <div className="absolute right-3 top-3 z-[500] flex gap-3 rounded-md border border-white/10 bg-black/70 px-3 py-2 text-[11px] backdrop-blur">
+                <span className="flex items-center gap-1 text-cyan-300">
+                  <Building2 className="size-3" /> Sede
+                </span>
+                <span className="text-emerald-400">● Online</span>
+                <span className="text-amber-400">● Instável/Reiniciando</span>
+                <span className="text-red-400">● Offline</span>
+              </div>
+            ) : null}
+            {compact ? (
+              <div className="relative mx-auto w-full max-w-[440px]">
+                <div className="relative overflow-hidden rounded-full shadow-[0_0_0_2px_rgba(56,189,248,0.35),0_0_45px_rgba(14,116,144,0.35)]">
+                  <HotspotGeographicMap
+                    devices={visible}
+                    selectedId={selected?.id ?? null}
+                    radar
+                    onSelect={(id) =>
+                      setSelected(mappedDevices.find((device) => device.id === id) ?? null)
+                    }
+                  />
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0 rounded-full"
+                    style={{
+                      background:
+                        "repeating-radial-gradient(circle at 50% 50%, transparent 0, transparent 23.5%, rgba(125,211,252,0.16) 24%, transparent 24.6%), linear-gradient(rgba(125,211,252,0.13), rgba(125,211,252,0.13)), linear-gradient(rgba(125,211,252,0.13), rgba(125,211,252,0.13))",
+                      backgroundSize: "100% 100%, 1px 100%, 100% 1px",
+                      backgroundPosition: "center, center, center",
+                      backgroundRepeat: "no-repeat",
+                    }}
+                  />
+                  <div aria-hidden="true" className="radar-sweep pointer-events-none absolute inset-0 rounded-full" />
+                </div>
+                <p className="mt-2 text-center text-[10px] text-muted-foreground">
+                  © OpenStreetMap · toque numa RB para abrir o painel do Hermes
+                </p>
+              </div>
+            ) : (
+              <HotspotGeographicMap
+                devices={visible}
+                selectedId={selected?.id ?? null}
+                onSelect={(id) =>
+                  setSelected(mappedDevices.find((device) => device.id === id) ?? null)
+                }
+              />
+            )}
           </div>
 
           {!isLoading && !visible.length ? (
