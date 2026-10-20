@@ -310,21 +310,6 @@ export function HotspotNetworkMap({ devices, isLoading = false, onBlock, onReboo
                     </b>
                   </span>
                 </div>
-                <p className="mt-4 flex items-start gap-2 text-xs text-muted-foreground">
-                  <MapPin className="mt-0.5 size-4 shrink-0 text-primary" />
-                  {locationLabel(selected) || "Endereço ainda não cadastrado para esta RB."}
-                  <a
-                    href={googleMapsUrl(selected)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex shrink-0 items-center gap-1 font-medium text-primary hover:underline"
-                  >
-                    Google Maps <ExternalLink className="size-3" />
-                  </a>
-                </p>
-                {selected.latitude == null || selected.longitude == null ? (
-                  <p className="mt-2 text-xs text-amber-300">O ponto no mapa é aproximado e usa o município cadastrado. Informe as coordenadas da instalação para mostrar o local exato.</p>
-                ) : null}
               </div>
 
               <RbHermesPanel identity={selected.router_identity} />
