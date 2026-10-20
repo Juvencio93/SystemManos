@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
+import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { supabaseDevFallback } from "@/integrations/supabase/public-config";
 import { Database } from "@/integrations/supabase/types";
 import { formatCnpj, isValidCnpj } from "@/lib/cnpj-utils";
 
@@ -234,7 +236,7 @@ export const updatePassword = createServerFn({ method: "POST" })
   .validator((data: unknown) =>
     z
       .object({
-        currentPassword: z.string(),
+        currentPassword: z.string().min(1, "Informe a senha atual"),
         newPassword: z.string().min(8, "A senha deve ter pelo menos 8 caracteres"),
         confirmPassword: z.string(),
       })
@@ -245,12 +247,40 @@ export const updatePassword = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data: input, context }) => {
-    const { supabase } = context;
+    const { userId } = context;
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const { error } = await supabase.auth.updateUser({
+    // Quem é o usuário (o e-mail é necessário pra conferir a senha atual).
+    const { data: userData, error: userError } =
+      await supabaseAdmin.auth.admin.getUserById(userId);
+    const email = userData?.user?.email;
+    if (userError || !email) throw new Error("Usuário não encontrado.");
+
+    // Confere a senha ATUAL com um login descartável (não persiste
+    // sessão). A versão anterior (1) ignorava a senha atual e (2) chamava
+    // updateUser no cliente de servidor do middleware — que não tem
+    // sessão — estourando "Auth session missing!" pra todo mundo.
+    const fallback = supabaseDevFallback();
+    const url = process.env["SUPABASE_URL"] || fallback?.url;
+    const publishableKey =
+      process.env["SUPABASE_PUBLISHABLE_KEY"] || fallback?.publishableKey;
+    if (!url || !publishableKey) {
+      throw new Error("Configuração do Supabase ausente no servidor.");
+    }
+    const verifyClient = createClient(url, publishableKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { error: signInError } = await verifyClient.auth.signInWithPassword({
+      email,
+      password: input.currentPassword,
+    });
+    if (signInError) throw new Error("Senha atual incorreta.");
+    await verifyClient.auth.signOut().catch(() => undefined);
+
+    // Troca via API admin — não depende de sessão no cliente.
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
       password: input.newPassword,
     });
-
     if (error) throw new Error(error.message);
 
     return { success: true };
