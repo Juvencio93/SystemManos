@@ -25,7 +25,10 @@ export const portalLeadSchema = z.object({
     .max(20)
     .refine((val) => /^\d+$/.test(val), "Informe apenas números no WhatsApp")
     .refine((val) => !/^0+$/.test(val), "WhatsApp inválido"),
-  city: z.string().trim().min(2, "Informe sua cidade").max(120), // Cidade agora obrigatória
+  // Cidade é opcional (UX parte 2): aceita ausente ou vazia; quando
+  // informada, vale o limite de tamanho. O registerLead grava null no
+  // lugar de string vazia.
+  city: z.string().trim().max(120).optional().default(""),
   consent: z.boolean().refine((val) => val === true, "E necessário aceitar a política LGPD"),
   marketingConsent: z.boolean().default(false),
   deviceType: z.string().trim().max(40).optional(),
@@ -368,7 +371,7 @@ export async function registerLead(
     email: string;
     countryCode: string;
     phone: string;
-    city: string; // Obrigatória
+    city: string; // Opcional: "" quando o visitante não informa
     consent: boolean;
     marketingConsent: boolean;
     consentSource: "wifi_portal" | "privacy_center";
@@ -389,6 +392,8 @@ export async function registerLead(
   if (validation.status === "invalid") throw new Error("Verifique o e-mail digitado e o número de celular digitado.");
 
   const phoneE164 = toE164(input.countryCode, input.phone);
+  // Cidade opcional: sem preenchimento, grava null (coluna é nullable).
+  const city = input.city.trim() || null;
   const now = new Date().toISOString();
   const marketingConsent = input.marketingConsent;
   const periodDate = periodDateFor(target.dailyResetTime);
@@ -416,7 +421,7 @@ export async function registerLead(
         .update({
           full_name: input.fullName,
           email: input.email,
-          city: input.city,
+          city,
           last_seen_at: now,
           connections_count: globalConnectionsCount,
           lgpd_consent: true,
@@ -441,7 +446,7 @@ export async function registerLead(
           email: input.email,
           phone_e164: phoneE164,
           country_code: input.countryCode,
-          city: input.city,
+          city,
           lgpd_consent: true,
           lgpd_consent_at: now,
           marketing_consent: marketingConsent,

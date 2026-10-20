@@ -12,6 +12,7 @@ import {
   ExternalLink,
   Instagram,
   Facebook,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { normalizeUrl, isSocialUrl } from "@/lib/url-utils";
@@ -35,6 +36,15 @@ import { defaultPortalAppearance, type PortalAppearance, type PortalVisualStyle 
 import { portalTheme } from "@/lib/portal-theme";
 import { portalLayoutFor, portalLayoutMaxWidth } from "@/components/app/portal/portal-layouts";
 import { getMarketingPortalSourceSlug } from "@/lib/marketing-portal-demo";
+import {
+  PrivacyCenterContactContent,
+  PrivacyCenterHowToContent,
+  PrivacyCenterMoreContent,
+  PrivacyCenterRequestsContent,
+  PrivacyPolicyContent,
+  TermsOfUseContent,
+} from "@/components/legal/legal-contents";
+import { LEGAL_DOCUMENTS } from "@/lib/legal-document-versions";
 
 
 export const Route = createFileRoute("/portal/$slug")({
@@ -156,6 +166,100 @@ const FieldError = ({ id, message }: { id: string; message: string | null }) =>
 /** Cor do anel/borda que destaca um campo com erro em qualquer estilo visual. */
 const PORTAL_ERROR_COLOR = "#f87171";
 
+type LegalDocKey = "termos" | "politica" | "central";
+
+const LEGAL_DOC_TITLES: Record<LegalDocKey, string> = {
+  termos: "Termos de Uso",
+  politica: "Política de Privacidade",
+  central: "Central de Privacidade",
+};
+
+/**
+ * Modal com o texto integral dos documentos jurídicos, aberto de dentro
+ * do próprio portal: o visitante lê sem sair do fluxo de check-in. Nada
+ * de target="_blank" — na janelinha do portal cativo (Android/iOS), abrir
+ * outra aba ejetava a pessoa do cadastro. O painel usa o mesmo visual
+ * escuro das páginas jurídicas públicas, de onde o texto é importado.
+ */
+function LegalDocModal({ doc, onClose }: { doc: LegalDocKey; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [onClose]);
+
+  const meta =
+    doc === "termos"
+      ? LEGAL_DOCUMENTS.termsOfUse
+      : doc === "politica"
+        ? LEGAL_DOCUMENTS.privacyPolicy
+        : LEGAL_DOCUMENTS.dataSubjectRights;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center sm:p-6"
+      role="dialog"
+      aria-modal="true"
+      aria-label={LEGAL_DOC_TITLES[doc]}
+      onClick={onClose}
+    >
+      <div
+        className="flex max-h-[92svh] w-full max-w-2xl flex-col overflow-hidden bg-slate-950 text-slate-100 shadow-2xl max-sm:h-[92svh] sm:rounded-3xl sm:border sm:border-white/10"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-white/10 px-5 py-4">
+          <div>
+            <h2 className="font-display text-base font-semibold text-white">
+              {LEGAL_DOC_TITLES[doc]}
+            </h2>
+            <p className="mt-0.5 text-[11px] text-slate-400">
+              Versão {meta.version} · Atualizado em {meta.updatedAt}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fechar"
+            className="rounded-full border border-white/15 p-1.5 text-slate-300 transition hover:border-white/40 hover:text-white"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+        <div className="legal-content space-y-8 overflow-y-auto p-5 sm:p-7">
+          {doc === "termos" ? (
+            <TermsOfUseContent />
+          ) : doc === "politica" ? (
+            <PrivacyPolicyContent />
+          ) : (
+            <>
+              <PrivacyCenterRequestsContent />
+              <PrivacyCenterHowToContent />
+              <PrivacyCenterContactContent />
+              <PrivacyCenterMoreContent />
+            </>
+          )}
+        </div>
+        <div className="border-t border-white/10 px-5 py-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full rounded-full bg-cyan-400 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300"
+          >
+            Voltar ao cadastro
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PortalPage() {
   const initialPortal = Route.useLoaderData();
   const { slug } = Route.useParams();
@@ -204,6 +308,9 @@ function PortalPage() {
     marketingConsent: false,
   });
   const [submitAttempted, setSubmitAttempted] = useState(false);
+  // Documento jurídico aberto no modal (Termos/Política/Central), sem
+  // sair da página do portal.
+  const [legalDoc, setLegalDoc] = useState<LegalDocKey | null>(null);
   const markTouched = (field: keyof typeof touched) =>
     setTouched((current) => (current[field] ? current : { ...current, [field]: true }));
 
@@ -309,9 +416,7 @@ function PortalPage() {
         cleanPhoneDigits.length >= 8 &&
         cleanPhoneDigits.length <= 15 &&
         !/^0+$/.test(cleanPhoneDigits);
-      const isCityValid = form.city.trim().length >= 2;
-
-      if (!isNameValid || !isEmailValid || !isPhoneValid || !isCityValid || !form.consent) {
+      if (!isNameValid || !isEmailValid || !isPhoneValid || !form.consent) {
         throw new Error("Por favor, preencha todos os campos corretamente");
       }
 
@@ -379,13 +484,13 @@ function PortalPage() {
       cleanPhoneDigits.length <= 15 &&
       !/^0+$/.test(cleanPhoneDigits);
 
-    const isCityValid = form.city.trim().length >= 2;
-
     return {
       fullName: isNameValid,
       email: isEmailValid,
       phone: isPhoneValid,
-      city: isCityValid,
+      // Cidade é opcional (UX parte 2): nunca bloqueia o envio nem gera
+      // erro — o campo continua no formulário, só não é mais exigido.
+      city: true,
       consent: form.consent,
       // Consentimento de marketing é opcional: nunca bloqueia o envio nem
       // gera erro — o mecanismo de erro cobre os dois consentimentos, mas só
@@ -398,7 +503,6 @@ function PortalPage() {
     fieldValidity.fullName &&
     fieldValidity.email &&
     fieldValidity.phone &&
-    fieldValidity.city &&
     fieldValidity.consent &&
     !mutation.isPending;
 
@@ -423,8 +527,8 @@ function PortalPage() {
           ? "WhatsApp incompleto — confira o número"
           : "Digite seu WhatsApp"
         : null,
-    city:
-      !fieldValidity.city && (touched.city || submitAttempted) ? "Digite sua cidade" : null,
+    // Cidade opcional não tem estado inválido: sem erro por campo.
+    city: null,
     consent:
       !fieldValidity.consent && (touched.consent || submitAttempted)
         ? "Marque para continuar"
@@ -611,7 +715,6 @@ function PortalPage() {
               ["fullName", fieldValidity.fullName],
               ["email", fieldValidity.email],
               ["phone", fieldValidity.phone],
-              ["city", fieldValidity.city],
               ["consent", fieldValidity.consent],
             ] as const
           ).find(([, valid]) => !valid)?.[0];
@@ -742,20 +845,15 @@ function PortalPage() {
                   </div>
 
                   <div className="space-y-1.5 sm:col-span-2">
-                    <FieldLabel htmlFor="city" className={theme.labelClass}>Cidade *</FieldLabel>
+                    <FieldLabel htmlFor="city" className={theme.labelClass}>Cidade (opcional)</FieldLabel>
                     <Input
                       id="city"
-                      required
                       value={form.city}
                       onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
-                      onBlur={() => markTouched("city")}
-                      aria-invalid={fieldErrors.city ? true : undefined}
-                      aria-describedby={fieldErrors.city ? "city-error" : undefined}
                       placeholder="Sua cidade atual"
                       className={`${fieldSizeClass} transition-all placeholder:text-[color:var(--portal-faint)] ${theme.inputClass}`}
-                      style={inputStyleWithError(Boolean(fieldErrors.city))}
+                      style={theme.inputStyle}
                     />
-                    <FieldError id="city-error" message={fieldErrors.city} />
                   </div>
                 </div>
 
@@ -794,9 +892,35 @@ function PortalPage() {
                       </p>
                     )}
                     <p className={`text-[color:var(--portal-muted)] ${theme.typography.lgpdClass}`}>
-                      Para liberar o Wi-Fi, precisamos tratar os dados informados neste cadastro.
-                      O recebimento de ofertas é opcional e pode ser interrompido a qualquer momento.
+                      Seus dados são usados só para liberar e proteger este Wi-Fi. Ofertas são
+                      opcionais — e você pode parar quando quiser.
                     </p>
+                    {/* Texto completo do consentimento, expansível na própria
+                        página: nada de parágrafo jurídico gigante no formulário
+                        nem de link que tira o visitante do fluxo. */}
+                    <details className="pt-0.5">
+                      <summary
+                        className={`cursor-pointer list-none text-[color:var(--portal-muted)] underline decoration-dotted underline-offset-2 ${theme.typography.lgpdClass}`}
+                      >
+                        Ver detalhes da privacidade
+                      </summary>
+                      <div
+                        className={`space-y-2 pt-2 text-left text-[color:var(--portal-muted)] ${theme.typography.lgpdClass}`}
+                      >
+                        <p>
+                          Coletamos nome, e-mail e WhatsApp — e a cidade, se você informar — para
+                          identificar o seu cadastro, liberar a conexão com segurança e registrar o
+                          seu consentimento. Sem esses dados, não conseguimos liberar o Wi-Fi.
+                        </p>
+                        <p>
+                          Seus dados não são vendidos. Eles ficam guardados pelo período necessário
+                          ao serviço e às obrigações legais, com acesso restrito e registro do
+                          consentimento. A opção de ofertas é separada: vale só para o WhatsApp
+                          informado neste cadastro e pode ser revogada a qualquer momento na
+                          Central de Privacidade, aqui neste bloco.
+                        </p>
+                      </div>
+                    </details>
                   </div>
                   <label
                     htmlFor="consent"
@@ -828,8 +952,8 @@ function PortalPage() {
                     />
                     <span className={`text-[color:var(--portal-muted)] ${theme.typography.lgpdClass}`}>
                       <strong className="text-[color:var(--portal-text)]">Obrigatório:</strong> aceito os{" "}
-                      <Link to="/termos-de-uso" target="_blank" className="underline">Termos de Uso</Link> e a{" "}
-                      <Link to="/politica-de-privacidade" target="_blank" className="underline">Política de Privacidade</Link>{" "}
+                      <button type="button" onClick={() => setLegalDoc("termos")} className="underline">Termos de Uso</button> e a{" "}
+                      <button type="button" onClick={() => setLegalDoc("politica")} className="underline">Política de Privacidade</button>{" "}
                       para o tratamento necessário à liberação e à segurança do Wi-Fi.
                     </span>
                   </label>
@@ -861,9 +985,9 @@ function PortalPage() {
                   <FieldError id="marketingConsent-error" message={fieldErrors.marketingConsent} />
                   <p className={`text-[color:var(--portal-faint)] ${theme.typography.lgpdClass}`}>
                     Você pode revogar essa autorização ou exercer seus direitos na{" "}
-                    <Link to="/direitos-do-titular" target="_blank" className="underline">
+                    <button type="button" onClick={() => setLegalDoc("central")} className="underline">
                       Central de Privacidade
-                    </Link>.
+                    </button>.
                   </p>
                 </div>
 
@@ -914,6 +1038,7 @@ function PortalPage() {
         sponsors={sponsors}
         footer={footer}
       />
+      {legalDoc ? <LegalDocModal doc={legalDoc} onClose={() => setLegalDoc(null)} /> : null}
     </PortalShell>
   );
 }
