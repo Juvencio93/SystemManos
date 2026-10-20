@@ -35,20 +35,36 @@ const credentials = z.object({
   password: z.string().min(6, "A senha deve ter ao menos 6 caracteres").max(72),
 });
 
+type AuthMode = "login" | "forgot" | "reset";
+
 function AuthPage() {
   const navigate = useNavigate();
   const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  // UX parte 6: recuperação de senha (antes não existia nenhum caminho —
+  // quem esquecia a senha ficava travado fora do painel).
+  const [mode, setMode] = useState<AuthMode>("login");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   useEffect(() => {
     // Até a hidratação concluir, o clique em "Entrar" viraria um submit nativo
     // (recarregava /auth sem autenticar). Só liberamos os botões depois disso.
     setReady(true);
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/dashboard", replace: true });
+    // Quem chega pelo link do e-mail de recuperação NÃO pode ser mandado
+    // direto ao dashboard: precisa definir a nova senha primeiro.
+    const recoveryLink =
+      typeof window !== "undefined" && window.location.hash.includes("type=recovery");
+    if (recoveryLink) setMode("reset");
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") setMode("reset");
     });
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session && !recoveryLink) navigate({ to: "/dashboard", replace: true });
+    });
+    return () => sub.subscription.unsubscribe();
   }, [navigate]);
 
   async function handleSignIn(e: React.FormEvent) {
@@ -65,6 +81,48 @@ function AuthPage() {
       toast.error("Não foi possível entrar. Verifique e-mail e senha.");
       return;
     }
+    navigate({ to: "/dashboard", replace: true });
+  }
+
+  async function handleForgot(e: React.FormEvent) {
+    e.preventDefault();
+    const parsedEmail = z.string().trim().email("E-mail inválido").max(255).safeParse(email);
+    if (!parsedEmail.success) {
+      toast.error(parsedEmail.error.issues[0]?.message ?? "E-mail inválido");
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(parsedEmail.data, {
+      redirectTo: `${window.location.origin}/auth`,
+    });
+    setLoading(false);
+    if (error) {
+      toast.error("Não foi possível enviar o link agora. Tente de novo em instantes.");
+      return;
+    }
+    // Mensagem neutra de propósito: não confirmamos se o e-mail existe.
+    toast.success("Se este e-mail estiver cadastrado, você receberá um link para redefinir a senha.");
+    setMode("login");
+  }
+
+  async function handleReset(e: React.FormEvent) {
+    e.preventDefault();
+    if (newPassword.length < 6 || newPassword.length > 72) {
+      toast.error("A nova senha deve ter entre 6 e 72 caracteres.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("As senhas não conferem.");
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setLoading(false);
+    if (error) {
+      toast.error("Não foi possível salvar a nova senha. Abra o link do e-mail de novo.");
+      return;
+    }
+    toast.success("Senha atualizada! Bem-vindo de volta.");
     navigate({ to: "/dashboard", replace: true });
   }
 
@@ -104,31 +162,99 @@ function AuthPage() {
               </p>
             </div>
 
-            <form onSubmit={handleSignIn} className="space-y-5 text-left">
-              <div className="space-y-2.5">
-                <Label htmlFor="email" className="text-[11px] font-black uppercase tracking-widest opacity-60 ml-1">E-mail</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2.5">
-                <Label htmlFor="password" className="text-[11px] font-black uppercase tracking-widest opacity-60 ml-1">Senha</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-              <Button type="submit" className="w-full shadow-glow" disabled={loading || !ready}>
-                {ready ? (loading ? "Entrando..." : "Entrar") : "Carregando..."}
-              </Button>
-            </form>
+            {mode === "login" ? (
+              <form onSubmit={handleSignIn} className="space-y-5 text-left">
+                <div className="space-y-2.5">
+                  <Label htmlFor="email" className="text-[11px] font-black uppercase tracking-widest opacity-60 ml-1">E-mail</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2.5">
+                  <Label htmlFor="password" className="text-[11px] font-black uppercase tracking-widest opacity-60 ml-1">Senha</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                <Button type="submit" className="w-full shadow-glow" disabled={loading || !ready}>
+                  {ready ? (loading ? "Entrando..." : "Entrar") : "Carregando..."}
+                </Button>
+                <p className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => setMode("forgot")}
+                    className="text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
+                  >
+                    Esqueci minha senha
+                  </button>
+                </p>
+              </form>
+            ) : mode === "forgot" ? (
+              <form onSubmit={handleForgot} className="space-y-5 text-left">
+                <p className="text-sm text-muted-foreground">
+                  Informe seu e-mail e enviaremos um link para você criar uma nova senha.
+                </p>
+                <div className="space-y-2.5">
+                  <Label htmlFor="email" className="text-[11px] font-black uppercase tracking-widest opacity-60 ml-1">E-mail</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <Button type="submit" className="w-full shadow-glow" disabled={loading || !ready}>
+                  {loading ? "Enviando..." : "Enviar link de recuperação"}
+                </Button>
+                <p className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => setMode("login")}
+                    className="text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
+                  >
+                    Voltar para o login
+                  </button>
+                </p>
+              </form>
+            ) : (
+              <form onSubmit={handleReset} className="space-y-5 text-left">
+                <p className="text-sm text-muted-foreground">
+                  Quase lá: defina sua nova senha para voltar ao painel.
+                </p>
+                <div className="space-y-2.5">
+                  <Label htmlFor="new-password" className="text-[11px] font-black uppercase tracking-widest opacity-60 ml-1">Nova senha</Label>
+                  <Input
+                    id="new-password"
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2.5">
+                  <Label htmlFor="confirm-password" className="text-[11px] font-black uppercase tracking-widest opacity-60 ml-1">Confirmar nova senha</Label>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                <Button type="submit" className="w-full shadow-glow" disabled={loading || !ready}>
+                  {loading ? "Salvando..." : "Salvar nova senha"}
+                </Button>
+              </form>
+            )}
 
             <nav
               aria-label="Informações legais"

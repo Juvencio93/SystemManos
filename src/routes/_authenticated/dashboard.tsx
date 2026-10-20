@@ -401,9 +401,11 @@ function LegacyNetworkMapPanel({ devices, isLoading, overlay, onClose, onMouseLe
 }
 
 function AdminDashboard({ access }: { access: AccessInfo | null }) {
+  // UX parte 6: o painel de monitoramento abre SÓ no clique. Antes,
+  // passar o mouse sobre o card "Hotspot" abria o painel em tela cheia
+  // sem querer (overlay por hover).
   const [hotspotExpanded, setHotspotExpanded] = useState(false);
-  const [hotspotHovering, setHotspotHovering] = useState(false);
-  const hotspotOpen = hotspotExpanded || hotspotHovering;
+  const hotspotOpen = hotspotExpanded;
   const hotspotDevices = useQuery({ queryKey: ["dashboard-hotspot-devices", access?.role, access?.companyId, access?.branchId, access?.resellerId], enabled: Boolean(access?.userId), refetchInterval: 5000, refetchIntervalInBackground: true, queryFn: async () => {
     let query = (supabase as any).from("hotspot_devices").select("id,router_identity,last_seen_at,last_seen_ip,last_seen_uptime,router_version,active_sessions,rx_bytes,tx_bytes,latency_ms,packet_loss_pct,status,company_id,branch_id,reboot_requested_at,reboot_applied_at,router_applied_status,router_status_applied_at,latitude,longitude,maps_url,companies(name,trade_name,address,neighborhood,city,state,zip_code),branches(name,trade_name,address,neighborhood,city,state,zip_code)");
     if (access?.role === "revenda" && access.resellerId) {
@@ -502,12 +504,12 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
 
       <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {modules.map((module) => (
-          <ModuleCard key={module.label} module={module} isLoading={module.label === "Hotspot" ? hotspotDevices.isLoading : insights.isLoading} {...(module.label === "Hotspot" ? { onHotspotClick: () => setHotspotExpanded((value) => !value), onHotspotHover: setHotspotHovering } : {})} />
+          <ModuleCard key={module.label} module={module} isLoading={module.label === "Hotspot" ? hotspotDevices.isLoading : insights.isLoading} {...(module.label === "Hotspot" ? { onHotspotClick: () => setHotspotExpanded((value) => !value) } : {})} />
         ))}
       </div>
       {hotspotOpen && (access?.role === "adm"
-        ? <MonitorPreviewPanel devices={hotspotDevices.data ?? []} isLoading={hotspotDevices.isLoading} overlay={hotspotHovering} onClose={() => { setHotspotHovering(false); setHotspotExpanded(false); }} onMouseLeave={() => hotspotHovering && setHotspotHovering(false)} />
-        : <NetworkMapPanel devices={hotspotDevices.data ?? []} isLoading={hotspotDevices.isLoading} overlay={hotspotHovering} onClose={() => { setHotspotHovering(false); setHotspotExpanded(false); }} onMouseLeave={() => hotspotHovering && setHotspotHovering(false)} />)}
+        ? <MonitorPreviewPanel devices={hotspotDevices.data ?? []} isLoading={hotspotDevices.isLoading} overlay={hotspotExpanded} onClose={() => setHotspotExpanded(false)} onMouseLeave={() => {}} />
+        : <NetworkMapPanel devices={hotspotDevices.data ?? []} isLoading={hotspotDevices.isLoading} overlay={hotspotExpanded} onClose={() => setHotspotExpanded(false)} onMouseLeave={() => {}} />)}
 
       <div className="mt-10">
         <RealtimeHeatmap />
@@ -692,12 +694,11 @@ interface DashboardModule {
   order?: number | undefined;
 }
 
-function ModuleCard({ module, isLoading, onHotspotClick, onHotspotHover }: { module: DashboardModule; isLoading: boolean; onHotspotClick?: () => void; onHotspotHover?: (hovering: boolean) => void }) {
+function ModuleCard({ module, isLoading, onHotspotClick }: { module: DashboardModule; isLoading: boolean; onHotspotClick?: () => void }) {
   return (
     <Link
       to={module.to as never}
       onClick={onHotspotClick ? (event) => { event.preventDefault(); onHotspotClick(); } : undefined}
-      onMouseEnter={onHotspotHover ? () => onHotspotHover(true) : undefined}
       className="group block h-full rounded-3xl outline-none focus-visible:ring-2 focus-visible:ring-primary"
     >
       <Card className="glass-panel flex h-full flex-col text-center transition-all duration-300 group-hover:-translate-y-2 group-hover:border-primary/50 group-hover:shadow-glow rounded-3xl cursor-pointer">

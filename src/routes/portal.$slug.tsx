@@ -1078,11 +1078,11 @@ function PortalPage() {
         size="default"
         className={`z-10 w-full border-0 transition-all hover:brightness-[1.08] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-100 ${
           style === "vibrante"
-            ? "h-16 text-lg max-sm:h-14"
+            ? "h-16 text-lg max-sm:h-14 max-sm:sticky max-sm:bottom-2"
             : style === "minimalista"
-              ? "h-14 text-[12px]"
+              ? "h-14 text-[12px] max-sm:sticky max-sm:bottom-2"
               : style === "elegante"
-                ? "h-14 text-[12px]"
+                ? "h-14 text-[12px] max-sm:sticky max-sm:bottom-2"
                 : "h-12 text-sm max-sm:sticky max-sm:bottom-2"
         } ${theme.buttonClass}`}
         style={!isFormValid || mutation.isPending ? theme.buttonDisabledStyle : theme.buttonStyle}
