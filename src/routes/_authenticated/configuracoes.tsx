@@ -340,6 +340,9 @@ function SettingsPage() {
       const { error: uploadError } = await supabase.storage
         .from("chat-avatars")
         .upload(objectPath, new File([blob], "perfil.webp", { type: "image/webp" }), {
+          // Cada avatar é um novo objeto (Date.now no caminho = imutável),
+          // exibido em toda lista de conversas: cache longo corta egress.
+          cacheControl: "31536000",
           contentType: "image/webp",
         });
       if (uploadError) throw uploadError;
@@ -456,7 +459,11 @@ function SettingsPage() {
       const path = `logos/${authData.user.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, "_")}`;
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from("brand-assets")
-        .upload(path, finalFile);
+        .upload(path, finalFile, {
+          // Caminho único por upload (Date.now + nome): logo imutável,
+          // servida por URL pública repetidamente — cache longo corta egress.
+          cacheControl: "31536000",
+        });
       if (uploadError) throw uploadError;
 
       const finalResult = await finalizeLogoUploadFn({
