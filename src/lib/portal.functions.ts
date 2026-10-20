@@ -151,6 +151,62 @@ export const getPortalConnectionCount = createServerFn({ method: "GET" })
     return { count: count ?? 0 };
   });
 
+/**
+ * Estado da sessao HotSpot deste aparelho (via cookie de handoff).
+ * Se ja existe uma liberacao AUTENTICADA nos ultimos minutos para o
+ * mesmo aparelho/MAC, a pagina do portal abre direto na tela final —
+ * mesmo que o navegador cativo tenha recarregado a URL limpa do portal
+ * no meio do fluxo (comportamento comum do CNA do iOS/Android, que
+ * fazia a tela de check-in reaparecer depois do login).
+ */
+export const getPortalSessionState = createServerFn({ method: "GET" })
+  .validator((data: unknown) => {
+    const d = data as { slug?: string; handoff?: string };
+    if (!d?.slug || !d?.handoff) throw new Error("Parâmetros inválidos");
+    return { slug: d.slug, handoff: d.handoff };
+  })
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import(
+      "@/integrations/supabase/client.server"
+    );
+    const target = await resolvePortalTarget(supabaseAdmin, data.slug);
+    if (!target) return { autenticado: false as const, count: 0 };
+    const { data: h } = await (supabaseAdmin as any)
+      .from("hotspot_portal_handoffs")
+      .select("device_id, mac_address")
+      .eq("id", data.handoff)
+      .eq("slug", data.slug)
+      .maybeSingle();
+    if (!h?.device_id || !h?.mac_address) {
+      return { autenticado: false as const, count: 0 };
+    }
+    const desde = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const { data: grant } = await (supabaseAdmin as any)
+      .from("hotspot_access_grants")
+      .select("id")
+      .eq("device_id", h.device_id)
+      .eq("mac_address", h.mac_address)
+      .gte("last_authenticated_at", desde)
+      .order("last_authenticated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!grant) return { autenticado: false as const, count: 0 };
+    const mac = normalizeMacAddress(h.mac_address);
+    let count = 0;
+    if (mac) {
+      const variantes = Array.from(
+        new Set([mac, String(h.mac_address).trim()]),
+      );
+      const r = await (supabaseAdmin as any)
+        .from("connections")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", target.companyId)
+        .in("mac_address", variantes);
+      count = r.count ?? 0;
+    }
+    return { autenticado: true as const, count };
+  });
+
 export const submitPortalLead = createServerFn({ method: "POST" })
   .validator((data: unknown) => portalLeadSchema.parse(data))
   .handler(async ({ data }) => {
