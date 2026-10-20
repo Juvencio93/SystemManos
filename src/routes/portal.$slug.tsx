@@ -168,6 +168,14 @@ function PortalPage() {
     blockedUntil?: string | null;
   } | null>(null);
   const [clock, setClock] = useState(Date.now());
+  // Retorno pos-autenticacao do HotSpot (campanhas de rede social): a RB
+  // redireciona para ca depois de liberar o acesso, e a tela final abre o
+  // destino da campanha com a sessao ja estabelecida.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("conectado") === "1") {
+      setDone({ isReturning: true, connectionsCount: 0 });
+    }
+  }, []);
   useEffect(() => {
     if (!done?.checkinBlocked) return;
     const timer = window.setInterval(() => setClock(Date.now()), 1000);
@@ -844,7 +852,9 @@ function PortalSuccess({
     const timer = setTimeout(() => {
       // Use window.location.replace to prevent back-button loops and handle same-tab navigation
       window.location.replace(finalRedirectUrl);
-    }, 3000);
+      // Rede social ganha uma margem maior: o navegador cativo precisa
+      // concluir a liberacao da sessao antes de abrir o app/site social.
+    }, isSocial ? 5000 : 3000);
 
     return () => clearTimeout(timer);
   }, [finalRedirectUrl, isDemo, isInIframe, done.hotspotAccess]);

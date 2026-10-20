@@ -16,7 +16,33 @@ import {
   safeHotspotLoginUrl,
   type HotspotLogin,
 } from "@/lib/hotspot-access.server";
-import { normalizeUrl } from "@/lib/url-utils";
+import { isSocialUrl, normalizeUrl } from "@/lib/url-utils";
+
+/**
+ * Destino que a RB usa no redirecionamento pos-autenticacao (dst).
+ * Campanha normal: a propria URL da campanha. Rede social: a tela final
+ * do portal (?conectado=1), que abre a rede social com a sessao ja
+ * liberada — direto para o Instagram/Facebook, o navegador cativo do
+ * iOS bloqueia a abertura do app com erro de sistema.
+ */
+function destinoAposLogin(
+  redirectUrl: string | null | undefined,
+  hotspotData: {
+    hotspotOrig?: string | null | undefined;
+    hotspotLinkOrig?: string | null | undefined;
+  },
+  request: Request | undefined,
+  slug: string,
+): string | null {
+  const campanha = normalizeUrl(redirectUrl);
+  if (campanha && isSocialUrl(campanha) && request) {
+    const host =
+      request.headers.get("x-forwarded-host") || request.headers.get("host");
+    const proto = request.headers.get("x-forwarded-proto") || "https";
+    if (host) return `${proto}://${host}/portal/${slug}?conectado=1`;
+  }
+  return campanha ?? hotspotData.hotspotOrig ?? hotspotData.hotspotLinkOrig ?? null;
+}
 
 export const getPortal = createServerFn({ method: "GET" })
   .validator((data: unknown) => portalSlugSchema.parse(data))
@@ -194,7 +220,15 @@ export const submitPortalLead = createServerFn({ method: "POST" })
           // The campaign redirect is the visitor's intended destination.  It
           // must win over RouterOS's original-request fields, which are often
           // a captive-portal probe URL rather than the configured campaign URL.
-          destination: normalizeUrl(target.redirectUrl) ?? hotspotData.hotspotOrig ?? hotspotData.hotspotLinkOrig ?? null,
+          //
+          // EXCECAO (redes sociais): o dst sai da RB direto para o navegador
+          // cativo AINDA no inicio da sessao; a pagina do Instagram tenta
+          // abrir o app (esquema instagram:) e o iOS bloqueia com um erro de
+          // sistema ("nao pode redirecionar para localizacoes que comecam
+          // com instagram:"). Para social, a RB devolve o visitante para a
+          // tela final do portal (?conectado=1) e ELA abre a rede social
+          // com a sessao ja liberada.
+          destination: destinoAposLogin(target.redirectUrl, hotspotData, request, data.slug),
         });
         await (supabaseAdmin as any)
           .from("hotspot_portal_handoffs")
