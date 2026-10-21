@@ -34,6 +34,7 @@ import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authentic
 import { Route as AuthenticatedRevendasRouteImport } from './routes/_authenticated/revendas'
 import { Route as AuthenticatedSolicitacoesPrivacidadeRouteImport } from './routes/_authenticated/solicitacoes-privacidade'
 import { Route as AuthenticatedVisitantesRouteImport } from './routes/_authenticated/visitantes'
+import { Route as AuthenticatedWhatsappRouteImport } from './routes/_authenticated/whatsapp'
 import { Route as PortalSlugRouteImport } from './routes/portal.$slug'
 import { Route as AuthenticatedEmpresasIndexRouteImport } from './routes/_authenticated/empresas.index'
 import { Route as AuthenticatedEmpresasCompanyIdRouteImport } from './routes/_authenticated/empresas.$companyId'
@@ -66,6 +67,7 @@ import { Route as ApiPublicMarketingCrmSummaryRouteImport } from './routes/api/p
 import { Route as ApiPublicOperationalJobRouteImport } from './routes/api/public/operational-job'
 import { Route as ApiPublicPagbankWebhookV1RouteImport } from './routes/api/public/pagbank-webhook-v1'
 import { Route as ApiPublicTelegramOperationalWebhookRouteImport } from './routes/api/public/telegram-operational-webhook'
+import { Route as ApiPublicWhatsappWebhookRouteImport } from './routes/api/public/whatsapp-webhook'
 import { Route as AuthenticatedFinanceiroReciboChargeIdRouteImport } from './routes/_authenticated/financeiro/recibo.$chargeId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -195,6 +197,11 @@ const AuthenticatedSolicitacoesPrivacidadeRoute =
 const AuthenticatedVisitantesRoute = AuthenticatedVisitantesRouteImport.update({
   id: '/visitantes',
   path: '/visitantes',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedWhatsappRoute = AuthenticatedWhatsappRouteImport.update({
+  id: '/whatsapp',
+  path: '/whatsapp',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const PortalSlugRoute = PortalSlugRouteImport.update({
@@ -379,6 +386,12 @@ const ApiPublicTelegramOperationalWebhookRoute =
     path: '/api/public/telegram-operational-webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicWhatsappWebhookRoute =
+  ApiPublicWhatsappWebhookRouteImport.update({
+    id: '/api/public/whatsapp-webhook',
+    path: '/api/public/whatsapp-webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedFinanceiroReciboChargeIdRoute =
   AuthenticatedFinanceiroReciboChargeIdRouteImport.update({
     id: '/recibo/$chargeId',
@@ -411,6 +424,7 @@ export interface FileRoutesByFullPath {
   '/revendas': typeof AuthenticatedRevendasRoute
   '/solicitacoes-privacidade': typeof AuthenticatedSolicitacoesPrivacidadeRoute
   '/visitantes': typeof AuthenticatedVisitantesRoute
+  '/whatsapp': typeof AuthenticatedWhatsappRoute
   '/portal/$slug': typeof PortalSlugRoute
   '/empresas/$companyId': typeof AuthenticatedEmpresasCompanyIdRoute
   '/financeiro/a-receber': typeof AuthenticatedFinanceiroAReceberRoute
@@ -441,6 +455,7 @@ export interface FileRoutesByFullPath {
   '/api/public/operational-job': typeof ApiPublicOperationalJobRoute
   '/api/public/pagbank-webhook-v1': typeof ApiPublicPagbankWebhookV1Route
   '/api/public/telegram-operational-webhook': typeof ApiPublicTelegramOperationalWebhookRoute
+  '/api/public/whatsapp-webhook': typeof ApiPublicWhatsappWebhookRoute
   '/empresas/': typeof AuthenticatedEmpresasIndexRoute
   '/financeiro/': typeof AuthenticatedFinanceiroIndexRoute
   '/financeiro/recibo/$chargeId': typeof AuthenticatedFinanceiroReciboChargeIdRoute
@@ -469,6 +484,7 @@ export interface FileRoutesByTo {
   '/revendas': typeof AuthenticatedRevendasRoute
   '/solicitacoes-privacidade': typeof AuthenticatedSolicitacoesPrivacidadeRoute
   '/visitantes': typeof AuthenticatedVisitantesRoute
+  '/whatsapp': typeof AuthenticatedWhatsappRoute
   '/portal/$slug': typeof PortalSlugRoute
   '/empresas/$companyId': typeof AuthenticatedEmpresasCompanyIdRoute
   '/financeiro/a-receber': typeof AuthenticatedFinanceiroAReceberRoute
@@ -499,6 +515,7 @@ export interface FileRoutesByTo {
   '/api/public/operational-job': typeof ApiPublicOperationalJobRoute
   '/api/public/pagbank-webhook-v1': typeof ApiPublicPagbankWebhookV1Route
   '/api/public/telegram-operational-webhook': typeof ApiPublicTelegramOperationalWebhookRoute
+  '/api/public/whatsapp-webhook': typeof ApiPublicWhatsappWebhookRoute
   '/empresas': typeof AuthenticatedEmpresasIndexRoute
   '/financeiro': typeof AuthenticatedFinanceiroIndexRoute
   '/financeiro/recibo/$chargeId': typeof AuthenticatedFinanceiroReciboChargeIdRoute
@@ -530,6 +547,7 @@ export interface FileRoutesById {
   '/_authenticated/revendas': typeof AuthenticatedRevendasRoute
   '/_authenticated/solicitacoes-privacidade': typeof AuthenticatedSolicitacoesPrivacidadeRoute
   '/_authenticated/visitantes': typeof AuthenticatedVisitantesRoute
+  '/_authenticated/whatsapp': typeof AuthenticatedWhatsappRoute
   '/portal/$slug': typeof PortalSlugRoute
   '/_authenticated/empresas/$companyId': typeof AuthenticatedEmpresasCompanyIdRoute
   '/_authenticated/financeiro/a-receber': typeof AuthenticatedFinanceiroAReceberRoute
@@ -560,6 +578,7 @@ export interface FileRoutesById {
   '/api/public/operational-job': typeof ApiPublicOperationalJobRoute
   '/api/public/pagbank-webhook-v1': typeof ApiPublicPagbankWebhookV1Route
   '/api/public/telegram-operational-webhook': typeof ApiPublicTelegramOperationalWebhookRoute
+  '/api/public/whatsapp-webhook': typeof ApiPublicWhatsappWebhookRoute
   '/_authenticated/empresas/': typeof AuthenticatedEmpresasIndexRoute
   '/_authenticated/financeiro/': typeof AuthenticatedFinanceiroIndexRoute
   '/_authenticated/financeiro/recibo/$chargeId': typeof AuthenticatedFinanceiroReciboChargeIdRoute
@@ -591,6 +610,7 @@ export interface FileRouteTypes {
     | '/revendas'
     | '/solicitacoes-privacidade'
     | '/visitantes'
+    | '/whatsapp'
     | '/portal/$slug'
     | '/empresas/$companyId'
     | '/financeiro/a-receber'
@@ -621,6 +641,7 @@ export interface FileRouteTypes {
     | '/api/public/operational-job'
     | '/api/public/pagbank-webhook-v1'
     | '/api/public/telegram-operational-webhook'
+    | '/api/public/whatsapp-webhook'
     | '/empresas/'
     | '/financeiro/'
     | '/financeiro/recibo/$chargeId'
@@ -649,6 +670,7 @@ export interface FileRouteTypes {
     | '/revendas'
     | '/solicitacoes-privacidade'
     | '/visitantes'
+    | '/whatsapp'
     | '/portal/$slug'
     | '/empresas/$companyId'
     | '/financeiro/a-receber'
@@ -679,6 +701,7 @@ export interface FileRouteTypes {
     | '/api/public/operational-job'
     | '/api/public/pagbank-webhook-v1'
     | '/api/public/telegram-operational-webhook'
+    | '/api/public/whatsapp-webhook'
     | '/empresas'
     | '/financeiro'
     | '/financeiro/recibo/$chargeId'
@@ -709,6 +732,7 @@ export interface FileRouteTypes {
     | '/_authenticated/revendas'
     | '/_authenticated/solicitacoes-privacidade'
     | '/_authenticated/visitantes'
+    | '/_authenticated/whatsapp'
     | '/portal/$slug'
     | '/_authenticated/empresas/$companyId'
     | '/_authenticated/financeiro/a-receber'
@@ -739,6 +763,7 @@ export interface FileRouteTypes {
     | '/api/public/operational-job'
     | '/api/public/pagbank-webhook-v1'
     | '/api/public/telegram-operational-webhook'
+    | '/api/public/whatsapp-webhook'
     | '/_authenticated/empresas/'
     | '/_authenticated/financeiro/'
     | '/_authenticated/financeiro/recibo/$chargeId'
@@ -775,6 +800,7 @@ export interface RootRouteChildren {
   ApiPublicOperationalJobRoute: typeof ApiPublicOperationalJobRoute
   ApiPublicPagbankWebhookV1Route: typeof ApiPublicPagbankWebhookV1Route
   ApiPublicTelegramOperationalWebhookRoute: typeof ApiPublicTelegramOperationalWebhookRoute
+  ApiPublicWhatsappWebhookRoute: typeof ApiPublicWhatsappWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -952,6 +978,13 @@ declare module '@tanstack/react-router' {
       path: '/visitantes'
       fullPath: '/visitantes'
       preLoaderRoute: typeof AuthenticatedVisitantesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/whatsapp': {
+      id: '/_authenticated/whatsapp'
+      path: '/whatsapp'
+      fullPath: '/whatsapp'
+      preLoaderRoute: typeof AuthenticatedWhatsappRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/portal/$slug': {
@@ -1178,6 +1211,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicTelegramOperationalWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/whatsapp-webhook': {
+      id: '/api/public/whatsapp-webhook'
+      path: '/api/public/whatsapp-webhook'
+      fullPath: '/api/public/whatsapp-webhook'
+      preLoaderRoute: typeof ApiPublicWhatsappWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/financeiro/recibo/$chargeId': {
       id: '/_authenticated/financeiro/recibo/$chargeId'
       path: '/recibo/$chargeId'
@@ -1234,6 +1274,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedRevendasRoute: typeof AuthenticatedRevendasRoute
   AuthenticatedSolicitacoesPrivacidadeRoute: typeof AuthenticatedSolicitacoesPrivacidadeRoute
   AuthenticatedVisitantesRoute: typeof AuthenticatedVisitantesRoute
+  AuthenticatedWhatsappRoute: typeof AuthenticatedWhatsappRoute
   AuthenticatedEmpresasCompanyIdRoute: typeof AuthenticatedEmpresasCompanyIdRoute
   AuthenticatedMarketingCampaignIdRoute: typeof AuthenticatedMarketingCampaignIdRoute
   AuthenticatedEmpresasIndexRoute: typeof AuthenticatedEmpresasIndexRoute
@@ -1261,6 +1302,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSolicitacoesPrivacidadeRoute:
     AuthenticatedSolicitacoesPrivacidadeRoute,
   AuthenticatedVisitantesRoute: AuthenticatedVisitantesRoute,
+  AuthenticatedWhatsappRoute: AuthenticatedWhatsappRoute,
   AuthenticatedEmpresasCompanyIdRoute: AuthenticatedEmpresasCompanyIdRoute,
   AuthenticatedMarketingCampaignIdRoute: AuthenticatedMarketingCampaignIdRoute,
   AuthenticatedEmpresasIndexRoute: AuthenticatedEmpresasIndexRoute,
@@ -1301,6 +1343,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicPagbankWebhookV1Route: ApiPublicPagbankWebhookV1Route,
   ApiPublicTelegramOperationalWebhookRoute:
     ApiPublicTelegramOperationalWebhookRoute,
+  ApiPublicWhatsappWebhookRoute: ApiPublicWhatsappWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
