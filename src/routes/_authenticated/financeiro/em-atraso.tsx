@@ -9,6 +9,7 @@ import { useState } from "react";
 import { useAccess } from "@/hooks/use-access";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateBR } from "@/lib/utils";
+import defaultLogo from "@/assets/manos-tech-logo-institutional.png";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -148,11 +149,28 @@ function EmAtrasoPage() {
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto print-report print:p-0 print:max-w-none">
       <div className="hidden print:block">
-        <h1 className="text-xl font-bold">Manos Tech — Relatório de Inadimplência</h1>
-        <p className="text-sm">
-          Gerado em {format(new Date(), "dd/MM/yyyy 'às' HH:mm")} · Total em atraso:{" "}
-          {formatCurrency(totals.emAtraso)} · {filteredList.length} cobranças
-        </p>
+        <div className="flex items-center justify-between border-b-2 border-slate-900 pb-4">
+          <div>
+            <h1 className="text-2xl font-black tracking-tight text-slate-900">
+              Relatório de Inadimplência
+            </h1>
+            <p className="text-sm text-slate-500">
+              Gerado em {format(new Date(), "dd/MM/yyyy 'às' HH:mm")} · {filteredList.length}{" "}
+              cobranças em atraso
+            </p>
+          </div>
+          <img
+            src={access?.platformLogoRelatorios || access?.platformLogo || defaultLogo}
+            alt="Manos Tech"
+            className="h-12 max-w-[180px] object-contain"
+          />
+        </div>
+        <div className="mt-4 flex items-baseline gap-2">
+          <span className="text-sm font-medium text-slate-500">Total em atraso</span>
+          <span className="text-2xl font-black text-red-600">
+            {formatCurrency(totals.emAtraso)}
+          </span>
+        </div>
       </div>
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
@@ -179,7 +197,7 @@ function EmAtrasoPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 print:hidden">
         <Card className="p-4 border-l-4 border-l-red-500">
           <div className="text-sm font-medium text-muted-foreground flex items-center">
             <AlertTriangle className="w-4 h-4 mr-2 text-red-500" />
@@ -202,10 +220,10 @@ function EmAtrasoPage() {
         />
       </div>
 
-      <Card className="overflow-hidden border-slate-800 bg-slate-900/50 backdrop-blur-sm print:shadow-none">
+      <Card className="overflow-hidden border-slate-800 bg-slate-900/50 backdrop-blur-sm print:bg-white print:border-slate-300 print:shadow-none">
         <div className="overflow-x-auto">
           <div className="min-w-[800px] print:min-w-0">
-            <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1.5fr] gap-4 p-4 border-b border-slate-800 bg-slate-900 font-medium text-sm text-muted-foreground">
+            <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1.5fr] gap-4 p-4 border-b border-slate-800 bg-slate-900 font-medium text-sm text-muted-foreground print:text-slate-100">
               <div>Empresa</div>
               <div>Vencimento</div>
               <div>Atraso</div>
@@ -233,7 +251,7 @@ function EmAtrasoPage() {
 
               return (
                 <div key={group}>
-                  <div className="bg-slate-800/30 px-4 py-2 text-xs font-semibold tracking-wider text-slate-400 uppercase flex items-center">
+                  <div className="bg-slate-800/30 px-4 py-2 text-xs font-semibold tracking-wider text-slate-400 uppercase flex items-center print:bg-slate-100 print:text-slate-600">
                     <Clock className="w-3 h-3 mr-2" />
                     {group} ({items.length})
                   </div>
@@ -243,16 +261,16 @@ function EmAtrasoPage() {
                     return (
                       <div
                         key={c.id}
-                        className="grid grid-cols-[2fr_1fr_1fr_1fr_1.5fr] gap-4 p-4 border-b border-slate-800/50 items-center hover:bg-white/5 transition-colors group"
+                        className="grid grid-cols-[2fr_1fr_1fr_1fr_1.5fr] gap-4 p-4 border-b border-slate-800/50 items-center hover:bg-white/5 transition-colors group print:border-slate-200"
                       >
-                        <div className="font-medium text-slate-200 truncate">
+                        <div className="font-medium text-slate-200 truncate print:text-slate-900 print:whitespace-normal">
                           {getCompanyDisplayName(c.companies)}
                         </div>
-                        <div className="text-sm text-slate-400">{formatDateBR(c.due_date)}</div>
+                        <div className="text-sm text-slate-400 print:text-slate-600">{formatDateBR(c.due_date)}</div>
                         <div className={`text-sm font-semibold ${statusColor}`}>
                           {c.days_overdue} dias
                         </div>
-                        <div className="font-semibold text-slate-100">
+                        <div className="font-semibold text-slate-100 print:text-slate-900">
                           {formatCurrency(c.amount)}
                         </div>
                         <div className="flex justify-end gap-2 print:hidden">
