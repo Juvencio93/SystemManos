@@ -2,6 +2,7 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
+  Activity,
   Building2,
   CalendarDays,
   FileBarChart,
@@ -26,8 +27,8 @@ import {
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { usePresence } from "@/components/app/chat/ChatPresenceProvider";
-import { ForcedPasswordChange } from "@/components/app/forced-password-change";
 import { NotificationCenter } from "@/components/app/notification-center";
+import { ForcedPasswordChange } from "@/components/app/forced-password-change";
 
 import defaultLogo from "@/assets/manos-tech-logo-institutional.png";
 import sidebarLogo from "@/assets/manostech-sidebar-logo.svg";
@@ -43,7 +44,13 @@ type NavItem = {
   label: string;
   icon: typeof LayoutDashboard;
   roles: AppRole[];
+  // UX parte 5: o menu é exibido em blocos nomeados (Miller) — a memória
+  // reconhece 4 grupos curtos em vez de uma lista plana de até 15 itens.
+  group: string;
 };
+
+// Ordem dos blocos no menu.
+const NAV_GROUPS = ["Operação", "Comercial", "Marketing", "Sistema"] as const;
 
 const NAV: NavItem[] = [
   {
@@ -51,43 +58,49 @@ const NAV: NavItem[] = [
     label: "Painel",
     icon: LayoutDashboard,
     roles: ["adm", "matriz", "filial", "revenda"],
+    group: "Operação",
   },
   {
     to: "/gerente-operacional",
     label: "Gerente Operacional IA",
     icon: Sparkles,
     roles: ["adm", "matriz", "revenda"],
+    group: "Operação",
   },
-  { to: "/empresas", label: "Empresas", icon: Building2, roles: ["adm", "revenda"] },
-  { to: "/financeiro", label: "Financeiro", icon: Wallet, roles: ["adm", "revenda"] },
-  { to: "/hotspot", label: "Hotspot", icon: Router, roles: ["adm", "revenda"] },
-  { to: "/estoque-rbs", label: "Estoque RBs", icon: Package, roles: ["adm", "revenda"] },
-  { to: "/creditos", label: "Créditos", icon: HandCoins, roles: ["revenda"] },
-  { to: "/eventos", label: "Eventos", icon: CalendarDays, roles: ["adm"] },
-  { to: "/pre-venda", label: "Pré-venda", icon: ClipboardList, roles: ["adm"] },
-  { to: "/assinatura", label: "Minha Assinatura", icon: ReceiptText, roles: ["matriz"] },
-  { to: "/portais", label: "Portais & QR", icon: QrCode, roles: ["adm", "matriz", "filial", "revenda"] },
-  { to: "/campanhas", label: "Campanhas", icon: Megaphone, roles: ["adm", "matriz", "filial", "revenda"] },
+  { to: "/empresas", label: "Empresas", icon: Building2, roles: ["adm", "revenda"], group: "Comercial" },
+  { to: "/financeiro", label: "Financeiro", icon: Wallet, roles: ["adm", "revenda"], group: "Comercial" },
+  { to: "/hotspot", label: "Hotspot", icon: Router, roles: ["adm", "revenda"], group: "Operação" },
+  { to: "/monitoramento", label: "Monitoramento", icon: Activity, roles: ["adm"], group: "Operação" },
+  { to: "/estoque-rbs", label: "Estoque RBs", icon: Package, roles: ["adm", "revenda"], group: "Operação" },
+  { to: "/creditos", label: "Créditos", icon: HandCoins, roles: ["revenda"], group: "Comercial" },
+  { to: "/eventos", label: "Eventos", icon: CalendarDays, roles: ["adm"], group: "Operação" },
+  { to: "/pre-venda", label: "Pré-venda", icon: ClipboardList, roles: ["adm"], group: "Comercial" },
+  { to: "/assinatura", label: "Minha Assinatura", icon: ReceiptText, roles: ["matriz"], group: "Comercial" },
+  { to: "/portais", label: "Portais & QR", icon: QrCode, roles: ["adm", "matriz", "filial", "revenda"], group: "Marketing" },
+  { to: "/campanhas", label: "Campanhas", icon: Megaphone, roles: ["adm", "matriz", "filial", "revenda"], group: "Marketing" },
   {
     to: "/relatorios",
     label: "Relatórios",
     icon: FileBarChart,
     roles: ["adm", "matriz", "filial", "revenda"],
+    group: "Operação",
   },
-  { to: "/visitantes", label: "CRM", icon: Users, roles: ["adm", "matriz", "filial", "revenda"] },
+  { to: "/visitantes", label: "CRM", icon: Users, roles: ["adm", "matriz", "filial", "revenda"], group: "Comercial" },
   {
     to: "/revendas",
     label: "Revendas",
     icon: Handshake,
     roles: ["adm"],
+    group: "Comercial",
   },
   {
     to: "/configuracoes",
     label: "Configurações",
     icon: Settings,
     roles: ["adm", "matriz", "filial", "revenda"],
+    group: "Sistema",
   },
-  { to: "/filiais", label: "Filiais", icon: Building2, roles: ["matriz"] },
+  { to: "/filiais", label: "Filiais", icon: Building2, roles: ["matriz"], group: "Comercial" },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -138,6 +151,30 @@ export function AppShell({ children }: { children: ReactNode }) {
     if (role === "matriz" && item.to === "/filiais" && !showFilialFeatures) return false;
     return true;
   });
+
+  const renderNavLink = (item: NavItem) => {
+    const active = pathname.startsWith(item.to);
+    return (
+      <Link
+        key={item.to}
+        to={item.to}
+        onClick={() => setOpen(false)}
+        className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+          active
+            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+            : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+        }`}
+      >
+        <item.icon className="size-4" />
+        {item.label}
+        {item.to === "/pre-venda" && (preSalesCount.data?.count ?? 0) > 0 ? (
+          <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-cyan-400 px-1.5 py-0.5 text-[10px] font-bold text-slate-950">
+            {preSalesCount.data!.count > 99 ? "99+" : preSalesCount.data!.count}
+          </span>
+        ) : null}
+      </Link>
+    );
+  };
 
   const pendingAccess = !accessLoading && Boolean(access) && role === null;
   // Marca fixa no cabeçalho: Robô + "Manos Tech"
@@ -193,28 +230,17 @@ export function AppShell({ children }: { children: ReactNode }) {
                 aria-label="Navegação principal"
                 className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 [scrollbar-gutter:stable]"
               >
-                <div className="flex flex-col gap-1">
-                  {items.map((item) => {
-                    const active = pathname.startsWith(item.to);
+                <div className="flex flex-col gap-4">
+                  {NAV_GROUPS.map((group) => {
+                    const groupItems = items.filter((item) => item.group === group);
+                    if (!groupItems.length) return null;
                     return (
-                      <Link
-                        key={item.to}
-                        to={item.to}
-                        onClick={() => setOpen(false)}
-                        className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-                          active
-                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                            : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
-                        }`}
-                      >
-                        <item.icon className="size-4" />
-                        {item.label}
-                        {item.to === "/pre-venda" && (preSalesCount.data?.count ?? 0) > 0 ? (
-                          <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-cyan-400 px-1.5 py-0.5 text-[10px] font-bold text-slate-950">
-                            {preSalesCount.data!.count > 99 ? "99+" : preSalesCount.data!.count}
-                          </span>
-                        ) : null}
-                      </Link>
+                      <div key={group} className="flex flex-col gap-1">
+                        <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/70">
+                          {group}
+                        </p>
+                        {groupItems.map(renderNavLink)}
+                      </div>
                     );
                   })}
                 </div>
@@ -308,4 +334,3 @@ export function AppShell({ children }: { children: ReactNode }) {
     </div>
   );
 }
-
