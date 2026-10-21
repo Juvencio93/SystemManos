@@ -39,6 +39,13 @@ export type Insights = {
   leadsEmpresa: number;
   leadsNovosSemana: number;
   rankingUnidades: UnidadeRanking[];
+  posicaoRede: {
+    posicao: number;
+    totalUnidades: number;
+    mediaRede: number;
+    meusAcessosSemana: number;
+    meusAcessosSemanaAnterior: number;
+  } | null;
   horarioPico: string;
   horarioPicoTotal: number;
   devices: Record<DeviceBucket, number>;
@@ -122,6 +129,7 @@ export async function computeInsights(
     branchesCountRes,
     eventsCountRes,
     branchesDataRes,
+    redeRes,
     leadsEmpresaRes,
     leadsNovosRes,
     activeCompaniesCountRes,
@@ -140,6 +148,21 @@ export async function computeInsights(
       ? supabase
           .from("branches")
           .select("id, name, trade_name, legal_name, is_headquarters, active, company_id")
+      : role === "filial" && companyId
+        ? supabase
+            .from("branches")
+            .select("id, name, trade_name, legal_name, is_headquarters, active, company_id")
+            .eq("company_id", companyId)
+        : Promise.resolve({ data: [] }),
+    // Agregado da REDE inteira (so filial usa): posicao da unidade entre
+    // as unidades da empresa, sem expor os numeros absolutos das outras.
+    role === "filial" && companyId
+      ? supabase
+          .from("connections")
+          .select("branch_id, created_at")
+          .eq("company_id", companyId)
+          .gte("created_at", isoDaysAgo(13))
+          .limit(20000)
       : Promise.resolve({ data: [] }),
     // Base de clientes ESCOPADA (a contagem global de visitors nao serve
     // para a capa da matriz): total da empresa + novos nos ultimos 7 dias.
@@ -271,10 +294,25 @@ export async function computeInsights(
   const ontemKey = spDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
   const visitantesOntem = buckets.get(ontemKey) ?? 0;
 
+  // Filial: o ranking usa o agregado da rede (todas as unidades da
+  // empresa); matriz/adm usam as proprias conexoes ja carregadas.
+  let fonteSemana = unidadeSemana;
+  let fonteSemanaAnterior = unidadeSemanaAnterior;
+  if (role === "filial") {
+    fonteSemana = new Map<string, number>();
+    fonteSemanaAnterior = new Map<string, number>();
+    for (const row of (redeRes as any)?.data ?? []) {
+      const ms = new Date(row.created_at).getTime();
+      const chave = row.branch_id ?? "matriz";
+      if (ms >= weekStart) fonteSemana.set(chave, (fonteSemana.get(chave) ?? 0) + 1);
+      else if (ms >= prevWeekStart) fonteSemanaAnterior.set(chave, (fonteSemanaAnterior.get(chave) ?? 0) + 1);
+    }
+  }
+
   // Ranking por unidade: matriz + filiais da empresa (inclusive as sem
   // movimento — unidade zerada e o sinal de "precisa de atencao").
-  const chavesUnidades = new Set<string>(["matriz", ...unidadeSemana.keys(), ...unidadeSemanaAnterior.keys()]);
-  if (role === "matriz" && companyId) {
+  const chavesUnidades = new Set<string>(["matriz", ...fonteSemana.keys(), ...fonteSemanaAnterior.keys()]);
+  if ((role === "matriz" || role === "filial") && companyId) {
     for (const b of branches as any[]) {
       if (b.company_id === companyId && !b.is_headquarters) chavesUnidades.add(b.id);
     }
@@ -283,10 +321,26 @@ export async function computeInsights(
     .map((chave) => ({
       chave,
       nome: chave === "matriz" ? "Matriz" : (branchNameMap.get(chave) ?? "Unidade"),
-      acessosSemana: unidadeSemana.get(chave) ?? 0,
-      acessosSemanaAnterior: unidadeSemanaAnterior.get(chave) ?? 0,
+      acessosSemana: fonteSemana.get(chave) ?? 0,
+      acessosSemanaAnterior: fonteSemanaAnterior.get(chave) ?? 0,
     }))
     .sort((a, b) => b.acessosSemana - a.acessosSemana || b.acessosSemanaAnterior - a.acessosSemanaAnterior);
+
+  let posicaoRede: Insights["posicaoRede"] = null;
+  if (role === "filial" && branchId && rankingUnidades.length > 1) {
+    const idx = rankingUnidades.findIndex((u) => u.chave === branchId);
+    const minha = idx >= 0 ? rankingUnidades[idx] : undefined;
+    if (minha) {
+      const media = rankingUnidades.reduce((acc, u) => acc + u.acessosSemana, 0) / rankingUnidades.length;
+      posicaoRede = {
+        posicao: idx + 1,
+        totalUnidades: rankingUnidades.length,
+        mediaRede: Math.round(media),
+        meusAcessosSemana: minha.acessosSemana,
+        meusAcessosSemanaAnterior: minha.acessosSemanaAnterior,
+      };
+    }
+  }
 
   return {
     role,
@@ -303,6 +357,7 @@ export async function computeInsights(
     leadsEmpresa: (leadsEmpresaRes as any)?.count ?? 0,
     leadsNovosSemana: (leadsNovosRes as any)?.count ?? 0,
     rankingUnidades,
+    posicaoRede,
     horarioPico: peakTotal > 0 ? `${String(peakHour).padStart(2, "0")}h` : "—",
     horarioPicoTotal: peakTotal,
     devices,

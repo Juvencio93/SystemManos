@@ -690,6 +690,116 @@ function MatrizDashboard({ access }: { access: AccessInfo | null }) {
   );
 }
 
+
+function HeroFilial({ data, isLoading }: { data: Insights | undefined; isLoading: boolean }) {
+  const v = (n?: number) => (isLoading ? "…" : String(n ?? 0));
+  const pos = data?.posicaoRede ?? null;
+  const acimaMedia = pos ? pos.meusAcessosSemana - pos.mediaRede : 0;
+  return (
+    <div className="mb-10 grid gap-4 sm:gap-6 sm:grid-cols-2 xl:grid-cols-4">
+      <Card className="border-primary/30 bg-gradient-to-br from-primary/15 via-transparent to-transparent">
+        <CardHeader>
+          <CardTitle className="leading-none text-[12px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Acessos hoje</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="font-display text-4xl font-black tracking-tighter">{v(data?.visitantesHoje)}</p>
+          <div className="mt-3">{data && <DeltaChip atual={data.visitantesHoje} anterior={data.visitantesOntem} sufixo="vs ontem" />}</div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="leading-none text-[12px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Conectados agora</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="flex items-center gap-2 font-display text-4xl font-black tracking-tighter">
+            {v(data?.conectadosAgora)}
+            <span className="relative flex size-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" /><span className="relative inline-flex size-2.5 rounded-full bg-emerald-400" /></span>
+          </p>
+          <p className="mt-3 text-xs font-medium text-muted-foreground">usando o Wi-Fi da sua unidade agora</p>
+        </CardContent>
+      </Card>
+      {pos ? (
+        <Card className="border-amber-300/30 bg-gradient-to-br from-amber-300/10 via-transparent to-transparent">
+          <CardHeader>
+            <CardTitle className="leading-none text-[12px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Posição na rede</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="flex items-center gap-2 font-display text-4xl font-black tracking-tighter">
+              {pos.posicao}º {pos.posicao === 1 && <Trophy className="size-6 text-amber-300" />}
+            </p>
+            <p className="mt-3 text-xs font-medium leading-relaxed text-muted-foreground">
+              de {pos.totalUnidades} unidades esta semana
+              {pos.mediaRede > 0 && (
+                <> · {acimaMedia >= 0
+                  ? <span className="text-emerald-400">{Math.round((acimaMedia / pos.mediaRede) * 100)}% acima da média da rede</span>
+                  : <span className="text-amber-300">{Math.abs(Math.round((acimaMedia / pos.mediaRede) * 100))}% abaixo da média da rede</span>}
+                </>
+              )}
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle className="leading-none text-[12px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Campanha ativa</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="truncate font-display text-2xl font-black tracking-tight">{isLoading ? "…" : (data?.campanhaAtiva?.name ?? "Nenhuma")}</p>
+            <p className="mt-3 text-xs font-medium text-muted-foreground">a campanha que seus clientes veem ao conectar</p>
+            <Link to="/campanhas" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+              Ver campanhas <ArrowRight className="size-3" />
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+      <Card>
+        <CardHeader>
+          <CardTitle className="leading-none text-[12px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Horário de pico</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="font-display text-4xl font-black tracking-tighter">{isLoading ? "…" : (data?.horarioPico ?? "—")}</p>
+          <p className="mt-3 text-xs font-medium text-muted-foreground">
+            {data && data.horarioPicoTotal > 0 ? `${data.horarioPicoTotal} acessos nesse horário na semana` : "o horário mais movimentado da sua unidade"}
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function PosicaoRedeCard({ data }: { data: Insights | undefined }) {
+  const pos = data?.posicaoRede ?? null;
+  if (!data || !pos) return null;
+  const max = Math.max(1, pos.meusAcessosSemana, pos.mediaRede);
+  return (
+    <Card className="mb-10">
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
+        <CardTitle className="flex items-center gap-2"><Trophy className="size-5 text-amber-300" /> Sua unidade na rede — últimos 7 dias</CardTitle>
+        <DeltaChip atual={pos.meusAcessosSemana} anterior={pos.meusAcessosSemanaAnterior} sufixo="vs semana passada" />
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm font-medium text-muted-foreground">
+          {pos.posicao === 1
+            ? "🏆 Sua unidade lidera a rede esta semana. Parabéns!"
+            : <>Você está em <strong className="text-foreground">{pos.posicao}º lugar</strong> entre {pos.totalUnidades} unidades.</>}
+        </p>
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <span className="w-28 shrink-0 text-xs font-semibold">Sua unidade</span>
+            <div className="h-3 flex-1 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${(pos.meusAcessosSemana / max) * 100}%` }} /></div>
+            <strong className="w-10 shrink-0 text-right font-display text-lg font-black">{pos.meusAcessosSemana}</strong>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="w-28 shrink-0 text-xs font-semibold text-muted-foreground">Média da rede</span>
+            <div className="h-3 flex-1 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-muted-foreground/50" style={{ width: `${(pos.mediaRede / max) * 100}%` }} /></div>
+            <strong className="w-10 shrink-0 text-right font-display text-lg font-black text-muted-foreground">{pos.mediaRede}</strong>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function FilialDashboard({ access }: { access: AccessInfo | null }) {
   const fetchInsights = useServerFn(getInsights);
   const insights = useQuery({
@@ -700,40 +810,25 @@ function FilialDashboard({ access }: { access: AccessInfo | null }) {
 
   const data = insights.data as Insights | undefined;
 
-  const modules = [
-    // UX parte 5: sem o card duplicado "Dashboard" (levava a /relatorios,
-    // mesmo destino de "Relatórios").
-    { to: "/campanhas", label: "Campanhas", icon: Megaphone },
-    { to: "/relatorios", label: "Relatórios", icon: FileBarChart },
-  ];
-
   return (
     <DashboardLayout
       access={access}
       title={`Olá, ${getUserGreetingName(access, "Operador")}`}
-      subtitle="Acompanhe os acessos e campanhas da sua unidade."
+      subtitle="Sua unidade hoje — e como ela está na rede."
     >
+      <HeroFilial data={data} isLoading={insights.isLoading} />
+
       <div className="mb-10">
         <AiAgentCard role="filial" />
       </div>
 
-      <div className="mb-10 grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {modules.map((module) => (
-          <ModuleCard
-            key={module.label}
-            module={module as DashboardModule}
-            isLoading={insights.isLoading}
-          />
-        ))}
-      </div>
+      <PosicaoRedeCard data={data} />
 
-      <StatsGrid data={data} isLoading={insights.isLoading} isFilial />
+      <MovimentoChart data={data} />
 
       <div className="mt-10">
         <RealtimeHeatmap />
       </div>
-
-      <ChartsSection data={data} isLoading={insights.isLoading} />
     </DashboardLayout>
   );
 }
