@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link as RouterLink } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { getFinanceiroStats } from "@/lib/financeiro.functions";
@@ -15,9 +15,10 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getCompanyDisplayName } from "@/lib/name-utils";
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
+import { ArrowLeft, Search } from "lucide-react";
 import { useState } from "react";
 import { useAccess } from "@/hooks/use-access";
+import { Button } from "@/components/ui/button";
 import { formatDateBR } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/financeiro/faturamento")({
@@ -74,9 +75,16 @@ function FaturamentoPage() {
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Faturamento</h1>
-        <p className="text-muted-foreground">{isReseller ? "Faturamento das empresas da sua rede." : "Visão geral de recebíveis e faturamento."}</p>
+      <div className="flex items-center gap-4">
+        <RouterLink to="/financeiro">
+          <Button variant="ghost" size="icon">
+            <ArrowLeft className="size-5" />
+          </Button>
+        </RouterLink>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Faturamento</h1>
+          <p className="text-muted-foreground">{isReseller ? "Faturamento das empresas da sua rede." : "Visão geral de recebíveis e faturamento."}</p>
+        </div>
       </div>
 
       <div className="flex items-center gap-4">
