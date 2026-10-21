@@ -177,9 +177,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
 
   const pendingAccess = !accessLoading && Boolean(access) && role === null;
-  // Marca fixa no cabeçalho: Robô + "Manos Tech"
-  const brandName = "Manos Tech";
-  const brandLogo = defaultLogo;
+  // Marca do cabeçalho: Matriz/Filial com logo cadastrado veem a
+  // PRÓPRIA marca (white-label leve — o painel vira "o sistema dele");
+  // ADM/revenda e quem não tem logo seguem com a Manos Tech. O rodapé
+  // "Powered by Manos Tech" (sidebar) não muda.
+  const clienteBrand = (role === "matriz" || role === "filial") && Boolean(access?.logoUrl);
+  const brandName = clienteBrand ? (access?.companyName ?? "Manos Tech") : "Manos Tech";
+  const brandLogo = clienteBrand ? (access?.logoUrl as string) : defaultLogo;
+  const brandImgClass = clienteBrand ? "rounded-md bg-white p-0.5" : "";
 
   async function handleSignOut() {
     await queryClient.cancelQueries();
@@ -214,14 +219,14 @@ export function AppShell({ children }: { children: ReactNode }) {
               <SheetTitle className="sr-only">Menu do painel</SheetTitle>
               <div className="flex shrink-0 items-center gap-2 border-b border-sidebar-border px-4 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)] pr-12">
                 <img
-                  src={sidebarLogo}
-                  alt="Logo Manos Tech"
-                  className="size-11 shrink-0 rounded-full object-contain"
+                  src={clienteBrand ? (access?.logoUrl as string) : sidebarLogo}
+                  alt={`Logo ${brandName}`}
+                  className={`size-11 shrink-0 rounded-full object-contain ${clienteBrand ? "bg-white p-1" : ""}`}
                 />
                 <span className="font-display text-sm font-semibold leading-tight">
-                  Manos Tech
+                  {brandName}
                   <span className="block text-[10px] font-normal uppercase tracking-[0.2em] text-muted-foreground">
-                    Plataforma de Marketing Inteligente
+                    {clienteBrand ? "Painel da sua empresa" : "Plataforma de Marketing Inteligente"}
                   </span>
                 </span>
               </div>
@@ -272,7 +277,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <img
               src={brandLogo}
               alt={`Logo ${brandName}`}
-              className="h-8 w-auto max-w-[160px] shrink-0 object-contain"
+              className={`h-8 w-auto max-w-[160px] shrink-0 object-contain ${brandImgClass}`}
             />
             <span className="hidden truncate font-display text-sm font-semibold sm:inline">
               {brandName}
