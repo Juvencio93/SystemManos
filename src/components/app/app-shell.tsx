@@ -199,7 +199,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-2 border-b border-border bg-background/80 px-3 py-3 backdrop-blur sm:flex-nowrap sm:gap-3 md:px-6 print:hidden">
+      <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-2 border-b border-border bg-background/80 px-3 py-3 backdrop-blur sm:flex-nowrap sm:gap-3 md:px-6 print:hidden print-hide">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
@@ -328,7 +328,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
       </main>
 
-      <footer className="border-t border-border px-4 py-4 text-center text-[11px] text-muted-foreground md:px-8">
+      <footer className="border-t border-border px-4 py-4 text-center text-[11px] text-muted-foreground md:px-8 print:hidden print-hide">
         Powered by Manos Tech · Plataforma de Marketing Inteligente
       </footer>
     </div>
