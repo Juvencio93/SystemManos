@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Package, Plus, ArrowRightLeft, Download, RefreshCw, ChevronDown } from "lucide-react";
+import { Package, Plus, ArrowRightLeft, Download, RefreshCw, ChevronDown, Archive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +17,7 @@ export type InventoryViewProps = {
 export function RbInventoryView({ data, loading, error, refresh, action, download }: InventoryViewProps) {
   const [search,setSearch] = useState("");
   const [selected,setSelected] = useState<InventoryDevice | null>(null);
+  const [archiving,setArchiving] = useState<InventoryDevice | null>(null);
   const [creating,setCreating] = useState(false);
   const [label,setLabel] = useState("");
   const [target,setTarget] = useState("");
@@ -30,7 +31,7 @@ export function RbInventoryView({ data, loading, error, refresh, action, downloa
   async function run(task: () => Promise<void>, success: string) {
     if (busy) return;
     setBusy(true); setFailure(""); setMessage("");
-    try { await task(); setMessage(success); setSelected(null); setCreating(false); }
+    try { await task(); setMessage(success); setSelected(null); setCreating(false); setArchiving(null); }
     catch(e) { setFailure(e instanceof Error ? e.message : "Não foi possível concluir a operação."); }
     finally { setBusy(false); }
   }
@@ -63,6 +64,7 @@ export function RbInventoryView({ data, loading, error, refresh, action, downloa
           <div className="mt-4 flex flex-wrap gap-2">
             <Button size="sm" variant="outline" disabled={busy || d.status==="transfer_pending"} onClick={()=> {setSelected(d);setTarget("");setFailure("");}}><ArrowRightLeft className="size-4" />{d.company_id ? "Transferir / devolver" : "Atribuir destino"}</Button>
             <Button size="sm" variant="ghost" disabled={busy} onClick={()=>void run(()=>download(d.id,"setup"),"Kit inicial solicitado.")}><Download className="size-3" />Kit inicial · uma vez</Button>
+            {d.status!=="operational" && d.status!=="verifying" && <Button size="sm" variant="ghost" className="text-muted-foreground" disabled={busy} onClick={()=> {setArchiving(d);setFailure("");}}><Archive className="size-3" />Arquivar cadastro</Button>}
           </div>
         </div>;
       })}
@@ -79,6 +81,14 @@ export function RbInventoryView({ data, loading, error, refresh, action, downloa
       </select><span className="block text-xs text-muted-foreground">Destinos precisam de configuração MikroTik e não podem ter outra RB vinculada.</span></label>}
       {failure && <p role="alert" className="text-sm text-red-400">{failure}</p>}
       <Button disabled={busy || (creating && !label.trim()) || (!creating && !selected?.company_id && !target)} onClick={()=>void run(()=>action(creating ? {action:"create",label} : target.startsWith("reseller:") ? {action:"allocate",deviceId:selected!.id,expectedVersion:selected!.assignment_version,resellerId:target.slice(9)} : {action:"transfer",deviceId:selected!.id,expectedVersion:selected!.assignment_version,configId:target || null}),creating ? "RB cadastrada. Importe o kit inicial uma vez para prepará-la." : "Transferência solicitada. Aguarde a confirmação da RB.")}>{busy ? "Salvando…" : creating ? "Cadastrar RB" : target ? "Confirmar transferência" : "Devolver ao estoque"}</Button>
+      </DialogContent>
+    </Dialog>
+    <Dialog open={Boolean(archiving)} onOpenChange={open=> {if(!open && !busy) setArchiving(null);}}>
+      <DialogContent><DialogHeader><DialogTitle>Arquivar {archiving?.inventory_label || archiving?.router_identity}</DialogTitle>
+      <DialogDescription>O cadastro some do estoque e os acessos pendentes dele são revogados. A RB física <strong>não</strong> é alterada — se ela opera hoje com outro cadastro, continua funcionando normalmente. Use para cadastros duplicados ou que nunca serão confirmados.</DialogDescription></DialogHeader>
+      {archiving?.ap_mac && devices.some(o=>o.id!==archiving.id && o.ap_mac && o.ap_mac===archiving.ap_mac) && <p className="rounded-lg border border-amber-300/25 bg-amber-300/5 p-3 text-sm text-amber-200">⚠️ O cadastro <strong>{devices.find(o=>o.id!==archiving.id && o.ap_mac && o.ap_mac===archiving.ap_mac)?.router_identity}</strong> tem o mesmo MAC deste equipamento — provavelmente é a mesma RB física registrada duas vezes.</p>}
+      {failure && <p role="alert" className="text-sm text-red-400">{failure}</p>}
+      <Button disabled={busy || !archiving} onClick={()=> archiving && void run(()=>action({action:"archive",deviceId:archiving.id,expectedVersion:archiving.assignment_version}),"Cadastro arquivado.")}>{busy ? "Arquivando…" : "Arquivar cadastro"}</Button>
       </DialogContent>
     </Dialog>
   </Card>;
