@@ -16,7 +16,7 @@ export type InventoryDevice = {
 export type InventoryTarget = { id: string; label: string; companyId: string; branchId: string | null };
 export type InventoryData = { devices: InventoryDevice[]; targets: InventoryTarget[]; resellers?: { id: string; name: string }[] };
 export type InventoryAction = {
-  action: "create" | "transfer" | "verify" | "allocate";
+  action: "create" | "transfer" | "verify" | "allocate" | "archive";
   deviceId?: string; expectedVersion?: number; label?: string; configId?: string | null; resellerId?: string | null;
 };
 

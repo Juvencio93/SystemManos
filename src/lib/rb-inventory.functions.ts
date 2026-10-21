@@ -32,7 +32,7 @@ export const listRbInventory = createServerFn({ method: "GET" }).middleware([req
     return { devices: devices.data as InventoryDevice[], targets, resellers: resellers ?? [] };
   });
 
-const actionSchema = z.object({ action: z.enum(["create", "transfer", "verify", "allocate"]),
+const actionSchema = z.object({ action: z.enum(["create", "transfer", "verify", "allocate", "archive"]),
   deviceId: z.string().uuid().optional(), expectedVersion: z.number().int().nonnegative().optional(),
   label: z.string().trim().min(1).max(80).optional(), configId: z.string().uuid().nullable().optional(),
   resellerId: z.string().uuid().nullable().optional(),
