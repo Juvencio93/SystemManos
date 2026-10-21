@@ -23,13 +23,22 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { Database, Json } from "@/integrations/supabase/types";
 import { FinanceiroStats } from "./financeiro.types";
 
+const ROLE_PRIORITY = ["adm", "revenda", "matriz", "filial"] as const;
+
 async function resolveRole(supabase: SupabaseClient<Database>, userId: string) {
+  // Usuário pode ter mais de um papel (ex.: adm + matriz): vale a mesma
+  // prioridade do painel (useAccess), não um maybeSingle qualquer.
   const { data } = await supabase
     .from("user_roles")
     .select("role, company_id, reseller_id")
-    .eq("user_id", userId)
-    .maybeSingle();
-  return data as {
+    .eq("user_id", userId);
+  if (!data?.length) return null;
+  const sorted = [...data].sort(
+    (a, b) =>
+      ROLE_PRIORITY.indexOf(a.role as (typeof ROLE_PRIORITY)[number]) -
+      ROLE_PRIORITY.indexOf(b.role as (typeof ROLE_PRIORITY)[number]),
+  );
+  return sorted[0] as {
     role: "adm" | "matriz" | "filial" | "revenda";
     company_id: string | null;
     reseller_id: string | null;
@@ -173,13 +182,16 @@ export const confirmManualPayment = createServerFn({ method: "POST" })
           charge as { companies: { due_day: number; monthly_price: number } | null }
         ).companies;
         const dueDay = companies?.due_day || 10;
-        const actualDueDay = Math.min(dueDay, 28);
+        // Respeita o dia de vencimento real da empresa; só limita ao
+        // último dia do mês de destino (31 -> 30, ou 28/29 em fevereiro).
+        const lastDayOfNextMonth = new Date(nextYear, nextMonth, 0).getDate();
+        const actualDueDay = Math.min(dueDay, lastDayOfNextMonth);
         const nextDueDateStr = `${nextYear}-${nextMonth.toString().padStart(2, "0")}-${actualDueDay.toString().padStart(2, "0")}`;
 
         const chargesTable = supabaseAdmin.from("company_charges") as unknown as {
-          insert: (d: unknown) => Promise<unknown>;
+          insert: (d: unknown) => Promise<{ error: { message: string } | null }>;
         };
-        await chargesTable.insert({
+        const { error: nextChargeError } = await chargesTable.insert({
           company_id: charge.company_id as string,
           amount: companies?.monthly_price || charge.amount,
           due_date: nextDueDateStr,
@@ -187,6 +199,11 @@ export const confirmManualPayment = createServerFn({ method: "POST" })
           competence: nextCompetence,
           reference: `Mensalidade ${new Date(nextYear, nextMonth - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}`,
         });
+        if (nextChargeError) {
+          throw new Error(
+            "Recebimento confirmado, mas a cobrança do próximo mês não foi gerada. Gere-a manualmente.",
+          );
+        }
       }
     }
 
@@ -205,13 +222,7 @@ export const getFinanceiroStats = createServerFn({ method: "POST" })
     const userId = context.userId;
     const supabase = context.supabase;
 
-    const { data: roleData, error: roleError } = await supabase
-      .from("user_roles")
-      .select("role, company_id, reseller_id")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (roleError) throw new Error("Erro ao validar permissões.");
+    const roleData = await resolveRole(supabase, userId);
 
     const roleScope = roleData as {
       role?: string | null;
@@ -290,50 +301,83 @@ export const getFinanceiroStats = createServerFn({ method: "POST" })
         break;
     }
 
-    const companiesQuery = financeReadClient
-      .from("companies")
-      .select("id, name, trade_name, legal_name, monthly_price, subscription_status, reseller_id");
+    // O PostgREST corta a resposta em 1.000 linhas: sem paginar, os totais
+    // do Financeiro passariam a mentir em silêncio quando a base crescer.
+    // Cada página é uma query nova (builders do supabase-js são de uso único).
+    const PAGE_SIZE = 1000;
+    async function fetchAllPages(
+      buildPage: (
+        from: number,
+        to: number,
+      ) => PromiseLike<{ data: any[] | null; error: unknown }>,
+    ): Promise<any[]> {
+      const rows: any[] = [];
+      for (let page = 0; page < 200; page++) {
+        const { data, error } = await buildPage(
+          page * PAGE_SIZE,
+          page * PAGE_SIZE + PAGE_SIZE - 1,
+        );
+        if (error) throw error;
+        const chunk = data ?? [];
+        rows.push(...chunk);
+        if (chunk.length < PAGE_SIZE) break;
+      }
+      return rows;
+    }
 
-    const scopedCompaniesQuery = authorizedResellerId
-      ? companiesQuery.eq("reseller_id", authorizedResellerId)
-      : authorizedCompanyId
-        ? companiesQuery.eq("id", authorizedCompanyId)
-        : companiesQuery.is("reseller_id", null);
-
-    const [companiesRes, chargesRes, expensesRes, resellerCreditOrdersRes] = await Promise.all([
-      scopedCompaniesQuery,
+    const buildCompaniesQuery = () => {
+      const base = financeReadClient
+        .from("companies")
+        .select("id, name, trade_name, legal_name, monthly_price, subscription_status, reseller_id")
+        .order("id");
+      return authorizedResellerId
+        ? base.eq("reseller_id", authorizedResellerId)
+        : authorizedCompanyId
+          ? base.eq("id", authorizedCompanyId)
+          : base.is("reseller_id", null);
+    };
+    const buildChargesQuery = () =>
       financeReadClient
         .from("company_charges")
-        .select("*, companies(id, name, trade_name, legal_name, plan_name, monthly_price)"),
+        .select("*, companies(id, name, trade_name, legal_name, plan_name, monthly_price)")
+        .order("id");
+    const buildExpensesQuery = () =>
       financeReadClient
         .from("expenses")
         .select(
           "*, companies(id, name, trade_name, legal_name), branches(id, name, trade_name, legal_name)",
-        ),
-      userRole === "adm"
-        ? financeReadClient
-            .from("reseller_credit_orders")
-            .select(
-              "id, reseller_id, quantity, unit_price, total_amount, confirmed_at, asaas_payment_id, resellers(id, name)",
-            )
-            .eq("status", "confirmed")
-            .not("confirmed_at", "is", null)
-            .order("confirmed_at", { ascending: false })
-        : Promise.resolve({ data: [], error: null }),
-    ]);
+        )
+        .order("id");
+    const buildCreditOrdersQuery = () =>
+      financeReadClient
+        .from("reseller_credit_orders")
+        .select(
+          "id, reseller_id, quantity, unit_price, total_amount, confirmed_at, asaas_payment_id, resellers(id, name)",
+        )
+        .eq("status", "confirmed")
+        .not("confirmed_at", "is", null)
+        .order("confirmed_at", { ascending: false })
+        .order("id");
 
-    if (
-      companiesRes.error ||
-      chargesRes.error ||
-      expensesRes.error ||
-      resellerCreditOrdersRes.error
-    ) {
-      console.error("Erro no banco:", {
-        companiesRes,
-        chargesRes,
-        expensesRes,
-        resellerCreditOrdersRes,
-      });
+    let companiesRes: { data: any[] };
+    let chargesRes: { data: any[] };
+    let expensesRes: { data: any[] };
+    let resellerCreditOrdersRes: { data: any[] };
+    try {
+      const [companiesData, chargesData, expensesData, creditOrdersData] = await Promise.all([
+        fetchAllPages((from, to) => buildCompaniesQuery().range(from, to)),
+        fetchAllPages((from, to) => buildChargesQuery().range(from, to)),
+        fetchAllPages((from, to) => buildExpensesQuery().range(from, to)),
+        userRole === "adm"
+          ? fetchAllPages((from, to) => buildCreditOrdersQuery().range(from, to))
+          : Promise.resolve([] as any[]),
+      ]);
+      companiesRes = { data: companiesData };
+      chargesRes = { data: chargesData };
+      expensesRes = { data: expensesData };
+      resellerCreditOrdersRes = { data: creditOrdersData };
+    } catch (err) {
+      console.error("Erro no banco:", err);
       throw new Error("Erro ao carregar dados financeiros.");
     }
 
@@ -361,7 +405,25 @@ export const getFinanceiroStats = createServerFn({ method: "POST" })
       branches: Database["public"]["Tables"]["branches"]["Row"] | null;
     })[];
 
-    console.log(`[Financeiro] Banco retornou ${rawCharges.length} cobranças.`);
+    // Ambiente Asaas da integração do escopo: define a URL pública da
+    // fatura (produção x sandbox) e se o PIX está habilitado neste escopo.
+    let asaasEnabled = false;
+    let asaasEnv: "production" | "sandbox" = "production";
+    if (process.env["TECH_SUPABASE_SERVICE_KEY"]) {
+      const supabaseAdmin = await getSupabaseAdmin();
+      const asaasIntegrationQuery = supabaseAdmin
+        .from("asaas_integrations")
+        .select("id, environment")
+        .neq("status", "disabled")
+        .eq("owner_type", authorizedResellerId ? "reseller" : "platform");
+      const { data: asaasIntegration } = authorizedResellerId
+        ? await asaasIntegrationQuery.eq("owner_id", authorizedResellerId).maybeSingle()
+        : await asaasIntegrationQuery.is("owner_id", null).maybeSingle();
+      asaasEnabled = Boolean(asaasIntegration);
+      if (asaasIntegration?.environment === "sandbox") {
+        asaasEnv = "sandbox";
+      }
+    }
 
     // 1. Derivar Status e Filtrar por Empresa
     const chargesWithDerivedStatus = rawCharges
@@ -379,7 +441,7 @@ export const getFinanceiroStats = createServerFn({ method: "POST" })
         const diffTime = Math.max(0, today.getTime() - dueDate.getTime());
         const days_overdue = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         const invoice_url = c.asaas_payment_id
-          ? `https://sandbox.asaas.com/i/${c.asaas_payment_id}`
+          ? `${asaasEnv === "sandbox" ? "https://sandbox.asaas.com" : "https://www.asaas.com"}/i/${c.asaas_payment_id}`
           : null;
 
         return { ...c, derivedStatus, days_overdue, invoice_url };
@@ -404,10 +466,6 @@ export const getFinanceiroStats = createServerFn({ method: "POST" })
       const matchPeriod = (!startDate || refDate >= startDate) && (!endDate || refDate <= endDate);
       return matchPeriod;
     });
-
-    console.log(
-      `[Financeiro] Após filtro cirúrgico de período (${period}): ${filteredCharges.length} cobranças.`,
-    );
 
     // 3. Cálculos Baseados no Conjunto Filtrado (Fonte Única)
     const faturamentoPeriodo = filteredCharges
@@ -447,21 +505,6 @@ export const getFinanceiroStats = createServerFn({ method: "POST" })
       .filter((c) => c.derivedStatus === "atrasado")
       .reduce((sum, c) => sum + Number(c.amount || 0), 0);
 
-    const qPagas = filteredCharges.filter((c) => c.derivedStatus === "pago").length;
-    const qPendentes = filteredCharges.filter((c) => c.derivedStatus === "pendente").length;
-    const qAtrasadas = filteredCharges.filter((c) => c.derivedStatus === "atrasado").length;
-
-    console.log(
-      `[Financeiro] Resumo: Pagas=${qPagas} (R$${faturamentoPeriodo}), Pendentes=${qPendentes} (R$${previsaoAReceber}), Atrasadas=${qAtrasadas} (R$${totalEmAtraso})`,
-    );
-
-    // Log detalhado para o teste matemático solicitado
-    filteredCharges.forEach((c) => {
-      console.log(
-        `Test Log -> ID: ${c.id}, Competência: ${c.competence}, Vencimento: ${c.due_date}, Status Persistido: ${c.status}, Status Derivado: ${c.derivedStatus}, Valor: ${c.amount}`,
-      );
-    });
-
     // MRR Global (Empresas Ativas)
     const activeCompanies = allCompanies.filter((c) => c.subscription_status === "ativa");
     const mrrTotal = activeCompanies.reduce((sum, c) => sum + Number(c.monthly_price || 0), 0);
@@ -486,22 +529,6 @@ export const getFinanceiroStats = createServerFn({ method: "POST" })
       });
 
     const totalInvestimento = statsByCompany.reduce((sum, s) => sum + s.investimento, 0);
-
-    // Payment credentials are intentionally server-only. The main financial
-    // view must still load in local ADM previews without a service key.
-    let asaasEnabled = false;
-    if (process.env["TECH_SUPABASE_SERVICE_KEY"]) {
-      const supabaseAdmin = await getSupabaseAdmin();
-      const asaasIntegrationQuery = supabaseAdmin
-        .from("asaas_integrations")
-        .select("id")
-        .neq("status", "disabled")
-        .eq("owner_type", authorizedResellerId ? "reseller" : "platform");
-      const { data: asaasIntegration } = authorizedResellerId
-        ? await asaasIntegrationQuery.eq("owner_id", authorizedResellerId).maybeSingle()
-        : await asaasIntegrationQuery.is("owner_id", null).maybeSingle();
-      asaasEnabled = Boolean(asaasIntegration);
-    }
 
     // Fonte Única para Receita Acumulada (Detalhamento)
     const cobrancasPagasHistorico = rawCharges
@@ -568,14 +595,30 @@ export const getFinanceiroStats = createServerFn({ method: "POST" })
 
 export const createExpense = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((input: any) => input)
-  .handler(async ({ data: input, context }) => {
+  .validator((input: unknown) =>
+    z
+      .object({
+        company_id: z.string().uuid(),
+        branch_id: z.string().uuid().nullable().optional(),
+        description: z.string().trim().min(1).max(500),
+        amount: z.number().finite().nonnegative(),
+        date: z.string().min(1),
+        category: z.string().trim().min(1).max(120),
+        observation: z.string().trim().max(2_000).nullable().optional(),
+        competence: z.string().trim().min(1).max(20),
+        payment_method: z.string().trim().min(1).max(120),
+        status: z.string().trim().min(1).max(80),
+        type: z.string().trim().min(1).max(80),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
     const access = await resolveRole(context.supabase, context.userId);
     const supabaseAdmin = await getSupabaseAdmin();
-    await assertExpenseAccess(supabaseAdmin, access, input.company_id);
+    await assertExpenseAccess(supabaseAdmin, access, data.company_id);
     const { error } = await supabaseAdmin
       .from("expenses")
-      .insert(input as Database["public"]["Tables"]["expenses"]["Insert"]);
+      .insert(data as Database["public"]["Tables"]["expenses"]["Insert"]);
     if (error) throw error;
     return { success: true };
   });

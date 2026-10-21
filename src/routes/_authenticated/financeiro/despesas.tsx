@@ -22,6 +22,7 @@ import {
   getBranchesByCompany,
 } from "@/lib/financeiro.functions";
 import { getCompanyDisplayName, getBranchDisplayName } from "@/lib/name-utils";
+import { formatDateBR } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -41,8 +42,6 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 
 export const Route = createFileRoute("/_authenticated/financeiro/despesas")({
   head: () => ({ meta: [{ title: "Investimentos de Ativação | Manos Tech" }] }),
@@ -103,6 +102,7 @@ function GastosAtivacaoPage() {
   const [filterPeriod, setFilterPeriod] = useState("este-mes");
   const [filterCompany, setFilterCompany] = useState<string>("all");
   const [filterType, setFilterType] = useState<string>("all");
+  const [filterCategory, setFilterCategory] = useState<string>("all");
 
   const getBranchesFn = useServerFn(getBranchesByCompany);
   const branchesQuery = useQuery({
@@ -181,25 +181,56 @@ function GastosAtivacaoPage() {
       amount,
       date: dateValue,
       competence,
-      payment_method: "Dinheiro", // Valor padrão para evitar erro de NOT NULL
-      status: "pago", // Despesas internas ADM já nascem como pagas
       observation: (formData.get("observation") as string) || null,
     };
 
     if (editingExpense) {
+      // Editar NÃO sobrescreve forma de pagamento/status originais:
+      // eles só nascem (com os padrões) na criação.
       updateMutation.mutate({ id: editingExpense.id, updates: payload });
     } else {
-      createMutation.mutate(payload);
+      createMutation.mutate({
+        ...payload,
+        payment_method: "Dinheiro", // Valor padrão para evitar erro de NOT NULL
+        status: "pago", // Despesas internas ADM já nascem como pagas
+      });
     }
   };
 
   const allExpenses: ExpenseRow[] = statsQuery.data?.expenses || [];
 
   // Filtros
+  // Período filtrado no cliente sobre a data civil (YYYY-MM-DD, comparação
+  // textual no fuso de São Paulo) — o servidor devolve todas as despesas.
+  const todayStr = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+  }).format(new Date());
+  const [tYear = 0, tMonth = 1, tDay = 1] = todayStr.split("-").map(Number);
+  const monthPrefix = (y: number, m: number) => `${y}-${String(m).padStart(2, "0")}`;
+  const sevenDaysAgoStr = new Date(Date.UTC(tYear, tMonth - 1, tDay - 6))
+    .toISOString()
+    .slice(0, 10);
+  const matchPeriod = (dateStr: string) => {
+    switch (filterPeriod) {
+      case "hoje":
+        return dateStr === todayStr;
+      case "7-dias":
+        return dateStr >= sevenDaysAgoStr && dateStr <= todayStr;
+      case "mes-anterior": {
+        const prev = tMonth === 1 ? monthPrefix(tYear - 1, 12) : monthPrefix(tYear, tMonth - 1);
+        return dateStr.startsWith(prev);
+      }
+      case "este-mes":
+      default:
+        return dateStr.startsWith(monthPrefix(tYear, tMonth));
+    }
+  };
+
   const filteredExpenses = allExpenses.filter((e) => {
     const matchCompany = filterCompany === "all" || e.company_id === filterCompany;
-    const matchType = filterType === "all" || e.category === filterType;
-    return matchCompany && matchType;
+    const matchType = filterType === "all" || e.type === filterType;
+    const matchCategory = filterCategory === "all" || e.category === filterCategory;
+    return matchCompany && matchType && matchCategory && matchPeriod(e.date);
   });
 
   const totalGeral = filteredExpenses.reduce((sum: number, e) => sum + Number(e.amount), 0);
@@ -500,7 +531,7 @@ function GastosAtivacaoPage() {
               </SelectContent>
             </Select>
 
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <Select value={filterCategory} onValueChange={setFilterCategory}>
               <SelectTrigger className="w-[180px] h-9">
                 <SelectValue placeholder="Categoria" />
               </SelectTrigger>
@@ -542,7 +573,7 @@ function GastosAtivacaoPage() {
                 filteredExpenses.map((e: ExpenseRow) => (
                   <TableRow key={e.id}>
                     <TableCell className="font-medium">
-                      {format(new Date(e.date), "dd/MM/yyyy", { locale: ptBR })}
+                      {formatDateBR(e.date)}
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col">
@@ -621,7 +652,7 @@ function GastosAtivacaoPage() {
               <div key={e.id} className="p-4 flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-muted-foreground">
-                    {format(new Date(e.date), "dd/MM/yyyy", { locale: ptBR })}
+                    {formatDateBR(e.date)}
                   </span>
                   <span className="font-bold text-destructive">{brl(Number(e.amount))}</span>
                 </div>
