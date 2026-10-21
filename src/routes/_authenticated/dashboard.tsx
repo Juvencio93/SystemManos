@@ -27,6 +27,9 @@ import {
   Maximize2,
   X,
   LocateFixed,
+  TrendingUp,
+  TrendingDown,
+  Trophy,
 } from "lucide-react";
 import {
   Bar,
@@ -518,6 +521,140 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
   );
 }
 
+
+function DeltaChip({ atual, anterior, sufixo }: { atual: number; anterior: number; sufixo: string }) {
+  if (anterior <= 0 && atual <= 0)
+    return <span className="text-xs font-medium text-muted-foreground">sem movimento no período</span>;
+  if (anterior <= 0)
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/10 px-2 py-0.5 text-xs font-semibold text-emerald-400">
+        <TrendingUp className="size-3" /> movimento começando
+      </span>
+    );
+  const pct = Math.round(((atual - anterior) / anterior) * 100);
+  const up = pct >= 0;
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${up ? "bg-emerald-400/10 text-emerald-400" : "bg-red-400/10 text-red-400"}`}>
+      {up ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
+      {Math.abs(pct)}% {sufixo}
+    </span>
+  );
+}
+
+function HeroMatriz({ data, isLoading }: { data: Insights | undefined; isLoading: boolean }) {
+  const v = (n?: number) => (isLoading ? "…" : String(n ?? 0));
+  return (
+    <div className="mb-10 grid gap-4 sm:gap-6 sm:grid-cols-2 xl:grid-cols-4">
+      <Card className="border-primary/30 bg-gradient-to-br from-primary/15 via-transparent to-transparent">
+        <CardHeader>
+          <CardTitle className="leading-none text-[12px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Acessos hoje</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="font-display text-4xl font-black tracking-tighter">{v(data?.visitantesHoje)}</p>
+          <div className="mt-3">{data && <DeltaChip atual={data.visitantesHoje} anterior={data.visitantesOntem} sufixo="vs ontem" />}</div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="leading-none text-[12px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Conectados agora</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="flex items-center gap-2 font-display text-4xl font-black tracking-tighter">
+            {v(data?.conectadosAgora)}
+            <span className="relative flex size-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" /><span className="relative inline-flex size-2.5 rounded-full bg-emerald-400" /></span>
+          </p>
+          <p className="mt-3 text-xs font-medium text-muted-foreground">usando seu Wi-Fi neste momento</p>
+        </CardContent>
+      </Card>
+      <Card className="border-primary/20">
+        <CardHeader>
+          <CardTitle className="leading-none text-[12px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Sua base de clientes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="font-display text-4xl font-black tracking-tighter text-primary">{v(data?.leadsEmpresa)}</p>
+          <p className="mt-3 text-xs font-medium leading-relaxed text-muted-foreground">
+            {data && data.leadsNovosSemana > 0 ? <>+{data.leadsNovosSemana} esta semana · </> : null}
+            contatos que você pode chamar no WhatsApp
+          </p>
+          <Link to="/visitantes" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+            Ver minha base <ArrowRight className="size-3" />
+          </Link>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="leading-none text-[12px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Horário de pico</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="font-display text-4xl font-black tracking-tighter">{isLoading ? "…" : (data?.horarioPico ?? "—")}</p>
+          <p className="mt-3 text-xs font-medium text-muted-foreground">
+            {data && data.horarioPicoTotal > 0 ? `${data.horarioPicoTotal} acessos nesse horário na semana` : "o horário mais movimentado da sua rede"}
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function MovimentoChart({ data }: { data: Insights | undefined }) {
+  const chart = data?.chart ?? [];
+  const max = Math.max(1, ...chart.map((c) => c.total));
+  return (
+    <Card className="mb-10">
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
+        <CardTitle className="flex items-center gap-2"><Activity className="size-5 text-primary" /> Movimento dos últimos 14 dias</CardTitle>
+        {data && <DeltaChip atual={data.conexoesSemana} anterior={data.conexoesSemanaAnterior} sufixo="na semana vs anterior" />}
+      </CardHeader>
+      <CardContent>
+        <div className="flex h-36 items-end gap-1.5 sm:gap-2">
+          {chart.map((c, i) => (
+            <div key={c.date + i} className="flex flex-1 flex-col items-center gap-1.5">
+              <span className="text-[10px] font-semibold text-muted-foreground">{c.total > 0 ? c.total : ""}</span>
+              <div
+                className={`w-full rounded-t-md ${i === chart.length - 1 ? "bg-primary" : "bg-primary/30"}`}
+                style={{ height: `${Math.max(3, (c.total / max) * 100)}%` }}
+                title={`${c.date}: ${c.total} acessos`}
+              />
+              <span className="text-[10px] text-muted-foreground/70">{i % 2 === 0 || i === chart.length - 1 ? c.date : ""}</span>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function RankingUnidades({ data }: { data: Insights | undefined }) {
+  const ranking = data?.rankingUnidades ?? [];
+  const max = Math.max(1, ...ranking.map((u) => u.acessosSemana));
+  if (!data) return null;
+  return (
+    <Card className="mb-10">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><Store className="size-5 text-primary" /> Suas unidades — últimos 7 dias</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {ranking.map((u, i) => (
+          <div key={u.chave} className="flex items-center gap-3">
+            <span className="w-7 shrink-0 text-sm font-black text-muted-foreground">{i + 1}º</span>
+            {i === 0 && ranking.length > 1 && <Trophy className="size-4 shrink-0 text-amber-300" />}
+            <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+              {u.nome}
+              {u.acessosSemana === 0 && <span className="ml-2 text-xs font-medium text-amber-300">sem movimento na semana</span>}
+            </span>
+            <div className="hidden h-2 w-36 shrink-0 overflow-hidden rounded-full bg-muted sm:block">
+              <div className="h-full rounded-full bg-primary/70" style={{ width: `${(u.acessosSemana / max) * 100}%` }} />
+            </div>
+            <strong className="w-10 shrink-0 text-right font-display text-lg font-black">{u.acessosSemana}</strong>
+            <span className="hidden shrink-0 md:block"><DeltaChip atual={u.acessosSemana} anterior={u.acessosSemanaAnterior} sufixo="vs sem. passada" /></span>
+          </div>
+        ))}
+        {ranking.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma unidade encontrada.</p>}
+      </CardContent>
+    </Card>
+  );
+}
+
 function MatrizDashboard({ access }: { access: AccessInfo | null }) {
   const fetchInsights = useServerFn(getInsights);
   const insights = useQuery({
@@ -526,73 +663,29 @@ function MatrizDashboard({ access }: { access: AccessInfo | null }) {
     enabled: Boolean(access?.userId),
   });
 
-  const branchesCount = useQuery({
-    queryKey: ["branches-count", access?.companyId],
-    enabled: !!access?.companyId,
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from("branches")
-        .select("*", { count: "exact", head: true })
-        .eq("company_id", access!.companyId!)
-        .eq("is_headquarters", false);
-      if (error) throw error;
-      return count ?? 0;
-    },
-  });
-
   const data = insights.data as Insights | undefined;
-
-
-  const planLimit = Number(access?.activationLimit ?? 0);
-  const branchCount = branchesCount.data ?? 0;
-  const availableSlots = Math.max(planLimit - branchCount, 0);
-  
-  // REGRA ABSOLUTA: Ocultar card se activation_limit <= 1 (1 Matriz + 0 Filiais)
-  // O número de filiais incluídas no plano é: activation_limit - 1.
-  const canUseBranches = access?.role === "adm" || planLimit > 1;
-
-  const modules = [
-    // UX parte 5: /relatorios tinha dois cards ("Dashboard" e
-    // "Relatórios"); fica um só, com o nome do menu. E o card do gerente
-    // usa o nome completo do menu: "Gerente Operacional IA".
-    { to: "/gerente-operacional", label: "Gerente Operacional IA", icon: Activity, order: 1 },
-    { to: "/assinatura", label: "Minha Assinatura", icon: Wallet, order: 2 },
-    { to: "/relatorios", label: "Relatórios", icon: FileBarChart, order: 3 },
-    canUseBranches && { to: "/filiais", label: "Filiais", icon: Store, order: 4 },
-  ].filter((m): m is Exclude<typeof m, false | 0 | null | undefined> => Boolean(m))
-   .sort((a, b) => a.order - b.order);
-
-
-
-
-
 
   return (
     <DashboardLayout
       access={access}
       title={`Olá, ${getUserGreetingName(access, "Parceiro")}`}
-      subtitle="Visão consolidada da sua operação Wi-Fi."
+      subtitle="Seu negócio hoje — os números da sua rede Wi-Fi, atualizados agora."
     >
       {access?.companyId && <MatrizFinancialAlert />}
+
+      <HeroMatriz data={data} isLoading={insights.isLoading} />
 
       <div className="mb-10">
         <AiAgentCard role="matriz" />
       </div>
 
+      <MovimentoChart data={data} />
 
-      <div className="mb-10 grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {modules.map((module) => (
-          <ModuleCard key={module.label} module={module} isLoading={insights.isLoading} />
-        ))}
-      </div>
-
-      <StatsGrid data={data} isLoading={insights.isLoading} />
+      <RankingUnidades data={data} />
 
       <div className="mt-10">
         <RealtimeHeatmap />
       </div>
-
-      <ChartsSection data={data} isLoading={insights.isLoading} />
     </DashboardLayout>
   );
 }

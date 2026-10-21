@@ -17,16 +17,28 @@ export type CampaignInsight = {
   unitName?: string;
 };
 
+export type UnidadeRanking = {
+  chave: string;
+  nome: string;
+  acessosSemana: number;
+  acessosSemanaAnterior: number;
+};
+
 export type Insights = {
   role: "adm" | "matriz" | "filial" | null;
   showFinance: boolean;
   periodDate: string;
   leadsBase: number;
   visitantesHoje: number;
+  visitantesOntem: number;
   conectadosAgora: number;
   totalConexoes: number;
   conexoesSemana: number;
+  conexoesSemanaAnterior: number;
   recorrentesSemana: number;
+  leadsEmpresa: number;
+  leadsNovosSemana: number;
+  rankingUnidades: UnidadeRanking[];
   horarioPico: string;
   horarioPicoTotal: number;
   devices: Record<DeviceBucket, number>;
@@ -110,6 +122,8 @@ export async function computeInsights(
     branchesCountRes,
     eventsCountRes,
     branchesDataRes,
+    leadsEmpresaRes,
+    leadsNovosRes,
     activeCompaniesCountRes,
     activeEventsCountRes,
   ] = await Promise.all([
@@ -125,8 +139,20 @@ export async function computeInsights(
     role === "matriz" || role === "adm"
       ? supabase
           .from("branches")
-          .select("id, name, trade_name, legal_name, is_headquarters, active")
+          .select("id, name, trade_name, legal_name, is_headquarters, active, company_id")
       : Promise.resolve({ data: [] }),
+    // Base de clientes ESCOPADA (a contagem global de visitors nao serve
+    // para a capa da matriz): total da empresa + novos nos ultimos 7 dias.
+    role === "matriz" && companyId
+      ? supabase.from("visitors").select("id", { count: "exact", head: true }).eq("company_id", companyId)
+      : role === "filial" && companyId
+        ? supabase.from("visitors").select("id", { count: "exact", head: true }).eq("company_id", companyId)
+        : Promise.resolve({ count: null }),
+    role === "matriz" && companyId
+      ? supabase.from("visitors").select("id", { count: "exact", head: true }).eq("company_id", companyId).gte("created_at", isoDaysAgo(6))
+      : role === "filial" && companyId
+        ? supabase.from("visitors").select("id", { count: "exact", head: true }).eq("company_id", companyId).gte("created_at", isoDaysAgo(6))
+        : Promise.resolve({ count: null }),
     supabase
       .from("companies")
       .select("id", { count: "exact", head: true })
@@ -165,6 +191,10 @@ export async function computeInsights(
   let conectadosAgora = 0;
   let conexoesSemana = 0;
   let recorrentesSemana = 0;
+  let conexoesSemanaAnterior = 0;
+  const prevWeekStart = new Date(isoDaysAgo(13)).getTime();
+  const unidadeSemana = new Map<string, number>();
+  const unidadeSemanaAnterior = new Map<string, number>();
 
   for (const row of rows) {
     const createdMs = new Date(row.created_at).getTime();
@@ -174,6 +204,12 @@ export async function computeInsights(
     if (createdMs >= weekStart) {
       conexoesSemana += 1;
       if (row.is_returning) recorrentesSemana += 1;
+      const chave = row.branch_id ?? "matriz";
+      unidadeSemana.set(chave, (unidadeSemana.get(chave) ?? 0) + 1);
+    } else if (createdMs >= prevWeekStart) {
+      conexoesSemanaAnterior += 1;
+      const chave = row.branch_id ?? "matriz";
+      unidadeSemanaAnterior.set(chave, (unidadeSemanaAnterior.get(chave) ?? 0) + 1);
     }
     if (nowMs - createdMs <= 15 * 60 * 1000) conectadosAgora += 1;
 
@@ -232,16 +268,41 @@ export async function computeInsights(
   // No events handling for now as it's not requested to fix finance section here.
   const financeData = { contratado: 0, recebido: 0, custo: 0 };
 
+  const ontemKey = spDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
+  const visitantesOntem = buckets.get(ontemKey) ?? 0;
+
+  // Ranking por unidade: matriz + filiais da empresa (inclusive as sem
+  // movimento — unidade zerada e o sinal de "precisa de atencao").
+  const chavesUnidades = new Set<string>(["matriz", ...unidadeSemana.keys(), ...unidadeSemanaAnterior.keys()]);
+  if (role === "matriz" && companyId) {
+    for (const b of branches as any[]) {
+      if (b.company_id === companyId && !b.is_headquarters) chavesUnidades.add(b.id);
+    }
+  }
+  const rankingUnidades: UnidadeRanking[] = [...chavesUnidades]
+    .map((chave) => ({
+      chave,
+      nome: chave === "matriz" ? "Matriz" : (branchNameMap.get(chave) ?? "Unidade"),
+      acessosSemana: unidadeSemana.get(chave) ?? 0,
+      acessosSemanaAnterior: unidadeSemanaAnterior.get(chave) ?? 0,
+    }))
+    .sort((a, b) => b.acessosSemana - a.acessosSemana || b.acessosSemanaAnterior - a.acessosSemanaAnterior);
+
   return {
     role,
     showFinance,
     periodDate,
     leadsBase: leadsRes.count ?? 0,
     visitantesHoje,
+    visitantesOntem,
     conectadosAgora,
     totalConexoes: rows.length,
     conexoesSemana,
+    conexoesSemanaAnterior,
     recorrentesSemana,
+    leadsEmpresa: (leadsEmpresaRes as any)?.count ?? 0,
+    leadsNovosSemana: (leadsNovosRes as any)?.count ?? 0,
+    rankingUnidades,
     horarioPico: peakTotal > 0 ? `${String(peakHour).padStart(2, "0")}h` : "—",
     horarioPicoTotal: peakTotal,
     devices,
