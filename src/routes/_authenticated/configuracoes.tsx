@@ -102,7 +102,7 @@ function PasswordResetRequestsCard() {
   const approveFn = useServerFn(approvePasswordResetRequest);
   const denyFn = useServerFn(denyPasswordResetRequest);
   const [approved, setApproved] = useState<{
-    link: string;
+    tempPassword: string;
     email: string;
     userLabel: string | null;
     phone: string | null;
@@ -128,7 +128,7 @@ function PasswordResetRequestsCard() {
       setApproved(result);
       setCopied(false);
       invalidate();
-      toast.success("Aprovada! Link gerado — vale 1 hora.");
+      toast.success("Aprovada! Senha temporária gerada — vale 1 hora.");
     },
     onError: (e) =>
       toast.error(e instanceof Error ? e.message : "Não foi possível aprovar."),
@@ -155,7 +155,7 @@ function PasswordResetRequestsCard() {
   const waPhone = waDigits.length > 0 && waDigits.length <= 11 ? `55${waDigits}` : waDigits;
   const whatsappUrl = approved
     ? `https://wa.me/${waPhone}?text=${encodeURIComponent(
-        `Olá! Aqui está seu link para redefinir a senha do painel Manos Tech (vale 1 hora): ${approved.link}`,
+        `Olá! Sua senha temporária do painel Manos Tech é: ${approved.tempPassword} (vale 1 hora). Entre em https://system-manos.vercel.app com seu e-mail e essa senha — o painel vai pedir pra você criar a senha definitiva.`,
       )}`
     : null;
 
@@ -167,8 +167,9 @@ function PasswordResetRequestsCard() {
           <CardTitle>Redefinições de senha</CardTitle>
         </div>
         <CardDescription>
-          Pedidos de quem esqueceu a senha. Ao aprovar, o link é gerado na hora (vale 1
-          hora) pra você enviar ao cliente. O Hermes também avisa no Telegram.
+          Pedidos de quem esqueceu a senha. Ao aprovar, o sistema gera uma senha
+          temporária (vale 1 hora) e o cliente é obrigado a trocá-la ao entrar. O
+          Hermes também avisa no Telegram.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -181,11 +182,11 @@ function PasswordResetRequestsCard() {
             {approved ? (
               <div className="space-y-3 rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-3">
                 <p className="text-sm font-medium text-emerald-200">
-                  Link gerado para {approved.userLabel ?? approved.email} — envie agora
-                  (vale 1 hora):
+                  Senha temporária de {approved.userLabel ?? approved.email} — envie
+                  agora (vale 1 hora, e o painel obriga a troca ao entrar):
                 </p>
-                <p className="break-all rounded-lg bg-black/30 p-2 font-mono text-[11px] text-emerald-100">
-                  {approved.link}
+                <p className="rounded-lg bg-black/30 p-2 text-center font-mono text-lg font-bold tracking-widest text-emerald-100">
+                  {approved.tempPassword}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {approved.phone ? (
@@ -200,13 +201,13 @@ function PasswordResetRequestsCard() {
                     variant="outline"
                     onClick={async () => {
                       await navigator.clipboard
-                        .writeText(approved.link)
+                        .writeText(approved.tempPassword)
                         .catch(() => undefined);
                       setCopied(true);
                     }}
                   >
                     {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-                    {copied ? "Copiado!" : "Copiar link"}
+                    {copied ? "Copiada!" : "Copiar senha"}
                   </Button>
                   <Button size="sm" variant="ghost" onClick={() => setApproved(null)}>
                     Concluir

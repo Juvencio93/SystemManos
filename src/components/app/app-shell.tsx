@@ -26,6 +26,7 @@ import {
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { usePresence } from "@/components/app/chat/ChatPresenceProvider";
+import { ForcedPasswordChange } from "@/components/app/forced-password-change";
 import { NotificationCenter } from "@/components/app/notification-center";
 
 import defaultLogo from "@/assets/manos-tech-logo-institutional.png";
@@ -148,6 +149,15 @@ export function AppShell({ children }: { children: ReactNode }) {
     queryClient.clear();
     await supabase.auth.signOut();
     navigate({ to: "/auth", replace: true });
+  }
+
+  // Senha temporária (redefinição aprovada): o painel inteiro é
+  // substituído pela troca obrigatória até a senha definitiva ser
+  // salva — ou pela tela de expirada, se a hora venceu.
+  if (!accessLoading && access?.mustChangePassword) {
+    const tempExpired =
+      !access.tempPasswordUntil || new Date(access.tempPasswordUntil) < new Date();
+    return <ForcedPasswordChange expired={tempExpired} onSignOut={handleSignOut} />;
   }
 
   return (
