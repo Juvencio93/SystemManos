@@ -1,10 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link as RouterLink } from "@tanstack/react-router";
 import { getCompanyDisplayName } from "@/lib/name-utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { confirmManualPayment, getFinanceiroStats } from "@/lib/financeiro.functions";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Search, AlertTriangle, Printer, Clock, CircleDollarSign } from "lucide-react";
+import { Search, AlertTriangle, Printer, Clock, CircleDollarSign, ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import { useAccess } from "@/hooks/use-access";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -146,15 +146,30 @@ function EmAtrasoPage() {
     }).format(val);
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Em Atraso</h1>
-          <p className="text-muted-foreground">
-            {isReseller
-              ? "Inadimplência das empresas da sua rede."
-              : "Monitoramento detalhado de inadimplência."}
-          </p>
+    <div className="p-6 space-y-6 max-w-7xl mx-auto print-report print:p-0 print:max-w-none">
+      <div className="hidden print:block">
+        <h1 className="text-xl font-bold">Manos Tech — Relatório de Inadimplência</h1>
+        <p className="text-sm">
+          Gerado em {format(new Date(), "dd/MM/yyyy 'às' HH:mm")} · Total em atraso:{" "}
+          {formatCurrency(totals.emAtraso)} · {filteredList.length} cobranças
+        </p>
+      </div>
+
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
+        <div className="flex items-center gap-4">
+          <RouterLink to="/financeiro">
+            <Button variant="ghost" size="icon">
+              <ArrowLeft className="size-5" />
+            </Button>
+          </RouterLink>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Em Atraso</h1>
+            <p className="text-muted-foreground">
+              {isReseller
+                ? "Inadimplência das empresas da sua rede."
+                : "Monitoramento detalhado de inadimplência."}
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" size="sm" onClick={() => window.print()}>
@@ -177,7 +192,7 @@ function EmAtrasoPage() {
         </Card>
       </div>
 
-      <div className="relative">
+      <div className="relative print:hidden">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
           placeholder="Buscar por empresa..."
@@ -187,15 +202,15 @@ function EmAtrasoPage() {
         />
       </div>
 
-      <Card className="overflow-hidden border-slate-800 bg-slate-900/50 backdrop-blur-sm">
+      <Card className="overflow-hidden border-slate-800 bg-slate-900/50 backdrop-blur-sm print:shadow-none">
         <div className="overflow-x-auto">
-          <div className="min-w-[800px]">
+          <div className="min-w-[800px] print:min-w-0">
             <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1.5fr] gap-4 p-4 border-b border-slate-800 bg-slate-900 font-medium text-sm text-muted-foreground">
               <div>Empresa</div>
               <div>Vencimento</div>
               <div>Atraso</div>
               <div>Valor</div>
-              <div className="text-right">Ações</div>
+              <div className="text-right print:hidden">Ações</div>
             </div>
 
             {statsQuery.isLoading &&
@@ -240,7 +255,7 @@ function EmAtrasoPage() {
                         <div className="font-semibold text-slate-100">
                           {formatCurrency(c.amount)}
                         </div>
-                        <div className="flex justify-end gap-2">
+                        <div className="flex justify-end gap-2 print:hidden">
                           {canManageReceivables && (
                             <Button
                               variant="outline"
@@ -253,14 +268,16 @@ function EmAtrasoPage() {
                               Recebido
                             </Button>
                           )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 text-xs hover:bg-blue-500/10 hover:text-blue-400"
-                            onClick={() => c.invoice_url && window.open(c.invoice_url, "_blank")}
-                          >
-                            Ver Fatura
-                          </Button>
+                          {c.invoice_url ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 text-xs hover:bg-blue-500/10 hover:text-blue-400"
+                              onClick={() => window.open(c.invoice_url!, "_blank")}
+                            >
+                              Ver Fatura
+                            </Button>
+                          ) : null}
                         </div>
                       </div>
                     );

@@ -696,3 +696,21 @@
 .radar-alert-badge {
   animation: radar-badge-blink 1.1s ease-in-out infinite;
 }
+
+/* Impressão (relatórios do painel): papel branco, texto preto, sem o tema escuro */
+@media print {
+  body {
+    background: #fff !important;
+  }
+
+  .print-report,
+  .print-report * {
+    background: transparent !important;
+    color: #000 !important;
+    border-color: #d4d4d8 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}
