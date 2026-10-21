@@ -5,7 +5,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
+import { cn, formatDateBR } from "@/lib/utils";
 import { TrendingUp, DollarSign, CreditCard, Wallet, Search } from "lucide-react";
 import {
   Table,
@@ -143,6 +143,7 @@ export function IndicatorsModals({ activeModal, onClose, stats }: IndicatorsModa
                   <TableHead>Data Pagamento</TableHead>
                   <TableHead>Ref/Competência</TableHead>
                   <TableHead className="text-right">Valor Pago</TableHead>
+                  <TableHead className="text-right">Recibo</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -156,6 +157,16 @@ export function IndicatorsModals({ activeModal, onClose, stats }: IndicatorsModa
                     </TableCell>
                     <TableCell>{c.competence}</TableCell>
                     <TableCell className="text-right">{brl(Number(c.amount || 0))}</TableCell>
+                    <TableCell className="text-right">
+                      <a
+                        href={`/financeiro/recibo/${c.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs font-medium text-primary underline-offset-2 hover:underline"
+                      >
+                        Recibo
+                      </a>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -193,7 +204,7 @@ export function IndicatorsModals({ activeModal, onClose, stats }: IndicatorsModa
               <TableBody>
                 {expenses.map((e: ExpenseWithDetails) => (
                   <TableRow key={e.id}>
-                    <TableCell>{new Date(e.date).toLocaleDateString("pt-BR")}</TableCell>
+                    <TableCell>{formatDateBR(e.date)}</TableCell>
                     <TableCell>
                       <div className="font-medium">{e.description}</div>
                       <div className="text-xs text-muted-foreground">

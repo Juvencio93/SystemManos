@@ -47,7 +47,12 @@ export function getDiffDaysBR(dueDateStr: string) {
 export function formatDateBR(value: string | null | undefined, options?: Intl.DateTimeFormatOptions): string {
   if (!value) return "—";
 
-  const date = new Date(value);
+  // Valor date-only (YYYY-MM-DD) é data civil: ancorar ao meio-dia no fuso
+  // de São Paulo evita que a meia-noite UTC vire o dia anterior na exibição.
+  const trimmed = value.trim();
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(trimmed)
+    ? new Date(`${trimmed}T12:00:00-03:00`)
+    : new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
 
   return new Intl.DateTimeFormat("pt-BR", {

@@ -32,7 +32,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAccess } from "@/hooks/use-access";
-import { formatDateBR } from "@/lib/utils";
+import { formatDateBR, getDiffDaysBR } from "@/lib/utils";
 import { useServerFn } from "@tanstack/react-start";
 import { getFinanceiroStats, confirmManualPayment } from "@/lib/financeiro.functions";
 import { getOrGeneratePix } from "@/lib/asaas.functions";
@@ -40,7 +40,7 @@ import { getCompanyDisplayName } from "@/lib/name-utils";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { differenceInDays, format } from "date-fns";
+import { format } from "date-fns";
 import { toast } from "sonner";
 import type { FinanceiroStats, ChargeWithCompany } from "@/lib/financeiro.types";
 
@@ -54,7 +54,10 @@ export const Route = createFileRoute("/_authenticated/financeiro/a-receber")({
 const brl = (value: number) =>
   value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-type ChargeRow = ChargeWithCompany & { derivedStatus?: "pago" | "atrasado" | "pendente" };
+type ChargeRow = ChargeWithCompany & {
+  derivedStatus?: "pago" | "atrasado" | "pendente";
+  days_overdue?: number;
+};
 
 function AReceberPage() {
   const queryClient = useQueryClient();
@@ -279,7 +282,7 @@ function AReceberPage() {
               <SelectContent>
                 <SelectItem value="este-mes">Este mês</SelectItem>
                 <SelectItem value="proximo-mes">Próximo mês</SelectItem>
-                <SelectItem value="7-dias">Próximos 7 dias</SelectItem>
+                <SelectItem value="proximos-7-dias">Próximos 7 dias</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -293,7 +296,7 @@ function AReceberPage() {
                 <TableHead>Dias Restantes</TableHead>
                 <TableHead>Competência</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
-                {canManageReceivables && <TableHead className="w-[100px]"></TableHead>}
+                {(canManageReceivables || (isMatriz && asaasEnabled)) && <TableHead className="w-[100px]"></TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -320,8 +323,10 @@ function AReceberPage() {
                 ))
               ) : filteredList.length > 0 ? (
                 filteredList.map((c) => {
-                  const daysLeft = differenceInDays(new Date(c.due_date), new Date());
                   const isAtrasado = c.derivedStatus === "atrasado";
+                  // Dias pelo calendário civil: servidor no atraso, util nos
+                  // demais — nunca relógio do navegador sobre meia-noite UTC.
+                  const daysLeft = isAtrasado ? (c.days_overdue ?? 0) : getDiffDaysBR(c.due_date);
                   return (
                     <TableRow key={c.id}>
                       <TableCell>
@@ -364,7 +369,7 @@ function AReceberPage() {
                       {(canManageReceivables || (isMatriz && asaasEnabled)) && (
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            {(isMatriz || isReseller) && asaasEnabled && (
+                            {(isAdm || isMatriz || isReseller) && asaasEnabled && (
                               <Button
                                 variant="default"
                                 size="sm"
@@ -396,7 +401,7 @@ function AReceberPage() {
               ) : (
                 <TableRow>
                   <TableCell
-                    colSpan={canManageReceivables ? 6 : 5}
+                    colSpan={canManageReceivables || (isMatriz && asaasEnabled) ? 6 : 5}
                     className="text-center py-8 text-muted-foreground"
                   >
                     Nenhuma cobrança futura encontrada.
@@ -409,8 +414,8 @@ function AReceberPage() {
           {/* Mobile View */}
           <div className="sm:hidden flex flex-col divide-y divide-border">
             {filteredList.map((c) => {
-              const daysLeft = differenceInDays(new Date(c.due_date), new Date());
               const isAtrasado = c.derivedStatus === "atrasado";
+              const daysLeft = isAtrasado ? (c.days_overdue ?? 0) : getDiffDaysBR(c.due_date);
               return (
                 <div key={c.id} className="p-4 flex flex-col gap-2">
                   <div className="flex items-center justify-between">
@@ -433,7 +438,7 @@ function AReceberPage() {
                       {isAtrasado ? `Vencida (${Math.abs(daysLeft)}d)` : `${daysLeft} dias`}
                     </Badge>
                     <div className="flex gap-1">
-                      {(isMatriz || isReseller) && asaasEnabled && (
+                      {(isAdm || isMatriz || isReseller) && asaasEnabled && (
                         <Button
                           variant="default"
                           size="sm"

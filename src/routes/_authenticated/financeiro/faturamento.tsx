@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { getFinanceiroStats } from "@/lib/financeiro.functions";
 import { Card } from "@/components/ui/card";
@@ -17,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 import { useState } from "react";
 import { useAccess } from "@/hooks/use-access";
+import { formatDateBR } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/financeiro/faturamento")({
   component: FaturamentoPage,
@@ -24,14 +26,22 @@ export const Route = createFileRoute("/_authenticated/financeiro/faturamento")({
 
 function FaturamentoPage() {
   const [searchTerm, setSearchTerm] = useState("");
-  const { data: access } = useAccess();
+  const { data: access, isLoading: accessLoading } = useAccess();
 
+  const getStats = useServerFn(getFinanceiroStats);
   const statsQuery = useQuery({
-    queryKey: ["financial-stats"],
-    queryFn: () => getFinanceiroStats(),
+    // Mesma chave das outras páginas do Financeiro (invalida junto nas
+    // baixas) e período "todas-em-aberto": sem janela de 30 dias, que
+    // escondia os atrasados antigos desta lista.
+    queryKey: ["financeiro-stats", "todas-em-aberto", access?.companyId, access?.role],
+    enabled: !!access,
+    queryFn: () => getStats({ data: { period: "todas-em-aberto" } }),
   });
 
   const isReseller = access?.role === "revenda";
+  if (accessLoading) {
+    return <div className="p-6">Carregando...</div>;
+  }
   if (access?.role !== "adm" && !isReseller) {
     return <div className="p-6">Acesso restrito.</div>;
   }
@@ -50,6 +60,11 @@ function FaturamentoPage() {
     emAtrasoList: [],
     aReceberList: [],
   };
+
+  const openCharges = [...(totals.aReceberList || []), ...(totals.emAtrasoList || [])].filter(
+    (c) =>
+      getCompanyDisplayName(c.companies).toLowerCase().includes(searchTerm.toLowerCase()),
+  );
 
   const brl = (val: number) =>
     new Intl.NumberFormat("pt-BR", {
@@ -109,13 +124,20 @@ function FaturamentoPage() {
                       </TableCell>
                     </TableRow>
                   ))
-                : [...totals.aReceberList, ...totals.emAtrasoList]
-                    .filter((c) =>
-                      getCompanyDisplayName(c.companies)
-                        .toLowerCase()
-                        .includes(searchTerm.toLowerCase()),
-                    )
-                    .map((c) => (
+                : statsQuery.isError ? (
+                    <TableRow className="border-slate-800/50">
+                      <TableCell colSpan={5} className="text-center py-8 text-rose-400">
+                        Erro ao carregar as cobranças. Recarregue a página.
+                      </TableCell>
+                    </TableRow>
+                  ) : openCharges.length === 0 ? (
+                    <TableRow className="border-slate-800/50">
+                      <TableCell colSpan={5} className="text-center py-8 text-slate-400">
+                        Nenhuma cobrança em aberto.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    openCharges.map((c) => (
                       <TableRow
                         key={c.id}
                         className="border-slate-800/50 hover:bg-white/5 transition-colors"
@@ -124,15 +146,15 @@ function FaturamentoPage() {
                           {getCompanyDisplayName(c.companies)}
                         </TableCell>
                         <TableCell className="text-slate-400">
-                          {new Date(c.due_date).toLocaleDateString("pt-BR")}
+                          {formatDateBR(c.due_date)}
                         </TableCell>
                         <TableCell className="text-slate-400">{c.competence}</TableCell>
                         <TableCell>
                           <Badge
                             variant={
-                              c.status === "pago"
+                              c.derivedStatus === "pago"
                                 ? "default"
-                                : c.status === "atrasado"
+                                : c.derivedStatus === "atrasado"
                                   ? "destructive"
                                   : "secondary"
                             }
@@ -155,7 +177,8 @@ function FaturamentoPage() {
                           {brl(Number(c.amount))}
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ))
+                  )}
             </TableBody>
           </Table>
         </div>
