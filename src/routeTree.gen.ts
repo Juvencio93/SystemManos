@@ -31,6 +31,7 @@ import { Route as AuthenticatedMonitoramentoRouteImport } from './routes/_authen
 import { Route as AuthenticatedPortaisRouteImport } from './routes/_authenticated/portais'
 import { Route as AuthenticatedPreVendaRouteImport } from './routes/_authenticated/pre-venda'
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
+import { Route as AuthenticatedResumoSemanalRouteImport } from './routes/_authenticated/resumo-semanal'
 import { Route as AuthenticatedRevendasRouteImport } from './routes/_authenticated/revendas'
 import { Route as AuthenticatedSolicitacoesPrivacidadeRouteImport } from './routes/_authenticated/solicitacoes-privacidade'
 import { Route as AuthenticatedVisitantesRouteImport } from './routes/_authenticated/visitantes'
@@ -181,6 +182,12 @@ const AuthenticatedRelatoriosRoute = AuthenticatedRelatoriosRouteImport.update({
   path: '/relatorios',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedResumoSemanalRoute =
+  AuthenticatedResumoSemanalRouteImport.update({
+    id: '/resumo-semanal',
+    path: '/resumo-semanal',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedRevendasRoute = AuthenticatedRevendasRouteImport.update({
   id: '/revendas',
   path: '/revendas',
@@ -408,6 +415,7 @@ export interface FileRoutesByFullPath {
   '/portais': typeof AuthenticatedPortaisRoute
   '/pre-venda': typeof AuthenticatedPreVendaRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/resumo-semanal': typeof AuthenticatedResumoSemanalRoute
   '/revendas': typeof AuthenticatedRevendasRoute
   '/solicitacoes-privacidade': typeof AuthenticatedSolicitacoesPrivacidadeRoute
   '/visitantes': typeof AuthenticatedVisitantesRoute
@@ -466,6 +474,7 @@ export interface FileRoutesByTo {
   '/portais': typeof AuthenticatedPortaisRoute
   '/pre-venda': typeof AuthenticatedPreVendaRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/resumo-semanal': typeof AuthenticatedResumoSemanalRoute
   '/revendas': typeof AuthenticatedRevendasRoute
   '/solicitacoes-privacidade': typeof AuthenticatedSolicitacoesPrivacidadeRoute
   '/visitantes': typeof AuthenticatedVisitantesRoute
@@ -527,6 +536,7 @@ export interface FileRoutesById {
   '/_authenticated/portais': typeof AuthenticatedPortaisRoute
   '/_authenticated/pre-venda': typeof AuthenticatedPreVendaRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/_authenticated/resumo-semanal': typeof AuthenticatedResumoSemanalRoute
   '/_authenticated/revendas': typeof AuthenticatedRevendasRoute
   '/_authenticated/solicitacoes-privacidade': typeof AuthenticatedSolicitacoesPrivacidadeRoute
   '/_authenticated/visitantes': typeof AuthenticatedVisitantesRoute
@@ -588,6 +598,7 @@ export interface FileRouteTypes {
     | '/portais'
     | '/pre-venda'
     | '/relatorios'
+    | '/resumo-semanal'
     | '/revendas'
     | '/solicitacoes-privacidade'
     | '/visitantes'
@@ -646,6 +657,7 @@ export interface FileRouteTypes {
     | '/portais'
     | '/pre-venda'
     | '/relatorios'
+    | '/resumo-semanal'
     | '/revendas'
     | '/solicitacoes-privacidade'
     | '/visitantes'
@@ -706,6 +718,7 @@ export interface FileRouteTypes {
     | '/_authenticated/portais'
     | '/_authenticated/pre-venda'
     | '/_authenticated/relatorios'
+    | '/_authenticated/resumo-semanal'
     | '/_authenticated/revendas'
     | '/_authenticated/solicitacoes-privacidade'
     | '/_authenticated/visitantes'
@@ -931,6 +944,13 @@ declare module '@tanstack/react-router' {
       path: '/relatorios'
       fullPath: '/relatorios'
       preLoaderRoute: typeof AuthenticatedRelatoriosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/resumo-semanal': {
+      id: '/_authenticated/resumo-semanal'
+      path: '/resumo-semanal'
+      fullPath: '/resumo-semanal'
+      preLoaderRoute: typeof AuthenticatedResumoSemanalRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/revendas': {
@@ -1231,6 +1251,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPortaisRoute: typeof AuthenticatedPortaisRoute
   AuthenticatedPreVendaRoute: typeof AuthenticatedPreVendaRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
+  AuthenticatedResumoSemanalRoute: typeof AuthenticatedResumoSemanalRoute
   AuthenticatedRevendasRoute: typeof AuthenticatedRevendasRoute
   AuthenticatedSolicitacoesPrivacidadeRoute: typeof AuthenticatedSolicitacoesPrivacidadeRoute
   AuthenticatedVisitantesRoute: typeof AuthenticatedVisitantesRoute
@@ -1257,6 +1278,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPortaisRoute: AuthenticatedPortaisRoute,
   AuthenticatedPreVendaRoute: AuthenticatedPreVendaRoute,
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
+  AuthenticatedResumoSemanalRoute: AuthenticatedResumoSemanalRoute,
   AuthenticatedRevendasRoute: AuthenticatedRevendasRoute,
   AuthenticatedSolicitacoesPrivacidadeRoute:
     AuthenticatedSolicitacoesPrivacidadeRoute,

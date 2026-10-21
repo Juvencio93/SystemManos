@@ -39,6 +39,8 @@ export type Insights = {
   leadsEmpresa: number;
   leadsNovosSemana: number;
   rankingUnidades: UnidadeRanking[];
+  topCampanhaSemana: { id: string; name: string; total: number } | null;
+  melhorDiaSemana: { rotulo: string; total: number } | null;
   posicaoRede: {
     posicao: number;
     totalUnidades: number;
@@ -218,6 +220,7 @@ export async function computeInsights(
   const prevWeekStart = new Date(isoDaysAgo(13)).getTime();
   const unidadeSemana = new Map<string, number>();
   const unidadeSemanaAnterior = new Map<string, number>();
+  const campanhaSemanaTotais = new Map<string, number>();
 
   for (const row of rows) {
     const createdMs = new Date(row.created_at).getTime();
@@ -229,6 +232,9 @@ export async function computeInsights(
       if (row.is_returning) recorrentesSemana += 1;
       const chave = row.branch_id ?? "matriz";
       unidadeSemana.set(chave, (unidadeSemana.get(chave) ?? 0) + 1);
+      if (row.campaign_id) {
+        campanhaSemanaTotais.set(row.campaign_id, (campanhaSemanaTotais.get(row.campaign_id) ?? 0) + 1);
+      }
     } else if (createdMs >= prevWeekStart) {
       conexoesSemanaAnterior += 1;
       const chave = row.branch_id ?? "matriz";
@@ -326,6 +332,24 @@ export async function computeInsights(
     }))
     .sort((a, b) => b.acessosSemana - a.acessosSemana || b.acessosSemanaAnterior - a.acessosSemanaAnterior);
 
+  const topCampSemana = [...campanhaSemanaTotais.entries()].sort((a, b) => b[1] - a[1])[0];
+  const topCampanhaSemana = topCampSemana
+    ? { id: topCampSemana[0], name: campaignName.get(topCampSemana[0]) ?? "Campanha", total: topCampSemana[1] }
+    : null;
+
+  const ultimos7 = [...buckets.entries()].slice(-7);
+  let melhorDiaSemana: Insights["melhorDiaSemana"] = null;
+  for (const [dia, total] of ultimos7) {
+    if (total > 0 && (!melhorDiaSemana || total > melhorDiaSemana.total)) {
+      const semana = new Intl.DateTimeFormat("pt-BR", { weekday: "long", timeZone: "America/Sao_Paulo" })
+        .format(new Date(`${dia}T12:00:00-03:00`));
+      melhorDiaSemana = {
+        rotulo: `${semana.charAt(0).toUpperCase() + semana.slice(1)} (${dia.slice(8, 10)}/${dia.slice(5, 7)})`,
+        total,
+      };
+    }
+  }
+
   let posicaoRede: Insights["posicaoRede"] = null;
   if (role === "filial" && branchId && rankingUnidades.length > 1) {
     const idx = rankingUnidades.findIndex((u) => u.chave === branchId);
@@ -357,6 +381,8 @@ export async function computeInsights(
     leadsEmpresa: (leadsEmpresaRes as any)?.count ?? 0,
     leadsNovosSemana: (leadsNovosRes as any)?.count ?? 0,
     rankingUnidades,
+    topCampanhaSemana,
+    melhorDiaSemana,
     posicaoRede,
     horarioPico: peakTotal > 0 ? `${String(peakHour).padStart(2, "0")}h` : "—",
     horarioPicoTotal: peakTotal,
