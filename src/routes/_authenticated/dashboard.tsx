@@ -42,6 +42,8 @@ import {
 } from "recharts";
 
 import { AiAgentCard } from "@/components/app/ai-agent-card";
+import { CampanhaDestaqueCard } from "@/components/app/campanha-destaque-card";
+import { WifiVisitantesCard } from "@/components/app/wifi-visitantes-card";
 import { HotspotNetworkMap } from "@/components/app/hotspot-network-map";
 import { MonitorPreviewPanel } from "@/components/app/monitor-preview-panel";
 const RealtimeHeatmapLazy = lazy(() =>
@@ -712,8 +714,9 @@ function MatrizDashboard({ access }: { access: AccessInfo | null }) {
 
       <HeroMatriz data={data} isLoading={insights.isLoading} />
 
-      <div className="mb-10">
-        <AiAgentCard role="matriz" />
+      <div className="mb-10 space-y-6">
+        <CampanhaDestaqueCard data={data} isLoading={insights.isLoading} />
+        <WifiVisitantesCard />
       </div>
 
       <MovimentoChart data={data} />
@@ -857,8 +860,9 @@ function FilialDashboard({ access }: { access: AccessInfo | null }) {
     >
       <HeroFilial data={data} isLoading={insights.isLoading} />
 
-      <div className="mb-10">
-        <AiAgentCard role="filial" />
+      <div className="mb-10 space-y-6">
+        <CampanhaDestaqueCard data={data} isLoading={insights.isLoading} />
+        <WifiVisitantesCard />
       </div>
 
       <PosicaoRedeCard data={data} />

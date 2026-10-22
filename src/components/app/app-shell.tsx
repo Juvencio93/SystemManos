@@ -76,7 +76,7 @@ const NAV: NavItem[] = [
   { to: "/eventos", label: "Eventos", icon: CalendarDays, roles: ["adm"], group: "Operação" },
   { to: "/pre-venda", label: "Pré-venda", icon: ClipboardList, roles: ["adm"], group: "Comercial" },
   { to: "/assinatura", label: "Minha Assinatura", icon: ReceiptText, roles: ["matriz"], group: "Comercial" },
-  { to: "/portais", label: "Portais & QR", icon: QrCode, roles: ["adm", "matriz", "filial", "revenda"], group: "Marketing" },
+  { to: "/portais", label: "Portais & QR", icon: QrCode, roles: ["adm", "revenda"], group: "Marketing" },
   { to: "/campanhas", label: "Campanhas", icon: Megaphone, roles: ["adm", "matriz", "filial", "revenda"], group: "Marketing" },
   {
     to: "/relatorios",
