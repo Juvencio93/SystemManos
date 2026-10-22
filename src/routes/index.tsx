@@ -16,6 +16,9 @@ import {
   Wifi,
 } from "lucide-react";
 import logo from "@/assets/manos-tech-logo-institutional.png";
+import { Church, Coffee, Dumbbell, Maximize2, Scissors, Stethoscope, Store, UtensilsCrossed } from "lucide-react";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { LiveCrmPreview } from "@/components/marketing/live-crm-preview";
 import { openPreSaleChat, PreSaleForm } from "@/components/app/pre-sale-form";
 
@@ -108,6 +111,47 @@ export const Route = createFileRoute("/")({
   component: SalesHomePage,
 });
 
+const SEGMENTOS = [
+  { icon: Coffee, label: "Padarias e cafeterias" },
+  { icon: UtensilsCrossed, label: "Bares e restaurantes" },
+  { icon: Church, label: "Igrejas" },
+  { icon: Scissors, label: "Salões e barbearias" },
+  { icon: Store, label: "Lojas e comércios" },
+  { icon: Stethoscope, label: "Clínicas e consultórios" },
+  { icon: Dumbbell, label: "Academias" },
+];
+
+const FAQ_ITEMS = [
+  {
+    q: "Preciso trocar minha internet ou meu roteador?",
+    a: "Não. O ManosTech funciona com a internet que o seu negócio já tem. A gente instala um equipamento próprio que organiza a rede dos clientes, separado da sua rede interna — a sua internet continua a mesma.",
+  },
+  {
+    q: "Quem instala? Preciso entender de tecnologia?",
+    a: "A instalação é feita pela Manos Tech e o equipamento já sai configurado do seu jeito. Você acompanha tudo por um painel simples, feito pra quem não é da área — e o que precisar ajustar, pode pedir pra nossa equipe.",
+  },
+  {
+    q: "Meu cliente precisa baixar algum aplicativo?",
+    a: "Não precisa baixar nada. O cliente conecta no Wi-Fi do seu negócio, o portal abre sozinho na tela do celular, ele faz um cadastro rapidinho e já está navegando.",
+  },
+  {
+    q: "O que o cliente vê quando conecta?",
+    a: "A página do SEU negócio: sua logo, suas cores e os banners que você quiser mostrar — a promoção do dia, uma novidade do cardápio, um aviso importante. Depois do cadastro, a navegação é liberada com as regras que você definiu.",
+  },
+  {
+    q: "Os contatos dos clientes ficam comigo?",
+    a: "Ficam. Quem autoriza o contato no cadastro entra pra sua base no painel: você sabe quem são seus clientes e pode se relacionar com eles nas campanhas. Tudo dentro da LGPD — o cliente autoriza e pode sair quando quiser.",
+  },
+  {
+    q: "E se der problema na rede?",
+    a: "Sua rede é acompanhada o tempo todo: se algo sai do ar, nossa equipe é avisada automaticamente e age pra resolver — na maioria das vezes, antes de você perceber.",
+  },
+  {
+    q: "Quanto custa?",
+    a: "Os valores dependem do tamanho do negócio e do que você precisa, por isso são apresentados numa proposta, sem compromisso. Toque em \"Solicitar uma proposta\" que a gente conversa e monta a sua.",
+  },
+];
+
 const features = [
   {
     icon: Wifi,
@@ -159,102 +203,78 @@ const commercialTerms = [
   },
 ];
 
-const walkthroughSlides = [
+const ATOS = [
   {
-    eyebrow: "01 · CRIAÇÃO DA CAMPANHA",
-    title: "Veja a campanha sendo criada",
+    eyebrow: "01 · SEU NEGÓCIO HOJE",
+    title: "Sua base e seu movimento, numa tela só",
     description:
-      "Acompanhe o formulário completo em vídeo: campos da campanha, identidade, banners, cores, estilos visuais e prévia do portal. Você pode pausar para observar cada detalhe.",
-    image: "/marketing/campanha-configuracao.png",
-    alt: "Tela real de edição da campanha da Padaria Efraim com nome, chamada e local de exibição.",
+      "Acessos de hoje, quem está conectado agora e a sua base de clientes crescendo: a capa do painel mostra tudo num relance, sem relatório complicado.",
+    image: "/marketing/d1242ce4-b6ad-4b47-b43b-d6da97771935.png",
+    alt: "Capa do painel da matriz: acessos de hoje, conectados agora, base de clientes e resumo da semana",
   },
   {
-    eyebrow: "02 · DIVULGAÇÃO",
-    title: "Adicione logo e banners",
+    eyebrow: "02 · SUA DIVULGAÇÃO",
+    title: "Campanha no ar e QR Code na mão",
     description:
-      "Personalize o portal com a marca do negócio e banners para apresentar produtos, serviços ou promoções.",
-    image: "/marketing/campanha-banner.png",
-    alt: "Tela real da campanha da Padaria Efraim com um banner de oferta no carrossel.",
+      "Monte a campanha, gere banners com a ajuda da IA e imprima o QR Code do seu portal: quem escanear cai direto na sua página.",
+    image: "/marketing/8b7899cf-f988-436d-a48c-00848d01fa26.png",
+    alt: "Página de campanhas: link e QR Code do portal e as campanhas da empresa",
   },
   {
-    eyebrow: "03 · APARÊNCIA",
-    title: "Escolha as cores do portal",
+    eyebrow: "03 · NO CELULAR DO CLIENTE",
+    title: "Ele vê sua marca, sua oferta e se cadastra",
     description:
-      "Ajuste a cor principal e a cor de destaque. A prévia do portal acompanha essas escolhas antes de salvar a campanha.",
-    image: "/marketing/campanha-cores.webp",
-    alt: "Campos reais da aparência do portal com cor principal, cor de destaque e estilo visual.",
+      "Este é um portal de verdade, de um cliente de verdade: a MAEC, com a campanha da semana na tela. O cliente faz um cadastro rapidinho — sem baixar aplicativo — e a internet é liberada. O contato fica salvo na sua base.",
+    image: "/marketing/a190b28f-c1f8-46d6-9931-fe5c097b6d00.png",
+    alt: "Portal real da MAEC: marca, campanha da semana e cadastro do cliente",
   },
   {
-    eyebrow: "04 · ESTILO VISUAL",
-    title: "Defina o estilo visual",
+    eyebrow: "04 · VOCÊ NO CONTROLE",
+    title: "Tempo, velocidade e regras definidos por você",
     description:
-      "Escolha entre Moderno, Elegante, Minimalista e Vibrante. Você também pode posicionar o logo e ajustar o texto do botão de conexão.",
-    image: "/marketing/campanha-estilos.webp",
-    alt: "Campos reais de estilo visual, posicionamento do logo e texto do botão de conexão.",
-  },
-  {
-    eyebrow: "05 · REGRAS DE ACESSO",
-    title: "Defina como a rede será usada",
-    description:
-      "Configure tempo de sessão, inatividade, download e upload por visitante. Se ativar um limite de check-ins, também pode definir a espera para uma nova conexão.",
-    image: "/marketing/politica-wifi.png",
-    alt: "Tela real da política de Wi-Fi com campos de tempo, velocidade, limite de check-ins e bloqueio temporário.",
-  },
-  {
-    eyebrow: "06 · EXPERIÊNCIA DO CLIENTE",
-    title: "Seu portal entra em cena",
-    description:
-      "O visitante encontra a identidade e o banner do estabelecimento no portal antes de preencher o cadastro para acessar a rede.",
-    image: "/marketing/portal-efraim.png",
-    alt: "Portal Wi-Fi publicado da Padaria Efraim com identidade visual, banner e formulário de acesso.",
+      "Você decide por quanto tempo cada visitante navega, em que velocidade e quantas vezes ele pode voltar — as regras são aplicadas sozinhas a cada novo acesso.",
+    image: "/marketing/3bde0a81-e558-44fe-a033-df042e652452.png",
+    alt: "Regras do Wi-Fi dos visitantes: tempo por acesso, velocidade e limite de check-ins",
   },
 ];
 
 function ProductWalkthrough() {
   const [activeSlide, setActiveSlide] = useState(0);
-  const activeWalkthroughSlide = walkthroughSlides[activeSlide] ?? walkthroughSlides[0]!;
+  const [paused, setPaused] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [inView, setInView] = useState(false);
-  const visualRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const sectionRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    const visual = visualRef.current;
-    if (!visual) return;
-    const observer = new IntersectionObserver(([entry]) => setInView(entry?.isIntersecting ?? false), {
+    const el = sectionRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(([entry]) => setInView(!!entry?.isIntersecting), {
       threshold: 0.2,
     });
-    observer.observe(visual);
+    observer.observe(el);
     return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    if (activeSlide === 0 && inView) {
-      void video.play().catch(() => {});
-    } else {
-      video.pause();
-    }
-  }, [activeSlide, inView]);
-
-  useEffect(() => {
-    if (activeSlide === 0 || !inView) return;
-    const timer = window.setTimeout(() => {
-      setActiveSlide((current) => (current + 1 < walkthroughSlides.length ? current + 1 : 1));
-    }, 8000);
+    if (!inView || paused || lightboxOpen) return;
+    const timer = window.setTimeout(
+      () => setActiveSlide((current) => (current + 1) % ATOS.length),
+      6000,
+    );
     return () => window.clearTimeout(timer);
-  }, [activeSlide, inView]);
+  }, [activeSlide, inView, paused, lightboxOpen]);
 
-  const goToSlide = (index: number) => {
-    const next = (index + walkthroughSlides.length) % walkthroughSlides.length;
-    if (next === 0 && activeSlide !== 0 && videoRef.current) videoRef.current.currentTime = 0;
-    setActiveSlide(next);
-  };
+  const active = ATOS[activeSlide] ?? ATOS[0]!;
 
   return (
     <section
+      ref={sectionRef}
       id="como-funciona"
       className="scroll-mt-20 border-b border-white/[.07] bg-[#070D13]"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={() => setPaused(false)}
     >
       <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
         <div className="max-w-3xl">
@@ -264,71 +284,54 @@ function ProductWalkthrough() {
           <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
             Veja como o Wi-Fi toma a forma do seu negócio
           </h2>
+          <p className="mt-4 text-base leading-7 text-slate-300">
+            Em quatro passos: você monta a divulgação, o portal entra no ar com a sua marca, o
+            cliente conecta — e você fica no controle.
+          </p>
         </div>
 
-        <div className="mt-10 overflow-hidden rounded-3xl border border-cyan-400/15 bg-[#0B1118] shadow-[0_24px_80px_rgba(0,0,0,.28)] lg:grid lg:grid-cols-[minmax(0,1.3fr)_minmax(280px,.7fr)]">
-          <div className="min-w-0 border-b border-white/[.08] lg:border-b-0 lg:border-r">
-            <div className="flex items-center gap-2 border-b border-white/[.08] px-4 py-3 text-xs text-slate-400">
-              <span className="size-2 rounded-full bg-rose-400" />
-              <span className="size-2 rounded-full bg-amber-300" />
-              <span className="size-2 rounded-full bg-emerald-400" />
-              <span className="ml-3 truncate">ManosTech System · demonstração real</span>
-            </div>
-            <div ref={visualRef} className="relative aspect-[989/580] bg-[#05080F]">
-              <video
-                ref={videoRef}
-                src="/marketing/criacao-campanha.mp4"
-                poster="/marketing/campanha-configuracao.png"
-                aria-label="Vídeo da criação de campanha com rolagem pelos campos, cores e estilos visuais"
-                controls
-                muted
-                playsInline
-                preload="metadata"
-                onEnded={() => setActiveSlide(1)}
-                className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-500 ${activeSlide === 0 ? "opacity-100" : "pointer-events-none opacity-0"}`}
-                aria-hidden={activeSlide !== 0}
-              />
-              {walkthroughSlides.map((slide, index) => (
+        <div className="mt-10 overflow-hidden rounded-3xl border border-white/[.08] bg-[#0B1118] shadow-[0_24px_80px_rgba(0,0,0,.28)] lg:grid lg:grid-cols-[minmax(0,1.3fr)_minmax(280px,.7fr)]">
+          <div className="relative min-w-0">
+            <div className="relative aspect-[16/10] overflow-hidden bg-[#05080F]">
+              {ATOS.map((ato, index) => (
                 <img
-                  key={slide.image}
-                  src={slide.image}
-                  alt={slide.alt}
+                  key={ato.image}
+                  src={ato.image}
+                  alt={ato.alt}
                   loading={index === 0 ? "eager" : "lazy"}
-                  className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-500 motion-reduce:transition-none ${index === activeSlide && index !== 0 ? "opacity-100" : "pointer-events-none opacity-0"}`}
-                  aria-hidden={index !== activeSlide || index === 0}
+                  className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-500 ${
+                    index === activeSlide ? "opacity-100" : "pointer-events-none opacity-0"
+                  }`}
+                  aria-hidden={index !== activeSlide}
                 />
               ))}
+              <button
+                type="button"
+                onClick={() => setLightboxOpen(true)}
+                className="absolute right-3 top-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/55 px-3.5 py-2 text-xs font-semibold text-white backdrop-blur transition hover:border-cyan-400/60 hover:text-cyan-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400"
+              >
+                <Maximize2 className="size-3.5" aria-hidden="true" />
+                Ampliar
+              </button>
             </div>
-            <p className="border-t border-white/[.08] px-4 py-2.5 text-[11px] leading-5 text-slate-400">
-              Vídeo da campanha seguido de capturas reais em carrossel. Use as setas para avançar ou
-              voltar. A disponibilidade de recursos depende do equipamento e do plano contratado.
-            </p>
           </div>
 
           <div className="flex min-w-0 flex-col justify-between p-5 sm:p-7">
             <div>
-              <p className="text-xs font-bold tracking-[.18em] text-cyan-400">
-                {activeWalkthroughSlide.eyebrow}
-              </p>
+              <p className="text-xs font-bold tracking-[.18em] text-cyan-400">{active.eyebrow}</p>
               <h3 className="mt-4 font-display text-2xl font-bold leading-tight sm:text-3xl">
-                {activeWalkthroughSlide.title}
+                {active.title}
               </h3>
-              <p className="mt-4 text-sm leading-7 text-slate-300">
-                {activeWalkthroughSlide.description}
-              </p>
+              <p className="mt-4 text-sm leading-7 text-slate-300">{active.description}</p>
             </div>
             <div className="mt-8">
-              <div
-                className="flex items-center gap-2"
-                role="group"
-                aria-label="Etapas da apresentação"
-              >
-                {walkthroughSlides.map((slide, index) => (
+              <div className="flex items-center gap-2" role="group" aria-label="Etapas da apresentação">
+                {ATOS.map((ato, index) => (
                   <button
-                    key={slide.image}
+                    key={ato.image}
                     type="button"
-                    onClick={() => goToSlide(index)}
-                    aria-label={`Mostrar etapa ${index + 1}: ${slide.title}`}
+                    onClick={() => setActiveSlide(index)}
+                    aria-label={`Mostrar etapa ${index + 1}: ${ato.title}`}
                     aria-current={index === activeSlide ? "step" : undefined}
                     className={`h-2 min-w-0 flex-1 rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-400 ${index === activeSlide ? "bg-cyan-400" : "bg-white/20 hover:bg-white/40"}`}
                   />
@@ -336,13 +339,12 @@ function ProductWalkthrough() {
               </div>
               <div className="mt-5 flex items-center justify-between">
                 <span className="text-xs text-slate-400">
-                  {String(activeSlide + 1).padStart(2, "0")} /{" "}
-                  {String(walkthroughSlides.length).padStart(2, "0")}
+                  {String(activeSlide + 1).padStart(2, "0")} / {String(ATOS.length).padStart(2, "0")}
                 </span>
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => goToSlide(activeSlide - 1)}
+                    onClick={() => setActiveSlide((activeSlide + ATOS.length - 1) % ATOS.length)}
                     aria-label="Etapa anterior"
                     className="grid size-10 place-items-center rounded-full border border-white/20 text-white transition hover:border-cyan-400/60 hover:bg-cyan-400/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400"
                   >
@@ -350,7 +352,7 @@ function ProductWalkthrough() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => goToSlide(activeSlide + 1)}
+                    onClick={() => setActiveSlide((activeSlide + 1) % ATOS.length)}
                     aria-label="Próxima etapa"
                     className="grid size-10 place-items-center rounded-full border border-white/20 text-white transition hover:border-cyan-400/60 hover:bg-cyan-400/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400"
                   >
@@ -361,7 +363,25 @@ function ProductWalkthrough() {
             </div>
           </div>
         </div>
+
+        <p className="mt-4 text-[11px] leading-5 text-slate-500">
+          Capturas reais do sistema e de um portal em operação. Toque em Ampliar para ver cada tela
+          em detalhes. A disponibilidade de recursos depende do equipamento e do plano contratado.
+        </p>
       </div>
+
+      <Dialog open={lightboxOpen} onOpenChange={setLightboxOpen}>
+        <DialogContent className="max-w-5xl border-white/10 bg-[#05080F] p-3 sm:p-4">
+          <DialogTitle className="px-1 pb-2 text-sm font-semibold text-slate-200">
+            {active.title}
+          </DialogTitle>
+          <img
+            src={active.image}
+            alt={active.alt}
+            className="max-h-[82vh] w-full rounded-lg object-contain"
+          />
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
@@ -553,7 +573,7 @@ function SalesHomePage() {
             </div>
             <h1 className="max-w-3xl font-display text-4xl font-bold leading-[1.08] tracking-tight sm:text-5xl lg:text-6xl">
               O cliente se conecta.{" "}
-              <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+              <span className="text-cyan-400">
                 Sua marca aparece.
               </span>
             </h1>
@@ -594,6 +614,25 @@ function SalesHomePage() {
           <div ref={crmCardRef} className="h-full">
             <ScrollReveal className="h-full" delay={120}><LiveCrmPreview /></ScrollReveal>
           </div>
+        </div>
+      </section>
+
+      <section aria-label="Tipos de negócio atendidos" className="border-b border-white/[.07] bg-[#070D13]">
+        <div className="mx-auto max-w-7xl px-5 py-9 sm:px-8">
+          <p className="text-center text-xs font-bold uppercase tracking-[.2em] text-slate-400">
+            Feito para negócios que recebem clientes todos os dias
+          </p>
+          <ul className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
+            {SEGMENTOS.map(({ icon: Icon, label }) => (
+              <li
+                key={label}
+                className="inline-flex items-center gap-2 rounded-full border border-white/[.08] bg-white/[.02] px-3.5 py-2 text-sm font-medium text-slate-200"
+              >
+                <Icon className="size-4 text-cyan-400" aria-hidden="true" />
+                {label}
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 
@@ -685,7 +724,7 @@ function SalesHomePage() {
 
       <ScrollReveal><ProductWalkthrough /></ScrollReveal>
 
-      <section id="recursos" className="border-y border-white/[.07] bg-white/[.015]">
+            <section id="recursos" className="border-y border-white/[.07] bg-white/[.015]">
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
           <ScrollReveal className="max-w-2xl">
             <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
@@ -791,6 +830,47 @@ function SalesHomePage() {
             </article>
           </div>
           </ScrollReveal>
+        </div>
+      </section>
+
+      <section id="duvidas" className="scroll-mt-20 border-b border-white/[.07] bg-[#070D13]">
+        <div className="mx-auto max-w-4xl px-5 py-16 sm:px-8 sm:py-20">
+          <div className="max-w-3xl">
+            <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">Dúvidas frequentes</p>
+            <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
+              Perguntas de quem está conhecendo agora
+            </h2>
+            <p className="mt-4 text-base leading-7 text-slate-300">
+              Sem termo técnico: o que todo dono de negócio pergunta antes de colocar o ManosTech no
+              seu Wi-Fi.
+            </p>
+          </div>
+          <Accordion type="single" collapsible className="mt-10">
+            {FAQ_ITEMS.map((item, index) => (
+              <AccordionItem key={item.q} value={`faq-${index}`} className="border-white/[.08]">
+                <AccordionTrigger className="text-left text-base font-semibold text-slate-100 hover:text-cyan-400">
+                  {item.q}
+                </AccordionTrigger>
+                <AccordionContent className="text-sm leading-7 text-slate-300">
+                  {item.a}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "FAQPage",
+                mainEntity: FAQ_ITEMS.map((f) => ({
+                  "@type": "Question",
+                  name: f.q,
+                  acceptedAnswer: { "@type": "Answer", text: f.a },
+                })),
+              }),
+            }}
+          />
         </div>
       </section>
 
