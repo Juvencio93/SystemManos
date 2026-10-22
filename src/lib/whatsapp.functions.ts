@@ -291,7 +291,14 @@ export const desconectarWhatsapp = createServerFn({ method: "POST" })
 const criarCampanhaSchema = z.object({
   titulo: z.string().trim().min(3).max(80),
   mensagem: z.string().trim().min(10).max(1000),
+  mensagem2: z.string().trim().max(1000).optional(),
+  mensagem3: z.string().trim().max(1000).optional(),
 });
+
+function varianteValida(v: string | undefined): string | null {
+  const t = (v || "").trim();
+  return t.length >= 10 ? t : null;
+}
 
 export const criarCampanhaWhatsapp = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -352,6 +359,8 @@ export const criarCampanhaWhatsapp = createServerFn({ method: "POST" })
         instancia_id: instancia.id,
         titulo: data.titulo,
         mensagem: data.mensagem,
+        mensagem_2: varianteValida(data.mensagem2),
+        mensagem_3: varianteValida(data.mensagem3),
         total: destinatarios.length,
         created_by: scope.userId,
       })

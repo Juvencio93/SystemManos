@@ -2,9 +2,11 @@
 -- Desenho do produto (regras do Gabriel):
 --  * Enviar SOMENTE para quem autorizou no check-in do portal
 --    (visitors.whatsapp_opt_in = true, sem revogação posterior).
---  * Teto de 100 envios/dia por número, em lotes de 10 a cada ~45-75 min,
+--  * Teto de 30 envios/dia por número, em lotes de 10 a cada ~45-75 min,
 --    com pausas aleatórias entre mensagens (padrão humano, anti-bloqueio).
---  * Número novo "aquece": 30/dia na 1ª semana, 50/dia na 2ª, 100 depois.
+--  * Número novo "aquece": 20/dia na 1ª semana, 30/dia depois (teto padrão).
+--  * Mensagem NUNCA idêntica em massa: até 3 versões sorteadas por pessoa +
+--    micro-variação invisível única aplicada pelo worker em cada envio.
 --  * Fila persistente por campanha: quem já recebeu nunca recebe de novo na
 --    mesma campanha; o que faltar continua no dia seguinte até esgotar.
 --  * Quem responder "SAIR" tem o opt-in revogado e sai de todas as filas.
@@ -42,6 +44,8 @@ CREATE TABLE IF NOT EXISTS public.whatsapp_campanhas (
   instancia_id uuid NOT NULL REFERENCES public.whatsapp_instancias (id) ON DELETE CASCADE,
   titulo text NOT NULL,
   mensagem text NOT NULL,
+  mensagem_2 text,
+  mensagem_3 text,
   status text NOT NULL DEFAULT 'enviando'
     CHECK (status IN ('enviando', 'pausada', 'concluida', 'cancelada')),
   total integer NOT NULL DEFAULT 0,

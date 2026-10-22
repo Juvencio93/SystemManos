@@ -3,7 +3,7 @@
  *
  * Regras do produto (desenho do Gabriel, 2026-10-21):
  *  - SOMENTE contatos que autorizaram no check-in (visitors.whatsapp_opt_in).
- *  - Teto diário por número com aquecimento: 30 (semana 1) → 50 (semana 2) → 100.
+ *  - Teto diário por número: 30 (padrão seguro). Aquecimento: 20 na semana 1.
  *  - Lotes de 10 a cada 45–75 min (aleatório), pausas de 30–90s entre mensagens.
  *  - Quem responder "SAIR" perde o opt-in e sai de todas as filas pendentes.
  *
@@ -12,7 +12,7 @@
  * que o painel usa para exibir limites e montar campanhas.
  */
 
-export const WHATSAPP_TETO_FINAL = 100;
+export const WHATSAPP_TETO_FINAL = 30;
 export const WHATSAPP_LOTE_TAMANHO = 10;
 export const WHATSAPP_LOTE_MIN_MINUTOS = 45;
 export const WHATSAPP_LOTE_MAX_MINUTOS = 75;
@@ -102,11 +102,10 @@ export async function evolutionDesconectar(instanceName: string) {
 
 /** Teto de envios de hoje conforme o aquecimento do número. */
 export function limiteDiario(aquecimentoInicio: string | null, agora = new Date()): number {
-  if (!aquecimentoInicio) return 30;
+  if (!aquecimentoInicio) return 20;
   const inicio = new Date(`${aquecimentoInicio}T12:00:00-03:00`).getTime();
   const dias = Math.floor((agora.getTime() - inicio) / 86_400_000);
-  if (dias < 7) return 30;
-  if (dias < 14) return 50;
+  if (dias < 7) return 20;
   return WHATSAPP_TETO_FINAL;
 }
 

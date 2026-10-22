@@ -14,6 +14,7 @@ import {
   Power,
   QrCode,
   Send,
+  Shuffle,
   ShieldCheck,
   Smartphone,
   Users,
@@ -69,9 +70,9 @@ function ComoFunciona() {
     },
     {
       icon: Layers,
-      titulo: "100 por dia, em lotes de 10",
+      titulo: "30 por dia, em lotes de 10",
       texto:
-        "O sistema envia 10 mensagens, descansa de 45 a 60 minutos e envia mais 10 — até o limite de 100 no dia. Devagar de propósito: é o que protege seu número de bloqueio.",
+        "O sistema envia 10 mensagens, descansa de 45 a 60 minutos e envia mais 10 — até o limite de 30 no dia. Devagar de propósito: é o que protege seu número de bloqueio.",
     },
     {
       icon: Clock,
@@ -83,13 +84,19 @@ function ComoFunciona() {
       icon: Flame,
       titulo: "Número novo aquece aos poucos",
       texto:
-        "Na primeira semana o limite é 30 por dia; na segunda, 50; depois, os 100. Número recém-conectado disparando tudo de uma vez é o que mais cai em bloqueio.",
+        "Na primeira semana o limite é 20 por dia; depois, 30 — o teto seguro do sistema. Número recém-conectado disparando tudo de uma vez é o que mais cai em bloqueio.",
     },
     {
       icon: CalendarClock,
       titulo: "Base grande? Continua amanhã",
       texto:
-        "Se sua base tiver 350 pessoas, o disparo leva cerca de 4 dias: cada dia ele retoma de onde parou, e ninguém recebe a mesma campanha duas vezes.",
+        "Se sua base tiver 350 pessoas, o disparo leva cerca de 12 dias: cada dia ele retoma de onde parou, e ninguém recebe a mesma campanha duas vezes.",
+    },
+    {
+      icon: Shuffle,
+      titulo: "Nunca a mesma mensagem pra todo mundo",
+      texto:
+        "Cadastre até 3 versões do texto: o sistema sorteia uma para cada pessoa e ainda aplica uma variação única e invisível em cada envio. Nenhuma mensagem sai idêntica à outra — texto repetido em massa é a maior assinatura de robô.",
     },
     {
       icon: X,
@@ -109,7 +116,7 @@ function ComoFunciona() {
         <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
             "Conecte o WhatsApp da unidade lendo o QR Code abaixo — igual ao WhatsApp Web.",
-            "Escreva sua mensagem (dá pra usar {nome} e o sistema troca pelo nome de cada cliente).",
+            "Escreva sua mensagem (dá pra usar {nome} e o sistema troca pelo nome de cada cliente — e você pode cadastrar até 3 versões, que o sistema varia entre as pessoas).",
             "O sistema monta a lista só com os clientes que autorizaram no check-in.",
             "Você aperta Disparar e o sistema envia sozinho, no ritmo seguro, durante o dia (8h às 20h).",
           ].map((passo, i) => (
@@ -158,6 +165,9 @@ function WhatsappPage() {
   const [qr, setQr] = useState<string | null>(null);
   const [titulo, setTitulo] = useState("");
   const [mensagem, setMensagem] = useState("");
+  const [mensagem2, setMensagem2] = useState("");
+  const [mensagem3, setMensagem3] = useState("");
+  const [mostrarVersoes, setMostrarVersoes] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
 
   const dados = painel.data;
@@ -212,13 +222,24 @@ function WhatsappPage() {
   });
 
   const mutCriar = useMutation({
-    mutationFn: () => criarCampanhaWhatsapp({ data: { titulo, mensagem } }),
+    mutationFn: () =>
+      criarCampanhaWhatsapp({
+        data: {
+          titulo,
+          mensagem,
+          ...(mensagem2.trim().length >= 10 ? { mensagem2 } : {}),
+          ...(mensagem3.trim().length >= 10 ? { mensagem3 } : {}),
+        },
+      }),
     onSuccess: (r) => {
       toast.success(
         `Disparo criado para ${r.total} pessoas — conclusão em cerca de ${r.diasEstimados} dia(s) no ritmo seguro.`,
       );
       setTitulo("");
       setMensagem("");
+      setMensagem2("");
+      setMensagem3("");
+      setMostrarVersoes(false);
       setConfirmando(false);
       invalidar();
     },
@@ -309,7 +330,7 @@ function WhatsappPage() {
                 <p className="text-sm text-muted-foreground">
                   Envios de hoje: <strong>{dados?.enviadosHoje ?? 0}</strong> de{" "}
                   <strong>{limiteHoje}</strong>
-                  {limiteHoje < 100 && " (número em aquecimento — o limite sobe sozinho)"}
+                  {limiteHoje < 30 && " (número em aquecimento — o limite sobe sozinho)"}
                 </p>
                 <Button
                   variant="outline"
@@ -426,6 +447,40 @@ function WhatsappPage() {
               </div>
             </div>
           </div>
+          {mostrarVersoes ? (
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="wa-msg2">Versão 2 (opcional)</Label>
+                <Textarea
+                  id="wa-msg2"
+                  rows={4}
+                  maxLength={1000}
+                  placeholder={"Oi, {nome}! Passando pra avisar da novidade — vem conferir!"}
+                  value={mensagem2}
+                  onChange={(e) => setMensagem2(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="wa-msg3">Versão 3 (opcional)</Label>
+                <Textarea
+                  id="wa-msg3"
+                  rows={4}
+                  maxLength={1000}
+                  placeholder={"{nome}, tem promoção esperando por você hoje. Aproveita!"}
+                  value={mensagem3}
+                  onChange={(e) => setMensagem3(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  O sistema sorteia uma versão para cada cliente — ninguém recebe um texto
+                  "carimbado" em massa.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <Button type="button" variant="outline" size="sm" onClick={() => setMostrarVersoes(true)}>
+              <Shuffle className="mr-2 h-4 w-4" /> Adicionar versões alternativas (recomendado)
+            </Button>
+          )}
           {!conectada && (
             <p className="text-sm text-amber-700">
               Conecte o WhatsApp da unidade acima para poder disparar.

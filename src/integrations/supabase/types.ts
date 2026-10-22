@@ -2442,6 +2442,8 @@ export type Database = {
           id: string
           instancia_id: string
           mensagem: string
+          mensagem_2: string | null
+          mensagem_3: string | null
           status: string
           titulo: string
           total: number
@@ -2455,6 +2457,8 @@ export type Database = {
           id?: string
           instancia_id: string
           mensagem: string
+          mensagem_2?: string | null
+          mensagem_3?: string | null
           status?: string
           titulo: string
           total?: number
@@ -2468,6 +2472,8 @@ export type Database = {
           id?: string
           instancia_id?: string
           mensagem?: string
+          mensagem_2?: string | null
+          mensagem_3?: string | null
           status?: string
           titulo?: string
           total?: number

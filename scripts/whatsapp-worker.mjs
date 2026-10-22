@@ -7,8 +7,10 @@
  *
  *  - SOMENTE contatos que autorizaram no check-in entram na fila (o painel
  *    já monta a fila assim; o worker só envia o que está pendente).
- *  - Teto diário por número com aquecimento: 30/dia (semana 1),
- *    50/dia (semana 2), 100/dia (depois).
+ *  - Teto diário por número: 30/dia (padrão seguro), com aquecimento
+ *    de 20/dia na primeira semana.
+ *  - Mensagem nunca idêntica em massa: sorteia entre as até 3 versões
+ *    da campanha e aplica uma micro-variação invisível única por envio.
  *  - Lotes de 10, com intervalo aleatório de 45–75 min entre lotes e
  *    pausas aleatórias de 30–90s entre mensagens do mesmo lote.
  *  - Antes de cada envio: "digitando..." por ~2s (presença composing).
@@ -35,7 +37,7 @@ if (!SUPABASE_URL || !SERVICE_KEY || !EVO_URL || !EVO_KEY) {
   process.exit(1);
 }
 
-const TETO_FINAL = 100;
+const TETO_FINAL = 30;
 const LOTE = 10;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const rand = (min, max) => Math.floor(min + Math.random() * (max - min + 1));
@@ -87,14 +89,25 @@ function inicioHojeISO() {
   return new Date(sp.getTime() + 3 * 60 * 60 * 1000).toISOString();
 }
 function limiteDiario(aquecimentoInicio) {
-  if (!aquecimentoInicio) return 30;
+  if (!aquecimentoInicio) return 20;
   const dias = Math.floor((Date.now() - new Date(`${aquecimentoInicio}T12:00:00-03:00`).getTime()) / 86400000);
-  if (dias < 7) return 30;
-  if (dias < 14) return 50;
+  if (dias < 7) return 20;
   return TETO_FINAL;
 }
 function primeiroNome(nome) {
   return (nome || "").trim().split(/\s+/)[0] || "cliente";
+}
+
+/**
+ * Micro-variação invisível: 8 caracteres de largura zero sorteados por
+ * envio — nenhuma mensagem sai byte a byte igual à outra, sem mudar
+ * nada do que o cliente lê.
+ */
+const INVISIVEIS = ["\u200B", "\u200C", "\u200D", "\u2060"];
+function variacaoInvisivel() {
+  let out = "";
+  for (let i = 0; i < 8; i++) out += INVISIVEIS[Math.floor(Math.random() * INVISIVEIS.length)];
+  return out;
 }
 
 // ---------- Ciclo ----------
@@ -126,7 +139,7 @@ async function processarInstancia(inst) {
 
   // Campanha ativa desta instância
   const campanhas = await sbGet(
-    `whatsapp_campanhas?instancia_id=eq.${inst.id}&status=eq.enviando&order=created_at.asc&limit=1&select=id,mensagem`,
+    `whatsapp_campanhas?instancia_id=eq.${inst.id}&status=eq.enviando&order=created_at.asc&limit=1&select=id,mensagem,mensagem_2,mensagem_3`,
   );
   if (!campanhas?.length) return;
   const campanha = campanhas[0];
@@ -180,7 +193,12 @@ async function processarInstancia(inst) {
         body: JSON.stringify({ number: item.telefone, presence: "composing", delay: 2000 }),
       }).catch(() => undefined);
       await sleep(2000);
-      const texto = campanha.mensagem.replaceAll("{nome}", primeiroNome(item.nome));
+      const versoes = [campanha.mensagem, campanha.mensagem_2, campanha.mensagem_3].filter(
+        (v) => typeof v === "string" && v.trim().length > 0,
+      );
+      const base = versoes[Math.floor(Math.random() * versoes.length)] || campanha.mensagem;
+      const texto =
+        base.replaceAll("{nome}", primeiroNome(item.nome)) + variacaoInvisivel();
       await evo(`/message/sendText/${encodeURIComponent(nome)}`, {
         method: "POST",
         body: JSON.stringify({ number: item.telefone, text: texto, delay: rand(800, 2000) }),
