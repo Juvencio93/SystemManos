@@ -548,7 +548,7 @@ function ResumoSemanalCard({ data }: { data: Insights | undefined }) {
   if (!data) return null;
   const melhorUnidade = data.rankingUnidades.find((u) => u.acessosSemana > 0);
   return (
-    <Card className="mb-10 border-primary/25 bg-gradient-to-br from-primary/10 via-transparent to-transparent">
+    <Card className="mb-10 border-primary/15 bg-gradient-to-br from-primary/5 via-transparent to-transparent">
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
         <CardTitle className="flex items-center gap-2"><FileBarChart className="size-5 text-primary" /> Sua semana em números</CardTitle>
         <Button size="sm" asChild>
@@ -584,9 +584,9 @@ function HeroMatriz({ data, isLoading }: { data: Insights | undefined; isLoading
   const v = (n?: number) => (isLoading ? "…" : String(n ?? 0));
   return (
     <div className="mb-10 grid gap-4 sm:gap-6 sm:grid-cols-2 xl:grid-cols-4">
-      <Card className="border-primary/30 bg-gradient-to-br from-primary/15 via-transparent to-transparent">
+      <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.07] via-transparent to-transparent">
         <CardHeader>
-          <CardTitle className="leading-none text-[12px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Acessos hoje</CardTitle>
+          <CardTitle className="leading-none text-[13px] font-semibold text-muted-foreground">Acessos hoje</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="font-display text-4xl font-black tracking-tighter">{v(data?.visitantesHoje)}</p>
@@ -595,7 +595,7 @@ function HeroMatriz({ data, isLoading }: { data: Insights | undefined; isLoading
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle className="leading-none text-[12px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Conectados agora</CardTitle>
+          <CardTitle className="leading-none text-[13px] font-semibold text-muted-foreground">Conectados agora</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="flex items-center gap-2 font-display text-4xl font-black tracking-tighter">
@@ -607,7 +607,7 @@ function HeroMatriz({ data, isLoading }: { data: Insights | undefined; isLoading
       </Card>
       <Card className="border-primary/20">
         <CardHeader>
-          <CardTitle className="leading-none text-[12px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Sua base de clientes</CardTitle>
+          <CardTitle className="leading-none text-[13px] font-semibold text-muted-foreground">Sua base de clientes</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="font-display text-4xl font-black tracking-tighter text-primary">{v(data?.leadsEmpresa)}</p>
@@ -622,7 +622,7 @@ function HeroMatriz({ data, isLoading }: { data: Insights | undefined; isLoading
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle className="leading-none text-[12px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Horário de pico</CardTitle>
+          <CardTitle className="leading-none text-[13px] font-semibold text-muted-foreground">Horário de pico</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="font-display text-4xl font-black tracking-tighter">{isLoading ? "…" : (data?.horarioPico ?? "—")}</p>
@@ -739,9 +739,9 @@ function HeroFilial({ data, isLoading }: { data: Insights | undefined; isLoading
   const acimaMedia = pos ? pos.meusAcessosSemana - pos.mediaRede : 0;
   return (
     <div className="mb-10 grid gap-4 sm:gap-6 sm:grid-cols-2 xl:grid-cols-4">
-      <Card className="border-primary/30 bg-gradient-to-br from-primary/15 via-transparent to-transparent">
+      <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.07] via-transparent to-transparent">
         <CardHeader>
-          <CardTitle className="leading-none text-[12px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Acessos hoje</CardTitle>
+          <CardTitle className="leading-none text-[13px] font-semibold text-muted-foreground">Acessos hoje</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="font-display text-4xl font-black tracking-tighter">{v(data?.visitantesHoje)}</p>
@@ -750,7 +750,7 @@ function HeroFilial({ data, isLoading }: { data: Insights | undefined; isLoading
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle className="leading-none text-[12px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Conectados agora</CardTitle>
+          <CardTitle className="leading-none text-[13px] font-semibold text-muted-foreground">Conectados agora</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="flex items-center gap-2 font-display text-4xl font-black tracking-tighter">
@@ -763,7 +763,7 @@ function HeroFilial({ data, isLoading }: { data: Insights | undefined; isLoading
       {pos ? (
         <Card className="border-amber-300/30 bg-gradient-to-br from-amber-300/10 via-transparent to-transparent">
           <CardHeader>
-            <CardTitle className="leading-none text-[12px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Posição na rede</CardTitle>
+            <CardTitle className="leading-none text-[13px] font-semibold text-muted-foreground">Posição na rede</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="flex items-center gap-2 font-display text-4xl font-black tracking-tighter">
@@ -783,7 +783,7 @@ function HeroFilial({ data, isLoading }: { data: Insights | undefined; isLoading
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle className="leading-none text-[12px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Campanha ativa</CardTitle>
+            <CardTitle className="leading-none text-[13px] font-semibold text-muted-foreground">Campanha ativa</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="truncate font-display text-2xl font-black tracking-tight">{isLoading ? "…" : (data?.campanhaAtiva?.name ?? "Nenhuma")}</p>
@@ -796,7 +796,7 @@ function HeroFilial({ data, isLoading }: { data: Insights | undefined; isLoading
       )}
       <Card>
         <CardHeader>
-          <CardTitle className="leading-none text-[12px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Horário de pico</CardTitle>
+          <CardTitle className="leading-none text-[13px] font-semibold text-muted-foreground">Horário de pico</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="font-display text-4xl font-black tracking-tighter">{isLoading ? "…" : (data?.horarioPico ?? "—")}</p>
@@ -952,7 +952,7 @@ function ModuleCard({ module, isLoading, onHotspotClick }: { module: DashboardMo
           ) : (
             <p className="text-xs text-muted-foreground/60 sm:text-sm">&nbsp;</p>
           )}
-          <span className="mt-2 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-primary group-hover:underline">Acessar <ArrowRight className="size-3" /></span>
+          <span className="mt-2 flex items-center gap-1.5 text-[11px] font-bold text-primary group-hover:underline">Acessar <ArrowRight className="size-3" /></span>
         </CardContent>
       </Card>
     </Link>
@@ -1080,7 +1080,7 @@ function StatsGrid({
           >
             <Card className="glass-panel h-full transition-all duration-300 group-hover:-translate-y-2 group-hover:border-primary/50 group-hover:shadow-glow rounded-3xl">
               <CardHeader className="flex flex-row items-center justify-between pb-1.5 pt-5 px-5">
-                <CardTitle className="leading-none text-[12px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">
+                <CardTitle className="leading-none text-[13px] font-semibold text-muted-foreground">
                   {tile.label}
                 </CardTitle>
                 <div className="rounded-xl bg-primary/10 p-2 border border-primary/10">
