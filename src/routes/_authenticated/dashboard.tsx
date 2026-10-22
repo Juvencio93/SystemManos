@@ -541,6 +541,43 @@ function DeltaChip({ atual, anterior, sufixo }: { atual: number; anterior: numbe
   );
 }
 
+
+function ResumoSemanalCard({ data }: { data: Insights | undefined }) {
+  if (!data) return null;
+  const melhorUnidade = data.rankingUnidades.find((u) => u.acessosSemana > 0);
+  return (
+    <Card className="mb-10 border-primary/25 bg-gradient-to-br from-primary/10 via-transparent to-transparent">
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
+        <CardTitle className="flex items-center gap-2"><FileBarChart className="size-5 text-primary" /> Sua semana em números</CardTitle>
+        <Button size="sm" asChild>
+          <Link to={"/resumo-semanal" as never}>Baixar resumo em PDF</Link>
+        </Button>
+      </CardHeader>
+      <CardContent>
+        <ul className="space-y-2 text-sm font-medium text-muted-foreground">
+          <li className="flex flex-wrap items-center gap-2">
+            <strong className="font-display text-lg font-black text-foreground">{data.conexoesSemana} acessos</strong> na sua rede esta semana
+            <DeltaChip atual={data.conexoesSemana} anterior={data.conexoesSemanaAnterior} sufixo="vs semana passada" />
+          </li>
+          <li>
+            <strong className="font-display text-lg font-black text-foreground">+{data.leadsNovosSemana} clientes novos</strong> entraram na sua base (hoje com {data.leadsEmpresa} contatos)
+          </li>
+          {data.melhorDiaSemana && (
+            <li>Melhor dia: <strong className="text-foreground">{data.melhorDiaSemana.rotulo}</strong>, com {data.melhorDiaSemana.total} acessos</li>
+          )}
+          {melhorUnidade && (
+            <li>Unidade destaque: <strong className="text-foreground">{melhorUnidade.nome}</strong> 🏆 com {melhorUnidade.acessosSemana} acessos</li>
+          )}
+          {data.topCampanhaSemana && (
+            <li>Campanha destaque: <strong className="text-foreground">{data.topCampanhaSemana.name}</strong>, com {data.topCampanhaSemana.total} acessos</li>
+          )}
+        </ul>
+        <p className="mt-3 text-xs text-muted-foreground">Um relatório de uma página com a sua marca — pronto pra mostrar pro sócio ou mandar pra equipe.</p>
+      </CardContent>
+    </Card>
+  );
+}
+
 function HeroMatriz({ data, isLoading }: { data: Insights | undefined; isLoading: boolean }) {
   const v = (n?: number) => (isLoading ? "…" : String(n ?? 0));
   return (
@@ -682,6 +719,8 @@ function MatrizDashboard({ access }: { access: AccessInfo | null }) {
       <MovimentoChart data={data} />
 
       <RankingUnidades data={data} />
+
+      <ResumoSemanalCard data={data} />
 
       <div className="mt-10">
         <RealtimeHeatmap />
