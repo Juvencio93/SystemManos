@@ -361,6 +361,11 @@ function OperationalManagerPage() {
 
   return (
     <div className="space-y-6 pb-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {(typedAnalysis as any).desatualizada && (
+        <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm font-medium text-amber-200">
+          Você está vendo a análise de {String((typedAnalysis as any).analysisDate ?? "").split("-").reverse().join("/")} — a atualização de hoje sai às 06:00.
+        </div>
+      )}
       {/* 1. CABEÇALHO COMPACTO */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-card/40 p-6 rounded-3xl border border-border/60 backdrop-blur-sm">
         <div className="space-y-2">

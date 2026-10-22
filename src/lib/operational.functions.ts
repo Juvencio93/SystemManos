@@ -189,7 +189,7 @@ export const getLatestOperationalAnalysis = createServerFn({ method: "GET" })
       // 1. Verificar análise diária existente (America/Sao_Paulo)
       const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
       
-      const { data: existingAnalysis, error: fetchError } = await supabase
+      const { data: analiseHoje, error: fetchError } = await supabase
         .from("company_operational_analyses")
         .select("*")
         .eq("company_id", companyId)
@@ -198,8 +198,27 @@ export const getLatestOperationalAnalysis = createServerFn({ method: "GET" })
 
       if (fetchError) throw fetchError;
 
-      // Se não existir análise do dia, retornamos o status indicando que não está disponível
-      // e não executamos NADA de processamento ou IA.
+      // Sem analise de hoje (a do dia sai as 06:00): em vez de travar a
+      // tela, mostramos a mais recente que existir — a informacao continua
+      // valendo, so sinalizamos a data. So trava quem nunca teve analise.
+      let existingAnalysis = analiseHoje;
+      let usandoAnterior = false;
+      if (!existingAnalysis) {
+        const { data: ultima, error: erroUltima } = await supabase
+          .from("company_operational_analyses")
+          .select("*")
+          .eq("company_id", companyId)
+          .lt("analysis_date", today)
+          .order("analysis_date", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (erroUltima) throw erroUltima;
+        if (ultima) {
+          existingAnalysis = ultima;
+          usandoAnterior = true;
+        }
+      }
+
       if (!existingAnalysis) {
         return { 
           status: "nao_disponivel",
@@ -279,6 +298,7 @@ export const getLatestOperationalAnalysis = createServerFn({ method: "GET" })
         operations: operationsRaw,
         organizations: enrichedOrganizations,
         status: "concluido",
+        desatualizada: usandoAnterior,
         updatedAt: existingAnalysis.generated_at,
       };
     }
