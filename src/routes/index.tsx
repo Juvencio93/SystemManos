@@ -209,7 +209,7 @@ const ATOS = [
     title: "Sua base e seu movimento, numa tela só",
     description:
       "Acessos de hoje, quem está conectado agora e a sua base de clientes crescendo: a capa do painel mostra tudo num relance, sem relatório complicado.",
-    image: "/marketing/capa-matriz.png",
+    image: "/marketing/d1242ce4-b6ad-4b47-b43b-d6da97771935.png",
     alt: "Capa do painel da matriz: acessos de hoje, conectados agora, base de clientes e resumo da semana",
   },
   {
@@ -217,7 +217,7 @@ const ATOS = [
     title: "Campanha no ar e QR Code na mão",
     description:
       "Monte a campanha, gere banners com a ajuda da IA e imprima o QR Code do seu portal: quem escanear cai direto na sua página.",
-    image: "/marketing/campanhas-matriz.png",
+    image: "/marketing/8b7899cf-f988-436d-a48c-00848d01fa26.png",
     alt: "Página de campanhas: link e QR Code do portal e as campanhas da empresa",
   },
   {
@@ -225,7 +225,7 @@ const ATOS = [
     title: "Ele vê sua marca, sua oferta e se cadastra",
     description:
       "Este é um portal de verdade, de um cliente de verdade: a MAEC, com a campanha da semana na tela. O cliente faz um cadastro rapidinho — sem baixar aplicativo — e a internet é liberada. O contato fica salvo na sua base.",
-    image: "/marketing/portal-maec.png",
+    image: "/marketing/a190b28f-c1f8-46d6-9931-fe5c097b6d00.png",
     alt: "Portal real da MAEC: marca, campanha da semana e cadastro do cliente",
   },
   {
@@ -233,7 +233,7 @@ const ATOS = [
     title: "Tempo, velocidade e regras definidos por você",
     description:
       "Você decide por quanto tempo cada visitante navega, em que velocidade e quantas vezes ele pode voltar — as regras são aplicadas sozinhas a cada novo acesso.",
-    image: "/marketing/wifi-visitantes.png",
+    image: "/marketing/3bde0a81-e558-44fe-a033-df042e652452.png",
     alt: "Regras do Wi-Fi dos visitantes: tempo por acesso, velocidade e limite de check-ins",
   },
 ];
