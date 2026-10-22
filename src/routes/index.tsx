@@ -102,7 +102,7 @@ export const Route = createFileRoute("/")({
       { property: "og:image", content: SOCIAL_IMAGE_URL },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:image", content: SOCIAL_IMAGE_URL },
-      { name: "theme-color", content: "#050912" },
+      { name: "theme-color", content: "#05080F" },
     ],
   }),
   component: SalesHomePage,
@@ -254,11 +254,11 @@ function ProductWalkthrough() {
   return (
     <section
       id="como-funciona"
-      className="scroll-mt-20 border-b border-white/[.07] bg-[#060c16]"
+      className="scroll-mt-20 border-b border-white/[.07] bg-[#070D13]"
     >
       <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
         <div className="max-w-3xl">
-          <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-300">
+          <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
             Por dentro da plataforma
           </p>
           <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
@@ -266,15 +266,15 @@ function ProductWalkthrough() {
           </h2>
         </div>
 
-        <div className="mt-10 overflow-hidden rounded-3xl border border-cyan-300/15 bg-[#0b1422] shadow-[0_24px_80px_rgba(0,0,0,.28)] lg:grid lg:grid-cols-[minmax(0,1.3fr)_minmax(280px,.7fr)]">
-          <div className="min-w-0 border-b border-white/10 lg:border-b-0 lg:border-r">
-            <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3 text-xs text-slate-400">
+        <div className="mt-10 overflow-hidden rounded-3xl border border-cyan-400/15 bg-[#0B1118] shadow-[0_24px_80px_rgba(0,0,0,.28)] lg:grid lg:grid-cols-[minmax(0,1.3fr)_minmax(280px,.7fr)]">
+          <div className="min-w-0 border-b border-white/[.08] lg:border-b-0 lg:border-r">
+            <div className="flex items-center gap-2 border-b border-white/[.08] px-4 py-3 text-xs text-slate-400">
               <span className="size-2 rounded-full bg-rose-400" />
               <span className="size-2 rounded-full bg-amber-300" />
               <span className="size-2 rounded-full bg-emerald-400" />
               <span className="ml-3 truncate">ManosTech System · demonstração real</span>
             </div>
-            <div ref={visualRef} className="relative aspect-[989/580] bg-[#050912]">
+            <div ref={visualRef} className="relative aspect-[989/580] bg-[#05080F]">
               <video
                 ref={videoRef}
                 src="/marketing/criacao-campanha.mp4"
@@ -299,7 +299,7 @@ function ProductWalkthrough() {
                 />
               ))}
             </div>
-            <p className="border-t border-white/10 px-4 py-2.5 text-[11px] leading-5 text-slate-400">
+            <p className="border-t border-white/[.08] px-4 py-2.5 text-[11px] leading-5 text-slate-400">
               Vídeo da campanha seguido de capturas reais em carrossel. Use as setas para avançar ou
               voltar. A disponibilidade de recursos depende do equipamento e do plano contratado.
             </p>
@@ -307,7 +307,7 @@ function ProductWalkthrough() {
 
           <div className="flex min-w-0 flex-col justify-between p-5 sm:p-7">
             <div>
-              <p className="text-xs font-bold tracking-[.18em] text-cyan-300">
+              <p className="text-xs font-bold tracking-[.18em] text-cyan-400">
                 {activeWalkthroughSlide.eyebrow}
               </p>
               <h3 className="mt-4 font-display text-2xl font-bold leading-tight sm:text-3xl">
@@ -330,7 +330,7 @@ function ProductWalkthrough() {
                     onClick={() => goToSlide(index)}
                     aria-label={`Mostrar etapa ${index + 1}: ${slide.title}`}
                     aria-current={index === activeSlide ? "step" : undefined}
-                    className={`h-2 min-w-0 flex-1 rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-300 ${index === activeSlide ? "bg-cyan-300" : "bg-white/20 hover:bg-white/40"}`}
+                    className={`h-2 min-w-0 flex-1 rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-400 ${index === activeSlide ? "bg-cyan-400" : "bg-white/20 hover:bg-white/40"}`}
                   />
                 ))}
               </div>
@@ -344,7 +344,7 @@ function ProductWalkthrough() {
                     type="button"
                     onClick={() => goToSlide(activeSlide - 1)}
                     aria-label="Etapa anterior"
-                    className="grid size-10 place-items-center rounded-full border border-white/20 text-white transition hover:border-cyan-300/60 hover:bg-cyan-300/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+                    className="grid size-10 place-items-center rounded-full border border-white/20 text-white transition hover:border-cyan-400/60 hover:bg-cyan-400/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400"
                   >
                     <ChevronLeft className="size-5" aria-hidden="true" />
                   </button>
@@ -352,7 +352,7 @@ function ProductWalkthrough() {
                     type="button"
                     onClick={() => goToSlide(activeSlide + 1)}
                     aria-label="Próxima etapa"
-                    className="grid size-10 place-items-center rounded-full border border-white/20 text-white transition hover:border-cyan-300/60 hover:bg-cyan-300/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+                    className="grid size-10 place-items-center rounded-full border border-white/20 text-white transition hover:border-cyan-400/60 hover:bg-cyan-400/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400"
                   >
                     <ChevronRight className="size-5" aria-hidden="true" />
                   </button>
@@ -412,14 +412,14 @@ function ScaledPortalFrame({
   }, [started]);
 
   return (
-    <div ref={frameRef} className={`relative overflow-hidden bg-[#070b13] ${className}`}>
+    <div ref={frameRef} className={`relative overflow-hidden bg-[#05080F] ${className}`}>
       <iframe
         title={title}
         src={started ? src : src.replace("autoplay=1", "autoplay=0")}
         loading="lazy"
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
         tabIndex={-1}
-        className="absolute left-0 top-0 border-0 bg-[#070b13]"
+        className="absolute left-0 top-0 border-0 bg-[#05080F]"
         style={{
           width: viewportWidth,
           height: viewportHeight,
@@ -437,7 +437,7 @@ function MobileCheckinDemo() {
 
   return (
     <div className="mx-auto w-full max-w-[340px] px-2">
-      <div className="relative rounded-[2.7rem] border-[3px] border-slate-400/80 bg-gradient-to-br from-slate-600 via-slate-900 to-slate-500 p-[5px] shadow-[0_32px_75px_rgba(0,0,0,.58),0_0_35px_rgba(34,211,238,.08)]">
+      <div className="relative rounded-[2.7rem] border-[3px] border-slate-400/80 bg-gradient-to-br from-slate-600 via-slate-900 to-slate-500 p-[5px] shadow-[0_32px_75px_rgba(0,0,0,.58),0_0_35px_rgba(34,211,238,.04)]">
         <span className="absolute -left-[5px] top-28 h-14 w-[3px] rounded-l bg-slate-500" aria-hidden="true" />
         <span className="absolute -right-[5px] top-36 h-20 w-[3px] rounded-r bg-slate-500" aria-hidden="true" />
         <div className="pointer-events-none absolute left-1/2 top-3 z-20 h-[18px] w-[82px] -translate-x-1/2 rounded-full border border-white/[.06] bg-[#03060b] shadow-md" aria-hidden="true" />
@@ -459,10 +459,10 @@ function NotebookCheckinDemo() {
   const [replay, setReplay] = useState(0);
   return (
     <div className="mx-auto w-full max-w-[820px] px-2">
-      <div className="overflow-hidden rounded-t-[1.25rem] border-[4px] border-b-0 border-slate-500/90 bg-[#070b13] p-2 shadow-[0_30px_70px_rgba(0,0,0,.48),0_0_35px_rgba(34,211,238,.06)] sm:p-3">
+      <div className="overflow-hidden rounded-t-[1.25rem] border-[4px] border-b-0 border-slate-500/90 bg-[#05080F] p-2 shadow-[0_30px_70px_rgba(0,0,0,.48),0_0_35px_rgba(34,211,238,.03)] sm:p-3">
         <div className="mx-auto mb-2 size-1.5 rounded-full bg-slate-500" aria-hidden="true" />
-        <div className="overflow-hidden rounded-md border border-white/10">
-          <div className="flex h-7 items-center gap-1.5 border-b border-white/10 bg-[#121a28] px-2.5">
+        <div className="overflow-hidden rounded-md border border-white/[.08]">
+          <div className="flex h-7 items-center gap-1.5 border-b border-white/[.08] bg-[#131920] px-2.5">
             <span className="size-1.5 rounded-full bg-rose-400/90" />
             <span className="size-1.5 rounded-full bg-amber-300/90" />
             <span className="size-1.5 rounded-full bg-emerald-400/90" />
@@ -511,13 +511,13 @@ function SalesHomePage() {
   }, []);
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#050912] text-slate-100">
-      <header className="sticky top-0 z-30 border-b border-white/10 bg-[#050912]/90 backdrop-blur-xl">
+    <main className="min-h-screen overflow-hidden bg-[#05080F] text-slate-100">
+      <header className="sticky top-0 z-30 border-b border-white/[.08] bg-[#05080F]/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3 sm:px-8">
           <Link to="/" aria-label="ManosTech System — início" className="flex items-center gap-3">
             <img src={logo} alt="Manos Tech" className="h-11 w-11 rounded-full object-contain" />
             <span className="font-display text-base font-bold tracking-tight sm:text-lg">
-              ManosTech <span className="hidden text-cyan-300 sm:inline">System</span>
+              ManosTech <span className="hidden text-cyan-400 sm:inline">System</span>
             </span>
           </Link>
           <nav className="flex items-center gap-2 sm:gap-6">
@@ -544,16 +544,16 @@ function SalesHomePage() {
       </header>
 
       <section className="relative isolate">
-        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_20%_0%,rgba(0,194,204,.15),transparent_42%),radial-gradient(ellipse_at_95%_25%,rgba(25,98,190,.16),transparent_36%)]" />
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_20%_0%,rgba(0,194,204,.06),transparent_42%),radial-gradient(ellipse_at_95%_25%,rgba(25,98,190,.05),transparent_36%)]" />
         <div className="mx-auto grid max-w-7xl items-center gap-12 px-5 pb-20 pt-16 sm:px-8 sm:pb-28 sm:pt-24 lg:grid-cols-[1.1fr_.9fr] lg:gap-16">
           <ScrollReveal className="h-full">
           <div>
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/5 px-3 py-1.5 text-xs font-semibold tracking-wide text-cyan-200">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/5 px-3 py-1.5 text-xs font-semibold tracking-wide text-cyan-200">
               <Wifi className="size-3.5" /> WI-FI PARA CLIENTES, COM A SUA MARCA
             </div>
             <h1 className="max-w-3xl font-display text-4xl font-bold leading-[1.08] tracking-tight sm:text-5xl lg:text-6xl">
               O cliente se conecta.{" "}
-              <span className="bg-gradient-to-r from-cyan-300 to-blue-400 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
                 Sua marca aparece.
               </span>
             </h1>
@@ -566,7 +566,7 @@ function SalesHomePage() {
               <button
                 type="button"
                 onClick={openPreSaleChat}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-cyan-400 px-6 font-bold text-slate-950 transition hover:bg-cyan-300"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-cyan-400 px-6 font-bold text-slate-950 transition hover:bg-cyan-400"
               >
                 Solicitar uma proposta <ArrowRight className="size-4" />
               </button>
@@ -583,7 +583,7 @@ function SalesHomePage() {
             >
               {["Portal com sua marca", "Regras de acesso", "Banners de divulgação"].map((item) => (
                 <li key={item} className="flex items-center gap-2">
-                  <span className="size-1.5 rounded-full bg-cyan-300" aria-hidden="true" />
+                  <span className="size-1.5 rounded-full bg-cyan-400" aria-hidden="true" />
                   {item}
                 </li>
               ))}
@@ -608,16 +608,16 @@ function SalesHomePage() {
           }
           aria-label="Subir ao topo"
           title="Subir ao topo"
-          className="fixed bottom-5 left-5 z-[150] grid size-14 place-items-center rounded-full border border-cyan-200/25 bg-[#0b1220] text-cyan-100 shadow-[0_12px_40px_rgba(0,0,0,.38)] transition duration-200 hover:-translate-y-0.5 hover:border-cyan-400 hover:bg-cyan-400 hover:text-slate-950 focus-visible:border-cyan-400 focus-visible:bg-cyan-400 focus-visible:text-slate-950 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-200 active:border-cyan-400 active:bg-cyan-400 active:text-slate-950 sm:bottom-6 sm:left-6"
+          className="fixed bottom-5 left-5 z-[150] grid size-14 place-items-center rounded-full border border-cyan-200/25 bg-[#0B1118] text-cyan-100 shadow-[0_12px_40px_rgba(0,0,0,.38)] transition duration-200 hover:-translate-y-0.5 hover:border-cyan-400 hover:bg-cyan-400 hover:text-slate-950 focus-visible:border-cyan-400 focus-visible:bg-cyan-400 focus-visible:text-slate-950 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-200 active:border-cyan-400 active:bg-cyan-400 active:text-slate-950 sm:bottom-6 sm:left-6"
         >
           <ArrowUp className="size-5" aria-hidden="true" />
         </button>
       ) : null}
 
-      <section id="portais" className="scroll-mt-20 border-y border-white/[.07] bg-[#080e18]">
+      <section id="portais" className="scroll-mt-20 border-y border-white/[.07] bg-[#070D13]">
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
           <ScrollReveal className="mx-auto max-w-2xl text-center">
-            <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-300">
+            <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
               Exemplos publicados
             </p>
             <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
@@ -632,12 +632,12 @@ function SalesHomePage() {
             <ScrollReveal className="mx-auto w-full max-w-sm">
               <div className="mb-5 flex items-center justify-between">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[.17em] text-cyan-300">
+                  <p className="text-[10px] font-bold uppercase tracking-[.17em] text-cyan-400">
                     Modelo 01
                   </p>
                   <h3 className="mt-1 text-base font-semibold">Padaria Efraim · celular</h3>
                 </div>
-                <span className="rounded-full border border-cyan-300/20 bg-cyan-300/[.06] px-3 py-1 text-[9px] font-semibold text-cyan-100">
+                <span className="rounded-full border border-cyan-400/20 bg-cyan-400/[.06] px-3 py-1 text-[9px] font-semibold text-cyan-100">
                   Portal real
                 </span>
               </div>
@@ -649,7 +649,7 @@ function SalesHomePage() {
                 href="https://manostech-system.com.br/portal/6us8mzhk8ffh"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mx-auto mt-3 flex min-h-11 w-fit items-center gap-2 rounded-full border border-cyan-300/30 px-4 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-300/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+                className="mx-auto mt-3 flex min-h-11 w-fit items-center gap-2 rounded-full border border-cyan-400/30 px-4 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-400/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400"
               >
                 Abrir portal da Padaria Efraim <ArrowRight className="size-4" aria-hidden="true" />
               </a>
@@ -688,7 +688,7 @@ function SalesHomePage() {
       <section id="recursos" className="border-y border-white/[.07] bg-white/[.015]">
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
           <ScrollReveal className="max-w-2xl">
-            <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-300">
+            <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
               A plataforma
             </p>
             <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
@@ -706,9 +706,9 @@ function SalesHomePage() {
             {features.map(({ icon: Icon, title, body }, index) => (
               <ScrollReveal key={title} className="h-full" delay={(index % 3) * 90}>
               <article
-                className="group h-full min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-[#0a101c] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-300/50 hover:bg-cyan-300/[.04] hover:shadow-[0_14px_40px_rgba(34,211,238,.12)] focus-within:-translate-y-1 focus-within:border-cyan-300/50 active:scale-[.99] sm:p-6"
+                className="group h-full min-w-0 overflow-hidden rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/50 hover:bg-cyan-400/[.04] hover:shadow-[0_14px_40px_rgba(34,211,238,.03)] focus-within:-translate-y-1 focus-within:border-cyan-400/50 active:scale-[.99] sm:p-6"
               >
-                <span className="grid size-11 place-items-center rounded-2xl border border-cyan-300/15 bg-cyan-300/[.07] text-cyan-300 transition-all duration-300 group-hover:border-cyan-300/40 group-hover:bg-cyan-300/15 group-hover:shadow-[0_0_22px_rgba(34,211,238,.18)]">
+                <span className="grid size-11 place-items-center rounded-2xl border border-cyan-400/15 bg-cyan-400/[.07] text-cyan-400 transition-all duration-300 group-hover:border-cyan-400/40 group-hover:bg-cyan-400/15 group-hover:shadow-[0_0_22px_rgba(34,211,238,.10)]">
                   <Icon className="size-5 transition-transform duration-300 group-hover:scale-110" />
                 </span>
                 <h3 className="mt-5 break-words font-semibold">{title}</h3>
@@ -720,7 +720,7 @@ function SalesHomePage() {
         </div>
       </section>
 
-      <section className="border-b border-white/[.07] bg-[#080e18]">
+      <section className="border-b border-white/[.07] bg-[#070D13]">
         <ScrollReveal>
         <div className="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-10 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -741,7 +741,7 @@ function SalesHomePage() {
         <div className="grid gap-10 lg:grid-cols-[.8fr_1.2fr] lg:items-start">
           <ScrollReveal>
           <div>
-            <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-300">
+            <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
               Contratação simples
             </p>
             <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
@@ -760,9 +760,9 @@ function SalesHomePage() {
             {commercialTerms.map(({ icon: Icon, title, body }, index) => (
               <article
                 key={title}
-                className="group flex min-w-0 gap-4 rounded-2xl border border-white/10 bg-[#0a101c] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-300/45 hover:bg-cyan-300/[.035] hover:shadow-[0_12px_30px_rgba(34,211,238,.1)] focus-within:-translate-y-1 focus-within:border-cyan-300/45 active:scale-[.99] sm:p-6"
+                className="group flex min-w-0 gap-4 rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/45 hover:bg-cyan-400/[.035] hover:shadow-[0_12px_30px_rgba(34,211,238,.05)] focus-within:-translate-y-1 focus-within:border-cyan-400/45 active:scale-[.99] sm:p-6"
               >
-                <span className="grid size-11 shrink-0 place-items-center rounded-2xl border border-cyan-300/15 bg-cyan-300/[.07] text-cyan-300 transition-all duration-300 group-hover:border-cyan-300/40 group-hover:bg-cyan-300/15 group-hover:shadow-[0_0_22px_rgba(34,211,238,.18)]">
+                <span className="grid size-11 shrink-0 place-items-center rounded-2xl border border-cyan-400/15 bg-cyan-400/[.07] text-cyan-400 transition-all duration-300 group-hover:border-cyan-400/40 group-hover:bg-cyan-400/15 group-hover:shadow-[0_0_22px_rgba(34,211,238,.10)]">
                   <Icon className="size-5 transition-transform duration-300 group-hover:scale-110" />
                 </span>
                 <div>
@@ -774,8 +774,8 @@ function SalesHomePage() {
                 </div>
               </article>
             ))}
-            <article className="group flex min-w-0 gap-4 rounded-2xl border border-white/10 bg-[#0a101c] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-300/45 hover:bg-cyan-300/[.035] hover:shadow-[0_12px_30px_rgba(34,211,238,.1)] focus-within:-translate-y-1 focus-within:border-cyan-300/45 active:scale-[.99] sm:p-6">
-              <span className="grid size-11 shrink-0 place-items-center rounded-2xl border border-cyan-300/15 bg-cyan-300/[.07] text-cyan-300 transition-all duration-300 group-hover:border-cyan-300/40 group-hover:bg-cyan-300/15 group-hover:shadow-[0_0_22px_rgba(34,211,238,.18)]">
+            <article className="group flex min-w-0 gap-4 rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/45 hover:bg-cyan-400/[.035] hover:shadow-[0_12px_30px_rgba(34,211,238,.05)] focus-within:-translate-y-1 focus-within:border-cyan-400/45 active:scale-[.99] sm:p-6">
+              <span className="grid size-11 shrink-0 place-items-center rounded-2xl border border-cyan-400/15 bg-cyan-400/[.07] text-cyan-400 transition-all duration-300 group-hover:border-cyan-400/40 group-hover:bg-cyan-400/15 group-hover:shadow-[0_0_22px_rgba(34,211,238,.10)]">
                 <CircleDollarSign className="size-5 transition-transform duration-300 group-hover:scale-110" />
               </span>
               <div className="min-w-0">
