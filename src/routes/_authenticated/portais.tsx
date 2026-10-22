@@ -7,7 +7,6 @@ import { PortalQrCard } from "@/components/app/portal-qr-card";
 import { useAccess } from "@/hooks/use-access";
 import { getPortals, type PortalItem } from "@/lib/portals.functions";
 import { useServerFn } from "@tanstack/react-start";
-import { HotspotConfigDialog } from "@/components/app/hotspot-config-dialog";
 
 export const Route = createFileRoute("/_authenticated/portais")({
   head: () => ({
@@ -97,15 +96,6 @@ function PortalsPage() {
                   .map((item) => (
                     <div key={`${item.kind}-${item.id}`} className="space-y-3">
                       <PortalQrCard item={item} baseUrl={baseUrl} canManage={userRole === "adm"} />
-                      {(userRole === "matriz" || userRole === "filial") && item.kind !== "Evento" ? (
-                        <HotspotConfigDialog
-                          kind={item.kind === "Sede" ? "company" : "branch"}
-                          targetId={item.id}
-                          unitName={item.name}
-                          portalSlug={item.slug}
-                          baseUrl={baseUrl}
-                        />
-                      ) : null}
                     </div>
                   ))}
               </div>
