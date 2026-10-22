@@ -9,6 +9,7 @@ import { z } from "zod";
 
 import { PageHeader } from "@/components/app/page-header";
 import { SeuPortalSection } from "@/components/app/seu-portal-section";
+import { BannerAgentHost } from "@/components/app/banner-agent-host";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -1689,6 +1690,8 @@ function CampaignsPage() {
       />
 
       {(isMatriz || isBranch) && <SeuPortalSection />}
+
+      {(isMatriz || isBranch) && <BannerAgentHost />}
 
       <Card className="glass-panel">
         <CardContent className="p-0">

@@ -47,7 +47,7 @@ import robotMascot from "@/assets/manos-tech-robot.png";
 import { useAccess } from "@/hooks/use-access";
 
 
-function BannerEventObserver({ onOpen }: { onOpen: (p: string) => void }) {
+export function BannerEventObserver({ onOpen }: { onOpen: (p: string) => void }) {
   useEffect(() => {
     const handler = (e: any) => onOpen(e.detail.prompt);
     window.addEventListener('open-banner-agent', handler);
@@ -765,7 +765,7 @@ function ClientAiAgentCard({
   return null;
 }
 
-const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) => void }, any>((_props, ref) => {
+export const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) => void }, any>((_props, ref) => {
   const ask = useServerFn(askBannerAgent);
   const queryClient = useQueryClient();
   const { data: access } = useAccess();
