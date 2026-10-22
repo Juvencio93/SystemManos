@@ -556,6 +556,11 @@ function ResumoSemanalCard({ data }: { data: Insights | undefined }) {
         </Button>
       </CardHeader>
       <CardContent>
+        {data.conexoesSemana === 0 && data.leadsNovosSemana === 0 ? (
+          <p className="text-sm font-medium leading-relaxed text-muted-foreground">
+            Semana sem movimento por aqui: nenhum acesso registrado. Deixe o QR Code bem visível no balcão e nas mesas pra próxima semana render — cada conexão pode virar um contato novo.
+          </p>
+        ) : (
         <ul className="space-y-2 text-sm font-medium text-muted-foreground">
           <li className="flex flex-wrap items-center gap-2">
             <strong className="font-display text-lg font-black text-foreground">{data.conexoesSemana} acessos</strong> na sua rede esta semana
@@ -574,6 +579,7 @@ function ResumoSemanalCard({ data }: { data: Insights | undefined }) {
             <li>Campanha destaque: <strong className="text-foreground">{data.topCampanhaSemana.name}</strong>, com {data.topCampanhaSemana.total} acessos</li>
           )}
         </ul>
+        )}
         <p className="mt-3 text-xs text-muted-foreground">Um relatório de uma página com a sua marca — pronto pra mostrar pro sócio ou mandar pra equipe.</p>
       </CardContent>
     </Card>
@@ -590,7 +596,18 @@ function HeroMatriz({ data, isLoading }: { data: Insights | undefined; isLoading
         </CardHeader>
         <CardContent>
           <p className="font-display text-4xl font-black tracking-tighter">{v(data?.visitantesHoje)}</p>
-          <div className="mt-3">{data && <DeltaChip atual={data.visitantesHoje} anterior={data.visitantesOntem} sufixo="vs ontem" />}</div>
+          <div className="mt-3">
+            {data && (data.visitantesHoje > 0 ? (
+              <DeltaChip atual={data.visitantesHoje} anterior={data.visitantesOntem} sufixo="vs ontem" />
+            ) : (
+              <>
+                <p className="text-xs font-medium leading-relaxed text-muted-foreground">Rede no ar — assim que o primeiro cliente conectar, o movimento aparece aqui.</p>
+                <Link to="/campanhas" className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+                  Ver meu QR Code <ArrowRight className="size-3" />
+                </Link>
+              </>
+            ))}
+          </div>
         </CardContent>
       </Card>
       <Card>
@@ -602,7 +619,7 @@ function HeroMatriz({ data, isLoading }: { data: Insights | undefined; isLoading
             {v(data?.conectadosAgora)}
             <span className="relative flex size-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" /><span className="relative inline-flex size-2.5 rounded-full bg-emerald-400" /></span>
           </p>
-          <p className="mt-3 text-xs font-medium text-muted-foreground">usando seu Wi-Fi neste momento</p>
+          <p className="mt-3 text-xs font-medium text-muted-foreground">{data && data.conectadosAgora === 0 ? "ninguém por aqui agora — sua rede está no ar" : "usando seu Wi-Fi neste momento"}</p>
         </CardContent>
       </Card>
       <Card className="border-primary/20">
@@ -611,13 +628,26 @@ function HeroMatriz({ data, isLoading }: { data: Insights | undefined; isLoading
         </CardHeader>
         <CardContent>
           <p className="font-display text-4xl font-black tracking-tighter text-primary">{v(data?.leadsEmpresa)}</p>
-          <p className="mt-3 text-xs font-medium leading-relaxed text-muted-foreground">
-            {data && data.leadsNovosSemana > 0 ? <>+{data.leadsNovosSemana} esta semana · </> : null}
-            contatos que você pode chamar no WhatsApp
-          </p>
-          <Link to="/visitantes" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
-            Ver minha base <ArrowRight className="size-3" />
-          </Link>
+          {data && data.leadsEmpresa === 0 ? (
+            <>
+              <p className="mt-3 text-xs font-medium leading-relaxed text-muted-foreground">
+                Quem faz check-in no seu Wi-Fi pode entrar pra sua base. Divulgue o QR Code no balcão pra começar.
+              </p>
+              <Link to="/campanhas" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+                Pegar meu QR Code <ArrowRight className="size-3" />
+              </Link>
+            </>
+          ) : (
+            <>
+              <p className="mt-3 text-xs font-medium leading-relaxed text-muted-foreground">
+                {data && data.leadsNovosSemana > 0 ? <>+{data.leadsNovosSemana} esta semana · </> : null}
+                contatos que você pode chamar no WhatsApp
+              </p>
+              <Link to="/visitantes" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+                Ver minha base <ArrowRight className="size-3" />
+              </Link>
+            </>
+          )}
         </CardContent>
       </Card>
       <Card>
@@ -627,7 +657,7 @@ function HeroMatriz({ data, isLoading }: { data: Insights | undefined; isLoading
         <CardContent>
           <p className="font-display text-4xl font-black tracking-tighter">{isLoading ? "…" : (data?.horarioPico ?? "—")}</p>
           <p className="mt-3 text-xs font-medium text-muted-foreground">
-            {data && data.horarioPicoTotal > 0 ? `${data.horarioPicoTotal} acessos nesse horário na semana` : "o horário mais movimentado da sua rede"}
+            {data && data.horarioPicoTotal > 0 ? `${data.horarioPicoTotal} acessos nesse horário na semana` : "aparece aqui quando houver movimento na semana"}
           </p>
         </CardContent>
       </Card>
@@ -638,6 +668,7 @@ function HeroMatriz({ data, isLoading }: { data: Insights | undefined; isLoading
 function MovimentoChart({ data }: { data: Insights | undefined }) {
   const chart = data?.chart ?? [];
   const max = Math.max(1, ...chart.map((c) => c.total));
+  const semMovimento = Boolean(data) && chart.length > 0 && chart.every((c) => c.total === 0);
   return (
     <Card className="mb-10">
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
@@ -658,6 +689,12 @@ function MovimentoChart({ data }: { data: Insights | undefined }) {
             </div>
           ))}
         </div>
+        {semMovimento && (
+          <p className="mt-4 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2.5 text-xs font-medium leading-relaxed text-muted-foreground">
+            Nenhum acesso nos últimos 14 dias. O movimento começa com o QR Code visível: deixe o seu no balcão e nas mesas.{" "}
+            <Link to="/campanhas" className="font-semibold text-primary hover:underline">Pegar meu QR Code</Link>
+          </p>
+        )}
       </CardContent>
     </Card>
   );
@@ -688,7 +725,12 @@ function RankingUnidades({ data }: { data: Insights | undefined }) {
             <span className="hidden shrink-0 md:block"><DeltaChip atual={u.acessosSemana} anterior={u.acessosSemanaAnterior} sufixo="vs sem. passada" /></span>
           </div>
         ))}
-        {ranking.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma unidade encontrada.</p>}
+        {ranking.length > 0 && ranking.every((u) => u.acessosSemana === 0) && (
+          <p className="pt-1 text-xs font-medium leading-relaxed text-muted-foreground">
+            Sem movimento nas unidades esta semana — vale conferir se o QR Code está visível em cada loja.
+          </p>
+        )}
+        {ranking.length === 0 && <p className="text-sm text-muted-foreground">Você ainda não tem unidades com movimento por aqui.</p>}
       </CardContent>
     </Card>
   );
@@ -745,7 +787,18 @@ function HeroFilial({ data, isLoading }: { data: Insights | undefined; isLoading
         </CardHeader>
         <CardContent>
           <p className="font-display text-4xl font-black tracking-tighter">{v(data?.visitantesHoje)}</p>
-          <div className="mt-3">{data && <DeltaChip atual={data.visitantesHoje} anterior={data.visitantesOntem} sufixo="vs ontem" />}</div>
+          <div className="mt-3">
+            {data && (data.visitantesHoje > 0 ? (
+              <DeltaChip atual={data.visitantesHoje} anterior={data.visitantesOntem} sufixo="vs ontem" />
+            ) : (
+              <>
+                <p className="text-xs font-medium leading-relaxed text-muted-foreground">Rede no ar — assim que o primeiro cliente conectar, o movimento aparece aqui.</p>
+                <Link to="/campanhas" className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+                  Ver meu QR Code <ArrowRight className="size-3" />
+                </Link>
+              </>
+            ))}
+          </div>
         </CardContent>
       </Card>
       <Card>
@@ -757,7 +810,7 @@ function HeroFilial({ data, isLoading }: { data: Insights | undefined; isLoading
             {v(data?.conectadosAgora)}
             <span className="relative flex size-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" /><span className="relative inline-flex size-2.5 rounded-full bg-emerald-400" /></span>
           </p>
-          <p className="mt-3 text-xs font-medium text-muted-foreground">usando o Wi-Fi da sua unidade agora</p>
+          <p className="mt-3 text-xs font-medium text-muted-foreground">{data && data.conectadosAgora === 0 ? "ninguém por aqui agora — o Wi-Fi da unidade está no ar" : "usando o Wi-Fi da sua unidade agora"}</p>
         </CardContent>
       </Card>
       {pos ? (
@@ -801,7 +854,7 @@ function HeroFilial({ data, isLoading }: { data: Insights | undefined; isLoading
         <CardContent>
           <p className="font-display text-4xl font-black tracking-tighter">{isLoading ? "…" : (data?.horarioPico ?? "—")}</p>
           <p className="mt-3 text-xs font-medium text-muted-foreground">
-            {data && data.horarioPicoTotal > 0 ? `${data.horarioPicoTotal} acessos nesse horário na semana` : "o horário mais movimentado da sua unidade"}
+            {data && data.horarioPicoTotal > 0 ? `${data.horarioPicoTotal} acessos nesse horário na semana` : "aparece aqui quando houver movimento na semana"}
           </p>
         </CardContent>
       </Card>
@@ -820,11 +873,17 @@ function PosicaoRedeCard({ data }: { data: Insights | undefined }) {
         <DeltaChip atual={pos.meusAcessosSemana} anterior={pos.meusAcessosSemanaAnterior} sufixo="vs semana passada" />
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-sm font-medium text-muted-foreground">
-          {pos.posicao === 1
-            ? "🏆 Sua unidade lidera a rede esta semana. Parabéns!"
-            : <>Você está em <strong className="text-foreground">{pos.posicao}º lugar</strong> entre {pos.totalUnidades} unidades.</>}
-        </p>
+        {pos.meusAcessosSemana === 0 ? (
+          <p className="text-sm font-medium leading-relaxed text-muted-foreground">
+            Sua unidade ainda não teve acessos esta semana. Confira se o QR Code está visível pros clientes — é ele que traz o movimento.
+          </p>
+        ) : (
+          <p className="text-sm font-medium text-muted-foreground">
+            {pos.posicao === 1
+              ? "🏆 Sua unidade lidera a rede esta semana. Parabéns!"
+              : <>Você está em <strong className="text-foreground">{pos.posicao}º lugar</strong> entre {pos.totalUnidades} unidades.</>}
+          </p>
+        )}
         <div className="space-y-2">
           <div className="flex items-center gap-3">
             <span className="w-28 shrink-0 text-xs font-semibold">Sua unidade</span>
