@@ -622,12 +622,13 @@ function HeroMatriz({ data, isLoading }: { data: Insights | undefined; isLoading
           <p className="mt-3 text-xs font-medium text-muted-foreground">{data && data.conectadosAgora === 0 ? "ninguém por aqui agora — sua rede está no ar" : "usando seu Wi-Fi neste momento"}</p>
         </CardContent>
       </Card>
-      <Card className="border-primary/20">
-        <CardHeader>
+      <Card className="border-primary/40 bg-gradient-to-br from-primary/[0.13] via-primary/[0.04] to-transparent shadow-glow-sm">
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="leading-none text-[13px] font-semibold text-muted-foreground">Sua base de clientes</CardTitle>
+          <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">Seu ativo</span>
         </CardHeader>
         <CardContent>
-          <p className="font-display text-4xl font-black tracking-tighter text-primary">{v(data?.leadsEmpresa)}</p>
+          <p className="font-display text-5xl font-black tracking-tighter text-primary">{v(data?.leadsEmpresa)}</p>
           {data && data.leadsEmpresa === 0 ? (
             <>
               <p className="mt-3 text-xs font-medium leading-relaxed text-muted-foreground">
@@ -756,6 +757,8 @@ function MatrizDashboard({ access }: { access: AccessInfo | null }) {
 
       <HeroMatriz data={data} isLoading={insights.isLoading} />
 
+      <ResumoSemanalCard data={data} />
+
       <div className="mb-10 space-y-6">
         <CampanhaDestaqueCard data={data} isLoading={insights.isLoading} />
         <WifiVisitantesCard />
@@ -764,8 +767,6 @@ function MatrizDashboard({ access }: { access: AccessInfo | null }) {
       <MovimentoChart data={data} />
 
       <RankingUnidades data={data} />
-
-      <ResumoSemanalCard data={data} />
 
       <div className="mt-10">
         <RealtimeHeatmap />
