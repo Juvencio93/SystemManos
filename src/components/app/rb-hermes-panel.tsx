@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Activity, AlertTriangle, CheckCircle2 } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+} from "lucide-react";
 import {
   Area,
   AreaChart,
@@ -198,6 +203,7 @@ function ConteudoHermes({
 }: {
   dados: Extract<HermesRbResult, { ok: true }>;
 }) {
+  const [problemasAbertos, setProblemasAbertos] = useState(false);
   const agora = dados.agora;
   const pontos = dados.serie.map((p) => ({
     rotulo: horaCurta(p.t),
@@ -286,32 +292,51 @@ function ConteudoHermes({
         </div>
       ) : null}
 
-      <div className="mt-3 rounded-lg border border-white/10 bg-black/20 p-3">
-        <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-          Problemas detectados (7 dias)
-        </p>
-        {dados.problemas.length ? (
-          <ul className="space-y-1.5">
-            {dados.problemas.slice(0, 5).map((p, i) => (
-              <li key={i} className="flex items-start gap-2 text-xs">
-                <AlertTriangle
-                  className={`mt-0.5 size-3.5 shrink-0 ${COR_SEVERIDADE[p.severidade] ?? "text-amber-300"}`}
-                />
-                <span className="min-w-0">
-                  <span className="text-foreground">{p.titulo}</span>{" "}
-                  <span className="text-muted-foreground">
-                    · {quandoCurto(p.quando)}
-                  </span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="flex items-center gap-2 text-xs text-muted-foreground">
-            <CheckCircle2 className="size-3.5 text-emerald-400" />
-            Nenhum problema registrado nos últimos 7 dias.
-          </p>
-        )}
+      <div className="mt-3 rounded-lg border border-white/10 bg-black/20">
+        <button
+          type="button"
+          onClick={() => setProblemasAbertos((v) => !v)}
+          aria-expanded={problemasAbertos}
+          className="flex w-full items-center gap-2 p-3 text-left"
+        >
+          <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            Problemas detectados (7 dias)
+          </span>
+          {dados.problemas.length ? (
+            <span className="rounded-full bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-amber-300">
+              {Math.min(dados.problemas.length, 5)}
+            </span>
+          ) : null}
+          <ChevronDown
+            className={`ml-auto size-4 shrink-0 text-muted-foreground transition-transform duration-200 ${problemasAbertos ? "rotate-180" : ""}`}
+          />
+        </button>
+        {problemasAbertos ? (
+          <div className="border-t border-white/10 px-3 pb-3 pt-2.5">
+            {dados.problemas.length ? (
+              <ul className="space-y-1.5">
+                {dados.problemas.slice(0, 5).map((p, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs">
+                    <AlertTriangle
+                      className={`mt-0.5 size-3.5 shrink-0 ${COR_SEVERIDADE[p.severidade] ?? "text-amber-300"}`}
+                    />
+                    <span className="min-w-0">
+                      <span className="text-foreground">{p.titulo}</span>{" "}
+                      <span className="text-muted-foreground">
+                        · {quandoCurto(p.quando)}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                <CheckCircle2 className="size-3.5 text-emerald-400" />
+                Nenhum problema registrado nos últimos 7 dias.
+              </p>
+            )}
+          </div>
+        ) : null}
       </div>
     </>
   );
