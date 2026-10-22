@@ -724,32 +724,7 @@ function SalesHomePage() {
 
       <ScrollReveal><ProductWalkthrough /></ScrollReveal>
 
-      <section className="border-b border-white/[.07] bg-white/[.015]">
-        <div className="mx-auto grid max-w-7xl items-center gap-10 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-2">
-          <div className="max-w-xl">
-            <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">Veja funcionando</p>
-            <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
-              O portal do seu negócio, em menos de 1 minuto
-            </h2>
-            <p className="mt-4 text-base leading-7 text-slate-300">
-              É assim que o seu cliente enxerga o Wi-Fi: a sua marca na tela, um cadastro rapidinho
-              e a navegação liberada. Aperte o play e veja o caminho inteiro.
-            </p>
-          </div>
-          <div className="mx-auto w-full max-w-[300px]">
-            <div className="overflow-hidden rounded-[1.75rem] border border-white/[.08] bg-black shadow-[0_24px_60px_rgba(0,0,0,.4)]">
-              <video className="aspect-[9/16] w-full" controls preload="none" poster="/marketing/divulgacao-poster.jpg" playsInline>
-                <source src="/marketing/divulgacao.mp4" type="video/mp4" />
-              </video>
-            </div>
-            <p className="mt-3 text-center text-[11px] leading-5 text-slate-400">
-              Vídeo de divulgação do ManosTech System.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section id="recursos" className="border-y border-white/[.07] bg-white/[.015]">
+            <section id="recursos" className="border-y border-white/[.07] bg-white/[.015]">
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
           <ScrollReveal className="max-w-2xl">
             <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
