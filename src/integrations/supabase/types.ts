@@ -2432,6 +2432,144 @@ export type Database = {
           },
         ]
       }
+      whatsapp_campanhas: {
+        Row: {
+          branch_id: string | null
+          company_id: string
+          concluida_em: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          instancia_id: string
+          mensagem: string
+          mensagem_2: string | null
+          mensagem_3: string | null
+          status: string
+          titulo: string
+          total: number
+        }
+        Insert: {
+          branch_id?: string | null
+          company_id: string
+          concluida_em?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          instancia_id: string
+          mensagem: string
+          mensagem_2?: string | null
+          mensagem_3?: string | null
+          status?: string
+          titulo: string
+          total?: number
+        }
+        Update: {
+          branch_id?: string | null
+          company_id?: string
+          concluida_em?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          instancia_id?: string
+          mensagem?: string
+          mensagem_2?: string | null
+          mensagem_3?: string | null
+          status?: string
+          titulo?: string
+          total?: number
+        }
+        Relationships: []
+      }
+      whatsapp_fila: {
+        Row: {
+          campanha_id: string
+          company_id: string
+          created_at: string
+          enviado_em: string | null
+          erro: string | null
+          id: string
+          instancia_id: string
+          nome: string | null
+          status: string
+          telefone: string
+          tentativas: number
+          visitor_id: string | null
+        }
+        Insert: {
+          campanha_id: string
+          company_id: string
+          created_at?: string
+          enviado_em?: string | null
+          erro?: string | null
+          id?: string
+          instancia_id: string
+          nome?: string | null
+          status?: string
+          telefone: string
+          tentativas?: number
+          visitor_id?: string | null
+        }
+        Update: {
+          campanha_id?: string
+          company_id?: string
+          created_at?: string
+          enviado_em?: string | null
+          erro?: string | null
+          id?: string
+          instancia_id?: string
+          nome?: string | null
+          status?: string
+          telefone?: string
+          tentativas?: number
+          visitor_id?: string | null
+        }
+        Relationships: []
+      }
+      whatsapp_instancias: {
+        Row: {
+          aquecimento_inicio: string | null
+          branch_id: string | null
+          company_id: string
+          conectada_em: string | null
+          created_at: string
+          id: string
+          instance_name: string
+          numero: string | null
+          proximo_lote_em: string | null
+          status: string
+          ultimo_lote_em: string | null
+          updated_at: string
+        }
+        Insert: {
+          aquecimento_inicio?: string | null
+          branch_id?: string | null
+          company_id: string
+          conectada_em?: string | null
+          created_at?: string
+          id?: string
+          instance_name: string
+          numero?: string | null
+          proximo_lote_em?: string | null
+          status?: string
+          ultimo_lote_em?: string | null
+          updated_at?: string
+        }
+        Update: {
+          aquecimento_inicio?: string | null
+          branch_id?: string | null
+          company_id?: string
+          conectada_em?: string | null
+          created_at?: string
+          id?: string
+          instance_name?: string
+          numero?: string | null
+          proximo_lote_em?: string | null
+          status?: string
+          ultimo_lote_em?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       visitors: {
         Row: {
           city: string | null
