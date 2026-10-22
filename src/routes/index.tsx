@@ -299,16 +299,9 @@ function ProductWalkthrough() {
                   src={ato.image}
                   alt={ato.alt}
                   loading={index === 0 ? "eager" : "lazy"}
-                  className={`absolute inset-0 h-full w-full object-cover object-top ${
+                  className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-500 ${
                     index === activeSlide ? "opacity-100" : "pointer-events-none opacity-0"
                   }`}
-                  style={{
-                    transform: index === activeSlide ? "scale(1.07)" : "scale(1)",
-                    transition:
-                      index === activeSlide
-                        ? "transform 6500ms linear, opacity 500ms ease"
-                        : "opacity 500ms ease",
-                  }}
                   aria-hidden={index !== activeSlide}
                 />
               ))}
