@@ -205,36 +205,36 @@ const commercialTerms = [
 
 const ATOS = [
   {
-    eyebrow: "01 · VOCÊ MONTA A DIVULGAÇÃO",
-    title: "Sua promoção no ar, montada por você",
+    eyebrow: "01 · SEU NEGÓCIO HOJE",
+    title: "Sua base e seu movimento, numa tela só",
     description:
-      "Logo, chamada, banners e onde a campanha aparece: tudo num formulário só, feito pra quem não é da área de tecnologia. Montou, salvou, está valendo.",
-    image: "/marketing/campanha-configuracao.png",
-    alt: "Formulário de criação de campanha do ManosTech System",
+      "Acessos de hoje, quem está conectado agora e a sua base de clientes crescendo: a capa do painel mostra tudo num relance, sem relatório complicado.",
+    image: "/marketing/capa-matriz.png",
+    alt: "Capa do painel da matriz: acessos de hoje, conectados agora, base de clientes e resumo da semana",
   },
   {
-    eyebrow: "02 · COM A SUA MARCA",
-    title: "O portal fica com a cara do seu negócio",
+    eyebrow: "02 · SUA DIVULGAÇÃO",
+    title: "Campanha no ar e QR Code na mão",
     description:
-      "Cores e estilo visual do portal acompanham a identidade da sua empresa. Nada de tela genérica: quem conecta reconhece o seu negócio na hora.",
-    image: "/marketing/campanha-estilos.webp",
-    alt: "Escolha do estilo visual do portal com as cores da empresa",
+      "Monte a campanha, gere banners com a ajuda da IA e imprima o QR Code do seu portal: quem escanear cai direto na sua página.",
+    image: "/marketing/campanhas-matriz.png",
+    alt: "Página de campanhas: link e QR Code do portal e as campanhas da empresa",
   },
   {
     eyebrow: "03 · NO CELULAR DO CLIENTE",
-    title: "Ele vê sua oferta, se cadastra e já navega",
+    title: "Ele vê sua marca, sua oferta e se cadastra",
     description:
-      "Este é um portal de verdade, de um cliente de verdade: a Padaria Efraim, com a oferta do dia na tela. O cliente faz um cadastro rapidinho — sem baixar aplicativo — e a internet é liberada.",
-    image: "/marketing/portal-efraim.png",
-    alt: "Portal real da Padaria Efraim: marca, oferta do dia e cadastro do cliente",
+      "Este é um portal de verdade, de um cliente de verdade: a MAEC, com a campanha da semana na tela. O cliente faz um cadastro rapidinho — sem baixar aplicativo — e a internet é liberada. O contato fica salvo na sua base.",
+    image: "/marketing/portal-maec.png",
+    alt: "Portal real da MAEC: marca, campanha da semana e cadastro do cliente",
   },
   {
     eyebrow: "04 · VOCÊ NO CONTROLE",
     title: "Tempo, velocidade e regras definidos por você",
     description:
-      "Você decide por quanto tempo cada cliente navega, em que velocidade e com que limites — e acompanha os acessos e os contatos no mesmo painel, de onde estiver.",
-    image: "/marketing/politica-wifi.png",
-    alt: "Regras de acesso do Wi-Fi: tempo, velocidade e limites por cliente",
+      "Você decide por quanto tempo cada visitante navega, em que velocidade e quantas vezes ele pode voltar — as regras são aplicadas sozinhas a cada novo acesso.",
+    image: "/marketing/wifi-visitantes.png",
+    alt: "Regras do Wi-Fi dos visitantes: tempo por acesso, velocidade e limite de check-ins",
   },
 ];
 
