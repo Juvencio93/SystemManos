@@ -22,6 +22,7 @@ import {
   Users,
   Wallet,
   HandCoins,
+  KeyRound,
   Wifi,
   Search,
   Maximize2,
@@ -68,6 +69,8 @@ import { getUserGreetingName } from "@/lib/name-utils";
 import { hotspotActionError, postHotspotAction } from "@/lib/hotspot-client";
 
 import { getInsights } from "@/lib/insights.functions";
+import { getFinanceiroStats } from "@/lib/financeiro.functions";
+import { listPasswordResetRequests } from "@/lib/password-reset.functions";
 import { getCurrentMatrizCharge } from "@/lib/billing.functions";
 import { getLatestOperationalAnalysis } from "@/lib/operational.functions";
 import type { Insights } from "@/lib/insights.server";
@@ -405,6 +408,212 @@ function LegacyNetworkMapPanel({ devices, isLoading, overlay, onClose, onMouseLe
   </div>;
 }
 
+
+function HeroAdm({
+  data,
+  isLoading,
+  conectados,
+}: {
+  data: Insights | undefined;
+  isLoading: boolean;
+  conectados: number;
+}) {
+  const v = (n?: number) => (isLoading ? "…" : String(n ?? 0));
+  return (
+    <div className="mb-10">
+      <h3 className="mb-4 text-sm font-semibold">A plataforma hoje</h3>
+      <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.07] via-transparent to-transparent">
+          <CardHeader>
+            <CardTitle className="leading-none text-[13px] font-semibold text-muted-foreground">Acessos hoje</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="font-display text-4xl font-black tracking-tighter">{v(data?.visitantesHoje)}</p>
+            <div className="mt-3">
+              {data && data.visitantesHoje > 0 ? (
+                <DeltaChip atual={data.visitantesHoje} anterior={data.visitantesOntem} sufixo="vs ontem" />
+              ) : (
+                <p className="text-xs font-medium leading-relaxed text-muted-foreground">A rede está no ar — assim que o primeiro cliente conectar em qualquer empresa, o movimento aparece aqui.</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="leading-none text-[13px] font-semibold text-muted-foreground">Conectados agora</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="flex items-center gap-2 font-display text-4xl font-black tracking-tighter">
+              {isLoading ? "…" : conectados}
+              <span className="relative flex size-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" /><span className="relative inline-flex size-2.5 rounded-full bg-emerald-400" /></span>
+            </p>
+            <p className="mt-3 text-xs font-medium text-muted-foreground">{conectados === 0 ? "ninguém conectado agora — a rede está no ar" : "usando o Wi-Fi das empresas neste momento"}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-primary/40 bg-gradient-to-br from-primary/[0.13] via-primary/[0.04] to-transparent shadow-glow-sm">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="leading-none text-[13px] font-semibold text-muted-foreground">Empresas ativas</CardTitle>
+            <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">Sua rede</span>
+          </CardHeader>
+          <CardContent>
+            <p className="font-display text-5xl font-black tracking-tighter text-primary">{v(data?.empresasTotal)}</p>
+            <p className="mt-3 text-xs font-medium leading-relaxed text-muted-foreground">
+              {v(data?.filiaisTotal)} filiais · {v(data?.portaisAtivos)} portais no ar
+            </p>
+            <Link to="/empresas" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+              Ver empresas <ArrowRight className="size-3" />
+            </Link>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="leading-none text-[13px] font-semibold text-muted-foreground">Acessos na semana</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="font-display text-4xl font-black tracking-tighter">{v(data?.conexoesSemana)}</p>
+            <div className="mt-3">
+              {data && data.conexoesSemana > 0 ? (
+                <DeltaChip atual={data.conexoesSemana} anterior={data.conexoesSemanaAnterior} sufixo="vs semana passada" />
+              ) : (
+                <p className="text-xs font-medium leading-relaxed text-muted-foreground">sem movimento na semana ainda</p>
+              )}
+            </div>
+            {data && data.horarioPicoTotal > 0 ? (
+              <p className="mt-2 text-xs font-medium text-muted-foreground">pico às {data.horarioPico} · {data.horarioPicoTotal} acessos</p>
+            ) : null}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function PrecisaDeVoceCard() {
+  const buscarSenhas = useServerFn(listPasswordResetRequests);
+  const buscarFin = useServerFn(getFinanceiroStats);
+
+  const senhas = useQuery({
+    queryKey: ["dash-precisa-senhas"],
+    queryFn: () => buscarSenhas(),
+    staleTime: 60_000,
+  });
+  const fin = useQuery({
+    queryKey: ["dash-precisa-financeiro"],
+    queryFn: () => buscarFin({ data: { period: "todas-em-aberto" } }),
+    staleTime: 60_000,
+  });
+  const empresas = useQuery({
+    queryKey: ["dash-precisa-empresas-novas"],
+    queryFn: async () => {
+      const desde = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+      const { count } = await (supabase as any)
+        .from("companies")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", desde);
+      return count ?? 0;
+    },
+    staleTime: 60_000,
+  });
+
+  const agoraMs = Date.now();
+  const senhasPendentes = (senhas.data ?? []).filter(
+    (r) => r.status === "pending" && new Date(r.expires_at).getTime() > agoraMs,
+  ).length;
+  const finData = fin.data as
+    | { emAtraso?: number; emAtrasoList?: unknown[] }
+    | undefined;
+  const faturasVencidas = finData?.emAtrasoList?.length ?? 0;
+  const totalVencido = finData?.emAtraso ?? 0;
+  const empresasNovas = empresas.data ?? 0;
+  const carregando = senhas.isLoading || fin.isLoading || empresas.isLoading;
+  const decisoes = senhasPendentes + faturasVencidas;
+
+  const linhas: {
+    key: string;
+    icon: typeof KeyRound;
+    cor: string;
+    titulo: ReactNode;
+    detalhe: string;
+    to: string;
+    acao: string;
+  }[] = [];
+  if (senhasPendentes > 0)
+    linhas.push({
+      key: "senhas",
+      icon: KeyRound,
+      cor: "bg-amber-400/15 text-amber-300",
+      titulo: <><b>{senhasPendentes}</b> {senhasPendentes === 1 ? "pedido" : "pedidos"} de redefinição de senha</>,
+      detalhe: "aguardando sua aprovação — o pedido expira em 24h",
+      to: "/configuracoes",
+      acao: "Aprovar",
+    });
+  if (faturasVencidas > 0)
+    linhas.push({
+      key: "faturas",
+      icon: Wallet,
+      cor: "bg-red-400/15 text-red-300",
+      titulo: <><b>{faturasVencidas}</b> {faturasVencidas === 1 ? "fatura vencida" : "faturas vencidas"}</>,
+      detalhe: `${brl(totalVencido)} em atraso no total`,
+      to: "/financeiro/em-atraso",
+      acao: "Ver cobranças",
+    });
+  if (empresasNovas > 0)
+    linhas.push({
+      key: "empresas",
+      icon: Building2,
+      cor: "bg-primary/15 text-primary",
+      titulo: <><b>{empresasNovas}</b> {empresasNovas === 1 ? "empresa nova" : "empresas novas"} esta semana</>,
+      detalhe: "cadastradas nos últimos 7 dias",
+      to: "/empresas",
+      acao: "Ver empresas",
+    });
+
+  return (
+    <Card className="mb-10">
+      <CardHeader className="flex flex-row items-center gap-2">
+        <CardTitle className="text-sm font-semibold">Precisa de você</CardTitle>
+        {decisoes > 0 ? (
+          <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-semibold leading-none text-amber-300">
+            {decisoes}
+          </span>
+        ) : null}
+      </CardHeader>
+      <CardContent>
+        {carregando ? (
+          <p className="text-xs text-muted-foreground">Conferindo suas pendências…</p>
+        ) : linhas.length ? (
+          <ul className="divide-y divide-white/5">
+            {linhas.map((l) => (
+              <li key={l.key}>
+                <Link
+                  to={l.to}
+                  className="group flex items-center gap-3 py-2.5 first:pt-0 last:pb-0"
+                >
+                  <span className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${l.cor}`}>
+                    <l.icon className="size-4" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm">{l.titulo}</span>
+                    <span className="block text-xs text-muted-foreground">{l.detalhe}</span>
+                  </span>
+                  <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-primary group-hover:underline">
+                    {l.acao} <ArrowRight className="size-3" />
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <CheckCircle2 className="size-4 text-emerald-400" />
+            Tudo certo por aqui — nada esperando a sua decisão.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function AdminDashboard({ access }: { access: AccessInfo | null }) {
   // UX parte 6: o painel de monitoramento abre SÓ no clique. Antes,
   // passar o mouse sobre o card "Hotspot" abria o painel em tela cheia
@@ -501,6 +710,10 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
       title={`Olá, ${getUserGreetingName(access, "Administrador")}`}
       subtitle="Gerenciamento global da plataforma Manos Tech."
     >
+      <HeroAdm data={data} isLoading={insights.isLoading} conectados={connectedClients} />
+
+      <PrecisaDeVoceCard />
+
       <div className="mb-10">
         <AiAgentCard role="adm" />
       </div>
