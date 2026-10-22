@@ -25,7 +25,7 @@ export function CampanhaDestaqueCard({
 
   if (!campanha) {
     return (
-      <Card className="border-primary/25 bg-gradient-to-br from-primary/10 via-transparent to-transparent">
+      <Card className="border-primary/15 bg-gradient-to-br from-primary/5 via-transparent to-transparent">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Megaphone className="size-5 text-primary" /> Campanha em destaque
@@ -68,7 +68,7 @@ export function CampanhaDestaqueCard({
   }
 
   return (
-    <Card className="border-primary/25 bg-gradient-to-br from-primary/10 via-transparent to-transparent">
+    <Card className="border-primary/15 bg-gradient-to-br from-primary/5 via-transparent to-transparent">
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
         <CardTitle className="flex items-center gap-2">
           <Megaphone className="size-5 text-primary" /> Campanha em destaque
