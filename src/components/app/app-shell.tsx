@@ -11,7 +11,6 @@ import {
   LogOut,
   Menu,
   Megaphone,
-  MessageCircle,
   QrCode,
   ReceiptText,
   Settings,
@@ -79,7 +78,6 @@ const NAV: NavItem[] = [
   { to: "/assinatura", label: "Minha Assinatura", icon: ReceiptText, roles: ["matriz"], group: "Comercial" },
   { to: "/portais", label: "Portais & QR", icon: QrCode, roles: ["adm", "matriz", "filial", "revenda"], group: "Marketing" },
   { to: "/campanhas", label: "Campanhas", icon: Megaphone, roles: ["adm", "matriz", "filial", "revenda"], group: "Marketing" },
-  { to: "/whatsapp", label: "Disparos WhatsApp", icon: MessageCircle, roles: ["matriz", "filial"], group: "Marketing" },
   {
     to: "/relatorios",
     label: "Relatórios",
