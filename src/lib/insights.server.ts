@@ -52,7 +52,14 @@ export type Insights = {
   horarioPicoTotal: number;
   devices: Record<DeviceBucket, number>;
   campanhasHoje: CampaignInsight[];
-  campanhaAtiva: { id: string; name: string } | null;
+  campanhaAtiva: {
+    id: string;
+    name: string;
+    startedAt: string | null;
+    endedAt: string | null;
+    acessos: number;
+    contatos: number;
+  } | null;
   topCampanha: { id: string; name: string; total: number } | null;
   chart: { date: string; total: number }[];
   finance: { contratado: number; recebido: number; custo: number } | null;
@@ -115,7 +122,7 @@ export async function computeInsights(
 
   let campaignQuery = supabase
     .from("campaigns")
-    .select("id, name, status, branch_id, event_id")
+    .select("id, name, status, branch_id, event_id, started_at, ended_at")
     .order("created_at", { ascending: false });
   if (role === "filial" && branchId) {
     campaignQuery = campaignQuery.eq("branch_id", branchId);
@@ -294,6 +301,35 @@ export async function computeInsights(
 
   const ativa = campaigns.find((c) => c.status === "ativa") ?? null;
 
+  // Destaque da capa: numeros EXATOS da campanha ativa (o recorte de 14
+  // dias das conexoes serve pros graficos; aqui a atribuicao por
+  // campaign_id ja delimita o periodo da campanha).
+  let campanhaDetalhe: Insights["campanhaAtiva"] = null;
+  if (ativa) {
+    let contatosQuery = supabase
+      .from("crm_leads")
+      .select("id", { count: "exact", head: true })
+      .eq("campaign_id", ativa.id);
+    if (role === "filial" && branchId) {
+      contatosQuery = contatosQuery.eq("source_branch_id", branchId);
+    }
+    const [acessosCampRes, contatosCampRes] = await Promise.all([
+      supabase
+        .from("connections")
+        .select("id", { count: "exact", head: true })
+        .eq("campaign_id", ativa.id),
+      contatosQuery,
+    ]);
+    campanhaDetalhe = {
+      id: ativa.id,
+      name: ativa.name,
+      startedAt: (ativa as { started_at?: string | null }).started_at ?? null,
+      endedAt: (ativa as { ended_at?: string | null }).ended_at ?? null,
+      acessos: acessosCampRes.count ?? 0,
+      contatos: contatosCampRes.count ?? 0,
+    };
+  }
+
   // No events handling for now as it's not requested to fix finance section here.
   const financeData = { contratado: 0, recebido: 0, custo: 0 };
 
@@ -391,7 +427,7 @@ export async function computeInsights(
       .filter((c) => c.status === "ativa")
       .map(({ unique, ...rest }) => ({ ...rest, visitantesUnicos: unique.size }))
       .sort((a, b) => b.total - a.total),
-    campanhaAtiva: ativa ? { id: ativa.id, name: ativa.name } : null,
+    campanhaAtiva: campanhaDetalhe,
     topCampanha: topEntry
       ? { id: topEntry[0], name: campaignName.get(topEntry[0]) ?? "Campanha", total: topEntry[1] }
       : null,
