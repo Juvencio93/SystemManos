@@ -441,7 +441,7 @@ function SettingsPage() {
       queryClient.invalidateQueries({ queryKey: ["settings-data"] });
       queryClient.invalidateQueries({ queryKey: ["access"] });
 
-      toast.success("Configurações salvas com sucesso!");
+      toast.success("Pronto! Configurações salvas.");
 
       // Short delay to allow re-fetching before redirect, ensuring greeting is updated
       setTimeout(() => {
@@ -673,7 +673,7 @@ function SettingsPage() {
       setPendingLogoUrl(finalResult.publicUrl);
       setLogoUrl(finalResult.publicUrl);
       setUploadState("ready");
-      toast.success("Imagem processada e carregada com sucesso!");
+      toast.success("Imagem pronta e carregada.");
     } catch (error: unknown) {
       const err = error as Error;
       console.error("[Logo Upload] Error:", err);
@@ -693,7 +693,7 @@ function SettingsPage() {
       await updatePasswordFn({
         data: { currentPassword, newPassword, confirmPassword },
       });
-      toast.success("Senha atualizada com sucesso!");
+      toast.success("Senha atualizada.");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -729,7 +729,7 @@ function SettingsPage() {
     mutationFn: () => testAsaasIntegrationFn(),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["asaas-integration"] });
-      toast.success("Conexão com Asaas validada com sucesso!");
+      toast.success("Conexão com o Asaas validada — tudo certo.");
     },
     onError: (error: Error) => {
       toast.error(error.message || "Falha ao testar conexão com Asaas.");

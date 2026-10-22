@@ -1230,7 +1230,7 @@ function PortalSuccess({
                     ? "Aguarde enquanto a rede autentica seu dispositivo e libera a conexão."
                     : done.hotspotRedirectUrl
                       ? "Seu cadastro foi registrado. Volte ao HotSpot para concluir a autenticação do Wi-Fi."
-                      : "Seu cadastro foi registrado com sucesso."}
+                      : "Pronto! Seu cadastro foi registrado."}
             </p>
           </div>
 

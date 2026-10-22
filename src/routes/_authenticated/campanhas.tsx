@@ -978,7 +978,7 @@ function CampaignsPage() {
 
                                 setLogoUrl(path);
                                 setUploading({ status: "idle", pendingCount: 0, totalCount: 0 });
-                                toast.success("Logo enviada com sucesso.");
+                                toast.success("Logo enviada.");
                               } catch (err: unknown) {
                                 const message =
                                   err instanceof Error ? err.message : "Erro desconhecido";

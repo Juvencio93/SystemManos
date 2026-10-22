@@ -362,7 +362,7 @@ function CompaniesPage() {
       const billingSync = result.billingSync;
 
       const message = editingId
-        ? "Empresa atualizada com sucesso."
+        ? "Empresa atualizada."
         : `Empresa cadastrada. Acesso criado para ${result.email}.`;
 
       if (billingSync) {
@@ -381,7 +381,7 @@ function CompaniesPage() {
             billingSync.action === "created"
               ? `Nova cobrança criada: R$ ${(billingSync.newAmount ?? 0).toFixed(2)} vencendo em ${formatDate(billingSync.newDueDate ?? "")} (${billingSync.newStatus ?? ""}).`
               : billingSync.action === "recovered"
-                ? `Cobrança de ${billingSync.competence ?? ""} já existia e foi vinculada com sucesso.`
+                ? `Cobrança de ${billingSync.competence ?? ""} já existia e foi vinculada.`
                 : `Cobrança sincronizada: De ${formatDate(billingSync.oldDueDate ?? "")} (${billingSync.oldStatus ?? ""}) para ${formatDate(billingSync.newDueDate ?? "")} (${billingSync.newStatus ?? ""}). Valor: R$ ${(billingSync.newAmount ?? 0).toFixed(2)}.`;
 
           toast.success(message, {
