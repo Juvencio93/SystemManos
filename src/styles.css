@@ -736,3 +736,13 @@
 .menu-lateral:focus-within .rail-label {
   opacity: 1;
 }
+
+/* Menu (barra lateral e gaveta): rola, mas SEM mostrar a barra —
+   pedido do Gabriel: a barra visível "não fica bonita". */
+.menu-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.menu-scroll::-webkit-scrollbar {
+  display: none;
+}

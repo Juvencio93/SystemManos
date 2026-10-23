@@ -159,7 +159,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         key={item.to}
         to={item.to}
         onClick={() => setOpen(false)}
-        className={`flex items-center gap-3 whitespace-nowrap rounded-lg px-3 py-2 text-sm transition-colors ${
+        className={`flex items-center gap-3 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm transition-colors ${
           active
             ? "bg-sidebar-accent text-sidebar-accent-foreground"
             : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
@@ -181,13 +181,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   // hover/foco — o conteúdo interno tem largura fixa de 18rem e é
   // cortado pelo overflow da barra recolhida.
   const navGroups = (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       {NAV_GROUPS.map((group) => {
         const groupItems = items.filter((item) => item.group === group);
         if (!groupItems.length) return null;
         return (
           <div key={group} className="flex flex-col gap-1">
-            <p className="rail-label whitespace-nowrap px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/70">
+            <p className="rail-label whitespace-nowrap px-3 pb-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/70">
               {group}
             </p>
             {groupItems.map(renderNavLink)}
@@ -255,22 +255,22 @@ export function AppShell({ children }: { children: ReactNode }) {
         className="menu-lateral group fixed inset-y-0 left-0 z-40 hidden w-[68px] overflow-hidden border-r border-sidebar-border bg-sidebar transition-[width] duration-200 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] focus-within:w-72 hover:w-72 hover:shadow-2xl md:flex md:flex-col print:hidden"
       >
         <div className="flex w-72 flex-col h-full">
-          <div className="flex shrink-0 items-center gap-2 border-b border-sidebar-border px-3 py-4">
+          <div className="flex shrink-0 items-center gap-2 border-b border-sidebar-border px-3 py-3">
             <img
               src={clienteBrand ? (access?.logoUrl as string) : sidebarLogo}
               alt={`Logo ${brandName}`}
               className={`size-11 shrink-0 rounded-full object-contain ${clienteBrand ? "bg-white p-1" : ""}`}
             />
-            <span className="rail-label whitespace-nowrap font-display text-sm font-semibold leading-tight">
-              {brandName}
-              <span className="block text-[10px] font-normal uppercase tracking-[0.2em] text-muted-foreground">
+            <span className="rail-label min-w-0 font-display text-sm font-semibold leading-tight">
+              <span className="block truncate">{brandName}</span>
+              <span className="block text-[10px] font-normal uppercase leading-snug tracking-[0.14em] text-muted-foreground">
                 {clienteBrand ? "Painel da sua empresa" : "Plataforma de Marketing Inteligente"}
               </span>
             </span>
           </div>
           <nav
             aria-label="Navegação principal"
-            className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 [scrollbar-gutter:stable]"
+            className="menu-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-2"
           >
             {navGroups}
           </nav>
@@ -322,7 +322,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
               <nav
                 aria-label="Navegação principal"
-                className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 [scrollbar-gutter:stable]"
+                className="menu-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-2"
               >
                 {navGroups}
               </nav>
