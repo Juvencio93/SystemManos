@@ -72,7 +72,6 @@ import { getInsights } from "@/lib/insights.functions";
 import { getFinanceiroStats } from "@/lib/financeiro.functions";
 import { listPasswordResetRequests } from "@/lib/password-reset.functions";
 import { getCurrentMatrizCharge } from "@/lib/billing.functions";
-import { getLatestOperationalAnalysis } from "@/lib/operational.functions";
 import type { Insights } from "@/lib/insights.server";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -654,8 +653,40 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
       total + Math.max(0, Number(device.active_sessions ?? 0)),
     0,
   );
+  // Radar da rede (pedido do Gabriel, 22/10): o mesmo radar do
+  // Monitoramento, na capa do ADM — só RBs homologadas (estoque e
+  // transferência ficam fora, igual à página completa).
+  const radarDevices: any[] = (hotspotDevices.data ?? []).filter(
+    (d: any) =>
+      d.company_id &&
+      d.status !== "stock" &&
+      d.status !== "transfer_pending" &&
+      d.status !== "suspended",
+  );
+  async function handleRadarBlock(device: any, blocked: boolean) {
+    const response = await postHotspotAction("/api/internal/hotspot-device-status", {
+      routerIdentity: device.router_identity,
+      blocked,
+    });
+    const actionError = await hotspotActionError(response, "Não foi possível alterar o bloqueio.");
+    if (actionError) {
+      window.alert(actionError);
+      return;
+    }
+    await hotspotDevices.refetch();
+  }
+  async function handleRadarReboot(device: any) {
+    const response = await postHotspotAction("/api/internal/hotspot-reboot", {
+      routerIdentity: device.router_identity,
+    });
+    const actionError = await hotspotActionError(response, "Não foi possível solicitar a reinicialização.");
+    if (actionError) {
+      window.alert(actionError);
+      return;
+    }
+    await hotspotDevices.refetch();
+  }
   const fetchInsights = useServerFn(getInsights);
-  const fetchOpAnalysis = useServerFn(getLatestOperationalAnalysis);
 
   const insights = useQuery({
     queryKey: ["insights"],
@@ -663,14 +694,7 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
     enabled: Boolean(access?.userId),
   });
 
-  const opAnalysis = useQuery({
-    queryKey: ["operational-analysis-full"],
-    queryFn: () => fetchOpAnalysis(),
-    enabled: Boolean(access?.userId),
-  });
-
   const data = insights.data as Insights | undefined;
-  const opData = opAnalysis.data as { indicators?: Record<string, number> } | undefined;
 
   const modules = [
     {
@@ -715,7 +739,19 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
       <PrecisaDeVoceCard />
 
       <div className="mb-10">
-        <AiAgentCard role="adm" />
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h3 className="text-sm font-semibold">Radar da rede</h3>
+          <Link to="/monitoramento" className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+            Abrir Monitoramento <ArrowRight className="size-3" />
+          </Link>
+        </div>
+        <HotspotNetworkMap
+          devices={radarDevices}
+          isLoading={hotspotDevices.isLoading}
+          compact
+          onBlock={handleRadarBlock}
+          onReboot={handleRadarReboot}
+        />
       </div>
 
 
