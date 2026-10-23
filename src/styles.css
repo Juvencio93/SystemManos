@@ -790,6 +790,22 @@
   }
 }
 
+/* Destaque dos cards do topo ao passar o mouse — pedido do Gabriel
+   (23/10). Só com mouse de verdade (hover: hover), pra não grudar
+   no toque do celular. */
+@media (hover: hover) and (pointer: fine) {
+  .cards-hero > * {
+    transition: transform 0.18s ease, border-color 0.18s ease,
+      box-shadow 0.18s ease;
+  }
+  .cards-hero > *:hover {
+    transform: translateY(-3px);
+    border-color: rgb(34 211 238 / 0.5);
+    box-shadow: 0 10px 32px rgb(0 0 0 / 0.5),
+      0 0 24px rgb(0 192 240 / 0.12);
+  }
+}
+
 /* Menu (barra lateral e gaveta): rola, mas SEM mostrar a barra —
    pedido do Gabriel: a barra visível "não fica bonita". */
 .menu-scroll {
