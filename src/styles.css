@@ -732,9 +732,23 @@
   pointer-events: none;
   transition: opacity 150ms ease;
 }
-.menu-lateral:hover .rail-label,
 .menu-lateral:has(:focus-visible) .rail-label {
   opacity: 1;
+}
+
+/* Expansão no hover: SÓ com mouse/trackpad de verdade. Em tela de
+   toque o :hover "gruda" depois do tap e a barra ficava aberta
+   sobre a página — erro visto pelo Gabriel no celular em modo
+   desktop (23/10): a barra de desktop pintou no telefone, expandiu
+   no toque e não recolheu mais. */
+@media (hover: hover) and (pointer: fine) {
+  .menu-lateral:hover {
+    width: 18rem;
+    box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+  }
+  .menu-lateral:hover .rail-label {
+    opacity: 1;
+  }
 }
 
 /* Expansão por TECLADO (Tab): só com :focus-visible — clique de
