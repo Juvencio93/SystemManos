@@ -733,8 +733,15 @@
   transition: opacity 150ms ease;
 }
 .menu-lateral:hover .rail-label,
-.menu-lateral:focus-within .rail-label {
+.menu-lateral:has(:focus-visible) .rail-label {
   opacity: 1;
+}
+
+/* Expansão por TECLADO (Tab): só com :focus-visible — clique de
+   mouse NÃO conta, senão a barra ficava "presa" aberta depois de
+   clicar nela e só recolhia clicando fora (bug do focus-within). */
+.menu-lateral:has(:focus-visible) {
+  width: 18rem;
 }
 
 /* Menu (barra lateral e gaveta): rola, mas SEM mostrar a barra —
