@@ -252,10 +252,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           No celular quem manda é a gaveta (Sheet) do cabeçalho. */}
       <aside
         aria-label="Menu lateral"
-        className="menu-lateral group fixed inset-y-0 left-0 z-40 hidden w-[68px] overflow-hidden border-r border-sidebar-border bg-sidebar transition-[width] duration-200 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] hover:w-72 hover:shadow-2xl md:flex md:flex-col print:hidden"
+        className="menu-lateral group fixed inset-y-0 left-0 z-40 hidden w-[68px] overflow-hidden border-r border-sidebar-border bg-sidebar transition-[width] duration-200 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] md:flex md:flex-col print:hidden"
       >
         <div className="flex w-72 flex-col h-full">
-          <div className="flex shrink-0 items-center gap-2 border-b border-sidebar-border px-3 py-3">
+          <div className="flex h-16 shrink-0 items-center gap-2 border-b border-sidebar-border px-3">
             <img
               src={clienteBrand ? (access?.logoUrl as string) : sidebarLogo}
               alt={`Logo ${brandName}`}
@@ -293,7 +293,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </div>
       </aside>
-      <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-2 border-b border-border bg-background/80 px-3 py-3 backdrop-blur sm:flex-nowrap sm:gap-3 md:px-6 print:hidden print-hide">
+      <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-2 border-b border-border bg-background/80 px-3 py-3 backdrop-blur sm:flex-nowrap sm:gap-3 md:px-6 md:h-16 md:py-0 print:hidden print-hide">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
