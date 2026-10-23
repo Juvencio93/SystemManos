@@ -11,6 +11,7 @@ import {
   Building2,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
   Clock,
   FileBarChart,
   Megaphone,
@@ -668,6 +669,7 @@ const ROTULO_SEVERIDADE: Record<string, string> = {
 };
 
 function ProblemasRedeResumo() {
+  const [aberto, setAberto] = useState(false);
   const buscarResumo = useServerFn(getHermesResumo);
   const resumo = useQuery({
     queryKey: ["monitoramento-resumo"],
@@ -710,21 +712,32 @@ function ProblemasRedeResumo() {
   return (
     <Card className="mb-10">
       <CardHeader className="flex flex-row items-center gap-2">
-        <CardTitle className="text-sm font-semibold">
-          Problemas na rede (7 dias)
-        </CardTitle>
-        {total > 0 ? (
-          <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-semibold leading-none text-amber-300">
-            {total}
-          </span>
-        ) : null}
+        <button
+          type="button"
+          onClick={() => setAberto((v) => !v)}
+          aria-expanded={aberto}
+          className="flex flex-1 items-center gap-2 text-left"
+        >
+          <CardTitle className="text-sm font-semibold">
+            Problemas na rede (7 dias)
+          </CardTitle>
+          {total > 0 ? (
+            <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-semibold leading-none text-amber-300">
+              {total}
+            </span>
+          ) : null}
+          <ChevronDown
+            className={`size-4 shrink-0 text-muted-foreground transition-transform duration-200 ${aberto ? "rotate-180" : ""}`}
+          />
+        </button>
         <Link
           to="/monitoramento"
-          className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+          className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-primary hover:underline"
         >
           Abrir Monitoramento <ArrowRight className="size-3" />
         </Link>
       </CardHeader>
+      {aberto ? (
       <CardContent>
         {offline.length === 0 && recentes.length === 0 && total === 0 ? (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -783,6 +796,7 @@ function ProblemasRedeResumo() {
           </ul>
         )}
       </CardContent>
+      ) : null}
     </Card>
   );
 }
