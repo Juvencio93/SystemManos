@@ -280,7 +280,7 @@ function ResellerDashboard({ access }: { access: AccessInfo | null }) {
       subtitle="Gerencie sua rede de clientes, unidades e créditos de ativação."
     >
       <AiAgentCard role="revenda" />
-      <div className="mb-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="mb-10 cards-hero">
         {modules.map((module) => <ModuleCard key={module.label} module={module} isLoading={companiesQuery.isLoading} />)}
       </div>
       <RealtimeHeatmap />
