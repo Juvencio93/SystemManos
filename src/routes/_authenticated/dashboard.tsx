@@ -11,6 +11,8 @@ import {
   Building2,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
+  Eraser,
   Clock,
   FileBarChart,
   Megaphone,
@@ -22,6 +24,7 @@ import {
   Users,
   Wallet,
   HandCoins,
+  KeyRound,
   Wifi,
   Search,
   Maximize2,
@@ -68,8 +71,14 @@ import { getUserGreetingName } from "@/lib/name-utils";
 import { hotspotActionError, postHotspotAction } from "@/lib/hotspot-client";
 
 import { getInsights } from "@/lib/insights.functions";
-import { getCurrentMatrizCharge } from "@/lib/billing.functions";
+import { getFinanceiroStats } from "@/lib/financeiro.functions";
 import { getLatestOperationalAnalysis } from "@/lib/operational.functions";
+import {
+  getHermesResumo,
+  type HermesResumoResult,
+} from "@/lib/hermes-series.functions";
+import { listPasswordResetRequests } from "@/lib/password-reset.functions";
+import { getCurrentMatrizCharge } from "@/lib/billing.functions";
 import type { Insights } from "@/lib/insights.server";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -405,6 +414,428 @@ function LegacyNetworkMapPanel({ devices, isLoading, overlay, onClose, onMouseLe
   </div>;
 }
 
+
+function HeroAdm({
+  data,
+  isLoading,
+  conectados,
+}: {
+  data: Insights | undefined;
+  isLoading: boolean;
+  conectados: number;
+}) {
+  const v = (n?: number) => (isLoading ? "…" : String(n ?? 0));
+  return (
+    <div className="mb-10">
+      <h3 className="mb-4 text-sm font-semibold">A plataforma hoje</h3>
+      <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.07] via-transparent to-transparent">
+          <CardHeader>
+            <CardTitle className="leading-none text-[13px] font-semibold text-muted-foreground">Acessos hoje</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="font-display text-4xl font-black tracking-tighter">{v(data?.visitantesHoje)}</p>
+            <div className="mt-3">
+              {data && data.visitantesHoje > 0 ? (
+                <DeltaChip atual={data.visitantesHoje} anterior={data.visitantesOntem} sufixo="vs ontem" />
+              ) : (
+                <p className="text-xs font-medium leading-relaxed text-muted-foreground">A rede está no ar — assim que o primeiro cliente conectar em qualquer empresa, o movimento aparece aqui.</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="leading-none text-[13px] font-semibold text-muted-foreground">Conectados agora</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="flex items-center gap-2 font-display text-4xl font-black tracking-tighter">
+              {isLoading ? "…" : conectados}
+              <span className="relative flex size-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" /><span className="relative inline-flex size-2.5 rounded-full bg-emerald-400" /></span>
+            </p>
+            <p className="mt-3 text-xs font-medium text-muted-foreground">{conectados === 0 ? "ninguém conectado agora — a rede está no ar" : "usando o Wi-Fi das empresas neste momento"}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-primary/40 bg-gradient-to-br from-primary/[0.13] via-primary/[0.04] to-transparent shadow-glow-sm">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="leading-none text-[13px] font-semibold text-muted-foreground">Empresas ativas</CardTitle>
+            <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">Sua rede</span>
+          </CardHeader>
+          <CardContent>
+            <p className="font-display text-5xl font-black tracking-tighter text-primary">{v(data?.empresasTotal)}</p>
+            <p className="mt-3 text-xs font-medium leading-relaxed text-muted-foreground">
+              {v(data?.filiaisTotal)} filiais · {v(data?.portaisAtivos)} portais no ar
+            </p>
+            <Link to="/empresas" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+              Ver empresas <ArrowRight className="size-3" />
+            </Link>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="leading-none text-[13px] font-semibold text-muted-foreground">Acessos na semana</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="font-display text-4xl font-black tracking-tighter">{v(data?.conexoesSemana)}</p>
+            <div className="mt-3">
+              {data && data.conexoesSemana > 0 ? (
+                <DeltaChip atual={data.conexoesSemana} anterior={data.conexoesSemanaAnterior} sufixo="vs semana passada" />
+              ) : (
+                <p className="text-xs font-medium leading-relaxed text-muted-foreground">sem movimento na semana ainda</p>
+              )}
+            </div>
+            {data && data.horarioPicoTotal > 0 ? (
+              <p className="mt-2 text-xs font-medium text-muted-foreground">pico às {data.horarioPico} · {data.horarioPicoTotal} acessos</p>
+            ) : null}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function PrecisaDeVoceCard() {
+  const buscarSenhas = useServerFn(listPasswordResetRequests);
+  const buscarFin = useServerFn(getFinanceiroStats);
+  const buscarAnalise = useServerFn(getLatestOperationalAnalysis);
+
+  const senhas = useQuery({
+    queryKey: ["dash-precisa-senhas"],
+    queryFn: () => buscarSenhas(),
+    staleTime: 60_000,
+  });
+  const fin = useQuery({
+    queryKey: ["dash-precisa-financeiro"],
+    queryFn: () => buscarFin({ data: { period: "todas-em-aberto" } }),
+    staleTime: 60_000,
+  });
+  const analise = useQuery({
+    queryKey: ["dash-precisa-analise"],
+    queryFn: () => buscarAnalise(),
+    staleTime: 60_000,
+  });
+  const empresas = useQuery({
+    queryKey: ["dash-precisa-empresas-novas"],
+    queryFn: async () => {
+      const desde = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+      const { count } = await (supabase as any)
+        .from("companies")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", desde);
+      return count ?? 0;
+    },
+    staleTime: 60_000,
+  });
+
+  const agoraMs = Date.now();
+  const senhasPendentes = (senhas.data ?? []).filter(
+    (r) => r.status === "pending" && new Date(r.expires_at).getTime() > agoraMs,
+  ).length;
+  const finData = fin.data as
+    | { emAtraso?: number; emAtrasoList?: unknown[] }
+    | undefined;
+  const faturasVencidas = finData?.emAtrasoList?.length ?? 0;
+  const totalVencido = finData?.emAtraso ?? 0;
+  const empresasNovas = empresas.data ?? 0;
+  const carregando =
+    senhas.isLoading || fin.isLoading || empresas.isLoading || analise.isLoading;
+  const decisoes = senhasPendentes + faturasVencidas;
+
+  const linhas: {
+    key: string;
+    icon: typeof KeyRound;
+    cor: string;
+    titulo: ReactNode;
+    detalhe: string;
+    to: string;
+    acao: string;
+  }[] = [];
+  if (senhasPendentes > 0)
+    linhas.push({
+      key: "senhas",
+      icon: KeyRound,
+      cor: "bg-amber-400/15 text-amber-300",
+      titulo: <><b>{senhasPendentes}</b> {senhasPendentes === 1 ? "pedido" : "pedidos"} de redefinição de senha</>,
+      detalhe: "aguardando sua aprovação — o pedido expira em 24h",
+      to: "/configuracoes",
+      acao: "Aprovar",
+    });
+  if (faturasVencidas > 0)
+    linhas.push({
+      key: "faturas",
+      icon: Wallet,
+      cor: "bg-red-400/15 text-red-300",
+      titulo: <><b>{faturasVencidas}</b> {faturasVencidas === 1 ? "fatura vencida" : "faturas vencidas"}</>,
+      detalhe: `${brl(totalVencido)} em atraso no total`,
+      to: "/financeiro/em-atraso",
+      acao: "Ver cobranças",
+    });
+  const analiseData = analise.data as
+    | {
+        analysisDate?: string;
+        desatualizada?: boolean;
+        indicators?: Record<string, number>;
+      }
+    | undefined;
+  if (analiseData?.indicators) {
+    const ind = analiseData.indicators;
+    const partes: string[] = [];
+    if (ind["destaque"]) partes.push(`${ind["destaque"]} destaque${ind["destaque"] > 1 ? "s" : ""}`);
+    if (ind["atencao"]) partes.push(`${ind["atencao"]} em atenção`);
+    if (ind["critico"]) partes.push(`${ind["critico"]} crítico${ind["critico"] > 1 ? "s" : ""}`);
+    if (ind["observacao"]) partes.push(`${ind["observacao"]} em observação`);
+    const [anoA, mesA, diaA] = (analiseData.analysisDate ?? "").split("-");
+    linhas.push({
+      key: "analise",
+      icon: Activity,
+      cor: ind["critico"]
+        ? "bg-red-400/15 text-red-300"
+        : "bg-primary/15 text-primary",
+      titulo: (
+        <>
+          Análise diária{diaA ? ` de ${diaA}/${mesA}` : ""}
+          {analiseData.desatualizada ? " (a última válida)" : ""}
+        </>
+      ),
+      detalhe:
+        (partes.length ? partes.join(" · ") : "sem apontamentos") +
+        (analiseData.desatualizada ? " — a de hoje sai às 06:00" : ""),
+      to: "/gerente-operacional",
+      acao: "Ver análise",
+    });
+  }
+  if (empresasNovas > 0)
+    linhas.push({
+      key: "empresas",
+      icon: Building2,
+      cor: "bg-primary/15 text-primary",
+      titulo: <><b>{empresasNovas}</b> {empresasNovas === 1 ? "empresa nova" : "empresas novas"} esta semana</>,
+      detalhe: "cadastradas nos últimos 7 dias",
+      to: "/empresas",
+      acao: "Ver empresas",
+    });
+
+  return (
+    <Card className="mb-10">
+      <CardHeader className="flex flex-row items-center gap-2">
+        <CardTitle className="text-sm font-semibold">Precisa de você</CardTitle>
+        {decisoes > 0 ? (
+          <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-semibold leading-none text-amber-300">
+            {decisoes}
+          </span>
+        ) : null}
+      </CardHeader>
+      <CardContent>
+        {carregando ? (
+          <p className="text-xs text-muted-foreground">Conferindo suas pendências…</p>
+        ) : linhas.length ? (
+          <ul className="divide-y divide-white/5">
+            {linhas.map((l) => (
+              <li key={l.key}>
+                <Link
+                  to={l.to}
+                  className="group flex items-center gap-3 py-2.5 first:pt-0 last:pb-0"
+                >
+                  <span className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${l.cor}`}>
+                    <l.icon className="size-4" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm">{l.titulo}</span>
+                    <span className="block text-xs text-muted-foreground">{l.detalhe}</span>
+                  </span>
+                  <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-primary group-hover:underline">
+                    {l.acao} <ArrowRight className="size-3" />
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <CheckCircle2 className="size-4 text-emerald-400" />
+            Tudo certo por aqui — nada esperando a sua decisão.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+
+const ROTULO_SEVERIDADE: Record<string, string> = {
+  critica: "crítica",
+  alta: "alta",
+  media: "média",
+  baixa: "baixa",
+};
+
+function ProblemasRedeResumo() {
+  const [aberto, setAberto] = useState(false);
+  // "Limpar notificações" = marcar como visto NESTE navegador
+  // (localStorage). O histórico no Hermes NÃO é apagado — a ficha da
+  // RB e o Monitoramento continuam mostrando os 7 dias; aqui somem
+  // só os itens até o instante da limpeza, e problema NOVO volta a
+  // aparecer na hora.
+  const [vistosAte, setVistosAte] = useState<string>(() => {
+    try {
+      return window.localStorage.getItem("dash-problemas-vistos-ate") ?? "";
+    } catch {
+      return "";
+    }
+  });
+  const limparNotificacoes = () => {
+    const agora = new Date().toISOString();
+    try {
+      window.localStorage.setItem("dash-problemas-vistos-ate", agora);
+    } catch {
+      /* navegador sem storage: vale só pra sessão */
+    }
+    setVistosAte(agora);
+  };
+  const buscarResumo = useServerFn(getHermesResumo);
+  const resumo = useQuery({
+    queryKey: ["monitoramento-resumo"],
+    refetchInterval: 30_000,
+    queryFn: () => buscarResumo() as Promise<HermesResumoResult>,
+  });
+  if (!resumo.data?.ok) return null;
+  const rbs = resumo.data.rbs;
+  const total = rbs.reduce((acc, r) => acc + (r.problemas?.total ?? 0), 0);
+  const offline = rbs.filter((r) => r.agora && !r.agora.acessivel);
+  // Últimos problemas da REDE (títulos): o /rb-resumo do Hermes manda
+  // até 3 por RB; aqui junta tudo, ordena pelo mais recente e mostra
+  // 5. Sem o campo (Hermes antigo), cai pras linhas de contagem.
+  const todosRecentes = rbs
+    .flatMap((r) =>
+      (r.problemas?.ultimos ?? []).map((p) => ({
+        ...p,
+        rb: r.cliente ?? r.vault_ref ?? `RB ${r.rb_id}`,
+      })),
+    )
+    .sort((a, b) => (a.quando < b.quando ? 1 : -1));
+  const naoVistos = todosRecentes.filter((p) => p.quando > vistosAte);
+  const recentes = naoVistos.slice(0, 5);
+  const temUltimos = rbs.some((r) => r.problemas?.ultimos !== undefined);
+  const selo = temUltimos ? naoVistos.length : total;
+  const fmtQuando = (iso: string) => {
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime())
+      ? ""
+      : d.toLocaleString("pt-BR", {
+          day: "2-digit",
+          month: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+  };
+  const COR_SEV: Record<string, string> = {
+    critica: "text-red-400",
+    alta: "text-orange-400",
+    media: "text-amber-300",
+  };
+  return (
+    <Card className="mb-10">
+      <CardHeader className="flex flex-row items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setAberto((v) => !v)}
+          aria-expanded={aberto}
+          className="flex flex-1 items-center gap-2 text-left"
+        >
+          <CardTitle className="text-sm font-semibold">
+            Problemas na rede (7 dias)
+          </CardTitle>
+          {selo > 0 ? (
+            <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-semibold leading-none text-amber-300">
+              {selo}
+            </span>
+          ) : null}
+          <ChevronDown
+            className={`size-4 shrink-0 text-muted-foreground transition-transform duration-200 ${aberto ? "rotate-180" : ""}`}
+          />
+        </button>
+        {temUltimos && naoVistos.length > 0 ? (
+          <button
+            type="button"
+            onClick={limparNotificacoes}
+            className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <Eraser className="size-3" /> Limpar
+          </button>
+        ) : null}
+        <Link
+          to="/monitoramento"
+          className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-primary hover:underline"
+        >
+          Abrir Monitoramento <ArrowRight className="size-3" />
+        </Link>
+      </CardHeader>
+      {aberto ? (
+      <CardContent>
+        {offline.length === 0 && recentes.length === 0 && (total === 0 || (temUltimos && naoVistos.length === 0)) ? (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <CheckCircle2 className="size-4 text-emerald-400" />
+            {temUltimos && total > 0
+              ? "Tudo limpo — notificações marcadas como vistas. Problema novo aparece aqui na hora."
+              : "Nenhum problema registrado nos últimos 7 dias."}
+          </p>
+        ) : (
+          <ul className="divide-y divide-white/5">
+            {offline.map((r) => (
+              <li key={`off-${r.rb_id}`} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-red-400/15 text-red-300">
+                  <AlertTriangle className="size-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">
+                    {r.cliente ?? r.vault_ref ?? `RB ${r.rb_id}`}
+                  </span>
+                  <span className="block text-xs text-red-300">sem contato agora</span>
+                </span>
+              </li>
+            ))}
+            {temUltimos
+              ? recentes.map((p, i) => (
+                  <li key={`p-${i}`} className="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0">
+                    <AlertTriangle
+                      className={`mt-0.5 size-4 shrink-0 ${COR_SEV[p.severidade] ?? "text-amber-300"}`}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm">{p.titulo}</span>
+                      <span className="block text-xs text-muted-foreground">
+                        {p.rb} · {fmtQuando(p.quando)}
+                      </span>
+                    </span>
+                  </li>
+                ))
+              : rbs
+                  .filter((r) => (r.problemas?.total ?? 0) > 0)
+                  .map((r) => (
+                    <li key={`c-${r.rb_id}`} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+                      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-400/15 text-amber-300">
+                        <AlertTriangle className="size-4" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">
+                          {r.cliente ?? r.vault_ref ?? `RB ${r.rb_id}`}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {r.problemas.total} problema{r.problemas.total > 1 ? "s" : ""} nos últimos 7 dias
+                          {r.problemas.pior
+                            ? ` · pior: ${ROTULO_SEVERIDADE[r.problemas.pior] ?? r.problemas.pior}`
+                            : ""}
+                        </span>
+                      </span>
+                    </li>
+                  ))}
+          </ul>
+        )}
+      </CardContent>
+      ) : null}
+    </Card>
+  );
+}
+
 function AdminDashboard({ access }: { access: AccessInfo | null }) {
   // UX parte 6: o painel de monitoramento abre SÓ no clique. Antes,
   // passar o mouse sobre o card "Hotspot" abria o painel em tela cheia
@@ -445,8 +876,40 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
       total + Math.max(0, Number(device.active_sessions ?? 0)),
     0,
   );
+  // Radar da rede (pedido do Gabriel, 22/10): o mesmo radar do
+  // Monitoramento, na capa do ADM — só RBs homologadas (estoque e
+  // transferência ficam fora, igual à página completa).
+  const radarDevices: any[] = (hotspotDevices.data ?? []).filter(
+    (d: any) =>
+      d.company_id &&
+      d.status !== "stock" &&
+      d.status !== "transfer_pending" &&
+      d.status !== "suspended",
+  );
+  async function handleRadarBlock(device: any, blocked: boolean) {
+    const response = await postHotspotAction("/api/internal/hotspot-device-status", {
+      routerIdentity: device.router_identity,
+      blocked,
+    });
+    const actionError = await hotspotActionError(response, "Não foi possível alterar o bloqueio.");
+    if (actionError) {
+      window.alert(actionError);
+      return;
+    }
+    await hotspotDevices.refetch();
+  }
+  async function handleRadarReboot(device: any) {
+    const response = await postHotspotAction("/api/internal/hotspot-reboot", {
+      routerIdentity: device.router_identity,
+    });
+    const actionError = await hotspotActionError(response, "Não foi possível solicitar a reinicialização.");
+    if (actionError) {
+      window.alert(actionError);
+      return;
+    }
+    await hotspotDevices.refetch();
+  }
   const fetchInsights = useServerFn(getInsights);
-  const fetchOpAnalysis = useServerFn(getLatestOperationalAnalysis);
 
   const insights = useQuery({
     queryKey: ["insights"],
@@ -454,14 +917,7 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
     enabled: Boolean(access?.userId),
   });
 
-  const opAnalysis = useQuery({
-    queryKey: ["operational-analysis-full"],
-    queryFn: () => fetchOpAnalysis(),
-    enabled: Boolean(access?.userId),
-  });
-
   const data = insights.data as Insights | undefined;
-  const opData = opAnalysis.data as { indicators?: Record<string, number> } | undefined;
 
   const modules = [
     {
@@ -501,9 +957,27 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
       title={`Olá, ${getUserGreetingName(access, "Administrador")}`}
       subtitle="Gerenciamento global da plataforma Manos Tech."
     >
+      <HeroAdm data={data} isLoading={insights.isLoading} conectados={connectedClients} />
+
+      <PrecisaDeVoceCard />
+
       <div className="mb-10">
-        <AiAgentCard role="adm" />
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h3 className="text-sm font-semibold">Radar da rede</h3>
+          <Link to="/monitoramento" className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+            Abrir Monitoramento <ArrowRight className="size-3" />
+          </Link>
+        </div>
+        <HotspotNetworkMap
+          devices={radarDevices}
+          isLoading={hotspotDevices.isLoading}
+          compact
+          onBlock={handleRadarBlock}
+          onReboot={handleRadarReboot}
+        />
       </div>
+
+      <ProblemasRedeResumo />
 
 
 

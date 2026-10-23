@@ -62,7 +62,11 @@ export interface HermesResumoRb {
   vault_ref: string | null;
   host: string | null;
   agora: HermesAgora | null;
-  problemas: { total: number; pior: string | null };
+  problemas: {
+    total: number;
+    pior: string | null;
+    ultimos?: HermesProblema[];
+  };
 }
 
 export type HermesResumoResult =
