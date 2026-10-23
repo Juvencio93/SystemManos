@@ -677,24 +677,36 @@ function ProblemasRedeResumo() {
   if (!resumo.data?.ok) return null;
   const rbs = resumo.data.rbs;
   const total = rbs.reduce((acc, r) => acc + (r.problemas?.total ?? 0), 0);
-  const linhas = rbs
-    .filter((r) => (r.problemas?.total ?? 0) > 0 || (r.agora && !r.agora.acessivel))
-    .map((r) => {
-      const partes: string[] = [];
-      if (r.agora && !r.agora.acessivel) partes.push("sem contato agora");
-      if ((r.problemas?.total ?? 0) > 0)
-        partes.push(
-          `${r.problemas.total} problema${r.problemas.total > 1 ? "s" : ""} nos últimos 7 dias` +
-            (r.problemas.pior
-              ? ` · pior: ${ROTULO_SEVERIDADE[r.problemas.pior] ?? r.problemas.pior}`
-              : ""),
-        );
-      return {
-        nome: r.cliente ?? r.vault_ref ?? `RB ${r.rb_id}`,
-        detalhe: partes.join(" · "),
-        offline: Boolean(r.agora && !r.agora.acessivel),
-      };
-    });
+  const offline = rbs.filter((r) => r.agora && !r.agora.acessivel);
+  // Últimos problemas da REDE (títulos): o /rb-resumo do Hermes manda
+  // até 3 por RB; aqui junta tudo, ordena pelo mais recente e mostra
+  // 5. Sem o campo (Hermes antigo), cai pras linhas de contagem.
+  const recentes = rbs
+    .flatMap((r) =>
+      (r.problemas?.ultimos ?? []).map((p) => ({
+        ...p,
+        rb: r.cliente ?? r.vault_ref ?? `RB ${r.rb_id}`,
+      })),
+    )
+    .sort((a, b) => (a.quando < b.quando ? 1 : -1))
+    .slice(0, 5);
+  const temUltimos = rbs.some((r) => r.problemas?.ultimos !== undefined);
+  const fmtQuando = (iso: string) => {
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime())
+      ? ""
+      : d.toLocaleString("pt-BR", {
+          day: "2-digit",
+          month: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+  };
+  const COR_SEV: Record<string, string> = {
+    critica: "text-red-400",
+    alta: "text-orange-400",
+    media: "text-amber-300",
+  };
   return (
     <Card className="mb-10">
       <CardHeader className="flex flex-row items-center gap-2">
@@ -714,27 +726,61 @@ function ProblemasRedeResumo() {
         </Link>
       </CardHeader>
       <CardContent>
-        {linhas.length ? (
-          <ul className="divide-y divide-white/5">
-            {linhas.map((l) => (
-              <li key={l.nome} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
-                <span
-                  className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${l.offline ? "bg-red-400/15 text-red-300" : "bg-amber-400/15 text-amber-300"}`}
-                >
-                  <AlertTriangle className="size-4" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">{l.nome}</span>
-                  <span className="block text-xs text-muted-foreground">{l.detalhe}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
+        {offline.length === 0 && recentes.length === 0 && total === 0 ? (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
             <CheckCircle2 className="size-4 text-emerald-400" />
             Nenhum problema registrado nos últimos 7 dias.
           </p>
+        ) : (
+          <ul className="divide-y divide-white/5">
+            {offline.map((r) => (
+              <li key={`off-${r.rb_id}`} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-red-400/15 text-red-300">
+                  <AlertTriangle className="size-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">
+                    {r.cliente ?? r.vault_ref ?? `RB ${r.rb_id}`}
+                  </span>
+                  <span className="block text-xs text-red-300">sem contato agora</span>
+                </span>
+              </li>
+            ))}
+            {temUltimos
+              ? recentes.map((p, i) => (
+                  <li key={`p-${i}`} className="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0">
+                    <AlertTriangle
+                      className={`mt-0.5 size-4 shrink-0 ${COR_SEV[p.severidade] ?? "text-amber-300"}`}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm">{p.titulo}</span>
+                      <span className="block text-xs text-muted-foreground">
+                        {p.rb} · {fmtQuando(p.quando)}
+                      </span>
+                    </span>
+                  </li>
+                ))
+              : rbs
+                  .filter((r) => (r.problemas?.total ?? 0) > 0)
+                  .map((r) => (
+                    <li key={`c-${r.rb_id}`} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+                      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-400/15 text-amber-300">
+                        <AlertTriangle className="size-4" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">
+                          {r.cliente ?? r.vault_ref ?? `RB ${r.rb_id}`}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {r.problemas.total} problema{r.problemas.total > 1 ? "s" : ""} nos últimos 7 dias
+                          {r.problemas.pior
+                            ? ` · pior: ${ROTULO_SEVERIDADE[r.problemas.pior] ?? r.problemas.pior}`
+                            : ""}
+                        </span>
+                      </span>
+                    </li>
+                  ))}
+          </ul>
         )}
       </CardContent>
     </Card>
