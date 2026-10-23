@@ -12,6 +12,7 @@ import {
   CalendarDays,
   CheckCircle2,
   ChevronDown,
+  Eraser,
   Clock,
   FileBarChart,
   Megaphone,
@@ -670,6 +671,27 @@ const ROTULO_SEVERIDADE: Record<string, string> = {
 
 function ProblemasRedeResumo() {
   const [aberto, setAberto] = useState(false);
+  // "Limpar notificações" = marcar como visto NESTE navegador
+  // (localStorage). O histórico no Hermes NÃO é apagado — a ficha da
+  // RB e o Monitoramento continuam mostrando os 7 dias; aqui somem
+  // só os itens até o instante da limpeza, e problema NOVO volta a
+  // aparecer na hora.
+  const [vistosAte, setVistosAte] = useState<string>(() => {
+    try {
+      return window.localStorage.getItem("dash-problemas-vistos-ate") ?? "";
+    } catch {
+      return "";
+    }
+  });
+  const limparNotificacoes = () => {
+    const agora = new Date().toISOString();
+    try {
+      window.localStorage.setItem("dash-problemas-vistos-ate", agora);
+    } catch {
+      /* navegador sem storage: vale só pra sessão */
+    }
+    setVistosAte(agora);
+  };
   const buscarResumo = useServerFn(getHermesResumo);
   const resumo = useQuery({
     queryKey: ["monitoramento-resumo"],
@@ -683,16 +705,18 @@ function ProblemasRedeResumo() {
   // Últimos problemas da REDE (títulos): o /rb-resumo do Hermes manda
   // até 3 por RB; aqui junta tudo, ordena pelo mais recente e mostra
   // 5. Sem o campo (Hermes antigo), cai pras linhas de contagem.
-  const recentes = rbs
+  const todosRecentes = rbs
     .flatMap((r) =>
       (r.problemas?.ultimos ?? []).map((p) => ({
         ...p,
         rb: r.cliente ?? r.vault_ref ?? `RB ${r.rb_id}`,
       })),
     )
-    .sort((a, b) => (a.quando < b.quando ? 1 : -1))
-    .slice(0, 5);
+    .sort((a, b) => (a.quando < b.quando ? 1 : -1));
+  const naoVistos = todosRecentes.filter((p) => p.quando > vistosAte);
+  const recentes = naoVistos.slice(0, 5);
   const temUltimos = rbs.some((r) => r.problemas?.ultimos !== undefined);
+  const selo = temUltimos ? naoVistos.length : total;
   const fmtQuando = (iso: string) => {
     const d = new Date(iso);
     return Number.isNaN(d.getTime())
@@ -721,15 +745,24 @@ function ProblemasRedeResumo() {
           <CardTitle className="text-sm font-semibold">
             Problemas na rede (7 dias)
           </CardTitle>
-          {total > 0 ? (
+          {selo > 0 ? (
             <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-semibold leading-none text-amber-300">
-              {total}
+              {selo}
             </span>
           ) : null}
           <ChevronDown
             className={`size-4 shrink-0 text-muted-foreground transition-transform duration-200 ${aberto ? "rotate-180" : ""}`}
           />
         </button>
+        {temUltimos && naoVistos.length > 0 ? (
+          <button
+            type="button"
+            onClick={limparNotificacoes}
+            className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <Eraser className="size-3" /> Limpar
+          </button>
+        ) : null}
         <Link
           to="/monitoramento"
           className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-primary hover:underline"
@@ -739,10 +772,12 @@ function ProblemasRedeResumo() {
       </CardHeader>
       {aberto ? (
       <CardContent>
-        {offline.length === 0 && recentes.length === 0 && total === 0 ? (
+        {offline.length === 0 && recentes.length === 0 && (total === 0 || (temUltimos && naoVistos.length === 0)) ? (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
             <CheckCircle2 className="size-4 text-emerald-400" />
-            Nenhum problema registrado nos últimos 7 dias.
+            {temUltimos && total > 0
+              ? "Tudo limpo — notificações marcadas como vistas. Problema novo aparece aqui na hora."
+              : "Nenhum problema registrado nos últimos 7 dias."}
           </p>
         ) : (
           <ul className="divide-y divide-white/5">
