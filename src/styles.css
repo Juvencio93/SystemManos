@@ -758,19 +758,35 @@
   width: 18rem;
 }
 
-/* Cards dos heros (capas ADM/Matriz/Filial): grade que se adapta
-   ao espaco de verdade — 4 colunas quando cabe, 3/2/1 conforme
-   estreita, sem espremer o texto (piso de 15rem por card). Em CSS
-   puro de proposito: a classe arbitraria do Tailwind com minmax
-   aninhado nao e confiavel. */
+/* Cards dos heros (capas ADM/Matriz/Filial/Revenda): grade com
+   breakpoints EXPLICITO — 1 coluna no celular, 2 a partir de
+   560px, 3 a partir de 1024px, 4 a partir de 1280px. A versao
+   anterior usava auto-fit + minmax(min(...)) e NAO quebrava de
+   linha na tela do Gabriel (a fileira estourava pra fora, com o
+   4o card fora da tela) — nada de funcao exotica aqui de novo:
+   media query simples, que qualquer navegador obedece. */
 .cards-hero {
   display: grid;
   gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  grid-template-columns: minmax(0, 1fr);
 }
-@media (min-width: 640px) {
+.cards-hero > * {
+  min-width: 0;
+}
+@media (min-width: 560px) {
   .cards-hero {
     gap: 1.5rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1024px) {
+  .cards-hero {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1280px) {
+  .cards-hero {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
