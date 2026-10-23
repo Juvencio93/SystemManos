@@ -252,10 +252,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           No celular quem manda é a gaveta (Sheet) do cabeçalho. */}
       <aside
         aria-label="Menu lateral"
-        className="menu-lateral group fixed inset-y-0 left-0 z-40 hidden w-[68px] overflow-hidden border-r border-sidebar-border bg-sidebar transition-[width] duration-200 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] hover:w-72 hover:shadow-2xl md:flex md:flex-col print:hidden"
+        className="menu-lateral group fixed inset-y-0 left-0 z-40 hidden w-[68px] overflow-hidden bg-sidebar transition-[width] duration-200 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] md:flex md:flex-col print:hidden"
       >
         <div className="flex w-72 flex-col h-full">
-          <div className="flex shrink-0 items-center gap-2 border-b border-sidebar-border px-3 py-3">
+          <div className="flex h-16 shrink-0 items-center gap-2 px-3">
             <img
               src={clienteBrand ? (access?.logoUrl as string) : sidebarLogo}
               alt={`Logo ${brandName}`}
@@ -274,7 +274,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             {navGroups}
           </nav>
-          <div className="mt-auto shrink-0 border-t border-sidebar-border px-3 py-3">
+          <div className="mt-auto shrink-0 px-3 py-3">
             <p className="rail-label truncate text-xs text-muted-foreground">{access?.email}</p>
             <p className="rail-label mt-1 truncate text-sm font-medium">{access?.fullName}</p>
             {role ? (
@@ -293,7 +293,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </div>
       </aside>
-      <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-2 border-b border-border bg-background/80 px-3 py-3 backdrop-blur sm:flex-nowrap sm:gap-3 md:px-6 print:hidden print-hide">
+      <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-2 bg-background/80 px-3 py-3 backdrop-blur sm:flex-nowrap sm:gap-3 md:px-6 md:h-16 md:py-0 print:hidden print-hide">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
@@ -306,7 +306,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               className="flex h-dvh max-h-dvh w-72 flex-col overflow-hidden border-sidebar-border bg-sidebar p-0"
             >
               <SheetTitle className="sr-only">Menu do painel</SheetTitle>
-              <div className="flex shrink-0 items-center gap-2 border-b border-sidebar-border px-4 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)] pr-12">
+              <div className="flex shrink-0 items-center gap-2 px-4 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)] pr-12">
                 <img
                   src={clienteBrand ? (access?.logoUrl as string) : sidebarLogo}
                   alt={`Logo ${brandName}`}
@@ -327,7 +327,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {navGroups}
               </nav>
 
-              <div className="mt-auto shrink-0 border-t border-sidebar-border bg-sidebar px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3">
+              <div className="mt-auto shrink-0 bg-sidebar px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3">
                 {userFooter}
               </div>
             </SheetContent>

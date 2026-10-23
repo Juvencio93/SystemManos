@@ -732,9 +732,23 @@
   pointer-events: none;
   transition: opacity 150ms ease;
 }
-.menu-lateral:hover .rail-label,
 .menu-lateral:has(:focus-visible) .rail-label {
   opacity: 1;
+}
+
+/* Expansão no hover: SÓ com mouse/trackpad de verdade. Em tela de
+   toque o :hover "gruda" depois do tap e a barra ficava aberta
+   sobre a página — erro visto pelo Gabriel no celular em modo
+   desktop (23/10): a barra de desktop pintou no telefone, expandiu
+   no toque e não recolheu mais. */
+@media (hover: hover) and (pointer: fine) {
+  .menu-lateral:hover {
+    width: 18rem;
+    box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+  }
+  .menu-lateral:hover .rail-label {
+    opacity: 1;
+  }
 }
 
 /* Expansão por TECLADO (Tab): só com :focus-visible — clique de
@@ -742,6 +756,22 @@
    clicar nela e só recolhia clicando fora (bug do focus-within). */
 .menu-lateral:has(:focus-visible) {
   width: 18rem;
+}
+
+/* Cards dos heros (capas ADM/Matriz/Filial): grade que se adapta
+   ao espaco de verdade — 4 colunas quando cabe, 3/2/1 conforme
+   estreita, sem espremer o texto (piso de 15rem por card). Em CSS
+   puro de proposito: a classe arbitraria do Tailwind com minmax
+   aninhado nao e confiavel. */
+.cards-hero {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+}
+@media (min-width: 640px) {
+  .cards-hero {
+    gap: 1.5rem;
+  }
 }
 
 /* Menu (barra lateral e gaveta): rola, mas SEM mostrar a barra —

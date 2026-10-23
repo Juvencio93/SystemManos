@@ -280,7 +280,7 @@ function ResellerDashboard({ access }: { access: AccessInfo | null }) {
       subtitle="Gerencie sua rede de clientes, unidades e créditos de ativação."
     >
       <AiAgentCard role="revenda" />
-      <div className="mb-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="mb-10 cards-hero">
         {modules.map((module) => <ModuleCard key={module.label} module={module} isLoading={companiesQuery.isLoading} />)}
       </div>
       <RealtimeHeatmap />
@@ -428,7 +428,7 @@ function HeroAdm({
   return (
     <div className="mb-10">
       <h3 className="mb-4 text-sm font-semibold">A plataforma hoje</h3>
-      <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="cards-hero">
         <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.07] via-transparent to-transparent">
           <CardHeader>
             <CardTitle className="leading-none text-[13px] font-semibold text-muted-foreground">Acessos hoje</CardTitle>
@@ -1063,7 +1063,7 @@ function ResumoSemanalCard({ data }: { data: Insights | undefined }) {
 function HeroMatriz({ data, isLoading }: { data: Insights | undefined; isLoading: boolean }) {
   const v = (n?: number) => (isLoading ? "…" : String(n ?? 0));
   return (
-    <div className="mb-10 grid gap-4 sm:gap-6 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="mb-10 cards-hero">
       <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.07] via-transparent to-transparent">
         <CardHeader>
           <CardTitle className="leading-none text-[13px] font-semibold text-muted-foreground">Acessos hoje</CardTitle>
@@ -1255,7 +1255,7 @@ function HeroFilial({ data, isLoading }: { data: Insights | undefined; isLoading
   const pos = data?.posicaoRede ?? null;
   const acimaMedia = pos ? pos.meusAcessosSemana - pos.mediaRede : 0;
   return (
-    <div className="mb-10 grid gap-4 sm:gap-6 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="mb-10 cards-hero">
       <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.07] via-transparent to-transparent">
         <CardHeader>
           <CardTitle className="leading-none text-[13px] font-semibold text-muted-foreground">Acessos hoje</CardTitle>
