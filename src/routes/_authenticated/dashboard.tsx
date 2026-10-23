@@ -1064,7 +1064,7 @@ function HeroMatriz({ data, isLoading }: { data: Insights | undefined; isLoading
   const v = (n?: number) => (isLoading ? "…" : String(n ?? 0));
   return (
     <div className="mb-10 cards-hero">
-      <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.07] via-transparent to-transparent transition-all duration-300 hover:-translate-y-1 hover:border-primary/50 hover:shadow-glow">
+      <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.07] via-transparent to-transparent transition-all duration-300 hover:-translate-y-2 hover:border-primary/50 hover:shadow-glow">
         <CardHeader>
           <CardTitle className="leading-none text-[13px] font-semibold text-muted-foreground">Acessos hoje</CardTitle>
         </CardHeader>
@@ -1084,7 +1084,7 @@ function HeroMatriz({ data, isLoading }: { data: Insights | undefined; isLoading
           </div>
         </CardContent>
       </Card>
-      <Card className="transition-all duration-300 hover:-translate-y-1 hover:border-primary/50 hover:shadow-glow">
+      <Card className="transition-all duration-300 hover:-translate-y-2 hover:border-primary/50 hover:shadow-glow">
         <CardHeader>
           <CardTitle className="leading-none text-[13px] font-semibold text-muted-foreground">Conectados agora</CardTitle>
         </CardHeader>
@@ -1096,7 +1096,7 @@ function HeroMatriz({ data, isLoading }: { data: Insights | undefined; isLoading
           <p className="mt-3 text-xs font-medium text-muted-foreground">{data && data.conectadosAgora === 0 ? "ninguém por aqui agora — sua rede está no ar" : "usando seu Wi-Fi neste momento"}</p>
         </CardContent>
       </Card>
-      <Card className="border-primary/40 bg-gradient-to-br from-primary/[0.13] via-primary/[0.04] to-transparent shadow-glow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/50 hover:shadow-glow">
+      <Card className="border-primary/40 bg-gradient-to-br from-primary/[0.13] via-primary/[0.04] to-transparent shadow-glow-sm transition-all duration-300 hover:-translate-y-2 hover:border-primary/50 hover:shadow-glow">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="leading-none text-[13px] font-semibold text-muted-foreground">Sua base de clientes</CardTitle>
           <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">Seu ativo</span>
@@ -1125,7 +1125,7 @@ function HeroMatriz({ data, isLoading }: { data: Insights | undefined; isLoading
           )}
         </CardContent>
       </Card>
-      <Card>
+      <Card className="transition-all duration-300 hover:-translate-y-2 hover:border-primary/50 hover:shadow-glow">
         <CardHeader>
           <CardTitle className="leading-none text-[13px] font-semibold text-muted-foreground">Horário de pico</CardTitle>
         </CardHeader>
