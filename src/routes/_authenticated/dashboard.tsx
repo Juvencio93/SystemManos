@@ -1060,153 +1060,82 @@ function ResumoSemanalCard({ data }: { data: Insights | undefined }) {
   );
 }
 
-function ExpandableMatrizCard({
-  id,
-  label,
-  children,
-  details,
-  highlight = false,
-}: {
-  id: string;
-  label: string;
-  children: ReactNode;
-  details: ReactNode;
-  highlight?: boolean;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  return (
-    <Card className={cn(
-      "h-full transition-all duration-200",
-      highlight && "border-primary/40 bg-gradient-to-br from-primary/[0.13] via-primary/[0.04] to-transparent shadow-glow-sm",
-      expanded && "border-primary/40",
-    )}>
-      <CardHeader className="pb-1">
-        <button
-          type="button"
-          aria-expanded={expanded}
-          aria-controls={`matriz-card-details-${id}`}
-          onClick={() => setExpanded((value) => !value)}
-          className="flex w-full items-center justify-between gap-3 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-primary"
-        >
-          <CardTitle className="leading-none text-[13px] font-semibold text-muted-foreground">{label}</CardTitle>
-          <ChevronDown className={cn("size-4 shrink-0 text-primary transition-transform duration-200", expanded && "rotate-180")} aria-hidden="true" />
-        </button>
-      </CardHeader>
-      <CardContent>
-        {children}
-        <div id={`matriz-card-details-${id}`} hidden={!expanded} className="mt-4 border-t border-white/10 pt-3">
-          {details}
-        </div>
-        {!expanded && <p className="mt-3 text-[10px] font-semibold text-primary/80">Ver detalhes</p>}
-      </CardContent>
-    </Card>
-  );
-}
-
 function HeroMatriz({ data, isLoading }: { data: Insights | undefined; isLoading: boolean }) {
   const v = (n?: number) => (isLoading ? "…" : String(n ?? 0));
   return (
     <div className="mb-10 cards-hero">
-      <ExpandableMatrizCard
-        id="today"
-        label="Acessos hoje"
-        details={(
-          <div className="space-y-2">
-            <p className="text-xs text-muted-foreground">Acessos registrados por campanha ativa hoje:</p>
-            {data?.campanhasHoje.length ? (
-              <ul className="space-y-1.5">
-                {data.campanhasHoje.slice(0, 4).map((campaign) => (
-                  <li key={campaign.id} className="flex items-center justify-between gap-3 text-xs">
-                    <span className="min-w-0 truncate text-foreground">{campaign.name}</span>
-                    <strong className="shrink-0 text-primary">{campaign.total}</strong>
-                  </li>
-                ))}
-              </ul>
-            ) : <p className="text-xs text-muted-foreground">Nenhum acesso em campanha ativa hoje.</p>}
-            <Link to="/relatorios" className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
-              Ver relatórios <ArrowRight className="size-3" />
-            </Link>
-          </div>
-        )}
-      >
-        <p className="font-display text-4xl font-black tracking-tighter">{v(data?.visitantesHoje)}</p>
-        <div className="mt-3">
-          {data && data.visitantesHoje > 0 ? (
-            <DeltaChip atual={data.visitantesHoje} anterior={data.visitantesOntem} sufixo="vs ontem" />
-          ) : (
-            <p className="text-xs font-medium leading-relaxed text-muted-foreground">Rede no ar — assim que o primeiro cliente conectar, o movimento aparece aqui.</p>
-          )}
-        </div>
-      </ExpandableMatrizCard>
-
-      <ExpandableMatrizCard
-        id="connected"
-        label="Conectados agora"
-        details={(
-          <div className="space-y-2 text-xs text-muted-foreground">
-            <p>Campanha ativa: <strong className="text-foreground">{data?.campanhaAtiva?.name ?? "nenhuma no momento"}</strong></p>
-            {data?.campanhaAtiva ? (
-              <Link to="/marketing/$campaignId" params={{ campaignId: data.campanhaAtiva.id }} className="inline-flex items-center gap-1 font-semibold text-primary hover:underline">
-                Ver campanha <ArrowRight className="size-3" />
-              </Link>
+      <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.07] via-transparent to-transparent transition-all duration-300 hover:-translate-y-1 hover:border-primary/50 hover:shadow-glow">
+        <CardHeader>
+          <CardTitle className="leading-none text-[13px] font-semibold text-muted-foreground">Acessos hoje</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="font-display text-4xl font-black tracking-tighter">{v(data?.visitantesHoje)}</p>
+          <div className="mt-3">
+            {data && (data.visitantesHoje > 0 ? (
+              <DeltaChip atual={data.visitantesHoje} anterior={data.visitantesOntem} sufixo="vs ontem" />
             ) : (
-              <Link to="/campanhas" className="inline-flex items-center gap-1 font-semibold text-primary hover:underline">
-                Ver campanhas <ArrowRight className="size-3" />
+              <>
+                <p className="text-xs font-medium leading-relaxed text-muted-foreground">Rede no ar — assim que o primeiro cliente conectar, o movimento aparece aqui.</p>
+                <Link to="/campanhas" className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+                  Ver meu QR Code <ArrowRight className="size-3" />
+                </Link>
+              </>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+      <Card className="transition-all duration-300 hover:-translate-y-1 hover:border-primary/50 hover:shadow-glow">
+        <CardHeader>
+          <CardTitle className="leading-none text-[13px] font-semibold text-muted-foreground">Conectados agora</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="flex items-center gap-2 font-display text-4xl font-black tracking-tighter">
+            {v(data?.conectadosAgora)}
+            <span className="relative flex size-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" /><span className="relative inline-flex size-2.5 rounded-full bg-emerald-400" /></span>
+          </p>
+          <p className="mt-3 text-xs font-medium text-muted-foreground">{data && data.conectadosAgora === 0 ? "ninguém por aqui agora — sua rede está no ar" : "usando seu Wi-Fi neste momento"}</p>
+        </CardContent>
+      </Card>
+      <Card className="border-primary/40 bg-gradient-to-br from-primary/[0.13] via-primary/[0.04] to-transparent shadow-glow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/50 hover:shadow-glow">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="leading-none text-[13px] font-semibold text-muted-foreground">Sua base de clientes</CardTitle>
+          <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">Seu ativo</span>
+        </CardHeader>
+        <CardContent>
+          <p className="font-display text-5xl font-black tracking-tighter text-primary">{v(data?.leadsEmpresa)}</p>
+          {data && data.leadsEmpresa === 0 ? (
+            <>
+              <p className="mt-3 text-xs font-medium leading-relaxed text-muted-foreground">
+                Quem faz check-in no seu Wi-Fi pode entrar pra sua base. Divulgue o QR Code no balcão pra começar.
+              </p>
+              <Link to="/campanhas" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+                Pegar meu QR Code <ArrowRight className="size-3" />
               </Link>
-            )}
-          </div>
-        )}
-      >
-        <p className="flex items-center gap-2 font-display text-4xl font-black tracking-tighter">
-          {v(data?.conectadosAgora)}
-          <span className="relative flex size-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" /><span className="relative inline-flex size-2.5 rounded-full bg-emerald-400" /></span>
-        </p>
-        <p className="mt-3 text-xs font-medium text-muted-foreground">{data && data.conectadosAgora === 0 ? "ninguém por aqui agora — sua rede está no ar" : "usando seu Wi-Fi neste momento"}</p>
-      </ExpandableMatrizCard>
-
-      <ExpandableMatrizCard
-        id="clients"
-        label="Sua base de clientes"
-        highlight
-        details={(
-          <div className="space-y-2 text-xs text-muted-foreground">
-            <p>{data?.leadsNovosSemana ? `+${data.leadsNovosSemana} novos contatos nesta semana.` : "Consulte os contatos cadastrados na sua base."}</p>
-            <Link to="/visitantes" className="inline-flex items-center gap-1 font-semibold text-primary hover:underline">
-              Ver minha base <ArrowRight className="size-3" />
-            </Link>
-          </div>
-        )}
-      >
-        <p className="font-display text-5xl font-black tracking-tighter text-primary">{v(data?.leadsEmpresa)}</p>
-        {data && data.leadsEmpresa === 0 ? (
-          <>
-            <p className="mt-3 text-xs font-medium leading-relaxed text-muted-foreground">Quem faz check-in no seu Wi-Fi pode entrar pra sua base. Divulgue o QR Code no balcão pra começar.</p>
-            <Link to="/campanhas" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">Pegar meu QR Code <ArrowRight className="size-3" /></Link>
-          </>
-        ) : (
-          <>
-            <p className="mt-3 text-xs font-medium leading-relaxed text-muted-foreground">{data && data.leadsNovosSemana > 0 ? <>{`+${data.leadsNovosSemana} esta semana · `}</> : null}contatos que você pode chamar no WhatsApp</p>
-            <Link to="/visitantes" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">Ver minha base <ArrowRight className="size-3" /></Link>
-          </>
-        )}
-      </ExpandableMatrizCard>
-
-      <ExpandableMatrizCard
-        id="peak"
-        label="Horário de pico"
-        details={(
-          <div className="space-y-2 text-xs text-muted-foreground">
-            <p>Faixa de maior movimento registrada na semana: <strong className="text-foreground">{data?.horarioPico ?? "sem dados"}</strong>.</p>
-            <p>{data?.horarioPicoTotal ?? 0} acessos registrados nesse horário.</p>
-            <Link to="/relatorios" className="inline-flex items-center gap-1 font-semibold text-primary hover:underline">
-              Abrir relatórios <ArrowRight className="size-3" />
-            </Link>
-          </div>
-        )}
-      >
-        <p className="font-display text-4xl font-black tracking-tighter">{isLoading ? "…" : (data?.horarioPico ?? "—")}</p>
-        <p className="mt-3 text-xs font-medium text-muted-foreground">{data && data.horarioPicoTotal > 0 ? `${data.horarioPicoTotal} acessos nesse horário na semana` : "aparece aqui quando houver movimento na semana"}</p>
-      </ExpandableMatrizCard>
+            </>
+          ) : (
+            <>
+              <p className="mt-3 text-xs font-medium leading-relaxed text-muted-foreground">
+                {data && data.leadsNovosSemana > 0 ? <>+{data.leadsNovosSemana} esta semana · </> : null}
+                contatos que você pode chamar no WhatsApp
+              </p>
+              <Link to="/visitantes" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+                Ver minha base <ArrowRight className="size-3" />
+              </Link>
+            </>
+          )}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="leading-none text-[13px] font-semibold text-muted-foreground">Horário de pico</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="font-display text-4xl font-black tracking-tighter">{isLoading ? "…" : (data?.horarioPico ?? "—")}</p>
+          <p className="mt-3 text-xs font-medium text-muted-foreground">
+            {data && data.horarioPicoTotal > 0 ? `${data.horarioPicoTotal} acessos nesse horário na semana` : "aparece aqui quando houver movimento na semana"}
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }
