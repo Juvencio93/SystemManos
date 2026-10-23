@@ -758,6 +758,22 @@
   width: 18rem;
 }
 
+/* Cards dos heros (capas ADM/Matriz/Filial): grade que se adapta
+   ao espaco de verdade — 4 colunas quando cabe, 3/2/1 conforme
+   estreita, sem espremer o texto (piso de 15rem por card). Em CSS
+   puro de proposito: a classe arbitraria do Tailwind com minmax
+   aninhado nao e confiavel. */
+.cards-hero {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+}
+@media (min-width: 640px) {
+  .cards-hero {
+    gap: 1.5rem;
+  }
+}
+
 /* Menu (barra lateral e gaveta): rola, mas SEM mostrar a barra —
    pedido do Gabriel: a barra visível "não fica bonita". */
 .menu-scroll {
