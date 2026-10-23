@@ -1185,7 +1185,7 @@ function HeroMatriz({ data, isLoading }: { data: Insights | undefined; isLoading
           </>
         ) : (
           <>
-            <p className="mt-3 text-xs font-medium leading-relaxed text-muted-foreground">{data && data.leadsNovosSemana > 0 ? <>{`+${data.leadsNovosSemana} esta semana · "}</> : null}contatos que você pode chamar no WhatsApp</p>
+            <p className="mt-3 text-xs font-medium leading-relaxed text-muted-foreground">{data && data.leadsNovosSemana > 0 ? <>{`+${data.leadsNovosSemana} esta semana · `}</> : null}contatos que você pode chamar no WhatsApp</p>
             <Link to="/visitantes" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">Ver minha base <ArrowRight className="size-3" /></Link>
           </>
         )}
