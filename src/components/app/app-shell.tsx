@@ -252,7 +252,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           No celular quem manda é a gaveta (Sheet) do cabeçalho. */}
       <aside
         aria-label="Menu lateral"
-        className="group fixed inset-y-0 left-0 z-40 hidden w-[68px] overflow-hidden border-r border-sidebar-border bg-sidebar transition-[width] duration-200 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] focus-within:w-72 hover:w-72 hover:shadow-2xl md:flex md:flex-col print:hidden [&_.rail-label]:pointer-events-none [&_.rail-label]:opacity-0 [&_.rail-label]:transition-opacity [&_.rail-label]:duration-150 group-focus-within:[&_.rail-label]:opacity-100 group-hover:[&_.rail-label]:opacity-100"
+        className="menu-lateral group fixed inset-y-0 left-0 z-40 hidden w-[68px] overflow-hidden border-r border-sidebar-border bg-sidebar transition-[width] duration-200 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] focus-within:w-72 hover:w-72 hover:shadow-2xl md:flex md:flex-col print:hidden"
       >
         <div className="flex w-72 flex-col h-full">
           <div className="flex shrink-0 items-center gap-2 border-b border-sidebar-border px-3 py-4">
