@@ -208,7 +208,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
     return (
       <div className="relative">
         <div className="flex flex-col gap-4 md:flex-row md:items-start">
-          <div className="relative mx-auto w-full max-w-[330px] shrink-0 md:mx-0">
+          <div className="relative z-0 mx-auto w-full max-w-[330px] shrink-0 md:mx-0">
             <div
               className={`relative overflow-hidden rounded-full ${
                 hasOffline
@@ -414,7 +414,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
 
         <CardContent className="relative p-3 sm:p-5">
           <div
-            className="relative overflow-hidden rounded-xl border border-white/10"
+            className="relative z-0 overflow-hidden rounded-xl border border-white/10"
           >
             {isLoading ? (
               <div className="absolute inset-0 z-[500] grid place-items-center bg-[#071017]/80 text-sm text-muted-foreground">

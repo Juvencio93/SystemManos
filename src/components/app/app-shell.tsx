@@ -159,22 +159,63 @@ export function AppShell({ children }: { children: ReactNode }) {
         key={item.to}
         to={item.to}
         onClick={() => setOpen(false)}
-        className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+        className={`flex items-center gap-3 whitespace-nowrap rounded-lg px-3 py-2 text-sm transition-colors ${
           active
             ? "bg-sidebar-accent text-sidebar-accent-foreground"
             : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
         }`}
       >
-        <item.icon className="size-4" />
-        {item.label}
+        <item.icon className="size-4 shrink-0" />
+        <span className="rail-label">{item.label}</span>
         {item.to === "/pre-venda" && (preSalesCount.data?.count ?? 0) > 0 ? (
-          <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-cyan-400 px-1.5 py-0.5 text-[10px] font-bold text-slate-950">
+          <span className="rail-label ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-cyan-400 px-1.5 py-0.5 text-[10px] font-bold text-slate-950">
             {preSalesCount.data!.count > 99 ? "99+" : preSalesCount.data!.count}
           </span>
         ) : null}
       </Link>
     );
   };
+
+  // Blocos compartilhados entre a gaveta (celular) e a barra lateral
+  // (desktop). A barra desktop é ESTREITA (só ícones) e EXPANDE no
+  // hover/foco — o conteúdo interno tem largura fixa de 18rem e é
+  // cortado pelo overflow da barra recolhida.
+  const navGroups = (
+    <div className="flex flex-col gap-4">
+      {NAV_GROUPS.map((group) => {
+        const groupItems = items.filter((item) => item.group === group);
+        if (!groupItems.length) return null;
+        return (
+          <div key={group} className="flex flex-col gap-1">
+            <p className="rail-label whitespace-nowrap px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/70">
+              {group}
+            </p>
+            {groupItems.map(renderNavLink)}
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const userFooter = (
+    <div className="rounded-xl border border-sidebar-border bg-card/60 p-3">
+      <p className="truncate text-xs text-muted-foreground">{access?.email}</p>
+      <p className="mt-1 truncate text-sm font-medium">{access?.fullName}</p>
+      {role ? (
+        <Badge variant="outline" className="mt-2 border-primary/40 text-primary">
+          {roleLabel[role]}
+        </Badge>
+      ) : null}
+      <Button
+        variant="ghost"
+        size="sm"
+        className="mt-3 w-full justify-start"
+        onClick={handleSignOut}
+      >
+        <LogOut className="size-4" /> Sair
+      </Button>
+    </div>
+  );
 
   const pendingAccess = !accessLoading && Boolean(access) && role === null;
   // Marca do cabeçalho: Matriz/Filial com logo cadastrado veem a
@@ -203,12 +244,60 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col md:pl-[68px] print:pl-0">
+      {/* Barra lateral do DESKTOP: estreita (só ícones, 68px) e
+          EXPANDE ao passar o mouse ou focar pelo teclado (288px,
+          flutuando sobre o conteúdo). Os textos têm a classe
+          rail-label: somem com a barra recolhida e aparecem no hover.
+          No celular quem manda é a gaveta (Sheet) do cabeçalho. */}
+      <aside
+        aria-label="Menu lateral"
+        className="menu-lateral group fixed inset-y-0 left-0 z-40 hidden w-[68px] overflow-hidden border-r border-sidebar-border bg-sidebar transition-[width] duration-200 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] focus-within:w-72 hover:w-72 hover:shadow-2xl md:flex md:flex-col print:hidden"
+      >
+        <div className="flex w-72 flex-col h-full">
+          <div className="flex shrink-0 items-center gap-2 border-b border-sidebar-border px-3 py-4">
+            <img
+              src={clienteBrand ? (access?.logoUrl as string) : sidebarLogo}
+              alt={`Logo ${brandName}`}
+              className={`size-11 shrink-0 rounded-full object-contain ${clienteBrand ? "bg-white p-1" : ""}`}
+            />
+            <span className="rail-label whitespace-nowrap font-display text-sm font-semibold leading-tight">
+              {brandName}
+              <span className="block text-[10px] font-normal uppercase tracking-[0.2em] text-muted-foreground">
+                {clienteBrand ? "Painel da sua empresa" : "Plataforma de Marketing Inteligente"}
+              </span>
+            </span>
+          </div>
+          <nav
+            aria-label="Navegação principal"
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 [scrollbar-gutter:stable]"
+          >
+            {navGroups}
+          </nav>
+          <div className="mt-auto shrink-0 border-t border-sidebar-border px-3 py-3">
+            <p className="rail-label truncate text-xs text-muted-foreground">{access?.email}</p>
+            <p className="rail-label mt-1 truncate text-sm font-medium">{access?.fullName}</p>
+            {role ? (
+              <Badge variant="outline" className="rail-label mt-2 border-primary/40 text-primary">
+                {roleLabel[role]}
+              </Badge>
+            ) : null}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mt-3 w-full justify-start whitespace-nowrap"
+              onClick={handleSignOut}
+            >
+              <LogOut className="size-4 shrink-0" /> <span className="rail-label">Sair</span>
+            </Button>
+          </div>
+        </div>
+      </aside>
       <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-2 border-b border-border bg-background/80 px-3 py-3 backdrop-blur sm:flex-nowrap sm:gap-3 md:px-6 print:hidden print-hide">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Abrir menu">
+              <Button variant="ghost" size="icon" aria-label="Abrir menu" className="md:hidden">
                 <Menu className="size-5" />
               </Button>
             </SheetTrigger>
@@ -235,45 +324,16 @@ export function AppShell({ children }: { children: ReactNode }) {
                 aria-label="Navegação principal"
                 className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 [scrollbar-gutter:stable]"
               >
-                <div className="flex flex-col gap-4">
-                  {NAV_GROUPS.map((group) => {
-                    const groupItems = items.filter((item) => item.group === group);
-                    if (!groupItems.length) return null;
-                    return (
-                      <div key={group} className="flex flex-col gap-1">
-                        <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/70">
-                          {group}
-                        </p>
-                        {groupItems.map(renderNavLink)}
-                      </div>
-                    );
-                  })}
-                </div>
+                {navGroups}
               </nav>
 
               <div className="mt-auto shrink-0 border-t border-sidebar-border bg-sidebar px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3">
-                <div className="rounded-xl border border-sidebar-border bg-card/60 p-3">
-                  <p className="truncate text-xs text-muted-foreground">{access?.email}</p>
-                  <p className="mt-1 truncate text-sm font-medium">{access?.fullName}</p>
-                  {role ? (
-                    <Badge variant="outline" className="mt-2 border-primary/40 text-primary">
-                      {roleLabel[role]}
-                    </Badge>
-                  ) : null}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="mt-3 w-full justify-start"
-                    onClick={handleSignOut}
-                  >
-                    <LogOut className="size-4" /> Sair
-                  </Button>
-                </div>
+                {userFooter}
               </div>
             </SheetContent>
           </Sheet>
 
-          <Link to="/dashboard" className="flex min-w-0 flex-1 items-center gap-2">
+          <Link to="/dashboard" className="flex min-w-0 flex-1 items-center gap-2 md:hidden">
             <img
               src={brandLogo}
               alt={`Logo ${brandName}`}

@@ -722,3 +722,17 @@
     overflow: visible !important;
   }
 }
+
+/* Menu lateral desktop (app-shell): recolhido mostra só ícones —
+   os rótulos (.rail-label) somem; no hover/foco da barra, aparecem.
+   Regra em CSS puro de propósito: a variante empilhada do Tailwind
+   (group-hover + seletor arbitrário) não gerou a regra de retorno. */
+.menu-lateral .rail-label {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms ease;
+}
+.menu-lateral:hover .rail-label,
+.menu-lateral:focus-within .rail-label {
+  opacity: 1;
+}
