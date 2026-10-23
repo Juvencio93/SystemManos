@@ -70,6 +70,11 @@ import { hotspotActionError, postHotspotAction } from "@/lib/hotspot-client";
 
 import { getInsights } from "@/lib/insights.functions";
 import { getFinanceiroStats } from "@/lib/financeiro.functions";
+import { getLatestOperationalAnalysis } from "@/lib/operational.functions";
+import {
+  getHermesResumo,
+  type HermesResumoResult,
+} from "@/lib/hermes-series.functions";
 import { listPasswordResetRequests } from "@/lib/password-reset.functions";
 import { getCurrentMatrizCharge } from "@/lib/billing.functions";
 import type { Insights } from "@/lib/insights.server";
@@ -490,6 +495,7 @@ function HeroAdm({
 function PrecisaDeVoceCard() {
   const buscarSenhas = useServerFn(listPasswordResetRequests);
   const buscarFin = useServerFn(getFinanceiroStats);
+  const buscarAnalise = useServerFn(getLatestOperationalAnalysis);
 
   const senhas = useQuery({
     queryKey: ["dash-precisa-senhas"],
@@ -499,6 +505,11 @@ function PrecisaDeVoceCard() {
   const fin = useQuery({
     queryKey: ["dash-precisa-financeiro"],
     queryFn: () => buscarFin({ data: { period: "todas-em-aberto" } }),
+    staleTime: 60_000,
+  });
+  const analise = useQuery({
+    queryKey: ["dash-precisa-analise"],
+    queryFn: () => buscarAnalise(),
     staleTime: 60_000,
   });
   const empresas = useQuery({
@@ -524,7 +535,8 @@ function PrecisaDeVoceCard() {
   const faturasVencidas = finData?.emAtrasoList?.length ?? 0;
   const totalVencido = finData?.emAtraso ?? 0;
   const empresasNovas = empresas.data ?? 0;
-  const carregando = senhas.isLoading || fin.isLoading || empresas.isLoading;
+  const carregando =
+    senhas.isLoading || fin.isLoading || empresas.isLoading || analise.isLoading;
   const decisoes = senhasPendentes + faturasVencidas;
 
   const linhas: {
@@ -556,6 +568,40 @@ function PrecisaDeVoceCard() {
       to: "/financeiro/em-atraso",
       acao: "Ver cobranças",
     });
+  const analiseData = analise.data as
+    | {
+        analysisDate?: string;
+        desatualizada?: boolean;
+        indicators?: Record<string, number>;
+      }
+    | undefined;
+  if (analiseData?.indicators) {
+    const ind = analiseData.indicators;
+    const partes: string[] = [];
+    if (ind["destaque"]) partes.push(`${ind["destaque"]} destaque${ind["destaque"] > 1 ? "s" : ""}`);
+    if (ind["atencao"]) partes.push(`${ind["atencao"]} em atenção`);
+    if (ind["critico"]) partes.push(`${ind["critico"]} crítico${ind["critico"] > 1 ? "s" : ""}`);
+    if (ind["observacao"]) partes.push(`${ind["observacao"]} em observação`);
+    const [anoA, mesA, diaA] = (analiseData.analysisDate ?? "").split("-");
+    linhas.push({
+      key: "analise",
+      icon: Activity,
+      cor: ind["critico"]
+        ? "bg-red-400/15 text-red-300"
+        : "bg-primary/15 text-primary",
+      titulo: (
+        <>
+          Análise diária{diaA ? ` de ${diaA}/${mesA}` : ""}
+          {analiseData.desatualizada ? " (a última válida)" : ""}
+        </>
+      ),
+      detalhe:
+        (partes.length ? partes.join(" · ") : "sem apontamentos") +
+        (analiseData.desatualizada ? " — a de hoje sai às 06:00" : ""),
+      to: "/gerente-operacional",
+      acao: "Ver análise",
+    });
+  }
   if (empresasNovas > 0)
     linhas.push({
       key: "empresas",
@@ -606,6 +652,88 @@ function PrecisaDeVoceCard() {
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
             <CheckCircle2 className="size-4 text-emerald-400" />
             Tudo certo por aqui — nada esperando a sua decisão.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+
+const ROTULO_SEVERIDADE: Record<string, string> = {
+  critica: "crítica",
+  alta: "alta",
+  media: "média",
+  baixa: "baixa",
+};
+
+function ProblemasRedeResumo() {
+  const buscarResumo = useServerFn(getHermesResumo);
+  const resumo = useQuery({
+    queryKey: ["monitoramento-resumo"],
+    refetchInterval: 30_000,
+    queryFn: () => buscarResumo() as Promise<HermesResumoResult>,
+  });
+  if (!resumo.data?.ok) return null;
+  const rbs = resumo.data.rbs;
+  const total = rbs.reduce((acc, r) => acc + (r.problemas?.total ?? 0), 0);
+  const linhas = rbs
+    .filter((r) => (r.problemas?.total ?? 0) > 0 || (r.agora && !r.agora.acessivel))
+    .map((r) => {
+      const partes: string[] = [];
+      if (r.agora && !r.agora.acessivel) partes.push("sem contato agora");
+      if ((r.problemas?.total ?? 0) > 0)
+        partes.push(
+          `${r.problemas.total} problema${r.problemas.total > 1 ? "s" : ""} nos últimos 7 dias` +
+            (r.problemas.pior
+              ? ` · pior: ${ROTULO_SEVERIDADE[r.problemas.pior] ?? r.problemas.pior}`
+              : ""),
+        );
+      return {
+        nome: r.cliente ?? r.vault_ref ?? `RB ${r.rb_id}`,
+        detalhe: partes.join(" · "),
+        offline: Boolean(r.agora && !r.agora.acessivel),
+      };
+    });
+  return (
+    <Card className="mb-10">
+      <CardHeader className="flex flex-row items-center gap-2">
+        <CardTitle className="text-sm font-semibold">
+          Problemas na rede (7 dias)
+        </CardTitle>
+        {total > 0 ? (
+          <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-semibold leading-none text-amber-300">
+            {total}
+          </span>
+        ) : null}
+        <Link
+          to="/monitoramento"
+          className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+        >
+          Abrir Monitoramento <ArrowRight className="size-3" />
+        </Link>
+      </CardHeader>
+      <CardContent>
+        {linhas.length ? (
+          <ul className="divide-y divide-white/5">
+            {linhas.map((l) => (
+              <li key={l.nome} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+                <span
+                  className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${l.offline ? "bg-red-400/15 text-red-300" : "bg-amber-400/15 text-amber-300"}`}
+                >
+                  <AlertTriangle className="size-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">{l.nome}</span>
+                  <span className="block text-xs text-muted-foreground">{l.detalhe}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <CheckCircle2 className="size-4 text-emerald-400" />
+            Nenhum problema registrado nos últimos 7 dias.
           </p>
         )}
       </CardContent>
@@ -753,6 +881,8 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
           onReboot={handleRadarReboot}
         />
       </div>
+
+      <ProblemasRedeResumo />
 
 
 
