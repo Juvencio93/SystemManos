@@ -39,7 +39,8 @@ function extractModel(
   }
   if (bucket === "android") {
     const build = ua.match(/;\s*([^;()]+?)\s+Build\//i);
-    if (build) return build[1].trim();
+    const modelo = build?.[1];
+    if (modelo) return modelo.trim();
     const dtModel = (deviceType ?? "").trim();
     if (dtModel && !/^(android|mobile|phone|celular)$/i.test(dtModel)) return dtModel;
     return null;
