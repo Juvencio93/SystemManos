@@ -68,10 +68,12 @@ const vazio = (periodDate: string): DispositivosHoje => ({
 });
 
 /**
- * Dispositivos que conectaram hoje (period_date = hoje em America/Sao_Paulo),
- * com o mesmo escopo de papel do getInsights: ADM vê tudo, matriz filtra por
- * empresa, filial por unidade. Os números vêm da tabela connections, que o
- * portal alimenta com device_type + user_agent a cada conexão.
+ * Dispositivos que conectaram hoje (period_date = hoje em America/Sao_Paulo).
+ * Escopo por papel: ADM vê tudo; matriz filtra por empresa (inclui as filiais,
+ * que compartilham o company_id); filial só pela própria unidade; revenda
+ * pela rede dele (empresas e unidades com reseller_id igual ao dele).
+ * Os números vêm da tabela connections, que o portal alimenta com
+ * device_type + user_agent a cada conexão.
  */
 export const getDispositivosHoje = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -82,7 +84,29 @@ export const getDispositivosHoje = createServerFn({ method: "GET" })
     )) as { role: string | null; companyId: string | null; branchId: string | null };
     const periodDate = spDate();
 
-    if (role !== "adm" && role !== "matriz" && role !== "filial") return vazio(periodDate);
+    if (role !== "adm" && role !== "matriz" && role !== "filial" && role !== "revenda") {
+      return vazio(periodDate);
+    }
+
+    // Rede da revenda: empresas e unidades com reseller_id igual ao dela.
+    let resellerCompanyIds: string[] = [];
+    let resellerBranchIds: string[] = [];
+    if (role === "revenda") {
+      const { data: roleRow } = await context.supabase
+        .from("user_roles")
+        .select("reseller_id")
+        .eq("user_id", context.userId)
+        .maybeSingle();
+      const resellerId = (roleRow as { reseller_id: string | null } | null)?.reseller_id;
+      if (!resellerId) return vazio(periodDate);
+      const [{ data: companies }, { data: branches }] = await Promise.all([
+        context.supabase.from("companies").select("id").eq("reseller_id", resellerId),
+        context.supabase.from("branches").select("id").eq("reseller_id", resellerId),
+      ]);
+      resellerCompanyIds = ((companies ?? []) as { id: string }[]).map((row) => row.id);
+      resellerBranchIds = ((branches ?? []) as { id: string }[]).map((row) => row.id);
+      if (!resellerCompanyIds.length && !resellerBranchIds.length) return vazio(periodDate);
+    }
 
     type Row = { device_type: string | null; user_agent: string | null };
     const rows: Row[] = [];
@@ -93,6 +117,17 @@ export const getDispositivosHoje = createServerFn({ method: "GET" })
         .eq("period_date", periodDate);
       if (role === "matriz" && companyId) query = query.eq("company_id", companyId);
       else if (role === "filial" && branchId) query = query.eq("branch_id", branchId);
+      else if (role === "revenda") {
+        const filtros = [
+          ...(resellerCompanyIds.length
+            ? [`company_id.in.(${resellerCompanyIds.join(",")})`]
+            : []),
+          ...(resellerBranchIds.length
+            ? [`branch_id.in.(${resellerBranchIds.join(",")})`]
+            : []),
+        ];
+        query = query.or(filtros.join(","));
+      }
       const { data, error } = await query.range(page * 1000, page * 1000 + 999);
       if (error) throw error;
       rows.push(...((data ?? []) as Row[]));

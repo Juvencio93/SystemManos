@@ -143,10 +143,10 @@ export function DeviceCard() {
                   <div className="h-full bg-green-400" style={{ flexGrow: dados?.android ?? 0, flexBasis: 0 }} />
                 ) : null}
                 {(dados?.ios ?? 0) > 0 ? (
-                  <div className="h-full bg-slate-100" style={{ flexGrow: dados?.ios ?? 0, flexBasis: 0 }} />
+                  <div className="h-full bg-yellow-400" style={{ flexGrow: dados?.ios ?? 0, flexBasis: 0 }} />
                 ) : null}
                 {(dados?.computador ?? 0) > 0 ? (
-                  <div className="h-full bg-cyan-400" style={{ flexGrow: dados?.computador ?? 0, flexBasis: 0 }} />
+                  <div className="h-full bg-blue-500" style={{ flexGrow: dados?.computador ?? 0, flexBasis: 0 }} />
                 ) : null}
                 {outros > 0 ? (
                   <div className="h-full bg-slate-500" style={{ flexGrow: outros, flexBasis: 0 }} />
@@ -157,10 +157,10 @@ export function DeviceCard() {
                   <span className="inline-block size-2.5 rounded-full bg-green-400" /> Android {dados?.android ?? 0}
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="inline-block size-2.5 rounded-full bg-slate-100" /> iOS {dados?.ios ?? 0}
+                  <span className="inline-block size-2.5 rounded-full bg-yellow-400" /> iOS {dados?.ios ?? 0}
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="inline-block size-2.5 rounded-full bg-cyan-400" /> Computador {computador}
+                  <span className="inline-block size-2.5 rounded-full bg-blue-500" /> Computador {computador}
                 </span>
                 {outros > 0 ? (
                   <span className="flex items-center gap-1.5">
@@ -181,7 +181,7 @@ export function DeviceCard() {
                 titulo="iOS"
                 modelos={dados?.modelosIos ?? []}
                 total={dados?.ios ?? 0}
-                dotClass="bg-slate-100"
+                dotClass="bg-yellow-400"
               />
             </div>
           </>

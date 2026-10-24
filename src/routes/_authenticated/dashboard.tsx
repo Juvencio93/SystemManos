@@ -273,6 +273,10 @@ function ResellerDashboard({ access }: { access: AccessInfo | null }) {
       <div className="mb-10 cards-hero">
         {modules.map((module) => <ModuleCard key={module.label} module={module} isLoading={companiesQuery.isLoading} />)}
       </div>
+
+      <div className="mb-10">
+        <DeviceCard />
+      </div>
     </DashboardLayout>
   );
 }
@@ -1222,6 +1226,10 @@ function MatrizDashboard({ access }: { access: AccessInfo | null }) {
 
       <HeroMatriz data={data} isLoading={insights.isLoading} />
 
+      <div className="mb-10">
+        <DeviceCard />
+      </div>
+
       <ResumoSemanalCard data={data} />
 
       <div className="mb-10 space-y-6">
@@ -1381,6 +1389,10 @@ function FilialDashboard({ access }: { access: AccessInfo | null }) {
       subtitle="Sua unidade hoje — e como ela está na rede."
     >
       <HeroFilial data={data} isLoading={insights.isLoading} />
+
+      <div className="mb-10">
+        <DeviceCard />
+      </div>
 
       <div className="mb-10 space-y-6">
         <CampanhaDestaqueCard data={data} isLoading={insights.isLoading} />
