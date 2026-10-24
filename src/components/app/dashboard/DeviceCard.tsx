@@ -17,7 +17,8 @@ function ListaModelos({
   return (
     <div>
       <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        {titulo} · {total}
+        {titulo}
+        {modelos.length > 1 ? ` · ${total}` : ""}
       </p>
       {modelos.length === 0 ? (
         <p className="text-sm text-muted-foreground">Nenhum modelo ainda hoje.</p>
@@ -44,21 +45,45 @@ function ListaModelos({
  * Os modelos vêm do user agent capturado no portal: Android traz o modelo
  * (ex.: SM-S918B, Pixel 8 Pro); iPhone/iPad não trazem modelo — só o tipo.
  */
+// Dados fictícios só para visualização no preview (?demo=1). Nunca usados sem o
+// parâmetro na URL, e o selo "Demonstração" deixa claro que não são reais.
+const DEMO = {
+  periodDate: "hoje",
+  total: 28,
+  celular: 23,
+  computador: 5,
+  outros: 0,
+  android: 15,
+  ios: 8,
+  modelosAndroid: [
+    { modelo: "Galaxy S23", total: 6 },
+    { modelo: "Moto G54", total: 4 },
+    { modelo: "Redmi Note 13", total: 3 },
+    { modelo: "Pixel 8", total: 2 },
+  ],
+  modelosIos: [{ modelo: "iPhone", total: 8 }],
+};
+
 export function DeviceCard() {
+  const demo =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("demo") === "1";
   const fetchDevices = useServerFn(getDispositivosHoje);
   const { data, isLoading } = useQuery({
     queryKey: ["dispositivos-hoje"],
     queryFn: () => fetchDevices(),
+    enabled: !demo,
     refetchInterval: 5000,
     refetchIntervalInBackground: true,
   });
 
-  if (isLoading) return <Skeleton className="h-[260px] w-full rounded-xl" />;
+  if (!demo && isLoading) return <Skeleton className="h-[260px] w-full rounded-xl" />;
 
-  const total = data?.total ?? 0;
-  const celular = data?.celular ?? 0;
-  const computador = data?.computador ?? 0;
-  const outros = data?.outros ?? 0;
+  const dados = demo ? DEMO : data;
+  const total = dados?.total ?? 0;
+  const celular = dados?.celular ?? 0;
+  const computador = dados?.computador ?? 0;
+  const outros = dados?.outros ?? 0;
   const pctCelular = total > 0 ? Math.round((celular / total) * 100) : 0;
   const pctComputador = total > 0 ? Math.round((computador / total) * 100) : 0;
 
@@ -69,6 +94,11 @@ export function DeviceCard() {
         <p className="text-xs text-muted-foreground">
           Celular vs computador · modelos que conectaram, por sistema
         </p>
+        {demo ? (
+          <p className="mt-1 inline-flex rounded-full bg-amber-400/15 px-2 py-0.5 text-[11px] font-semibold text-amber-300">
+            Demonstração · dados fictícios
+          </p>
+        ) : null}
       </CardHeader>
       <CardContent className="space-y-5">
         {total === 0 ? (
@@ -112,10 +142,10 @@ export function DeviceCard() {
             <div className="grid gap-6 sm:grid-cols-2">
               <ListaModelos
                 titulo="Android"
-                modelos={data?.modelosAndroid ?? []}
-                total={data?.android ?? 0}
+                modelos={dados?.modelosAndroid ?? []}
+                total={dados?.android ?? 0}
               />
-              <ListaModelos titulo="iOS" modelos={data?.modelosIos ?? []} total={data?.ios ?? 0} />
+              <ListaModelos titulo="iOS" modelos={dados?.modelosIos ?? []} total={dados?.ios ?? 0} />
             </div>
           </>
         )}
