@@ -253,7 +253,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
               </div>
             ) : null}
             <p className="mt-2 text-center text-[10px] text-muted-foreground">
-              © OpenStreetMap · toque numa RB para abrir o painel do Hermes
+              © OpenStreetMap · toque numa RB para abrir o painel da ManosTech IA
             </p>
           </div>
 

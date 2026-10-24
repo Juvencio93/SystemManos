@@ -8,7 +8,7 @@ const files = [
   "/mikrotik/MANOS-WAN-FIREWALL-UPDATE.rsc",
   "/mikrotik/MANOS-SECURITY-AUDIT.rsc",
   "/mikrotik/MANOS-MANAGEMENT-HARDENING.rsc",
-  "/mikrotik/MANOS-HERMES-SETUP.rsc",
+  "/mikrotik/MANOS-IA-SETUP.rsc",
   "/mikrotik/MANOS-BACKUP-EXPORT.rsc",
   "/mikrotik/MANOS-HOTSPOT-BASE.rsc",
   "/mikrotik/MANOS-INSTALL-HOTSPOT-PAGES.rsc",

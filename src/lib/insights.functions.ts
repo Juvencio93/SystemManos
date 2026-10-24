@@ -440,7 +440,7 @@ export const askAgent = createServerFn({ method: "POST" })
           text: null,
           requestId,
           error:
-            "O bate-papo do Gerente Operacional IA foi desabilitado. Para ações operacionais, use o Hermes no Telegram.",
+            "O bate-papo do Gerente Operacional IA foi desabilitado. Para ações operacionais, use a ManosTech IA no Telegram.",
           stage: "disabled",
         };
       } else if (role === "matriz" || role === "filial") {

@@ -11,7 +11,7 @@ interface HermesSetupCardProps {
 /**
  * Integração do Hermes no menu Hotspot: apresenta o agente IA de
  * monitoramento proativo das RBs e disponibiliza o instalador
- * MANOS-HERMES-SETUP.rsc (arquivo universal — o mesmo em todas as RBs).
+ * MANOS-IA-SETUP.rsc (arquivo universal — o mesmo em todas as RBs).
  */
 export function HermesSetupCard({ expanded, onToggle }: HermesSetupCardProps) {
   return (
@@ -25,7 +25,7 @@ export function HermesSetupCard({ expanded, onToggle }: HermesSetupCardProps) {
         >
           <Radar className="size-5 text-primary" />
           <span>
-            <CardTitle>Monitoramento Hermes</CardTitle>
+            <CardTitle>Monitoramento ManosTech IA</CardTitle>
             <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
               Agente IA que monitora as RBs de forma proativa — somente leitura
             </span>
@@ -36,7 +36,7 @@ export function HermesSetupCard({ expanded, onToggle }: HermesSetupCardProps) {
       {expanded && (
         <CardContent className="space-y-5">
           <p className="text-sm text-muted-foreground">
-            O Hermes coleta a cada 5 minutos CPU, memória, sessões PPPoE, interfaces,
+            A ManosTech IA coleta a cada 5 minutos CPU, memória, sessões PPPoE, interfaces,
             temperatura e logs de cada RB e envia alertas no Telegram. Nenhuma ação de
             escrita acontece sem a sua aprovação.
           </p>
@@ -47,12 +47,12 @@ export function HermesSetupCard({ expanded, onToggle }: HermesSetupCardProps) {
               a RB se cadastra sozinha e aguarda a sua aprovação no Telegram.
             </p>
             <Button variant="outline" asChild>
-              <a href="/mikrotik/MANOS-HERMES-SETUP.rsc" download>
-                <Download className="size-4" /> Baixar MANOS-HERMES-SETUP.rsc
+              <a href="/mikrotik/MANOS-IA-SETUP.rsc" download>
+                <Download className="size-4" /> Baixar MANOS-IA-SETUP.rsc
               </a>
             </Button>
             <p className="text-xs text-muted-foreground">
-              Terminal: <code>/import file-name=MANOS-HERMES-SETUP.rsc</code>
+              Terminal: <code>/import file-name=MANOS-IA-SETUP.rsc</code>
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -67,7 +67,7 @@ export function HermesSetupCard({ expanded, onToggle }: HermesSetupCardProps) {
               <p className="font-semibold">2. Instalação na RB</p>
               <p className="text-muted-foreground">
                 Envie o arquivo à raiz de Files no WinBox. Depois, no New Terminal,
-                rode <code>/import file-name=MANOS-HERMES-SETUP.rsc</code>. A RB gera o
+                rode <code>/import file-name=MANOS-IA-SETUP.rsc</code>. A RB gera o
                 próprio par de chaves WireGuard — a chave privada nunca sai da RB.
               </p>
             </div>

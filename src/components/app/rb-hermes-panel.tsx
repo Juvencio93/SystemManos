@@ -139,19 +139,19 @@ export function RbHermesPanel({ identity }: { identity: string }) {
         } else if (res.erro.includes("nao encontrada")) {
           setEstado({
             fase: "aviso",
-            texto: "Esta RB ainda não é monitorada pelo Hermes.",
+            texto: "Esta RB ainda não é monitorada pela ManosTech IA.",
           });
         } else if (res.erro === "indisponivel") {
           setEstado({
             fase: "aviso",
             texto:
-              "Não consegui falar com o Hermes na VPS." +
+              "Não consegui falar com a ManosTech IA na VPS." +
               (res.detalhe ? ` (${res.detalhe})` : ""),
           });
         } else {
           setEstado({
             fase: "aviso",
-            texto: `O Hermes respondeu: ${res.erro}`,
+            texto: `A ManosTech IA respondeu: ${res.erro}`,
           });
         }
       })
@@ -159,7 +159,7 @@ export function RbHermesPanel({ identity }: { identity: string }) {
         if (vivo)
           setEstado({
             fase: "aviso",
-            texto: "Não consegui falar com o Hermes na VPS.",
+            texto: "Não consegui falar com a ManosTech IA na VPS.",
           });
       });
     return () => {
@@ -173,7 +173,7 @@ export function RbHermesPanel({ identity }: { identity: string }) {
     <div className="mt-4">
       <div className="flex items-center gap-2">
         <Activity className="size-4 text-primary" />
-        <h4 className="text-sm font-semibold">Monitoramento Hermes</h4>
+        <h4 className="text-sm font-semibold">Monitoramento ManosTech IA</h4>
         {estado.fase === "pronto" && estado.dados.agora ? (
           <span className="text-[11px] text-muted-foreground">
             · atualizado {quandoCurto(estado.dados.agora.em)}
@@ -183,7 +183,7 @@ export function RbHermesPanel({ identity }: { identity: string }) {
 
       {estado.fase === "carregando" ? (
         <p className="mt-3 text-xs text-muted-foreground">
-          Carregando dados do Hermes…
+          Carregando dados da ManosTech IA…
         </p>
       ) : null}
 
@@ -239,7 +239,7 @@ function ConteudoHermes({
           valor: agora.up_mbps == null ? "—" : `${agora.up_mbps} Mbps`,
         },
         {
-          rotulo: "Coleta Hermes",
+          rotulo: "Coleta ManosTech IA",
           valor: agora.acessivel ? "Respondendo" : "Sem resposta",
         },
       ]
@@ -261,7 +261,7 @@ function ConteudoHermes({
         </div>
       ) : (
         <p className="mt-3 text-xs text-muted-foreground">
-          Sem coletas do Hermes nas últimas 24h para esta RB.
+          Sem coletas da ManosTech IA nas últimas 24h para esta RB.
         </p>
       )}
 

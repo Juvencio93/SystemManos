@@ -105,7 +105,7 @@ export function MonitorPreviewPanel({
                 <Activity className="size-5 text-primary" /> Monitoramento
               </h3>
               <p className="mt-1 text-xs text-slate-400">
-                RBs ao vivo (Hermes) · clique numa RB para abrir a página
+                RBs ao vivo (ManosTech IA) · clique numa RB para abrir a página
                 completa
               </p>
             </div>
