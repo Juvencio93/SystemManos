@@ -9,14 +9,17 @@ function ListaModelos({
   titulo,
   modelos,
   total,
+  dotClass,
 }: {
   titulo: string;
   modelos: DeviceModel[];
   total: number;
+  dotClass: string;
 }) {
   return (
     <div>
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+      <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <span className={`inline-block size-2.5 rounded-full ${dotClass}`} />
         {titulo}
         {modelos.length > 1 ? ` · ${total}` : ""}
       </p>
@@ -134,9 +137,37 @@ export function DeviceCard() {
               ) : null}
             </div>
 
-            <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-muted">
-              <div className="h-full bg-primary" style={{ width: `${pctCelular}%` }} />
-              <div className="h-full bg-cyan-400" style={{ width: `${pctComputador}%` }} />
+            <div>
+              <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-muted">
+                {(dados?.android ?? 0) > 0 ? (
+                  <div className="h-full bg-green-400" style={{ flexGrow: dados?.android ?? 0, flexBasis: 0 }} />
+                ) : null}
+                {(dados?.ios ?? 0) > 0 ? (
+                  <div className="h-full bg-slate-100" style={{ flexGrow: dados?.ios ?? 0, flexBasis: 0 }} />
+                ) : null}
+                {(dados?.computador ?? 0) > 0 ? (
+                  <div className="h-full bg-cyan-400" style={{ flexGrow: dados?.computador ?? 0, flexBasis: 0 }} />
+                ) : null}
+                {outros > 0 ? (
+                  <div className="h-full bg-slate-500" style={{ flexGrow: outros, flexBasis: 0 }} />
+                ) : null}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block size-2.5 rounded-full bg-green-400" /> Android {dados?.android ?? 0}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block size-2.5 rounded-full bg-slate-100" /> iOS {dados?.ios ?? 0}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block size-2.5 rounded-full bg-cyan-400" /> Computador {computador}
+                </span>
+                {outros > 0 ? (
+                  <span className="flex items-center gap-1.5">
+                    <span className="inline-block size-2.5 rounded-full bg-slate-500" /> Outros {outros}
+                  </span>
+                ) : null}
+              </div>
             </div>
 
             <div className="grid gap-6 sm:grid-cols-2">
@@ -144,8 +175,14 @@ export function DeviceCard() {
                 titulo="Android"
                 modelos={dados?.modelosAndroid ?? []}
                 total={dados?.android ?? 0}
+                dotClass="bg-green-400"
               />
-              <ListaModelos titulo="iOS" modelos={dados?.modelosIos ?? []} total={dados?.ios ?? 0} />
+              <ListaModelos
+                titulo="iOS"
+                modelos={dados?.modelosIos ?? []}
+                total={dados?.ios ?? 0}
+                dotClass="bg-slate-100"
+              />
             </div>
           </>
         )}
