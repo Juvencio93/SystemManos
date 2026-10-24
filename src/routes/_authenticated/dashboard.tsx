@@ -915,6 +915,8 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
     queryKey: ["insights"],
     queryFn: () => fetchInsights(),
     enabled: Boolean(access?.userId),
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true,
   });
 
   const data = insights.data as Insights | undefined;
@@ -990,9 +992,6 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
         ? <MonitorPreviewPanel devices={hotspotDevices.data ?? []} isLoading={hotspotDevices.isLoading} overlay={hotspotExpanded} onClose={() => setHotspotExpanded(false)} onMouseLeave={() => {}} />
         : <NetworkMapPanel devices={hotspotDevices.data ?? []} isLoading={hotspotDevices.isLoading} overlay={hotspotExpanded} onClose={() => setHotspotExpanded(false)} onMouseLeave={() => {}} />)}
 
-      <div className="mt-10">
-        <RealtimeHeatmap />
-      </div>
     </DashboardLayout>
   );
 }
