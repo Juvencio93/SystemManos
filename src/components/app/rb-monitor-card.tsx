@@ -195,7 +195,7 @@ export function RbMonitorCard({
       ) : (
         <p className="mt-3 text-xs text-slate-400">
           {temHermes
-            ? "Hermes ainda sem coleta desta RB."
+            ? "ManosTech IA ainda sem coleta desta RB."
             : online
               ? `Online · ${device.active_sessions ?? 0} sessões · ` +
                 `${fmt(device.latency_ms)} ms · perda ${fmt(device.packet_loss_pct)}%`
@@ -216,7 +216,7 @@ export function RbMonitorCard({
       )}
       {inacessivel && (
         <span className="ml-2 mt-3 inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[11px] font-medium text-amber-300">
-          Hermes sem contato
+          ManosTech IA sem contato
         </span>
       )}
     </button>

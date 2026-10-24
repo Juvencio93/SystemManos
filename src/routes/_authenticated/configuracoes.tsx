@@ -168,8 +168,7 @@ function PasswordResetRequestsCard() {
         </div>
         <CardDescription>
           Pedidos de quem esqueceu a senha. Ao aprovar, o sistema gera uma senha
-          temporária (vale 1 hora) e o cliente é obrigado a trocá-la ao entrar. O
-          Hermes também avisa no Telegram.
+          temporária (vale 1 hora) e o cliente é obrigado a trocá-la ao entrar. A ManosTech IA também avisa no Telegram.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

@@ -1,6 +1,6 @@
 # =====================================================================
-# MANOS-HERMES-SETUP.rsc
-# Manos Tech - Hermes Fase 1 (monitoramento proativo, SOMENTE LEITURA)
+# MANOS-IA-SETUP.rsc
+# Manos Tech - ManosTech IA (monitoramento proativo, SOMENTE LEITURA)
 #
 # Arquivo UNIVERSAL: o MESMO arquivo, sem editar NADA, em todas as
 # RBs. Importou, a RB se cadastra sozinha na VPS e aguarda a
@@ -31,7 +31,7 @@
 #        marcador "hermes-enrolled" e remove o agendador.
 #
 # USO:
-#   /import file-name=MANOS-HERMES-SETUP.rsc
+#   /import file-name=MANOS-IA-SETUP.rsc
 #   So isso. NAO ha variavel para preencher neste arquivo.
 #
 # Pre-requisitos:
@@ -144,8 +144,8 @@
 
 # --- Trava: WireGuard exige RouterOS v7 -------------------------------
 :if ([:tonum [:pick [/system resource get version] 0 1]] < 7) do={
-    :log error "HERMES: RouterOS v6 detectado - WireGuard exige v7"
-    :error "HERMES: atualize para RouterOS v7 antes de importar"
+    :log error "MANOS-IA: RouterOS v6 detectado - WireGuard exige v7"
+    :error "MANOS-IA: atualize para RouterOS v7 antes de importar"
 }
 
 # =====================================================================
@@ -153,8 +153,8 @@
 # configurada: sai sem tocar em nada.
 # =====================================================================
 :if ([:len [/system script find where name="hermes-enrolled"]] > 0) do={
-    :log info "HERMES: cadastro ja concluido nesta RB - nada a fazer"
-    :put "HERMES: ja ativo nesta RB (marcador hermes-enrolled). Nada foi alterado."
+    :log info "MANOS-IA: cadastro ja concluido nesta RB - nada a fazer"
+    :put "MANOS-IA: ja ativo nesta RB (marcador hermes-enrolled). Nada foi alterado."
 } else={
 
 # =====================================================================
@@ -164,7 +164,7 @@
 # =====================================================================
 :if ([:len [/interface wireguard find where name="wg-manos"]] = 0) do={
     /interface wireguard add name=wg-manos comment="HERMES"
-    :log info "HERMES: interface wg-manos criada (chaves geradas pela RB)"
+    :log info "MANOS-IA: interface wg-manos criada (chaves geradas pela RB)"
 } else={
     /interface wireguard set [find where name="wg-manos"] disabled=no
 }
@@ -213,9 +213,9 @@
 :local hermesJson ("{\"pubkey\":\"" . $hermesPubKey . "\",\"identity\":\"" . $hermesIdentity . "\",\"model\":\"" . $hermesModel . "\",\"version\":\"" . $hermesVersion . "\"}")
 :do {
     /tool fetch mode=https check-certificate=no http-method=post http-header-field="Content-Type: application/json" http-data=$hermesJson url=($hermesEnrollBase . "/enroll") output=none
-    :log info "HERMES: pedido de cadastro enviado - aguardando aprovacao no Telegram"
+    :log info "MANOS-IA: pedido de cadastro enviado - aguardando aprovacao no Telegram"
 } on-error={
-    :log warning "HERMES: servico de cadastro nao respondeu agora; o agendador hermes-enroll-poll assume as tentativas"
+    :log warning "MANOS-IA: servico de cadastro nao respondeu agora; o agendador hermes-enroll-poll assume as tentativas"
 }
 
 # =====================================================================
@@ -231,7 +231,7 @@
 #    A URL do servico e fixa e esta dentro do proprio script; a
 #    pubkey ele rele da interface wg-manos a cada execucao.
 # =====================================================================
-:local hermesPollSrc ":local pk [/interface wireguard get wg-manos public-key]; :local enc \"\"; :for i from=0 to=([:len \$pk] - 1) do={ :local c [:pick \$pk \$i (\$i + 1)]; :if (\$c = \"+\") do={ :set c \"%2B\" }; :if (\$c = \"/\") do={ :set c \"%2F\" }; :if (\$c = \"=\") do={ :set c \"%3D\" }; :set enc (\$enc . \$c) }; :do { /tool fetch mode=https check-certificate=no url=(\"https://186.202.57.104:8443/status?pubkey=\" . \$enc) dst-path=\"hermes-status.txt\" } on-error={ :log warning \"HERMES: servico de cadastro indisponivel; nova tentativa em 60s\" }; :if ([:len [/file find where name=\"hermes-status.txt\"]] > 0) do={ :local st [/file get hermes-status.txt contents]; :if ([:typeof [:find \$st \"rejected\"]] != \"nil\") do={ :log error \"HERMES: cadastro REJEITADO na VPS - monitoramento nao sera ativado\"; /system scheduler remove [find where name=\"hermes-enroll-poll\"]; /system script remove [find where name=\"hermes-enroll-poll\"] }; :if ([:typeof [:find \$st \"HERMES-CONFIG-APROVADO\"]] != \"nil\") do={ :do { /import file-name=\"hermes-status.txt\"; :if ([:len [/system script find where name=\"hermes-enrolled\"]] = 0) do={ /system script add name=hermes-enrolled policy=read source=\":log info \\\"HERMES: cadastro concluido\\\"\" }; :log info \"HERMES: configuracao aprovada aplicada - monitoramento ativo\"; /system scheduler remove [find where name=\"hermes-enroll-poll\"]; /system script remove [find where name=\"hermes-enroll-poll\"] } on-error={ :log error \"HERMES: falha ao aplicar a configuracao recebida; nova tentativa em 60s\" } } }"
+:local hermesPollSrc ":local pk [/interface wireguard get wg-manos public-key]; :local enc \"\"; :for i from=0 to=([:len \$pk] - 1) do={ :local c [:pick \$pk \$i (\$i + 1)]; :if (\$c = \"+\") do={ :set c \"%2B\" }; :if (\$c = \"/\") do={ :set c \"%2F\" }; :if (\$c = \"=\") do={ :set c \"%3D\" }; :set enc (\$enc . \$c) }; :do { /tool fetch mode=https check-certificate=no url=(\"https://186.202.57.104:8443/status?pubkey=\" . \$enc) dst-path=\"hermes-status.txt\" } on-error={ :log warning \"MANOS-IA: servico de cadastro indisponivel; nova tentativa em 60s\" }; :if ([:len [/file find where name=\"hermes-status.txt\"]] > 0) do={ :local st [/file get hermes-status.txt contents]; :if ([:typeof [:find \$st \"rejected\"]] != \"nil\") do={ :log error \"MANOS-IA: cadastro REJEITADO na VPS - monitoramento nao sera ativado\"; /system scheduler remove [find where name=\"hermes-enroll-poll\"]; /system script remove [find where name=\"hermes-enroll-poll\"] }; :if ([:typeof [:find \$st \"HERMES-CONFIG-APROVADO\"]] != \"nil\") do={ :do { /import file-name=\"hermes-status.txt\"; :if ([:len [/system script find where name=\"hermes-enrolled\"]] = 0) do={ /system script add name=hermes-enrolled policy=read source=\":log info \\\"MANOS-IA: cadastro concluido\\\"\" }; :log info \"MANOS-IA: configuracao aprovada aplicada - monitoramento ativo\"; /system scheduler remove [find where name=\"hermes-enroll-poll\"]; /system script remove [find where name=\"hermes-enroll-poll\"] } on-error={ :log error \"MANOS-IA: falha ao aplicar a configuracao recebida; nova tentativa em 60s\" } } }"
 :if ([:len [/system script find where name="hermes-enroll-poll"]] = 0) do={
     /system script add name=hermes-enroll-poll policy=ftp,read,write,policy,test,password,sensitive source=$hermesPollSrc
 } else={
@@ -243,12 +243,12 @@
     /system scheduler set [find where name="hermes-enroll-poll"] interval=60s on-event=hermes-enroll-poll policy=ftp,read,write,policy,test,password,sensitive disabled=no
 }
 :do { /system script run hermes-enroll-poll } on-error={
-    :log warning "HERMES: primeira consulta de status falhou; o agendador segue tentando a cada 60s"
+    :log warning "MANOS-IA: primeira consulta de status falhou; o agendador segue tentando a cada 60s"
 }
 
-:log info "HERMES: cadastro em andamento - aguardando aprovacao no Telegram (consulta a cada 60s)"
-:put "HERMES: pedido enviado. Aprove no Telegram para ativar o monitoramento nesta RB."
-:put "HERMES: acompanhe com /log print where topics~\"hermes\" ou /system scheduler print"
+:log info "MANOS-IA: cadastro em andamento - aguardando aprovacao no Telegram (consulta a cada 60s)"
+:put "MANOS-IA: pedido enviado. Aprove no Telegram para ativar o monitoramento nesta RB."
+:put "MANOS-IA: acompanhe com /log print where topics~\"hermes\" ou /system scheduler print"
 
 } ;# fim do bloco de cadastro (RB ainda nao aprovada)
 
@@ -269,10 +269,10 @@
 # =====================================================================
 :if ([:len [/user group find where name="hermes-rw"]] = 0) do={
     /user group add name=hermes-rw policy=read,api,write,test,reboot comment="HERMES-RW"
-    :log info "HERMES: grupo hermes-rw criado (policy read,api,write,test,reboot)"
+    :log info "MANOS-IA: grupo hermes-rw criado (policy read,api,write,test,reboot)"
 } else={
     /user group set [find where name="hermes-rw"] policy=read,api,write,test,reboot
-    :log info "HERMES: grupo hermes-rw ja existia - policy garantida (read,api,write,test,reboot)"
+    :log info "MANOS-IA: grupo hermes-rw ja existia - policy garantida (read,api,write,test,reboot)"
 }
 
 # =====================================================================
@@ -288,10 +288,10 @@
 # =====================================================================
 :if ([:len [/user group find where name="hermes-ro"]] = 0) do={
     /user group add name=hermes-ro policy=read,api comment="HERMES-RO"
-    :log info "HERMES: grupo hermes-ro criado (policy read,api)"
+    :log info "MANOS-IA: grupo hermes-ro criado (policy read,api)"
 } else={
     /user group set [find where name="hermes-ro"] policy=read,api
-    :log info "HERMES: grupo hermes-ro ja existia - policy garantida (read,api)"
+    :log info "MANOS-IA: grupo hermes-ro ja existia - policy garantida (read,api)"
 }
 
 # =====================================================================
@@ -316,17 +316,17 @@
 /system ntp client set enabled=yes
 :if ([:len [/system ntp client servers find where address="pool.ntp.br"]] = 0) do={
     /system ntp client servers add address=pool.ntp.br comment="HERMES-NTP"
-    :log info "HERMES: servidor NTP pool.ntp.br adicionado"
+    :log info "MANOS-IA: servidor NTP pool.ntp.br adicionado"
 }
 :if ([:len [/system ntp client servers find where address="a.ntp.br"]] = 0) do={
     /system ntp client servers add address=a.ntp.br comment="HERMES-NTP"
-    :log info "HERMES: servidor NTP a.ntp.br adicionado"
+    :log info "MANOS-IA: servidor NTP a.ntp.br adicionado"
 }
 :if ([:len [/system ntp client servers find where address="b.ntp.br"]] = 0) do={
     /system ntp client servers add address=b.ntp.br comment="HERMES-NTP"
-    :log info "HERMES: servidor NTP b.ntp.br adicionado"
+    :log info "MANOS-IA: servidor NTP b.ntp.br adicionado"
 }
-:log info "HERMES: relogio padronizado - fuso America/Sao_Paulo, NTP ativo (pool.ntp.br, a.ntp.br, b.ntp.br)"
+:log info "MANOS-IA: relogio padronizado - fuso America/Sao_Paulo, NTP ativo (pool.ntp.br, a.ntp.br, b.ntp.br)"
 
 # =====================================================================
 # VERIFICACAO NESTA RB (rode no terminal apos importar):

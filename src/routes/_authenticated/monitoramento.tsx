@@ -138,7 +138,7 @@ function MonitoramentoPage() {
     <div className="container py-6">
       <PageHeader
         title="Monitoramento"
-        subtitle="RBs homologadas ao vivo (Hermes). Clique numa RB para ver gráficos e problemas."
+        subtitle="RBs homologadas ao vivo (ManosTech IA). Clique numa RB para ver gráficos e problemas."
       />
 
       <div className="mb-4 flex flex-wrap gap-2 text-xs">
@@ -158,7 +158,7 @@ function MonitoramentoPage() {
         )}
         {resumoQuery.data && !resumoQuery.data.ok && (
           <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-slate-400">
-            Hermes: {resumoQuery.data.erro}
+            ManosTech IA: {resumoQuery.data.erro}
           </span>
         )}
       </div>
