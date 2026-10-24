@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { useState, useMemo, ReactNode, useEffect, lazy, Suspense } from "react";
+import { useState, useMemo, ReactNode, useEffect } from "react";
 import { ArrowRight } from "lucide-react";
 
 
@@ -50,17 +50,6 @@ import { WifiVisitantesCard } from "@/components/app/wifi-visitantes-card";
 import { HotspotNetworkMap } from "@/components/app/hotspot-network-map";
 import { MonitorPreviewPanel } from "@/components/app/monitor-preview-panel";
 import { DeviceCard } from "@/components/app/dashboard/DeviceCard";
-const RealtimeHeatmapLazy = lazy(() =>
-  import("@/components/app/dashboard/RealtimeHeatmap").then((m) => ({ default: m.RealtimeHeatmap })),
-);
-
-function RealtimeHeatmap() {
-  return (
-    <Suspense fallback={<Skeleton className="h-[320px] w-full rounded-xl" />}>
-      <RealtimeHeatmapLazy />
-    </Suspense>
-  );
-}
 import { PageHeader } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -284,7 +273,6 @@ function ResellerDashboard({ access }: { access: AccessInfo | null }) {
       <div className="mb-10 cards-hero">
         {modules.map((module) => <ModuleCard key={module.label} module={module} isLoading={companiesQuery.isLoading} />)}
       </div>
-      <RealtimeHeatmap />
     </DashboardLayout>
   );
 }
@@ -1245,9 +1233,6 @@ function MatrizDashboard({ access }: { access: AccessInfo | null }) {
 
       <RankingUnidades data={data} />
 
-      <div className="mt-10">
-        <RealtimeHeatmap />
-      </div>
     </DashboardLayout>
   );
 }
@@ -1406,9 +1391,6 @@ function FilialDashboard({ access }: { access: AccessInfo | null }) {
 
       <MovimentoChart data={data} />
 
-      <div className="mt-10">
-        <RealtimeHeatmap />
-      </div>
     </DashboardLayout>
   );
 }
