@@ -56,6 +56,14 @@ export function BannerEventObserver({ onOpen }: { onOpen: (p: string) => void })
   return null;
 }
 
+const SUGESTOES_BANNER = [
+  "Promoção de chopp em dobro na sexta",
+  "Feijoada de sábado com música ao vivo",
+  "Aviso de feriado: horário especial",
+  "Novidade no cardápio",
+  "Aniversário da casa: semana de descontos",
+];
+
 export function AiAgentCard({ role }: { role: string }) {
   const bannerAgentRef = useRef<{ openWithPrompt: (prompt: string) => void } | null>(null);
 
@@ -641,6 +649,22 @@ function ClientAiAgentCard({
                 </Button>
               </div>
 
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-medium text-muted-foreground">Sem ideia? Toque numa sugestão pra começar:</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {SUGESTOES_BANNER.map((sugestao) => (
+                    <button
+                      key={sugestao}
+                      type="button"
+                      onClick={() => setQuestion(sugestao)}
+                      className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+                    >
+                      {sugestao}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {chat.isPending && (
                 <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground/90 animate-pulse py-1">
                   <Sparkles className="size-4 text-primary" />
@@ -732,6 +756,22 @@ function ClientAiAgentCard({
                 >
                   <Send className={`size-4 ${chat.isPending ? "animate-pulse" : ""}`} />
                 </Button>
+              </div>
+
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-medium text-muted-foreground">Sem ideia? Toque numa sugestão pra começar:</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {SUGESTOES_BANNER.map((sugestao) => (
+                    <button
+                      key={sugestao}
+                      type="button"
+                      onClick={() => setQuestion(sugestao)}
+                      className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+                    >
+                      {sugestao}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {chat.isPending && (

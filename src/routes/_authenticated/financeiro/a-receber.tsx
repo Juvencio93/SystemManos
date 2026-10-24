@@ -99,7 +99,7 @@ function AReceberPage() {
       observation?: string;
     }) => confirmPaymentFn({ data }),
     onSuccess: () => {
-      toast.success("Pagamento confirmado com sucesso!");
+      toast.success("Pagamento confirmado.");
       queryClient.invalidateQueries({ queryKey: ["financeiro-stats"] });
       setConfirmModalOpen(false);
       setSelectedCharge(null);
