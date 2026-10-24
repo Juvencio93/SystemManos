@@ -49,6 +49,7 @@ import { CampanhaDestaqueCard } from "@/components/app/campanha-destaque-card";
 import { WifiVisitantesCard } from "@/components/app/wifi-visitantes-card";
 import { HotspotNetworkMap } from "@/components/app/hotspot-network-map";
 import { MonitorPreviewPanel } from "@/components/app/monitor-preview-panel";
+import { DeviceCard } from "@/components/app/dashboard/DeviceCard";
 const RealtimeHeatmapLazy = lazy(() =>
   import("@/components/app/dashboard/RealtimeHeatmap").then((m) => ({ default: m.RealtimeHeatmap })),
 );
@@ -961,6 +962,9 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
     >
       <HeroAdm data={data} isLoading={insights.isLoading} conectados={connectedClients} />
 
+      <div className="mb-10">
+        <DeviceCard />
+      </div>
       <PrecisaDeVoceCard />
 
       <div className="mb-10">
