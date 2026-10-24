@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { useState, useMemo, ReactNode, useEffect, lazy, Suspense } from "react";
+import { useState, useMemo, ReactNode, useEffect } from "react";
 import { ArrowRight } from "lucide-react";
 
 
@@ -49,17 +49,7 @@ import { CampanhaDestaqueCard } from "@/components/app/campanha-destaque-card";
 import { WifiVisitantesCard } from "@/components/app/wifi-visitantes-card";
 import { HotspotNetworkMap } from "@/components/app/hotspot-network-map";
 import { MonitorPreviewPanel } from "@/components/app/monitor-preview-panel";
-const RealtimeHeatmapLazy = lazy(() =>
-  import("@/components/app/dashboard/RealtimeHeatmap").then((m) => ({ default: m.RealtimeHeatmap })),
-);
-
-function RealtimeHeatmap() {
-  return (
-    <Suspense fallback={<Skeleton className="h-[320px] w-full rounded-xl" />}>
-      <RealtimeHeatmapLazy />
-    </Suspense>
-  );
-}
+import { DeviceCard } from "@/components/app/dashboard/DeviceCard";
 import { PageHeader } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -283,7 +273,10 @@ function ResellerDashboard({ access }: { access: AccessInfo | null }) {
       <div className="mb-10 cards-hero">
         {modules.map((module) => <ModuleCard key={module.label} module={module} isLoading={companiesQuery.isLoading} />)}
       </div>
-      <RealtimeHeatmap />
+
+      <div className="mb-10">
+        <DeviceCard />
+      </div>
     </DashboardLayout>
   );
 }
@@ -915,6 +908,8 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
     queryKey: ["insights"],
     queryFn: () => fetchInsights(),
     enabled: Boolean(access?.userId),
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true,
   });
 
   const data = insights.data as Insights | undefined;
@@ -959,6 +954,9 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
     >
       <HeroAdm data={data} isLoading={insights.isLoading} conectados={connectedClients} />
 
+      <div className="mb-10">
+        <DeviceCard />
+      </div>
       <PrecisaDeVoceCard />
 
       <div className="mb-10">
@@ -990,9 +988,6 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
         ? <MonitorPreviewPanel devices={hotspotDevices.data ?? []} isLoading={hotspotDevices.isLoading} overlay={hotspotExpanded} onClose={() => setHotspotExpanded(false)} onMouseLeave={() => {}} />
         : <NetworkMapPanel devices={hotspotDevices.data ?? []} isLoading={hotspotDevices.isLoading} overlay={hotspotExpanded} onClose={() => setHotspotExpanded(false)} onMouseLeave={() => {}} />)}
 
-      <div className="mt-10">
-        <RealtimeHeatmap />
-      </div>
     </DashboardLayout>
   );
 }
@@ -1231,6 +1226,10 @@ function MatrizDashboard({ access }: { access: AccessInfo | null }) {
 
       <HeroMatriz data={data} isLoading={insights.isLoading} />
 
+      <div className="mb-10">
+        <DeviceCard />
+      </div>
+
       <ResumoSemanalCard data={data} />
 
       <div className="mb-10 space-y-6">
@@ -1242,9 +1241,6 @@ function MatrizDashboard({ access }: { access: AccessInfo | null }) {
 
       <RankingUnidades data={data} />
 
-      <div className="mt-10">
-        <RealtimeHeatmap />
-      </div>
     </DashboardLayout>
   );
 }
@@ -1394,6 +1390,10 @@ function FilialDashboard({ access }: { access: AccessInfo | null }) {
     >
       <HeroFilial data={data} isLoading={insights.isLoading} />
 
+      <div className="mb-10">
+        <DeviceCard />
+      </div>
+
       <div className="mb-10 space-y-6">
         <CampanhaDestaqueCard data={data} isLoading={insights.isLoading} />
         <WifiVisitantesCard />
@@ -1403,9 +1403,6 @@ function FilialDashboard({ access }: { access: AccessInfo | null }) {
 
       <MovimentoChart data={data} />
 
-      <div className="mt-10">
-        <RealtimeHeatmap />
-      </div>
     </DashboardLayout>
   );
 }
