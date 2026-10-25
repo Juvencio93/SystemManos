@@ -952,6 +952,8 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
       title={`Olá, ${getUserGreetingName(access, "Administrador")}`}
       subtitle="Gerenciamento global da plataforma Manos Tech."
     >
+      <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-primary">A rede agora</p>
+
       <HeroAdm data={data} isLoading={insights.isLoading} conectados={connectedClients} />
 
       <div className="mb-10">
@@ -977,7 +979,9 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
 
       <ProblemasRedeResumo />
 
+      <MovimentoChart data={data} showAverage />
 
+      <RankingUnidades data={data} limit={8} titulo="Unidades da rede — últimos 7 dias" />
 
       <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {modules.map((module) => (
@@ -1199,15 +1203,18 @@ function MovimentoChart({ data, showAverage }: { data: Insights | undefined; sho
   );
 }
 
-function RankingUnidades({ data }: { data: Insights | undefined }) {
+function RankingUnidades({ data, limit, titulo }: { data: Insights | undefined; limit?: number; titulo?: string }) {
   const ranking = data?.rankingUnidades ?? [];
-  const max = Math.max(1, ...ranking.map((u) => u.acessosSemana));
-  const semMovimentoCount = ranking.filter((u) => u.acessosSemana === 0).length;
+  const exibidas = limit
+    ? [...ranking.filter((u) => u.acessosSemana > 0).slice(0, limit), ...ranking.filter((u) => u.acessosSemana === 0)]
+    : ranking;
+  const max = Math.max(1, ...exibidas.map((u) => u.acessosSemana));
+  const semMovimentoCount = exibidas.filter((u) => u.acessosSemana === 0).length;
   if (!data) return null;
   return (
     <Card className="mb-10">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2"><Store className="size-5 text-primary" /> Suas unidades — últimos 7 dias
+        <CardTitle className="flex items-center gap-2"><Store className="size-5 text-primary" /> {titulo ?? "Suas unidades — últimos 7 dias"}
           {semMovimentoCount > 0 && (
             <span className="ml-auto rounded-full border border-amber-300/30 bg-amber-300/10 px-2.5 py-1 text-[11px] font-bold text-amber-300">
               ⚠ {semMovimentoCount} {semMovimentoCount === 1 ? "unidade sem movimento" : "unidades sem movimento"}
@@ -1216,10 +1223,10 @@ function RankingUnidades({ data }: { data: Insights | undefined }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {ranking.map((u, i) => (
+        {exibidas.map((u, i) => (
           <div key={u.chave} className={`flex items-center gap-3 ${u.acessosSemana === 0 ? "opacity-60" : ""}`}>
             <span className="w-7 shrink-0 text-sm font-black text-muted-foreground">{i + 1}º</span>
-            {i === 0 && ranking.length > 1 && <Trophy className="size-4 shrink-0 text-amber-300" />}
+            {i === 0 && exibidas.length > 1 && <Trophy className="size-4 shrink-0 text-amber-300" />}
             <span className="min-w-0 flex-1 truncate text-sm font-semibold">
               {u.nome}
               {u.acessosSemana === 0 && <span className="ml-2 rounded-full border border-amber-300/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-300">sem movimento</span>}
@@ -1231,12 +1238,12 @@ function RankingUnidades({ data }: { data: Insights | undefined }) {
             <span className="hidden shrink-0 md:block"><DeltaChip atual={u.acessosSemana} anterior={u.acessosSemanaAnterior} sufixo="vs sem. passada" /></span>
           </div>
         ))}
-        {ranking.length > 0 && ranking.every((u) => u.acessosSemana === 0) && (
+        {exibidas.length > 0 && exibidas.every((u) => u.acessosSemana === 0) && (
           <p className="pt-1 text-xs font-medium leading-relaxed text-muted-foreground">
             Sem movimento nas unidades esta semana — vale conferir se o QR Code está visível em cada loja.
           </p>
         )}
-        {ranking.length === 0 && <p className="text-sm text-muted-foreground">Você ainda não tem unidades com movimento por aqui.</p>}
+        {exibidas.length === 0 && <p className="text-sm text-muted-foreground">Você ainda não tem unidades com movimento por aqui.</p>}
       </CardContent>
     </Card>
   );
