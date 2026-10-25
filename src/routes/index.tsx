@@ -12,6 +12,7 @@ import {
   MessageCircle,
   ChevronLeft,
   ChevronRight,
+  Play,
   RadioTower,
   Wifi,
 } from "lucide-react";
@@ -392,16 +393,19 @@ function ScaledPortalFrame({
   viewportWidth,
   viewportHeight,
   className,
+  poster,
 }: {
   src: string;
   title: string;
   viewportWidth: number;
   viewportHeight: number;
   className: string;
+  poster?: string;
 }) {
   const frameRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const [started, setStarted] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     const container = frameRef.current;
@@ -437,6 +441,7 @@ function ScaledPortalFrame({
         title={title}
         src={started ? src : src.replace("autoplay=1", "autoplay=0")}
         loading="lazy"
+        onLoad={() => setLoaded(true)}
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
         tabIndex={-1}
         className="absolute left-0 top-0 border-0 bg-[#05080F]"
@@ -448,6 +453,19 @@ function ScaledPortalFrame({
         }}
         aria-hidden="true"
       />
+      <div
+        aria-hidden="true"
+        className={`pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[#05080F] transition-opacity duration-500 ${loaded ? "opacity-0" : "opacity-100"}`}
+      >
+        {poster ? (
+          <img src={poster} alt="" className="h-full w-full object-cover object-top" />
+        ) : (
+          <>
+            <img src={logo} alt="" className="size-12 rounded-full object-contain" />
+            <p className="text-xs font-semibold tracking-wide text-slate-400">Carregando portal…</p>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -467,6 +485,7 @@ function MobileCheckinDemo() {
           viewportWidth={390}
           viewportHeight={844}
           className="aspect-[390/844] rounded-[2.2rem]"
+          poster="/marketing/portal-efraim.png"
         />
         <div className="pointer-events-none absolute bottom-3 left-1/2 z-20 h-1 w-[90px] -translate-x-1/2 rounded-full bg-white/75 shadow-sm" aria-hidden="true" />
       </div>
@@ -506,8 +525,9 @@ function NotebookCheckinDemo() {
 }
 
 function SalesHomePage() {
-  const crmCardRef = useRef<HTMLDivElement>(null);
+  const heroVisualRef = useRef<HTMLDivElement>(null);
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const [videoOpen, setVideoOpen] = useState(false);
 
   useEffect(() => {
     let frame = 0;
@@ -515,8 +535,8 @@ function SalesHomePage() {
       if (frame) return;
       frame = window.requestAnimationFrame(() => {
         frame = 0;
-        const crmCard = crmCardRef.current;
-        setShowBackToTop(Boolean(crmCard && crmCard.getBoundingClientRect().bottom <= 0));
+        const heroVisual = heroVisualRef.current;
+        setShowBackToTop(Boolean(heroVisual && heroVisual.getBoundingClientRect().bottom <= 0));
       });
     };
 
@@ -578,11 +598,10 @@ function SalesHomePage() {
               </span>
             </h1>
             <p className="mt-6 max-w-2xl text-base leading-7 text-slate-300 sm:text-lg">
-              Ofereça Wi-Fi por um portal personalizado, apresente suas ofertas e defina as regras
-              de acesso. Acompanhe as conexões no sistema e organize os contatos que autorizarem o
-              relacionamento com seu negócio.
+              Cada cliente que conecta no seu Wi-Fi vira um contato seu — com nome e WhatsApp —
+              pra você divulgar suas promoções.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-8 flex flex-col flex-wrap gap-3 sm:flex-row">
               <button
                 type="button"
                 onClick={openPreSaleChat}
@@ -596,7 +615,17 @@ function SalesHomePage() {
               >
                 Ver portais reais <ArrowRight className="size-4" />
               </a>
+              <button
+                type="button"
+                onClick={() => setVideoOpen(true)}
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/15 px-6 font-semibold text-white transition hover:border-white/35"
+              >
+                <Play className="size-4" /> Ver funcionando (1 min)
+              </button>
             </div>
+            <p className="mt-4 text-sm text-slate-400">
+              Ativação única + mensalidade, sem fidelidade — valores na proposta, sem compromisso.
+            </p>
             <ul
               className="mt-6 flex max-w-xl flex-wrap gap-x-5 gap-y-2 text-xs font-medium text-slate-300"
               aria-label="Recursos principais"
@@ -611,8 +640,34 @@ function SalesHomePage() {
           </div>
           </ScrollReveal>
 
-          <div ref={crmCardRef} className="h-full">
-            <ScrollReveal className="h-full" delay={120}><LiveCrmPreview /></ScrollReveal>
+          <div ref={heroVisualRef} className="h-full">
+            <ScrollReveal className="h-full" delay={120}><MobileCheckinDemo /></ScrollReveal>
+          </div>
+        </div>
+      </section>
+
+      <section aria-label="Portais reais no ar" className="border-b border-white/[.07] bg-[#070D13]">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-center gap-3 px-5 py-6 text-center sm:px-8 lg:flex-row lg:gap-6">
+          <p className="text-xs font-bold uppercase tracking-[.2em] text-slate-400">
+            Portais reais, no ar hoje
+          </p>
+          <div className="flex flex-wrap justify-center gap-3">
+            <a
+              href="https://manostech-system.com.br/portal/6us8mzhk8ffh"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-cyan-400/30 px-4 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-400/10"
+            >
+              Padaria Efraim · celular <ArrowRight className="size-4" />
+            </a>
+            <a
+              href="https://manostech-system.com.br/portal/j788xmylocks"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-emerald-300/30 px-4 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-300/10"
+            >
+              Boteco do Barão · notebook <ArrowRight className="size-4" />
+            </a>
           </div>
         </div>
       </section>
@@ -756,6 +811,9 @@ function SalesHomePage() {
               </ScrollReveal>
             ))}
           </div>
+          <ScrollReveal className="mx-auto mt-12 max-w-3xl">
+            <LiveCrmPreview />
+          </ScrollReveal>
         </div>
       </section>
 
@@ -771,6 +829,13 @@ function SalesHomePage() {
               equipamentos previstos na proposta.
             </p>
           </div>
+          <button
+            type="button"
+            onClick={openPreSaleChat}
+            className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-full bg-cyan-400 px-6 font-bold text-slate-950 transition hover:bg-cyan-400"
+          >
+            Solicitar uma proposta <ArrowRight className="size-4" />
+          </button>
 
         </div>
         </ScrollReveal>
@@ -875,6 +940,25 @@ function SalesHomePage() {
       </section>
 
       <PreSaleForm />
+
+      <Dialog open={videoOpen} onOpenChange={setVideoOpen}>
+        <DialogContent className="max-w-md border-white/10 bg-[#05080F] p-3 sm:p-4">
+          <DialogTitle className="px-1 pb-2 text-sm font-semibold text-slate-200">
+            Manos Tech — Wi-Fi que vende
+          </DialogTitle>
+          {videoOpen ? (
+            <video
+              controls
+              autoPlay
+              preload="none"
+              className="aspect-[9/16] max-h-[75vh] w-full rounded-lg bg-black object-contain"
+              src="/marketing/video-manostech.mp4"
+            >
+              Seu navegador não reproduz vídeo.
+            </video>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       <ScrollReveal>
       <footer className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-8 text-xs text-slate-500 sm:px-8 md:flex-row md:items-center md:justify-between">
