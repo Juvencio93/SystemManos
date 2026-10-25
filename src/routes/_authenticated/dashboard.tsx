@@ -1135,10 +1135,13 @@ function HeroMatriz({ data, isLoading }: { data: Insights | undefined; isLoading
   );
 }
 
-function MovimentoChart({ data }: { data: Insights | undefined }) {
+function MovimentoChart({ data, showAverage }: { data: Insights | undefined; showAverage?: boolean }) {
   const chart = data?.chart ?? [];
   const max = Math.max(1, ...chart.map((c) => c.total));
   const semMovimento = Boolean(data) && chart.length > 0 && chart.every((c) => c.total === 0);
+  const ultimos7 = chart.slice(-7);
+  const media7 = ultimos7.length > 0 ? ultimos7.reduce((acc, c) => acc + c.total, 0) / ultimos7.length : 0;
+  const showLine = Boolean(showAverage && data && !semMovimento && ultimos7.length > 0);
   return (
     <Card className="mb-10">
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
@@ -1146,18 +1149,44 @@ function MovimentoChart({ data }: { data: Insights | undefined }) {
         {data && <DeltaChip atual={data.conexoesSemana} anterior={data.conexoesSemanaAnterior} sufixo="na semana vs anterior" />}
       </CardHeader>
       <CardContent>
-        <div className="flex h-36 items-end gap-1.5 sm:gap-2">
-          {chart.map((c, i) => (
-            <div key={c.date + i} className="flex flex-1 flex-col items-center gap-1.5">
-              <span className="text-[10px] font-semibold text-muted-foreground">{c.total > 0 ? c.total : ""}</span>
-              <div
-                className={`w-full rounded-t-md ${i === chart.length - 1 ? "bg-primary" : "bg-primary/30"}`}
-                style={{ height: `${Math.max(3, (c.total / max) * 100)}%` }}
-                title={`${c.date}: ${c.total} acessos`}
-              />
-              <span className="text-[10px] text-muted-foreground/70">{i % 2 === 0 || i === chart.length - 1 ? c.date : ""}</span>
+        <div className="relative">
+          <div className="flex h-36 gap-1.5 sm:gap-2">
+            {chart.map((c, i) => {
+              const pct = Math.max(3, (c.total / max) * 100);
+              return (
+                <div key={c.date + i} className="relative h-full flex-1">
+                  <div
+                    className={`absolute bottom-0 w-full rounded-t-md ${i === chart.length - 1 ? "bg-primary" : "bg-primary/30"}`}
+                    style={{ height: `${pct}%` }}
+                    title={`${c.date}: ${c.total} acessos`}
+                  />
+                  <span
+                    className="absolute left-1/2 -translate-x-1/2 text-[10px] font-semibold text-muted-foreground"
+                    style={{ bottom: `calc(${pct}% + 4px)` }}
+                  >
+                    {c.total > 0 ? c.total : ""}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          {showLine && (
+            <div
+              className="pointer-events-none absolute left-0 right-0 border-t-2 border-dashed border-amber-300"
+              style={{ bottom: `${20 + (media7 / max) * 144}px` }}
+            >
+              <span className="absolute right-0 -translate-y-1/2 rounded-full border border-amber-300/40 bg-card px-2 py-0.5 text-[11px] font-bold text-amber-300">
+                média 7 dias · {Math.round(media7)}
+              </span>
             </div>
-          ))}
+          )}
+          <div className="mt-1.5 flex gap-1.5 sm:gap-2">
+            {chart.map((c, i) => (
+              <span key={c.date + i} className="flex-1 text-center text-[10px] text-muted-foreground/70">
+                {i % 2 === 0 || i === chart.length - 1 ? c.date : ""}
+              </span>
+            ))}
+          </div>
         </div>
         {semMovimento && (
           <p className="mt-4 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2.5 text-xs font-medium leading-relaxed text-muted-foreground">
@@ -1173,20 +1202,27 @@ function MovimentoChart({ data }: { data: Insights | undefined }) {
 function RankingUnidades({ data }: { data: Insights | undefined }) {
   const ranking = data?.rankingUnidades ?? [];
   const max = Math.max(1, ...ranking.map((u) => u.acessosSemana));
+  const semMovimentoCount = ranking.filter((u) => u.acessosSemana === 0).length;
   if (!data) return null;
   return (
     <Card className="mb-10">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2"><Store className="size-5 text-primary" /> Suas unidades — últimos 7 dias</CardTitle>
+        <CardTitle className="flex items-center gap-2"><Store className="size-5 text-primary" /> Suas unidades — últimos 7 dias
+          {semMovimentoCount > 0 && (
+            <span className="ml-auto rounded-full border border-amber-300/30 bg-amber-300/10 px-2.5 py-1 text-[11px] font-bold text-amber-300">
+              ⚠ {semMovimentoCount} {semMovimentoCount === 1 ? "unidade sem movimento" : "unidades sem movimento"}
+            </span>
+          )}
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {ranking.map((u, i) => (
-          <div key={u.chave} className="flex items-center gap-3">
+          <div key={u.chave} className={`flex items-center gap-3 ${u.acessosSemana === 0 ? "opacity-60" : ""}`}>
             <span className="w-7 shrink-0 text-sm font-black text-muted-foreground">{i + 1}º</span>
             {i === 0 && ranking.length > 1 && <Trophy className="size-4 shrink-0 text-amber-300" />}
             <span className="min-w-0 flex-1 truncate text-sm font-semibold">
               {u.nome}
-              {u.acessosSemana === 0 && <span className="ml-2 text-xs font-medium text-amber-300">sem movimento na semana</span>}
+              {u.acessosSemana === 0 && <span className="ml-2 rounded-full border border-amber-300/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-300">sem movimento</span>}
             </span>
             <div className="hidden h-2 w-36 shrink-0 overflow-hidden rounded-full bg-muted sm:block">
               <div className="h-full rounded-full bg-primary/70" style={{ width: `${(u.acessosSemana / max) * 100}%` }} />
@@ -1224,11 +1260,15 @@ function MatrizDashboard({ access }: { access: AccessInfo | null }) {
     >
       {access?.companyId && <MatrizFinancialAlert />}
 
+      <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-primary">Hoje</p>
+
       <HeroMatriz data={data} isLoading={insights.isLoading} />
 
       <div className="mb-10">
         <DeviceCard />
       </div>
+
+      <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-primary">Esta semana</p>
 
       <ResumoSemanalCard data={data} />
 
@@ -1237,7 +1277,7 @@ function MatrizDashboard({ access }: { access: AccessInfo | null }) {
         <WifiVisitantesCard />
       </div>
 
-      <MovimentoChart data={data} />
+      <MovimentoChart data={data} showAverage />
 
       <RankingUnidades data={data} />
 
