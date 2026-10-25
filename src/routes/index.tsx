@@ -393,14 +393,12 @@ function ScaledPortalFrame({
   viewportWidth,
   viewportHeight,
   className,
-  poster,
 }: {
   src: string;
   title: string;
   viewportWidth: number;
   viewportHeight: number;
   className: string;
-  poster?: string;
 }) {
   const frameRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
@@ -457,14 +455,8 @@ function ScaledPortalFrame({
         aria-hidden="true"
         className={`pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[#05080F] transition-opacity duration-500 ${loaded ? "opacity-0" : "opacity-100"}`}
       >
-        {poster ? (
-          <img src={poster} alt="" className="h-full w-full object-cover object-top" />
-        ) : (
-          <>
-            <img src={logo} alt="" className="size-12 rounded-full object-contain" />
-            <p className="text-xs font-semibold tracking-wide text-slate-400">Carregando portal…</p>
-          </>
-        )}
+        <img src={logo} alt="" className="size-12 rounded-full object-contain" />
+        <p className="text-xs font-semibold tracking-wide text-slate-400">Carregando portal…</p>
       </div>
     </div>
   );
@@ -485,7 +477,6 @@ function MobileCheckinDemo() {
           viewportWidth={390}
           viewportHeight={844}
           className="aspect-[390/844] rounded-[2.2rem]"
-          poster="/marketing/portal-efraim.png"
         />
         <div className="pointer-events-none absolute bottom-3 left-1/2 z-20 h-1 w-[90px] -translate-x-1/2 rounded-full bg-white/75 shadow-sm" aria-hidden="true" />
       </div>
