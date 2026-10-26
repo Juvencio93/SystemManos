@@ -173,6 +173,52 @@ function logBannerParseFailure(
   });
 }
 
+/**
+ * Contexto de abertura do diálogo: nome e ramo da empresa logada, para a
+ * abordagem inicial nunca sugerir um produto de outro ramo (ex.: pizza
+ * para uma padaria). Sem empresa identificável, retorna nulo e o diálogo
+ * usa a abordagem neutra.
+ */
+export const getBannerIntro = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    try {
+      const { resolveContext } = await import("./insights.functions");
+      const { role, companyId } = await resolveContext(context.supabase, context.userId);
+      if ((role !== "matriz" && role !== "filial") || !companyId) {
+        return { companyName: null as string | null, segment: null as string | null };
+      }
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data: company } = await supabaseAdmin
+        .from("companies")
+        .select("name, trade_name, legal_name, business_segment, segment, cnae_description")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (!company) return { companyName: null as string | null, segment: null as string | null };
+      const { resolveBusinessArea, friendlyBusinessArea } = await import(
+        "@/lib/business-profile"
+      );
+      return {
+        companyName:
+          company.trade_name?.trim() ||
+          company.legal_name?.trim() ||
+          company.name?.trim() ||
+          null,
+        // Só a linha de abertura usa o rótulo amigável; o agente continua
+        // recebendo o texto exato do cadastro no contexto interno.
+        segment: friendlyBusinessArea(
+          resolveBusinessArea(
+            company.business_segment,
+            company.segment,
+            company.cnae_description,
+          ),
+        ),
+      };
+    } catch {
+      return { companyName: null as string | null, segment: null as string | null };
+    }
+  });
+
 export const askBannerAgent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: unknown) => BannerAgentInputSchema.parse(input))

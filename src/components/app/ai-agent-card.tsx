@@ -38,7 +38,7 @@ import {
   getAiUsageSummary,
   type AskAgentResponse,
 } from "@/lib/insights.functions";
-import { askBannerAgent, type BannerAgentResponse } from "@/lib/banner-agent.functions";
+import { askBannerAgent, getBannerIntro, type BannerAgentResponse } from "@/lib/banner-agent.functions";
 import { getLatestOperationalAnalysis } from "@/lib/operational.functions";
 import { AiStructuredResponse } from "@/components/app/ai/AiStructuredResponse";
 import { normalizeAiResponse } from "@/lib/ai-response-parser";
@@ -769,7 +769,15 @@ export const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) =
   const ask = useServerFn(askBannerAgent);
   const queryClient = useQueryClient();
   const { data: access } = useAccess();
+  const fetchIntro = useServerFn(getBannerIntro);
+  const introQuery = useQuery({
+    queryKey: ["banner-intro"],
+    queryFn: () => fetchIntro(),
+    enabled: false,
+  });
   const [isOpen, setIsOpen] = useState(false);
+  const introCompany = introQuery.data?.companyName ?? null;
+  const introSegment = introQuery.data?.segment ?? null;
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [input, setInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -879,6 +887,7 @@ export const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) =
       if (openSendTimerRef.current) clearTimeout(openSendTimerRef.current);
       reset();
       setIsOpen(true);
+      introQuery.refetch();
       // Wait for the originating click to finish before sending. Otherwise
       // Radix can interpret the same pointer event as an outside click and
       // close the newly opened dialog immediately.
@@ -932,9 +941,14 @@ export const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) =
                 <ImageIcon className="size-8" />
               </div>
               <div className="space-y-4">
+                {introCompany && (
+                  <p className="text-xs font-medium text-cyan-300/90">
+                    Criando para: {introCompany}
+                    {introSegment ? ` · ${introSegment}` : ""}
+                  </p>
+                )}
                 <p className="text-sm text-muted-foreground px-12">
-                  Diga o que você quer promover. Ex: "Quero um banner para a promoção de pizza de
-                  calabresa por R$ 49,90."
+                  Diga o que você quer promover. Ex: "Quero um banner para a promoção da semana."
                 </p>
                 <Button 
                   onClick={() => setInput("Quero criar um banner")}
