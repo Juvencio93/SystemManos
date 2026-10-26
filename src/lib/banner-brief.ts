@@ -1589,12 +1589,8 @@ export function sanitizeGeneratedItems(items: readonly string[] | undefined): st
       if (/r\$/iu.test(item)) return false;
       if (/^\s*(?:\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?)\s*$/.test(item)) return false;
       if (/^\s*v[aá]lid[oa]?\b/iu.test(item)) return false;
-      if (
-        /^(?:toda|todo|todas|todos)?\s*(?:segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo)(?:-?feira)?\s*$/iu.test(
-          item,
-        )
-      )
-        return false;
+      // O dia da semana NÃO é apagado: quando ele vem do assunto, o validador
+      // o exige como item obrigatório — apagar aqui criava MISSING_OFFER_ITEM.
       return true;
     });
 }

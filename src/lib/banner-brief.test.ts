@@ -941,7 +941,7 @@ describe("interpretação de gratuidade e higiene de metadados", () => {
     ).toBe(true);
   });
 
-  it("remove preço, validade e dia da lista de itens gerados", () => {
+  it("remove preço e validade da lista de itens gerados, mas mantém o dia", () => {
     expect(
       sanitizeGeneratedItems([
         "Festival de cucas",
@@ -951,7 +951,7 @@ describe("interpretação de gratuidade e higiene de metadados", () => {
         "cucas",
         "",
       ]),
-    ).toEqual(["Festival de cucas", "cucas"]);
+    ).toEqual(["Festival de cucas", "toda quarta-feira", "cucas"]);
     expect(sanitizeGeneratedItems(undefined)).toBeUndefined();
   });
 });
