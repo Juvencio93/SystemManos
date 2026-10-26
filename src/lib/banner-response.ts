@@ -7,6 +7,12 @@ const BannerPromptOptionSchema = z.object({
   // it exists solely so the server can prove both directions depict the same
   // confirmed commercial offer before returning their prompts.
   visualItems: z.array(z.string().trim().min(1)).optional(),
+  // C-3: o modelo declara o que aparece VISIVELMENTE na cena, separado dos
+  // metadados comerciais. Sem essa declaração, a cena podia inventar
+  // produtos (pães para um festival de cucas) sem nenhum validador ver.
+  // Limitação honesta: o modelo autodeclara — o validador cobra a
+  // declaração, não verifica os pixels (o sistema nunca vê o render).
+  sceneItems: z.array(z.string().trim().min(1)).optional(),
   commercialFacts: z
     .object({
       items: z.array(z.string().trim().min(1)).optional(),
@@ -203,10 +209,20 @@ export type BannerGatewayJsonResult =
     }
   | { ok: false; gatewayError?: string | null; parseFailed: boolean };
 
+const RETRY_BACKOFF_MS = 700;
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 /**
- * JSON quebrado é instabilidade do modelo, não pedido mal entendido: tenta
- * a mesma chamada de novo uma vez antes de desistir. Falha de gateway não
- * é retentada aqui — o chamador decide o erro a exibir.
+ * Robustez do turno (lote 2):
+ * - Falha de gateway (HTTP 500/429, transporte): 1 retry com backoff de
+ *   700 ms, mesma chamada. Antes era zero retry — qualquer soluço do
+ *   provedor virava erro técnico para o usuário.
+ * - JSON quebrado: 1 retry com instrução de reparo ANEXADA ao user
+ *   ("responda SOMENTE com JSON válido, escapando aspas...") em vez de
+ *   reenviar o prompt idêntico — causa sistemática falhava duas vezes.
+ * - Sinal de deadline: antes de cada retry, se o turno estourou o orçamento
+ *   (AbortSignal), para sem gastar outra chamada.
+ * Pior caso: 3 chamadas (gateway falha → retry → parse falha → retry JSON).
  */
 export async function callGatewayJsonWithRetry(
   call: BannerGatewayCall,
@@ -216,15 +232,30 @@ export async function callGatewayJsonWithRetry(
     requestId: string,
     failure: Exclude<BannerResponseParseResult, { ok: true }>,
   ) => void,
+  options?: { signal?: AbortSignal },
 ): Promise<BannerGatewayJsonResult> {
-  const first = await call(system, user);
+  const attemptGateway = async () => {
+    const first = await call(system, user);
+    if (first.ok && first.text) return first;
+    if (options?.signal?.aborted) return first;
+    await sleep(RETRY_BACKOFF_MS);
+    if (options?.signal?.aborted) return first;
+    return call(system, user);
+  };
+  const first = await attemptGateway();
   if (!first.ok || !first.text) {
     return { ok: false, gatewayError: first.error ?? null, parseFailed: false };
   }
   const parsed = parseBannerResponse(first.text);
   if (parsed.ok) return { ok: true, parsed, rawText: first.text };
   onParseFailure(first.requestId, parsed);
-  const second = await call(system, user);
+  if (options?.signal?.aborted) {
+    return { ok: false, gatewayError: null, parseFailed: true };
+  }
+  await sleep(RETRY_BACKOFF_MS);
+  const repairUser =
+    `${user}\n\nATENÇÃO: a resposta anterior veio com JSON inválido. Responda SOMENTE com JSON válido, escapando aspas duplas dentro de strings, sem nenhum texto fora do JSON.`;
+  const second = await call(system, repairUser);
   if (!second.ok || !second.text) {
     return { ok: false, gatewayError: second.error ?? null, parseFailed: false };
   }

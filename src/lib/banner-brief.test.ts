@@ -38,6 +38,7 @@ import {
   visualPolicy,
   validateSecondPromptCommercialDirection,
   validatePromptOfferTexts,
+  validatePromptSceneItems,
   validatePromptTypographyContrast,} from "./banner-brief";
 
 describe("banner briefing engine", () => {
@@ -565,7 +566,8 @@ describe("weekday and recurrence semantics", () => {
       expect.objectContaining({ reason: "INVENTED_RECURRENCE" }),
     );
     const weekly = requiredOfferFactsFromBrief({ weekday: "quarta-feira", recurrence: "WEEKLY" });
-    expect(validatePromptTemporalFacts("Oferta toda quarta-feira", weekly)).toEqual([]);
+    // Lote 2 (V5): o dia também precisa estar nos textos citados, não só no prompt.
+    expect(validatePromptTemporalFacts('Oferta toda "QUARTA-FEIRA"', weekly)).toEqual([]);
   });
 });
 
@@ -825,7 +827,7 @@ describe("multi-day offers", () => {
     });
     expect(
       validatePromptTemporalFacts(
-        "Música ao vivo toda terça e quinta-feira, entrada gratuita",
+        'Música ao vivo toda "TERÇA" e "QUINTA-FEIRA", entrada gratuita',
         required,
       ),
     ).toEqual([]);
@@ -908,8 +910,9 @@ describe("textos da oferta no banner", () => {
       'Banner. Textos exatos: título "FESTIVAL DE CUCAS"; abaixo "CUCAS DIVERSOS SABORES POR R$ 14,99"; CTA "PEÇA AGORA". Cucas variadas em primeiro plano.';
     expect(validatePromptOfferTexts(prompt, required)).toEqual([]);
   });
-  it("não exige preço de oferta gratuita", () => {
-    const prompt = 'Banner. Textos exatos: título "FESTIVAL DE CUCAS"; CTA "PEÇA AGORA".';
+  it("não exige preço de oferta gratuita (mas exige a gratuidade citada)", () => {
+    const prompt =
+      'Banner. Textos exatos: título "FESTIVAL DE CUCAS"; selo "GRÁTIS"; CTA "PEÇA AGORA".';
     expect(
       validatePromptOfferTexts(prompt, { items: ["festival de cucas"], price: 0, scope: "confirmed" }),
     ).toEqual([]);
@@ -1327,5 +1330,116 @@ describe("lote 1 — brief confiável (auditoria 26/10)", () => {
     );
     expect(comLogo).toContain("logo oficial");
     expect(semLogo).not.toContain("logo oficial");
+  });
+});
+
+describe("lote 2 — cena e textos validados", () => {
+  const base = { items: ["festival de cucas"], scope: "confirmed" as const };
+  it("C-3: cena sem declaração é rejeitada; item inventado é rejeitado", () => {
+    expect(
+      validatePromptSceneItems({ prompt: "Pães dourados em close." }, base),
+    ).toContainEqual(expect.objectContaining({ reason: "MISSING_SCENE_ITEMS" }));
+    expect(
+      validatePromptSceneItems(
+        { prompt: "Pães dourados em close.", sceneItems: ["pão francês"] },
+        base,
+      ),
+    ).toContainEqual(expect.objectContaining({ reason: "SCENE_ITEM_NOT_CONFIRMED" }));
+    expect(
+      validatePromptSceneItems(
+        { prompt: "Cucas variadas em close.", sceneItems: ["festival de cucas"] },
+        base,
+      ),
+    ).toEqual([]);
+  });
+  it("C-3: preço sem confirmação no prompt é rejeitado", () => {
+    expect(
+      validatePromptSceneItems(
+        { prompt: 'Cucas. Texto "CUCAS POR R$ 14,99".', sceneItems: ["festival de cucas"] },
+        base,
+      ),
+    ).toContainEqual(expect.objectContaining({ reason: "UNCONFIRMED_PRICE" }));
+    expect(
+      validatePromptSceneItems(
+        { prompt: 'Cucas. Texto "CUCAS POR R$ 14,99".', sceneItems: ["festival de cucas"] },
+        { ...base, price: 14.99 },
+      ),
+    ).toEqual([]);
+  });
+  it("V3: cada item+preço precisa aparecer citado", () => {
+    const required = {
+      items: ["salgadinhos", "bolo"],
+      pricedItems: [
+        { item: "salgadinhos", price: 89.9 },
+        { item: "bolo", price: 35 },
+      ],
+      scope: "confirmed" as const,
+    };
+    const ok =
+      'Textos: "SALGADINHOS R$ 89,90" e "BOLO R$ 35,00".';
+    expect(validatePromptOfferTexts(ok, required)).toEqual([]);
+    const missingPrice =
+      'Textos: "SALGADINHOS R$ 89,90" e "BOLO".';
+    expect(validatePromptOfferTexts(missingPrice, required)).toContainEqual(
+      expect.objectContaining({ reason: "MISSING_OFFER_TEXT" }),
+    );
+  });
+  it("V3+V6: item gratuito exige a expressão de gratuidade citada", () => {
+    const required = {
+      items: ["polenta", "bolo"],
+      pricedItems: [
+        { item: "polenta", price: 0 },
+        { item: "bolo", price: 35 },
+      ],
+      commercialCopy: "por conta da casa",
+      scope: "confirmed" as const,
+    };
+    const ok = 'Textos: "POLENTA POR CONTA DA CASA" e "BOLO R$ 35,00".';
+    expect(validatePromptOfferTexts(ok, required)).toEqual([]);
+    const missingFree = 'Textos: "POLENTA" e "BOLO R$ 35,00".';
+    expect(validatePromptOfferTexts(missingFree, required)).toContainEqual(
+      expect.objectContaining({ reason: "MISSING_OFFER_TEXT" }),
+    );
+  });
+  it("V4: validade confirmada precisa aparecer citada", () => {
+    const required = { ...base, validity: "novembro" };
+    expect(
+      validatePromptOfferTexts('Textos: "FESTIVAL DE CUCAS".', required),
+    ).toContainEqual(expect.objectContaining({ reason: "MISSING_OFFER_TEXT" }));
+    expect(
+      validatePromptOfferTexts('Textos: "FESTIVAL DE CUCAS" e "NOVEMBRO".', required),
+    ).toEqual([]);
+  });
+  it("V5: dia confirmado precisa aparecer citado, não só no prompt", () => {
+    const required = {
+      items: [] as string[],
+      weekday: "quarta-feira",
+      recurrence: "WEEKLY" as const,
+      scope: "confirmed" as const,
+    };
+    expect(
+      validatePromptTemporalFacts("Oferta toda quarta-feira, sem textos.", required),
+    ).toContainEqual(expect.objectContaining({ reason: "MISSING_WEEKDAY_TEXT" }));
+    expect(
+      validatePromptTemporalFacts('Oferta toda "QUARTA-FEIRA".', required),
+    ).toEqual([]);
+  });
+  it("V6: oferta gratuita legada exige a expressão citada", () => {
+    const required = { ...base, price: 0, commercialCopy: "por conta da casa" };
+    expect(
+      validatePromptOfferTexts('Textos: "FESTIVAL DE CUCAS".', required),
+    ).toContainEqual(expect.objectContaining({ reason: "MISSING_OFFER_TEXT" }));
+    expect(
+      validatePromptOfferTexts('Textos: "FESTIVAL DE CUCAS POR CONTA DA CASA".', required),
+    ).toEqual([]);
+  });
+  it("V7: produto curto (pão) é exigido nos textos", () => {
+    const required = { items: ["pão"], scope: "confirmed" as const };
+    expect(
+      validatePromptOfferTexts('Textos: "PADARIA ARTESANAL".', required),
+    ).toContainEqual(expect.objectContaining({ reason: "MISSING_OFFER_TEXT" }));
+    expect(
+      validatePromptOfferTexts('Textos: "PÃO ARTESANAL".', required),
+    ).toEqual([]);
   });
 });

@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { callGateway } from "@/lib/ai.server";
+import { GATEWAY_TIMEOUT_MESSAGE, callGateway } from "@/lib/ai.server";
 import {
   callGatewayJsonWithRetry,
   parseBannerResponse,
@@ -28,6 +28,7 @@ import {
   validatePromptNoRegistryData,
   validatePromptCommercialCopy,
   validatePromptOfferTexts,
+  validatePromptSceneItems,
   validatePromptTemporalFacts,
   validatePromptTextQuality,
 } from "@/lib/banner-brief";
@@ -359,6 +360,8 @@ export const askBannerAgent = createServerFn({ method: "POST" })
       const { needsCompanyEnvironmentResearch, searchCompanyEnvironmentCached } =
         await import("@/lib/tavily.server");
       const researchProfile = {
+        companyId,
+        branchId,
         name: registeredBannerContext?.name ?? snapshot.name,
         tradeName: registeredBannerContext?.tradeName ?? snapshot.trade_name ?? null,
         legalName: registeredBannerContext?.legalName ?? snapshot.legal_name ?? null,
@@ -404,11 +407,22 @@ export const askBannerAgent = createServerFn({ method: "POST" })
       // never erase a value because a later message omits it.
       const turn = resolveBannerConversationTurn(data.brief, userMessages);
       let activeBrief = turn.brief;
+      // Deadline global do turno (lote 2, 50 s): cobre interpretação +
+      // decisão + geração + correções. Cadastro/Tavily (antes) ficam fora
+      // do orçamento. O sinal aborta o fetch em voo via callGateway; os
+      // retries do helper também param antes de gastar outra chamada.
+      const turnDeadline = AbortSignal.timeout(50_000);
+      // Sem anotação de propósito: o tipo inferido (AiGatewayResult) tem
+      // `text` sempre presente e serve tanto ao helper JSON quanto à
+      // interpretação; anotar como BannerGatewayCall tornaria `text`
+      // opcional e quebraria a chamada da interpretação.
+      const gatewayWithDeadline = (system: string, user: string) =>
+        callGateway(system, user, [], { signal: turnDeadline });
       // Interpretação pela IA: ela separa assunto, preço, dia e validade com
       // entendimento, e o determinístico confere cada fato contra as
       // mensagens. Qualquer falha cai para o brief determinístico.
       try {
-        const interpreted = await interpretBannerBrief(userMessages, activeBrief, callGateway);
+        const interpreted = await interpretBannerBrief(userMessages, activeBrief, gatewayWithDeadline);
         if (interpreted) {
           const changedFields = (
             Object.keys(interpreted) as Array<keyof BannerConversationBrief>
@@ -487,10 +501,11 @@ export const askBannerAgent = createServerFn({ method: "POST" })
       // chamada de novo uma vez. Se falhar de novo, a mensagem diz a
       // verdade (erro técnico) em vez de culpar o pedido do usuário.
       const decisionCall = await callGatewayJsonWithRetry(
-        callGateway,
+        gatewayWithDeadline,
         briefingDecisionSystemPrompt,
         briefingDecisionUserPrompt,
         (requestId, failure) => logBannerParseFailure(requestId, "briefing_decision", failure),
+        { signal: turnDeadline },
       );
       if (!decisionCall.ok) {
         return {
@@ -565,6 +580,23 @@ export const askBannerAgent = createServerFn({ method: "POST" })
         hasConfirmedVisualEvidence ? "CONFIRMED" : "UNCONFIRMED",
       );
       const requiredOfferFacts = requiredOfferFactsFromBrief(activeBrief, snapshot.name);
+      // Guarda "não gerar sem itens" (lote 2): sem item confirmado, gerar
+      // queimava 2 correções e rejeitava — custo puro, sem chance de
+      // acerto. Pergunta o produto em vez de gerar.
+      if (requiredOfferFacts.items.length === 0) {
+        await debitQuestionTurn();
+        return {
+          success: true,
+          data: {
+            needsMoreInfo: true,
+            question: "Qual produto ou oferta você quer divulgar?",
+            promptOptions: null,
+            reminder: null,
+            brief: activeBrief,
+          },
+          error: null,
+        };
+      }
       const priceDirective = requiredOfferFacts.pricedItems?.length
         ? `preços obrigatórios por item: ${requiredOfferFacts.pricedItems
             .map((p) =>
@@ -602,7 +634,7 @@ export const askBannerAgent = createServerFn({ method: "POST" })
         requiredOfferFacts.unit ? `unidade/escopo obrigatório: ${requiredOfferFacts.unit}.` : "",
         `empresa obrigatória: ${requiredOfferFacts.business ?? "conforme cadastro"}.`,
         "A diferença criativa pode mudar somente câmera, composição, luz, tipografia e apresentação não contraditória; nunca pode remover, adicionar ou trocar um item comercial.",
-        "Em CADA promptOption, devolva também visualItems (itens que aparecem visualmente) e commercialFacts { items, price, pricedItems [{ item, price, unit }], validity, unit, business, scope }. Quando o pedido tiver múltiplos preços, preencha pricedItems com um objeto por item+preço confirmado (incluindo itens gratuitos com price 0); o campo price legado pode ser omitido nesse caso. Esses metadados não são texto da arte e precisam refletir exatamente o contrato; scope deve ser confirmed ou corrected.",
+        "Em CADA promptOption, devolva também visualItems (itens que aparecem visualmente), sceneItems (todos os produtos visíveis na cena, sem exceção — só produtos do pedido, nunca inventados) e commercialFacts { items, price, pricedItems [{ item, price, unit }], validity, unit, business, scope }. Quando o pedido tiver múltiplos preços, preencha pricedItems com um objeto por item+preço confirmado (incluindo itens gratuitos com price 0); o campo price legado pode ser omitido nesse caso. Esses metadados não são texto da arte e precisam refletir exatamente o contrato; scope deve ser confirmed ou corrected.",
         "A resposta será rejeitada se algum item existir apenas no texto e não em visualItems.",
       ]
         .filter(Boolean)
@@ -637,15 +669,16 @@ export const askBannerAgent = createServerFn({ method: "POST" })
       const briefingContext = formatarBriefing(briefing);
 
       // 3. Prepare AI Prompt with the scanned company context
-      const systemPrompt = `${BANNER_SYSTEM}\n\n${briefingContext}\n\n${skillsContext ? `${skillsContext}\n\n` : ""}${groundingDirective}\n\n${sceneContractDirective}\n\n${commercialContractDirective}\n\nDIFERENÇA CRIATIVA: crie duas propostas TOTALMENTE DIFERENTES uma da outra — não variações superficiais. As duas opções devem declarar escolhas OPOSTAS em cada um destes quatro eixos, com estas palavras no próprio texto do prompt: (1) enquadramento: a primeira em plano fechado, detalhe ampliado; a segunda em plano aberto, visão ampla; (2) composição: a primeira com ponto focal, produto dominante e área negativa; a segunda em composição ampla contextual; (3) iluminação: a primeira com luz lateral dramática; a segunda com luz difusa e uniforme; (4) tipografia: a primeira com tipografia SERIFADA elegante (traço fino, caixa alta com espaçamento amplo entre letras) em segundo plano e hierarquia visual liderada pela imagem; a segunda com tipografia SEM SERIFA EXTRABOLD, compacta e de alto impacto como protagonista e texto que conduz a leitura. As duas opções NUNCA usam a mesma família tipográfica. Uma opção não deve ser apenas uma variação superficial da outra. Marque as estratégias no próprio texto: a primeira opção diz explicitamente “protagonismo da oferta” com fotografia publicitária de produto em plano próximo; a segunda diz explicitamente “experiência da marca” em composição ampla. Se o pedido for um serviço, ideia ou comunicação institucional, represente isso de modo adequado sem inventar produto físico. Preserve os mesmos fatos comerciais confirmados nas duas. No máximo 4 blocos de texto entre aspas por banner (título, oferta, dia/validade e CTA). Os textos entre aspas devem anunciar o nome da oferta e, quando houver preço confirmado, o preço exato (ex.: R$ 14,99). Não troque o produto da oferta por outro. Textos compactos: o título ocupa no máximo um terço da largura da peça e nunca toma a imagem; o produto é o protagonista visual. As duas opções devem ter fundos e paletas VISIVELMENTE diferentes entre si: uma com fundo escuro, outra com fundo claro (cores derivadas da logo, sem repetir o mesmo fundo nas duas). Varie o papel da cor de destaque: ela pode protagonizar o título em no máximo uma das opções; na outra, o título vai em cor neutra (preto ou branco) e a cor de destaque aparece só em detalhe ou no botão. As duas opções devem ser COMPLETAMENTE diferentes entre si em narrativa, cena, layout, fundo/paleta e hierarquia tipográfica — sem repetir a mesma composição com outra foto — e ao mesmo tempo fiéis ao pedido: mesmo nome da oferta, mesmo preço, mesmo dia, mesmo horário e mesma empresa nas duas. Se não houver referência visual confirmada, derive a direção da identidade cadastrada sem afirmar cores não confirmadas; não mencione pesquisa, fontes ou limitações técnicas no texto final. Nunca invente ambientes ou adereços. Especifique foco visual, leitura da mensagem, área segura e textos permitidos conforme o contexto.\n\nCONTEXTO OFICIAL DA EMPRESA:\n${companyCtx}\n\nCOMPATIBILIDADE DO PEDIDO: ${compatibility.classification}. ${compatibility.reason} Segmento é contexto, não whitelist; não bloqueie extensões plausíveis.\n\nEVIDÊNCIA VISUAL INTERNA — use apenas para orientar a criação e nunca mencione sua origem no prompt final:\n${finalEnvironmentResearchContext}`;
+      const systemPrompt = `${BANNER_SYSTEM}\n\n${briefingContext}\n\n${skillsContext ? `${skillsContext}\n\n` : ""}${groundingDirective}\n\n${sceneContractDirective}\n\n${commercialContractDirective}\n\nDIFERENÇA CRIATIVA: crie duas propostas TOTALMENTE DIFERENTES uma da outra — não variações superficiais. As duas opções devem declarar escolhas OPOSTAS em cada um destes quatro eixos, com estas palavras no próprio texto do prompt: (1) enquadramento: a primeira em plano fechado, detalhe ampliado; a segunda em plano aberto, visão ampla; (2) composição: a primeira com ponto focal, produto dominante e área negativa; a segunda em composição ampla contextual; (3) iluminação: a primeira com luz lateral dramática; a segunda com luz difusa e uniforme; (4) tipografia: a primeira com tipografia SERIFADA elegante (traço fino, caixa alta com espaçamento amplo entre letras) em segundo plano e hierarquia visual liderada pela imagem; a segunda com tipografia SEM SERIFA EXTRABOLD, compacta e de alto impacto como protagonista e texto que conduz a leitura. As duas opções NUNCA usam a mesma família tipográfica. Uma opção não deve ser apenas uma variação superficial da outra. Marque as estratégias no próprio texto: a primeira opção diz explicitamente “protagonismo da oferta” com fotografia publicitária de produto em plano próximo; a segunda diz explicitamente “experiência da marca” em composição ampla. Se o pedido for um serviço, ideia ou comunicação institucional, represente isso de modo adequado sem inventar produto físico. Preserve os mesmos fatos comerciais confirmados nas duas. No máximo 4 blocos de texto entre aspas por banner (título, oferta, dia/validade e CTA). Os textos entre aspas devem anunciar o nome da oferta, o dia e a validade quando confirmados, cada item+preço confirmado e, quando houver preço confirmado, o preço exato (ex.: R$ 14,99). Não troque o produto da oferta por outro. Textos compactos: o título ocupa no máximo um terço da largura da peça e nunca toma a imagem; o produto é o protagonista visual. As duas opções devem ter fundos e paletas VISIVELMENTE diferentes entre si: uma com fundo escuro, outra com fundo claro (cores derivadas da logo, sem repetir o mesmo fundo nas duas). Varie o papel da cor de destaque: ela pode protagonizar o título em no máximo uma das opções; na outra, o título vai em cor neutra (preto ou branco) e a cor de destaque aparece só em detalhe ou no botão. As duas opções devem ser COMPLETAMENTE diferentes entre si em narrativa, cena, layout, fundo/paleta e hierarquia tipográfica — sem repetir a mesma composição com outra foto — e ao mesmo tempo fiéis ao pedido: mesmo nome da oferta, mesmo preço, mesmo dia, mesmo horário e mesma empresa nas duas. Se não houver referência visual confirmada, derive a direção da identidade cadastrada sem afirmar cores não confirmadas; não mencione pesquisa, fontes ou limitações técnicas no texto final. Nunca invente ambientes ou adereços. Especifique foco visual, leitura da mensagem, área segura e textos permitidos conforme o contexto.\n\nCONTEXTO OFICIAL DA EMPRESA:\n${companyCtx}\n\nCOMPATIBILIDADE DO PEDIDO: ${compatibility.classification}. ${compatibility.reason} Segmento é contexto, não whitelist; não bloqueie extensões plausíveis.\n\nEVIDÊNCIA VISUAL INTERNA — use apenas para orientar a criação e nunca mencione sua origem no prompt final:\n${finalEnvironmentResearchContext}`;
       const userPrompt = `Histórico da conversa:\n${chatHistory}\n\nResponda apenas com o JSON conforme o formato obrigatório.`;
 
       // 4. Call AI (Dry Run - no quota yet), com retry de JSON quebrado
       const generationCall = await callGatewayJsonWithRetry(
-        callGateway,
+        gatewayWithDeadline,
         systemPrompt,
         userPrompt,
         (requestId, failure) => logBannerParseFailure(requestId, "prompt_generation", failure),
+        { signal: turnDeadline },
       );
       if (!generationCall.ok) {
         return {
@@ -683,6 +716,7 @@ export const askBannerAgent = createServerFn({ method: "POST" })
           title: string;
           prompt: string;
           visualItems?: readonly string[] | undefined;
+          sceneItems?: readonly string[] | undefined;
           commercialFacts?:
             | {
                 items?: readonly string[] | undefined;
@@ -710,6 +744,7 @@ export const askBannerAgent = createServerFn({ method: "POST" })
               ...validatePromptOfferTexts(option.prompt, requiredOfferFacts),
               ...validatePromptTemporalFacts(option.prompt, requiredOfferFacts),
               ...validateGeneratedCommercialFacts(option, requiredOfferFacts),
+              ...validatePromptSceneItems(option, requiredOfferFacts),
               ...validatePromptTextQuality(option.prompt),
             ].map((violation) => ({ ...violation, option: index + 1 })),
           ),
@@ -725,6 +760,7 @@ export const askBannerAgent = createServerFn({ method: "POST" })
         const sanitizeOption = (option: GeneratedOptionShape) => ({
           ...option,
           visualItems: sanitizeGeneratedItems(option.visualItems),
+          sceneItems: sanitizeGeneratedItems(option.sceneItems),
           commercialFacts: option.commercialFacts
             ? {
                 ...option.commercialFacts,
@@ -745,19 +781,41 @@ export const askBannerAgent = createServerFn({ method: "POST" })
           !normalized.needsMoreInfo && normalized.promptOptions
             ? collectViolations(normalized.promptOptions)
             : [];
+        // Melhor tentativa (lote 2): a correção pode piorar — nunca
+        // entregamos uma opção com violação, mas o erro final nomeia o
+        // ponto que travou na MELHOR tentativa, não um genérico.
+        let bestViolations = violations;
         let correctionAttempts = 0;
         let lastCorrectionRequestId: string | undefined;
         while (violations.length > 0 && correctionAttempts < 2) {
           correctionAttempts += 1;
-          const correction = await callGateway(
-            `${systemPrompt}\n\nCORREÇÃO: reescreva integralmente as duas opções para cumprir os contratos visuais e comerciais e resolver as violações indicadas. Adapte as soluções ao segmento, serviço/produto e intenção descritos no pedido; não use layout ou estilo como receita fixa. Mantenha as duas opções distintas e preserve todos os itens, preço, validade, empresa, escopo e texto comercial confirmados, incluindo visualItems e commercialFacts completos. No máximo 4 blocos de texto entre aspas por banner (título, oferta, dia/validade e CTA). Os textos entre aspas devem anunciar o nome da oferta e, quando houver preço confirmado, o preço exato (ex.: R$ 14,99). Não troque o produto da oferta por outro. Textos compactos: o título ocupa no máximo um terço da largura da peça e nunca toma a imagem; o produto é o protagonista visual. As duas opções devem ter fundos e paletas VISIVELMENTE diferentes entre si: uma com fundo escuro, outra com fundo claro (cores derivadas da logo, sem repetir o mesmo fundo nas duas). Varie o papel da cor de destaque: ela pode protagonizar o título em no máximo uma das opções; na outra, o título vai em cor neutra (preto ou branco) e a cor de destaque aparece só em detalhe ou no botão. As duas opções devem ser COMPLETAMENTE diferentes entre si em narrativa, cena, layout, fundo/paleta e hierarquia tipográfica — sem repetir a mesma composição com outra foto — e ao mesmo tempo fiéis ao pedido: mesmo nome da oferta, mesmo preço, mesmo dia, mesmo horário e mesma empresa nas duas. Mantenha as marcas de estratégia: a primeira opção deve dizer explicitamente “protagonismo da oferta” em plano próximo; a segunda, “experiência da marca” em composição ampla. Declare escolhas opostas nos quatro eixos: enquadramento plano fechado × plano aberto; composição produto dominante com área negativa × composição ampla contextual; iluminação luz lateral dramática × luz difusa e uniforme; tipografia serifada elegante × tipografia sem serifa extrabold. Se a frase escolhida for “por conta da casa”, mantenha-a exatamente e não a substitua por “GRÁTIS”. Retorne somente o JSON obrigatório, sem perguntas.`,
+          const correctionSystem = `${systemPrompt}\n\nCORREÇÃO: reescreva integralmente as duas opções para cumprir os contratos visuais e comerciais e resolver as violações indicadas. Adapte as soluções ao segmento, serviço/produto e intenção descritos no pedido; não use layout ou estilo como receita fixa. Mantenha as duas opções distintas e preserve todos os itens, preço, validade, empresa, escopo e texto comercial confirmados, incluindo visualItems e commercialFacts completos. No máximo 4 blocos de texto entre aspas por banner (título, oferta, dia/validade e CTA). Os textos entre aspas devem anunciar o nome da oferta, o dia e a validade quando confirmados, cada item+preço confirmado e, quando houver preço confirmado, o preço exato (ex.: R$ 14,99). Não troque o produto da oferta por outro. Textos compactos: o título ocupa no máximo um terço da largura da peça e nunca toma a imagem; o produto é o protagonista visual. As duas opções devem ter fundos e paletas VISIVELMENTE diferentes entre si: uma com fundo escuro, outra com fundo claro (cores derivadas da logo, sem repetir o mesmo fundo nas duas). Varie o papel da cor de destaque: ela pode protagonizar o título em no máximo uma das opções; na outra, o título vai em cor neutra (preto ou branco) e a cor de destaque aparece só em detalhe ou no botão. As duas opções devem ser COMPLETAMENTE diferentes entre si em narrativa, cena, layout, fundo/paleta e hierarquia tipográfica — sem repetir a mesma composição com outra foto — e ao mesmo tempo fiéis ao pedido: mesmo nome da oferta, mesmo preço, mesmo dia, mesmo horário e mesma empresa nas duas. Mantenha as marcas de estratégia: a primeira opção deve dizer explicitamente “protagonismo da oferta” em plano próximo; a segunda, “experiência da marca” em composição ampla. Declare escolhas opostas nos quatro eixos: enquadramento plano fechado × plano aberto; composição produto dominante com área negativa × composição ampla contextual; iluminação luz lateral dramática × luz difusa e uniforme; tipografia serifada elegante × tipografia sem serifa extrabold. Se a frase escolhida for “por conta da casa”, mantenha-a exatamente e não a substitua por “GRÁTIS”. Retorne somente o JSON obrigatório, sem perguntas.`;
+
+          // Retry de gateway na correção (lote 2): 1 retry com backoff de
+          // 700 ms antes de desistir — antes, qualquer soluço do provedor
+          // no meio da correção virava erro genérico. Timeout do turno não
+          // retenta: o orçamento já estourou.
+          let correction = await gatewayWithDeadline(
+            correctionSystem,
             `Resposta rejeitada pelo validador local: ${JSON.stringify(violations)}\n\nResposta a corrigir:\n${JSON.stringify(normalized)}`,
           );
+          if ((!correction.ok || !correction.text) && !turnDeadline.aborted) {
+            await new Promise((resolve) => setTimeout(resolve, 700));
+            if (!turnDeadline.aborted) {
+              correction = await gatewayWithDeadline(
+                correctionSystem,
+                `Resposta rejeitada pelo validador local: ${JSON.stringify(violations)}\n\nResposta a corrigir:\n${JSON.stringify(normalized)}`,
+              );
+            }
+          }
           if (!correction.ok || !correction.text) {
             return {
               success: false,
               data: null,
-              error: "Não consegui ajustar as ideias com segurança. Tente novamente em instantes.",
+              error:
+                !correction.ok && correction.stage === "timeout"
+                  ? GATEWAY_TIMEOUT_MESSAGE
+                  : "Não consegui ajustar as ideias com segurança. Tente novamente em instantes.",
             };
           }
           lastCorrectionRequestId = correction.requestId;
@@ -769,11 +827,10 @@ export const askBannerAgent = createServerFn({ method: "POST" })
             continue;
           }
           if (corrected.data.needsMoreInfo || !corrected.data.promptOptions) {
-            return {
-              success: false,
-              data: null,
-              error: "Não consegui ajustar as ideias com segurança. Tente novamente em instantes.",
-            };
+            // Correção sem opções não é fim: consome uma tentativa do loop
+            // e tenta de novo; o loop ao esgotar devolve o erro da melhor
+            // tentativa em vez de abortar na primeira correção vazia.
+            continue;
           }
           const correctedOptions = corrected.data.promptOptions.map((option) => ({
             ...sanitizeOption(option),
@@ -781,16 +838,28 @@ export const askBannerAgent = createServerFn({ method: "POST" })
           }));
           normalized = { ...corrected.data, promptOptions: correctedOptions };
           violations = collectViolations(correctedOptions);
+          if (violations.length < bestViolations.length) bestViolations = violations;
         }
         if (violations.length > 0) {
+          // Rejeita, mas sem genérico: o erro nomeia o ponto que travou
+          // na melhor tentativa (detalhe já é linguagem simples) e o log
+          // registra quantos pontos ficaram pendentes.
+          const firstBest = bestViolations[0];
+          // Nem toda violação tem `detail` (o grounding visual usa
+          // `phrase`); sem o guarda, o acesso quebraria o tipo.
+          const firstBestDetail =
+            firstBest && "detail" in firstBest ? firstBest.detail : null;
           console.error("[BannerAgent] Visual grounding correction rejected", {
             requestId: lastCorrectionRequestId,
-            violations,
+            bestViolationCount: bestViolations.length,
+            bestFirstViolation: firstBest ?? null,
           });
           return {
             success: false,
             data: null,
-            error: "Não consegui ajustar as ideias com segurança. Tente novamente em instantes.",
+            error: firstBestDetail
+              ? `Não consegui ajustar as ideias com segurança. O ponto que travou foi: ${firstBestDetail}`.slice(0, 400)
+              : "Não consegui ajustar as ideias com segurança. Tente novamente em instantes.",
           };
         }
 

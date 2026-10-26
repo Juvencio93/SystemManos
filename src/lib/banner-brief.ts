@@ -1771,6 +1771,7 @@ export type CommercialFactViolation = {
     | "INVENTED_RECURRENCE"
     | "WRONG_TIME"
     | "MISSING_TIME"
+    | "MISSING_WEEKDAY_TEXT"
     | "WRONG_BUSINESS"
     | "WRONG_SCOPE";
   detail: string;
@@ -1958,6 +1959,54 @@ export function validateGeneratedCommercialFacts(
 }
 
 /** Ensure the actual image prompt includes the benefit wording the user chose. */
+export type SceneViolation = {
+  reason: "MISSING_SCENE_ITEMS" | "SCENE_ITEM_NOT_CONFIRMED" | "UNCONFIRMED_PRICE";
+  detail: string;
+};
+
+/**
+ * C-3: a cena é o que o render mostra, e até aqui nenhum validador olhava
+ * para ela — só para metadados que o próprio modelo escreveu. A opção
+ * declara em sceneItems o que aparece visível na cena; o validador cobra
+ * a declaração (ausente = rejeita) e proíbe item não confirmado e preço
+ * sem confirmação nos textos e na cena. Limitação honesta: o modelo
+ * autodeclara sceneItems (réu e testemunha); o sistema nunca vê o render,
+ * então isto força uma declaração cobrável, não prova os pixels.
+ */
+export function validatePromptSceneItems(
+  option: { prompt: string; sceneItems?: readonly string[] | undefined },
+  required: RequiredOfferFacts,
+): SceneViolation[] {
+  const violations: SceneViolation[] = [];
+  const sceneItems = option.sceneItems?.length ? option.sceneItems : undefined;
+  if (!sceneItems) {
+    violations.push({
+      reason: "MISSING_SCENE_ITEMS",
+      detail:
+        "A opção não declarou sceneItems: liste todos os produtos visíveis na cena, sem exceção.",
+    });
+  } else {
+    for (const item of sceneItems) {
+      if (!required.items.some((requiredItem) => sameCommercialItem(item, requiredItem))) {
+        violations.push({
+          reason: "SCENE_ITEM_NOT_CONFIRMED",
+          detail: `Produto visível na cena não foi confirmado no pedido: ${item}`,
+        });
+      }
+    }
+  }
+  const hasConfirmedPrice =
+    (required.price !== undefined && required.price > 0) ||
+    (required.pricedItems?.some((priced) => priced.price > 0) ?? false);
+  if (!hasConfirmedPrice && /R\$\s*\d/u.test(option.prompt)) {
+    violations.push({
+      reason: "UNCONFIRMED_PRICE",
+      detail: "O prompt exibe um preço (R$ …) que não foi confirmado no pedido.",
+    });
+  }
+  return violations;
+}
+
 export function validatePromptCommercialCopy(prompt: string, required: RequiredOfferFacts) {
   if (!required.commercialCopy) return [];
   const promptWords = normalizedWords(prompt);
@@ -2013,11 +2062,16 @@ export function validatePromptOfferTexts(
     "um", "a", "o", "por", "seu", "sua", "seus", "suas", "meu", "minha",
     "nos", "nas", "nosso", "nossa",
   ]);
+  const quotedNorm = normalizedWords(quoted);
   const mainItem = required.items?.[0];
   if (mainItem) {
+    // V7: >= 3 letras (não > 3): "pão"/"chá"/"mel"/"ovo" normalizam para 3
+    // letras e escapavam da exigência. 2 letras ficam fora de propósito:
+    // quase sempre são palavras-função e o teste "alguma palavra" não tem
+    // filtro por palavra no ramo do item — "de" casaria em qualquer texto.
     const words = normalizedWords(mainItem)
       .split(/\s+/u)
-      .filter((word) => word.length > 3);
+      .filter((word) => word.length > 2);
     const hay = normalizedWords(quoted);
     if (words.length > 0 && words.every((word) => functionWords.has(word))) {
       violations.push({
@@ -2051,7 +2105,7 @@ export function validatePromptOfferTexts(
       ...new Set(
         normalizedWords(required.subject)
           .split(/\s+/u)
-          .filter((word) => word.length > 3 && !/\d/.test(word) && !ignored.has(word)),
+          .filter((word) => word.length > 2 && !/\d/.test(word) && !ignored.has(word)),
       ),
     ];
     const hay = normalizedWords(quoted);
@@ -2062,13 +2116,69 @@ export function validatePromptOfferTexts(
       });
     }
   }
-  if (required.price !== undefined && required.price > 0) {
+  // V3: cada item+preço confirmado precisa aparecer citado: a palavra do
+  // item E o preço exato, nos textos entre aspas. Item gratuito exige a
+  // expressão de gratuidade citada (V6), não um preço.
+  const freeExpression = normalizedWords(required.commercialCopy ?? "grátis");
+  if (required.pricedItems?.length) {
+    for (const priced of required.pricedItems) {
+      const words = normalizedWords(priced.item)
+        .split(/\s+/u)
+        .filter((word) => word.length > 2 && !functionWords.has(word));
+      if (words.length > 0 && !words.some((word) => quotedNorm.includes(word))) {
+        violations.push({
+          reason: "MISSING_OFFER_TEXT",
+          detail: `O texto do banner precisa anunciar o item "${priced.item}" nos textos entre aspas.`,
+        });
+      }
+      if (priced.price > 0) {
+        const br = priced.price.toFixed(2).replace(".", ",");
+        const us = priced.price.toFixed(2);
+        if (!quoted.includes(br) && !quoted.includes(us)) {
+          violations.push({
+            reason: "MISSING_OFFER_TEXT",
+            detail: `O texto do banner precisa mostrar o preço R$ ${br} de "${priced.item}" entre aspas.`,
+          });
+        }
+      } else if (freeExpression && !quotedNorm.includes(freeExpression)) {
+        violations.push({
+          reason: "MISSING_OFFER_TEXT",
+          detail: `O texto do banner precisa mostrar a gratuidade "${required.commercialCopy ?? "grátis"}" de "${priced.item}" entre aspas.`,
+        });
+      }
+    }
+  } else if (required.price !== undefined && required.price > 0) {
     const br = required.price.toFixed(2).replace(".", ",");
     const us = required.price.toFixed(2);
     if (!quoted.includes(br) && !quoted.includes(us)) {
       violations.push({
         reason: "MISSING_OFFER_TEXT",
         detail: `O texto do banner precisa mostrar o preço R$ ${br} entre aspas.`,
+      });
+    }
+  } else if (required.price === 0) {
+    // V6: gratuidade citada, não só no prompt inteiro (o validador de copy
+    // só olha o prompt todo — "GRÁTIS" no rodapé técnico não é texto lido).
+    if (freeExpression && !quotedNorm.includes(freeExpression)) {
+      violations.push({
+        reason: "MISSING_OFFER_TEXT",
+        detail: `O texto do banner precisa mostrar a gratuidade "${required.commercialCopy ?? "grátis"}" entre aspas.`,
+      });
+    }
+  }
+  // V4: validade confirmada precisa aparecer citada. Sem palavra
+  // distinguível (ex.: só "30/11"), não há o que exigir — sem violação.
+  if (required.validity) {
+    const validityWords = normalizedWords(required.validity)
+      .split(/\s+/u)
+      .filter((word) => word.length > 2 && !/\d/.test(word) && !functionWords.has(word));
+    if (
+      validityWords.length > 0 &&
+      !validityWords.some((word) => quotedNorm.includes(word))
+    ) {
+      violations.push({
+        reason: "MISSING_OFFER_TEXT",
+        detail: `O texto do banner precisa mostrar a validade "${required.validity}" entre aspas.`,
       });
     }
   }
@@ -2127,6 +2237,11 @@ export function validatePromptTemporalFacts(
         ? [required.weekday]
         : [];
   const normalized = normalizedWords(prompt);
+  const quotedTextsNorm = normalizedWords(
+    [...prompt.matchAll(/["“]([^"”]{1,200})["”]/g)]
+      .map((m) => m[1] ?? "")
+      .join(" "),
+  );
   // O horário é fato confirmado como o dia: 21h virando 20h nos textos é
   // rejeição, não detalhe. Só viola quando nenhum horário citado bate com o
   // confirmado, para não punir faixas ("das 8h às 18h").
@@ -2179,6 +2294,16 @@ export function validatePromptTemporalFacts(
       violations.push({
         reason: "MISSING_VALIDITY",
         detail: `Dia obrigatório ausente no prompt: ${weekday}`,
+      });
+    }
+    // V5: o dia também precisa estar nos TEXTOS citados — antes bastava
+    // estar em qualquer lugar do prompt (ex.: numa instrução técnica), e o
+    // cliente lia um banner sem o dia. Assimetria com o horário, que já
+    // era exigido citado, corrigida aqui.
+    if (!new RegExp(`\\b${base}s?\\b`, "iu").test(quotedTextsNorm)) {
+      violations.push({
+        reason: "MISSING_WEEKDAY_TEXT",
+        detail: `Dia obrigatório ausente nos textos entre aspas: ${weekday}`,
       });
     }
   }

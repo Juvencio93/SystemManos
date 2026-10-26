@@ -785,6 +785,12 @@ export const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) =
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<BannerAgentResponse["data"]>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  // Freio de retry (lote 2): 3 falhas seguidas na mesma conversa travam o
+  // envio por 60 s. Sem ele, um turno falho podia ser reenviado sem limite
+  // — cada tentativa custa Tavily + até 7 chamadas DeepSeek sem debitar
+  // nada. Server-side exigiria tabela/migração (pendente, ver relatório).
+  const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
+  const [cooldownLeft, setCooldownLeft] = useState(0);
   const [brief, setBrief] = useState<NonNullable<BannerAgentResponse["data"]>["brief"]>({});
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -797,9 +803,53 @@ export const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) =
     }
   }, [messages, result]);
 
+  const failStreakKey = () => `banner-fail-streak:${conversationIdRef.current}`;
+  const readFailStreak = () => {
+    try {
+      return Number(sessionStorage.getItem(failStreakKey()) ?? 0) || 0;
+    } catch {
+      return 0;
+    }
+  };
+  const writeFailStreak = (count: number) => {
+    try {
+      if (count <= 0) sessionStorage.removeItem(failStreakKey());
+      else sessionStorage.setItem(failStreakKey(), String(count));
+    } catch {
+      // sessionStorage indisponível: o freio só não persiste.
+    }
+  };
+  const registerFailure = () => {
+    const streak = readFailStreak() + 1;
+    writeFailStreak(streak);
+    if (streak >= 3) {
+      setCooldownUntil(Date.now() + 60_000);
+      setCooldownLeft(60);
+      setError(
+        "Foram 3 tentativas sem sucesso seguidas. Aguarde 60 segundos antes de tentar de novo — isso evita gastar chamadas à toa.",
+      );
+      return true;
+    }
+    return false;
+  };
+  useEffect(() => {
+    if (!cooldownUntil) return;
+    const timer = setInterval(() => {
+      const left = Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000));
+      setCooldownLeft(left);
+      if (left <= 0) {
+        clearInterval(timer);
+        setCooldownUntil(null);
+        setError(null);
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldownUntil]);
+
   const handleSend = async (customMessage?: string) => {
     const userMessage = (customMessage || input).trim();
     if (!userMessage || isProcessing) return;
+    if (cooldownUntil && Date.now() < cooldownUntil) return;
 
     const greetingName = access?.displayName?.trim() || access?.fullName?.trim();
     const openingGreeting =
@@ -840,14 +890,19 @@ export const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) =
 
       if (!response.success) {
         const errorMsg = response.error || "Erro ao processar sua solicitação.";
-        const isQuotaMsg = errorMsg.toLowerCase().includes("cota") || 
-                          errorMsg.toLowerCase().includes("limite") || 
+        const isQuotaMsg = errorMsg.toLowerCase().includes("cota") ||
+                          errorMsg.toLowerCase().includes("limite") ||
                           errorMsg.toLowerCase().includes("excedido");
 
-        setError(isQuotaMsg ? "Seu limite diário de comandos IA foi atingido. Entre em contato com o Suporte." : errorMsg);
+        // O freio sobrepõe a mensagem: 3ª falha seguida trava o envio.
+        if (!registerFailure()) {
+          setError(isQuotaMsg ? "Seu limite diário de comandos IA foi atingido. Entre em contato com o Suporte." : errorMsg);
+        }
         setIsProcessing(false);
         return;
       }
+      // Sucesso (pergunta ou prompts) zera a sequência de falhas.
+      writeFailStreak(0);
 
       if (response.data.needsMoreInfo) {
         setBrief(response.data.brief ?? brief);
@@ -876,7 +931,9 @@ export const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) =
         ]);
       }
     } catch (err) {
-      setError("Não foi possível processar sua solicitação.");
+      if (!registerFailure()) {
+        setError("Não foi possível processar sua solicitação.");
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -908,6 +965,8 @@ export const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) =
     setMessages([]);
     setResult(null);
     setIsFinalTurn(false);
+    setCooldownUntil(null);
+    setCooldownLeft(0);
     setError(null);
     setInput("");
     setBrief({});
@@ -1032,22 +1091,29 @@ export const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) =
 
         <div className="p-6 border-t border-white/5 bg-black/20">
           {!result ? (
-            <div className="flex gap-2">
-              <Input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder={isFinalTurn ? "Responda à IA..." : "O que será o banner?"}
-                disabled={isProcessing}
-                onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                className="bg-background/40 border-cyan-500/20 focus-visible:ring-cyan-500/40"
-              />
-              <Button
-                disabled={!input.trim() || isProcessing}
-                onClick={() => handleSend()}
-                className="bg-cyan-600 hover:bg-cyan-700 text-white"
-              >
-                <Send className="size-4" />
-              </Button>
+            <div>
+              {cooldownUntil && cooldownLeft > 0 && (
+                <p className="text-xs text-amber-300 mb-2">
+                  Aguarde {cooldownLeft}s para enviar de novo.
+                </p>
+              )}
+              <div className="flex gap-2">
+                <Input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder={isFinalTurn ? "Responda à IA..." : "O que será o banner?"}
+                  disabled={isProcessing || (cooldownUntil !== null && cooldownLeft > 0)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                  className="bg-background/40 border-cyan-500/20 focus-visible:ring-cyan-500/40"
+                />
+                <Button
+                  disabled={!input.trim() || isProcessing || (cooldownUntil !== null && cooldownLeft > 0)}
+                  onClick={() => handleSend()}
+                  className="bg-cyan-600 hover:bg-cyan-700 text-white"
+                >
+                  <Send className="size-4" />
+                </Button>
+              </div>
             </div>
           ) : (
             <Button variant="outline" className="w-full border-white/10" onClick={reset}>

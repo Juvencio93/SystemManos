@@ -179,7 +179,23 @@ describe("callGatewayJsonWithRetry", () => {
     expect(failures).toHaveLength(2);
     expect(result).toEqual({ ok: false, gatewayError: null, parseFailed: true });
   });
-  it("não retenta falha de gateway", async () => {
+  it("lote 2: retenta falha de gateway uma vez com backoff", async () => {
+    let calls = 0;
+    const result = await callGatewayJsonWithRetry(
+      async (_system, _user) => {
+        calls += 1;
+        return calls === 1
+          ? { ok: false, text: null, requestId: "r1", error: "boom" }
+          : { ok: true, text: good, requestId: "r2", error: null };
+      },
+      "sys",
+      "usr",
+      noop,
+    );
+    expect(calls).toBe(2);
+    expect(result.ok).toBe(true);
+  });
+  it("lote 2: desiste após o segundo gateway falho", async () => {
     let calls = 0;
     const result = await callGatewayJsonWithRetry(
       async (_system, _user) => {
@@ -189,6 +205,40 @@ describe("callGatewayJsonWithRetry", () => {
       "sys",
       "usr",
       noop,
+    );
+    expect(calls).toBe(2);
+    expect(result).toEqual({ ok: false, gatewayError: "boom", parseFailed: false });
+  });
+  it("lote 2: retry de JSON leva instrução de reparo", async () => {
+    const users: string[] = [];
+    await callGatewayJsonWithRetry(
+      async (_system, user) => {
+        users.push(user);
+        return users.length === 1
+          ? { ok: true, text: broken, requestId: "r1", error: null }
+          : { ok: true, text: good, requestId: "r2", error: null };
+      },
+      "sys",
+      "usr",
+      noop,
+    );
+    expect(users).toHaveLength(2);
+    expect(users[1]).toContain("JSON válido");
+    expect(users[1]).not.toBe("usr");
+  });
+  it("lote 2: sinal abortado para o retry sem gastar outra chamada", async () => {
+    let calls = 0;
+    const controller = new AbortController();
+    controller.abort();
+    const result = await callGatewayJsonWithRetry(
+      async (_system, _user) => {
+        calls += 1;
+        return { ok: false, text: null, requestId: "r", error: "boom" };
+      },
+      "sys",
+      "usr",
+      noop,
+      { signal: controller.signal },
     );
     expect(calls).toBe(1);
     expect(result).toEqual({ ok: false, gatewayError: "boom", parseFailed: false });

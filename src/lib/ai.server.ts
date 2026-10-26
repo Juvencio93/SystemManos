@@ -45,10 +45,14 @@ const DeepSeekResponseSchema = z.object({
   ),
 });
 
+export const GATEWAY_TIMEOUT_MESSAGE =
+  "A geração demorou demais e foi interrompida. Tenta de novo em instantes.";
+
 export async function callGateway(
   system: string,
   user: string,
   history: { role: "user" | "assistant"; content: string }[] = [],
+  options?: { signal?: AbortSignal },
 ): Promise<AiGatewayResult> {
   const requestId = crypto.randomUUID();
   const startTime = Date.now();
@@ -80,8 +84,24 @@ export async function callGateway(
 
     let lastTransportError: any = null;
     for (let attempt = 1; attempt <= 2; attempt += 1) {
+      // Deadline do turno (lote 2): se o sinal externo já abortou, nem
+      // começa outra chamada — o turno estourou o orçamento de 50 s.
+      if (options?.signal?.aborted) {
+        return {
+          ok: false,
+          text: null,
+          error: GATEWAY_TIMEOUT_MESSAGE,
+          requestId,
+          provider: "deepseek",
+          model: "deepseek-chat",
+          stage: "timeout",
+          source: "deepseek",
+        };
+      }
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 60000);
+      const onExternalAbort = () => controller.abort();
+      options?.signal?.addEventListener("abort", onExternalAbort, { once: true });
 
       try {
         const response = await fetch(DEEPSEEK_API_URL, {
@@ -129,11 +149,27 @@ export async function callGateway(
           source: "deepseek",
         };
       } catch (error: any) {
+        // Aborto pelo deadline do turno não é erro de transporte: não
+        // retenta, devolve o estágio "timeout" para o chamador exibir a
+        // mensagem honesta em vez do genérico "não consegui ajustar".
+        if (options?.signal?.aborted) {
+          return {
+            ok: false,
+            text: null,
+            error: GATEWAY_TIMEOUT_MESSAGE,
+            requestId,
+            provider: "deepseek",
+            model: "deepseek-chat",
+            stage: "timeout",
+            source: "deepseek",
+          };
+        }
         lastTransportError = error;
         console.error(`[AI Server] DeepSeek attempt ${attempt}/2 failed (RequestId=${requestId}):`, error.message);
         if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 700));
       } finally {
         clearTimeout(timeoutId);
+        options?.signal?.removeEventListener("abort", onExternalAbort);
       }
     }
 
