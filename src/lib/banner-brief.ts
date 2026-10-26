@@ -302,7 +302,10 @@ export function extractOfferItems(subject: string | undefined) {
       (item) =>
         item.length > 1 &&
         !/^(?:at[ée]|v[áa]lid)/iu.test(item) &&
-        !/^(?:promo(?:ç|c)[aã]o|oferta)(?:\s+da\s+semana|\s+especial)?$/iu.test(item),
+        !/^(?:promo(?:ç|c)[aã]o|oferta)(?:\s+da\s+semana|\s+especial)?$/iu.test(item) &&
+        !/^(?:toda|todo|todas|todos)?\s*(?:segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo)(?:[-\s]?feira)?\b/iu.test(item) &&
+        !/\bvalor\s+(?:de\s+)?\d/iu.test(item) &&
+        !/v[áa]lid/iu.test(item),
     );
 }
 
@@ -903,6 +906,18 @@ function extractCommercialSubject(message: string) {
       "",
     )
     .replace(/\bpor\s*$/iu, "")
+    // Resposta "tudo junto" (dia + preço + validade) não é assunto: tira as
+    // cláusulas de fato para não virar item obrigatório impossível de cumprir.
+    .replace(
+      /^\s*(?:toda|todo|todas|todos)?\s*(?:segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo)(?:-feira|\s+feira)?\s*,\s*/iu,
+      "",
+    )
+    .replace(/,?\s*valor\s+(?:de\s+)?\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?\b/giu, "")
+    .replace(
+      /,?\s*v[áa]lid[oa]s?\s+para\s+(?:o\s+m[êe]s\s+de\s+)?(?:janeiro|fevereiro|mar[çc]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\b/giu,
+      "",
+    )
+    .replace(/^\s*,\s*/u, "")
     .trim();
   return normalized.length >= 2 &&
     !/^(?:(?:como\s+)?(?:criar|fazer|montar)\s+)?(?:um(?:a)?\s+)?(?:banner|arte|imagem)(?:\s+de)?\s+(?:promo(?:ç|c)[aã]o|oferta)(?:\s+da\s+semana)?$/iu.test(

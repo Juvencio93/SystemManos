@@ -910,6 +910,27 @@ describe("textos da oferta no banner", () => {
   });
 });
 
+describe("assunto não vira fato", () => {
+  it("resposta tudo junto não substitui o assunto nem vira item", () => {
+    const facts = extractBannerTurnFacts(
+      "toda quarta feira, valor de 14,99 válidos para o mês de novembro",
+    );
+    expect(facts.subject).toBeUndefined();
+    expect(facts.price).toBe(14.99);
+    expect(facts.weekday).toMatch(/quarta/iu);
+    expect(facts.validity).toMatch(/novembro/iu);
+    const merged = mergeBannerConversationBrief(
+      { subject: "festival de cucas", offerItems: ["festival de cucas"] },
+      facts,
+    );
+    expect(merged.subject).toBe("festival de cucas");
+    expect(merged.offerItems).toEqual(["festival de cucas"]);
+    expect(
+      extractOfferItems("toda quarta feira, valor de 14,99 válidos para o mês de novembro"),
+    ).toEqual([]);
+  });
+});
+
 describe("direção criativa instruída", () => {
   it("passa na separação de conceitos com o vocabulário dos quatro eixos opostos", () => {
     const primeira =
