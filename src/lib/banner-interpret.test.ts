@@ -136,3 +136,20 @@ describe("interpretação da conversa pela IA", () => {
     });
   });
 });
+
+describe("lote 1 — contaminação e grounding com typos", () => {
+  it("C-1/F-08: desconto, hora, vírgula final e só-qualificador contaminam o assunto", () => {
+    expect(isFactContaminatedSubject("20% de desconto no bolo")).toBe(true);
+    expect(isFactContaminatedSubject("evento 21:00")).toBe(true);
+    expect(isFactContaminatedSubject("festival de cucas,")).toBe(true);
+    expect(isFactContaminatedSubject("diversos sabores")).toBe(true);
+    expect(isFactContaminatedSubject("festival de cucas")).toBe(false);
+  });
+  it("F-04: grounding aceita dia com typo", () => {
+    const grounded = groundInterpretation(
+      { weekday: "sexta-feira" },
+      ["toda secta feira"],
+    );
+    expect(grounded.weekday).toBe("sexta-feira");
+  });
+});

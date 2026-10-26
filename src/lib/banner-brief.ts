@@ -263,7 +263,12 @@ export type BannerConversationBrief = {
     | undefined;
 };
 
-export type BannerTurnFacts = Partial<BannerConversationBrief>;
+export type BannerTurnFacts = Partial<BannerConversationBrief> & {
+  /** "não é toda semana": rebaixa WEEKLY para NONE no merge (não persiste). */
+  recurrenceDowngrade?: boolean | undefined;
+  /** Correção explícita de dia ("não é quarta, é quinta"): substitui, não acumula. */
+  weekdaysReplace?: boolean | undefined;
+};
 
 function normalizedWords(value: string) {
   return value
@@ -305,7 +310,11 @@ export function extractOfferItems(subject: string | undefined) {
         !/^(?:promo(?:ç|c)[aã]o|oferta)(?:\s+da\s+semana|\s+especial)?$/iu.test(item) &&
         !/^(?:toda|todo|todas|todos)?\s*(?:segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo)(?:[-\s]?feira)?\b/iu.test(item) &&
         !/\bvalor\s+(?:de\s+)?\d/iu.test(item) &&
-        !/v[áa]lid/iu.test(item),
+        !/v[áa]lid/iu.test(item) &&
+        // Desconto não é produto; hora não é produto.
+        !/^\d{1,3}\s*%\s*(?:de\s+)?desconto\b/iu.test(item) &&
+        !/^desconto\s+(?:de\s+)?\d{1,3}\s*%/iu.test(item) &&
+        !/^\d{1,2}(?::\d{2}|h(?:\d{2})?)$/iu.test(item),
     );
 }
 
@@ -634,6 +643,75 @@ function normalizeWeekday(day: string) {
       : normalized;
 }
 
+const WEEKDAY_STEMS_NORMALIZED = [
+  "segunda",
+  "terca",
+  "quarta",
+  "quinta",
+  "sexta",
+  "sabado",
+  "domingo",
+] as const;
+
+/** Distância de edição ≤ 1 (inserção, remoção ou troca de um caractere). */
+function editDistanceAtMostOne(a: string, b: string): boolean {
+  const m = a.length;
+  const n = b.length;
+  if (Math.abs(m - n) > 1) return false;
+  let i = 0;
+  let j = 0;
+  let edits = 0;
+  while (i < m && j < n) {
+    if (a[i] === b[j]) {
+      i++;
+      j++;
+    } else {
+      edits++;
+      if (edits > 1) return false;
+      if (m > n) i++;
+      else if (n > m) j++;
+      else {
+        i++;
+        j++;
+      }
+    }
+  }
+  if (i < m || j < n) edits++;
+  return edits <= 1;
+}
+
+function closestWeekdayStem(word: string): string | undefined {
+  const n = normalizedWords(word);
+  if (!n) return undefined;
+  const matches = WEEKDAY_STEMS_NORMALIZED.filter((stem) => editDistanceAtMostOne(n, stem));
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
+/**
+ * Tolera typos de dia da semana em contextos sem ambiguidade: palavra
+ * seguida de "feira" ("secta feira") ou precedida de "toda" ("toda secta").
+ * Fora desses contextos a palavra não é tocada ("seita" nunca vira dia).
+ * Palavra já certa volta intacta (preserva acento); só o typo é reescrito.
+ */
+export function normalizeWeekdayTypos(message: string): string {
+  return message
+    .replace(/\b([\p{L}]+)\s+(feira)\b/giu, (m, word: string, feira: string) => {
+      const n = normalizedWords(word);
+      if ((WEEKDAY_STEMS_NORMALIZED as readonly string[]).includes(n)) return m;
+      const stem = closestWeekdayStem(word);
+      return stem ? `${stem} ${feira}` : m;
+    })
+    .replace(
+      /\b(toda|todo|todas|todos)\s+([\p{L}]+)\b/giu,
+      (m, toda: string, word: string) => {
+        const n = normalizedWords(word);
+        if ((WEEKDAY_STEMS_NORMALIZED as readonly string[]).includes(n)) return m;
+        const stem = closestWeekdayStem(word);
+        return stem ? `${toda} ${stem}` : m;
+      },
+    );
+}
+
 function extractWeekdayFacts(message: string) {
   return [...message.matchAll(WEEKDAY_FACTS)]
     .map((match) => (match[1] ? normalizeWeekday(match[1]) : undefined))
@@ -671,7 +749,8 @@ function extractUnitFact(message: string) {
 function extractTimeFact(message: string) {
   const match =
     message.match(/(?:^|[^\p{L}\d])(?:[àa]s|as)\s*(\d{1,2})(?::(\d{2})|h(\d{2})?)?/iu) ??
-    message.match(/\b(\d{1,2})h(\d{2})?\b/iu);
+    message.match(/\b(\d{1,2})h(\d{2})?\b/iu) ??
+    message.match(/\b(\d{1,2}):(\d{2})\b/iu);
   const hour = match?.[1];
   if (!hour) return undefined;
   const minute = match?.[2] ?? match?.[3] ?? "00";
@@ -835,7 +914,42 @@ export function formatarBriefing(briefing: BannerBriefing): string {
   return linhas.join("\n");
 }
 
+const SUBJECT_FUNCTION_WORDS = new Set([
+  "toda", "todo", "todas", "todos", "tota",
+  "para", "pela", "pelo", "com", "sem", "sobre", "entre", "cada",
+  "nesta", "neste", "nessa", "nesse", "das", "dos", "uma", "uns", "umas",
+  "aos", "ao", "os", "as", "de", "da", "do", "em", "na", "no", "que", "e",
+  "um", "a", "o", "por", "seu", "sua", "seus", "suas", "meu", "minha",
+  "nos", "nas", "nosso", "nossa", "isso", "isto", "aquilo", "sim", "nao",
+]);
+
+/** Assunto feito só de palavras funcionais ("toda", "isso") não é produto. */
+function isOnlyFunctionWordsSubject(subject: string | undefined): boolean {
+  if (!subject) return false;
+  const words = normalizedWords(subject).split(/\s+/u).filter(Boolean);
+  return words.length > 0 && words.every((word) => SUBJECT_FUNCTION_WORDS.has(word));
+}
+
+/**
+ * Resíduo só-qualificador ("diversos sabores", "vários sabores", "sabores
+ * diversos"): descreve variedade, não nomeia produto. Nunca pode virar
+ * assunto — o assunto ficaria travado num genérico e a pergunta "o que
+ * divulgar?" nunca seria refeita.
+ */
+export function isQualifierOnlySubject(subject: string | undefined): boolean {
+  if (!subject) return false;
+  const n = normalizedWords(subject).replace(/,\s*$/u, "").trim();
+  const qualifier =
+    "(?:diversos|diversas|varios|varias|variados|variadas|diferentes|muitos|muitas|sortidos|sortidas)";
+  const category = "(?:sabores|sabor|opcoes|tipos|modelos|itens|escolhas)";
+  return new RegExp(
+    `^(?:${qualifier} +${category}|${category} +${qualifier}|${qualifier})$`,
+    "iu",
+  ).test(n);
+}
+
 function extractCommercialSubject(message: string) {
+  message = normalizeWeekdayTypos(message);
   if (/^\s*(?:o\s+)?(?:pre[cç]o|valor)\b/iu.test(message)) return undefined;
 
   // A common promotion structure combines a purchased item with a courtesy
@@ -874,6 +988,10 @@ function extractCommercialSubject(message: string) {
   )
     return undefined;
   const normalized = messageCore
+    // Correção ("na verdade é X") e "só X" como resposta: o prefixo não é
+    // produto e não pode virar nome do produto.
+    .replace(/^\s*(?:na\s+verdade\s+(?:é\s+)?|na\s+realidade\s+(?:é\s+)?|corrigindo\s*:?\s*|correção\s*:?\s*|é\s+)/iu, "")
+    .replace(/^\s*(?:s[oó]|somente|apenas)\s+/iu, "")
     .replace(/[.!?]+\s*$/u, "")
     .replace(/\s+/gu, " ")
     .replace(
@@ -884,12 +1002,25 @@ function extractCommercialSubject(message: string) {
       /^\s*(?:segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo)(?:-?feira)?\s+(?:vai\s+ter|tem)\s+/iu,
       "",
     )
+    // Mensagem que É só um dia não é assunto; dia no início + resto é
+    // agenda, não produto ("Sexta feira oração na igreja" → "oração na igreja").
+    .replace(
+      /^\s*(?:segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo)(?:-feira|\s+feira)?\s*$/iu,
+      "",
+    )
+    .replace(
+      /^\s*(?:segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo)(?:-feira|\s+feira)?\s+(?:vai\s+ter|tem\s+)?/iu,
+      "",
+    )
     .replace(/^\s*(?:promo(?:ç|c)[aã]o|oferta)\s*:\s*/iu, "")
     .replace(/(?:por\s+)?r?\$\s*\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?/giu, "")
     .replace(
       /\b\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?\s*(?:reais?|pila|money|bar(?:ão|ao|ões|oes)|conto?s?)\b/giu,
       "",
     )
+    // Desconto é condição, nunca produto: "20% de desconto no bolo" → "bolo".
+    .replace(/\b\d{1,3}\s*%\s*(?:de\s+)?desconto(?:\s+(?:no|na|nos|nas|em|de|do|da|dos|das|para|pro|pra))?\s*/giu, "")
+    .replace(/\bdesconto\s+(?:de\s+)?\d{1,3}\s*%(?:\s+(?:no|na|nos|nas|em|de|do|da|dos|das|para|pro|pra))?\s*/giu, "")
     // "Avaliação gratuita" is the commercial subject itself and should stay
     // readable; standalone free-price expressions are conditions, not items.
     .replace(/\b(?:gr[aá]tis|sem\s+custo|por\s+conta\s+da\s+casa)\b/giu, "")
@@ -917,6 +1048,12 @@ function extractCommercialSubject(message: string) {
       /,?\s*v[áa]lid[oa]s?\s+para\s+(?:o\s+m[êe]s\s+de\s+)?(?:janeiro|fevereiro|mar[çc]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\b/giu,
       "",
     )
+    .replace(
+      /(?:^|[\s,])(?:[àa]s|as)\s*\d{1,2}(?::\d{2}|h(?:\d{2})?)?\b/giu,
+      "",
+    )
+    .replace(/\b\d{1,2}:\d{2}\b/giu, "")
+    .replace(/\b\d{1,2}h(?:\d{2})?\b/giu, "")
     .replace(/^\s*,\s*/u, "")
     // Unidade ("a unidade", "por porção") é atributo, não produto.
     .replace(/(?:\s+(?:a|por)\s+(?:unidade|por[çc][aã]o|pessoa))\s*$/iu, "")
@@ -925,6 +1062,9 @@ function extractCommercialSubject(message: string) {
     // pode virar assunto e expulsar o assunto anterior.
     .replace(/^\s*(?:toda|todo|todas|todos|tota)\b\s*/iu, "")
     .replace(/\s+(?:toda|todo|todas|todos|tota)\b\s*$/iu, "")
+    .replace(/,\s*$/u, "")
+    .replace(/\s+(?:com|e)\s*$/iu, "")
+    .replace(/^\s*(?:um(?:a)?|o|a|os|as)\s+/iu, "")
     .trim();
   return normalized.length >= 2 &&
     !/^(?:(?:como\s+)?(?:criar|fazer|montar)\s+)?(?:um(?:a)?\s+)?(?:banner|arte|imagem)(?:\s+de)?\s+(?:promo(?:ç|c)[aã]o|oferta)(?:\s+da\s+semana)?$/iu.test(
@@ -940,6 +1080,7 @@ export function extractBannerTurnFacts(
   message: string,
   context?: Pick<BannerConversationBrief, "pendingQuestion" | "priceCandidate">,
 ): BannerTurnFacts {
+  message = normalizeWeekdayTypos(message);
   const facts: BannerTurnFacts = {};
   // Pedido multi-preço: cada item carrega seu próprio preço (um pode ser
   // grátis enquanto outro tem preço). O preço único legado é ignorado aqui.
@@ -971,11 +1112,34 @@ export function extractBannerTurnFacts(
   // de qualquer outra interpretação de validade.
   const validity = resolveRelativeDateValidity(message) ?? extractValidityFact(message);
   if (validity) facts.validity = validity;
-  const weekdays = extractWeekdayFacts(message);
+  // Dia negado ("não é quarta, é quinta") não é dia informado: tira a
+  // cláusula negada antes de extrair, e marca correção explícita de dia
+  // para o merge substituir em vez de acumular.
+  const weekdayMessage = message.replace(
+    /\bn[aã]o\s+[eé]\s+(?:segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo)(?:-feira|\s+feira)?\s*,?\s*/iu,
+    "",
+  );
+  const dayCorrection =
+    weekdayMessage !== message ||
+    /\bem\s+vez\s+de\b/iu.test(message) ||
+    /\b(?:trocar|mudar|alterar|corrigir)\b[^,.]*\bpara\b/iu.test(message);
+  const weekdays = extractWeekdayFacts(weekdayMessage);
   if (weekdays.length) {
     facts.weekday = weekdays[0];
     facts.weekdays = weekdays;
-    facts.recurrence = extractRecurrence(message) ?? "NONE";
+    facts.recurrence = extractRecurrence(weekdayMessage) ?? "NONE";
+    if (dayCorrection) facts.weekdaysReplace = true;
+  }
+  // Rebaixamento explícito ("não é toda semana") vence a persistência do
+  // WEEKLY no merge; sem ele, um "só sábado" posterior apagaria a
+  // recorrência afirmada antes.
+  if (
+    /\bn[aã]o\s+(?:é\s+)?toda\s+semana\b|\bsem\s+recorrência\b|\bn[aã]o\s+é\s+semanal\b/iu.test(
+      message,
+    )
+  ) {
+    facts.recurrence = "NONE";
+    facts.recurrenceDowngrade = true;
   }
   const dateContext = extractDateContext(message);
   if (dateContext) facts.dateContext = dateContext;
@@ -994,18 +1158,40 @@ export function extractBannerTurnFacts(
   const time = extractTimeFact(message);
   if (time) facts.time = time;
   if (SCOPE_CONFIRMATION.test(message)) facts.scopeConfirmed = true;
+  // "não é X, é Y" é correção explícita de assunto: Y vence, sem depender
+  // do gate de escopo (que classificaria a frase como REJECT_ALL).
+  const subjectCorrection = message.match(
+    /^\s*n[aã]o\s+[eé]\s+[^,;]+?,\s*(?:[eé]\s+)?(.+)$/iu,
+  );
+  if (subjectCorrection?.[1]) {
+    const corrected = extractCommercialSubject(subjectCorrection[1].trim());
+    if (corrected && !isQualifierOnlySubject(corrected)) facts.subject = corrected;
+  }
+  // Resposta à pergunta "o que divulgar?" nunca é correção de escopo: "só
+  // bolo", "bolo sem glúten" e "sim, quero divulgar o bolo" nomeiam o
+  // produto. O prefixo de confirmação é removido antes de extrair.
+  const answeringSubject = context?.pendingQuestion === "subject";
+  const answerCore = answeringSubject
+    ? message.replace(/^\s*(?:sim|isso|correto|exato|perfeito|pode\s+ser)\s*[,;.!?]?\s*/iu, "")
+    : message;
+  const subjectSource = answeringSubject ? answerCore : message;
   if (
-    scopeCorrectionOperation(message) === "UNCLEAR" &&
-    !/^\s*(?:sim|isso|pode ser|ok|certo)\b/i.test(message)
+    facts.subject === undefined &&
+    (scopeCorrectionOperation(message) === "UNCLEAR" ||
+      (answeringSubject && subjectSource.trim().length >= 2)) &&
+    !/^\s*(?:sim|isso|pode ser|ok|certo)\b/i.test(subjectSource)
   ) {
-    const subject = extractCommercialSubject(message);
+    const subject = extractCommercialSubject(subjectSource);
     if (
       subject &&
-      !/^\s*(?:combo|completa|completo|combo\s+completo)\s*[.!]?\s*$/iu.test(message) &&
+      !isQualifierOnlySubject(subject) &&
+      !isOnlyFunctionWordsSubject(subject) &&
+      !/^\s*(?:combo|completa|completo|combo\s+completo)\s*[.!]?\s*$/iu.test(subjectSource) &&
       (COMMERCIAL_SUBJECT.test(message) ||
         EVENT_OR_OFFER_SUBJECT.test(message) ||
         PRICE_FACT.test(message) ||
         FREE_OFFER.test(message) ||
+        /^\s*(?:na\s+verdade|na\s+realidade|corrigindo|correção)\b/iu.test(message) ||
         context?.pendingQuestion === "subject")
     )
       facts.subject = subject;
@@ -1016,9 +1202,14 @@ export function extractBannerTurnFacts(
       !facts.subject &&
       !PRICE_FACT.test(message) &&
       context?.pendingQuestion === "subject" &&
-      !/^\s*(?:vai|até|somente|apenas)\b/iu.test(message) &&
+      !/^\s*(?:vai|até|somente|apenas|só|sim|isso|ok|certo)(?:\s|$|[.,;!?])/iu.test(
+        message,
+      ) &&
+      !WEEKDAY_FACT.test(message) &&
       !/\b(?:promo(?:ç|c)[aã]o|oferta)\s+(?:da|de)\s+semana\b/iu.test(message) &&
-      message.trim().length >= 2
+      message.trim().length >= 2 &&
+      !isQualifierOnlySubject(message.trim()) &&
+      !isOnlyFunctionWordsSubject(message.trim())
     )
       facts.subject = subject ?? message.trim();
   }
@@ -1080,10 +1271,36 @@ export function mergeBannerConversationBrief(
       ? { freeCopyConfirmed: facts.freeCopyConfirmed }
       : {}),
     ...(facts.validity !== undefined ? { validity: facts.validity } : {}),
-    ...(facts.weekday !== undefined ? { weekday: facts.weekday } : {}),
-    ...(facts.weekdays !== undefined ? { weekdays: facts.weekdays } : {}),
+    // Dias acumulam entre turnos ("toda quarta" + "também no sábado" =
+    // quarta + sábado); o singular segue sendo o primeiro, por
+    // compatibilidade. Correção explícita de dia substitui, não acumula.
+    ...(facts.weekdays !== undefined
+      ? {
+          weekdays: facts.weekdaysReplace
+            ? facts.weekdays
+            : [...(previous.weekdays ?? []), ...facts.weekdays].filter(
+                (day, index, days) => days.indexOf(day) === index,
+              ),
+          weekday: facts.weekdaysReplace
+            ? facts.weekday
+            : (previous.weekday ?? facts.weekday),
+        }
+      : {}),
+    ...(facts.weekday !== undefined && facts.weekdays === undefined
+      ? { weekday: facts.weekday }
+      : {}),
     ...(facts.dateContext !== undefined ? { dateContext: facts.dateContext } : {}),
-    ...(facts.recurrence !== undefined ? { recurrence: facts.recurrence } : {}),
+    // WEEKLY persiste quando qualquer turno a afirmou; só um rebaixamento
+    // explícito ("não é toda semana") a derruba.
+    ...(facts.recurrence !== undefined
+      ? {
+          recurrence: facts.recurrenceDowngrade
+            ? "NONE"
+            : facts.recurrence === "WEEKLY" || previous.recurrence === "WEEKLY"
+              ? "WEEKLY"
+              : facts.recurrence,
+        }
+      : {}),
     ...(facts.unit !== undefined ? { unit: facts.unit } : {}),
     ...(facts.time !== undefined ? { time: facts.time } : {}),
     ...(facts.scopeConfirmed !== undefined ? { scopeConfirmed: facts.scopeConfirmed } : {}),

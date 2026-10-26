@@ -27,7 +27,11 @@ import {
   validatePromptCommercialCopy,
   validatePromptVisualGrounding,
   extractBannerTurnFacts,
+  formatarBriefing,
+  isQualifierOnlySubject,
   isResolvedQuestion,
+  montarBriefing,
+  normalizeWeekdayTypos,
   sanitizeGeneratedItems,
   validatePromptTemporalFacts,
   validatePromptTextQuality,
@@ -1201,5 +1205,127 @@ describe("interpretação de gratuidade e higiene de metadados", () => {
       ]),
     ).toEqual(["Festival de cucas", "toda quarta-feira", "cucas"]);
     expect(sanitizeGeneratedItems(undefined)).toBeUndefined();
+  });
+});
+
+describe("lote 1 — brief confiável (auditoria 26/10)", () => {
+  it("C-1: % de desconto nunca é assunto", () => {
+    const facts = extractBannerTurnFacts("20% de desconto no bolo", {
+      pendingQuestion: "subject",
+    });
+    expect(facts).toMatchObject({
+      subject: "bolo",
+      commercialCondition: "20% de desconto",
+    });
+    expect(extractOfferItems(facts.subject)).toEqual(["bolo"]);
+    expect(
+      extractBannerTurnFacts("bolo com 20% de desconto", { pendingQuestion: "subject" }),
+    ).toMatchObject({ subject: "bolo" });
+    expect(extractOfferItems("20% de desconto no bolo")).not.toContain(
+      "20% de desconto no bolo",
+    );
+  });
+  it("F-03: horário HH:MM puro é extraído e não vira assunto nem item", () => {
+    const facts = extractBannerTurnFacts("evento 21:00");
+    expect(facts).toMatchObject({ time: "21:00", subject: "evento" });
+    const oracao = mergeBannerConversationBrief(
+      {},
+      extractBannerTurnFacts("oração na igreja, as 21h", { pendingQuestion: "subject" }),
+    );
+    expect(oracao).toMatchObject({ time: "21:00", subject: "oração na igreja" });
+    expect(oracao.offerItems).toEqual(["oração na igreja"]);
+    expect(extractOfferItems("oração na igreja, as 21h")).toEqual(["oração na igreja"]);
+  });
+  it("F-06: dia no início + horário não colapsam os itens para a hora", () => {
+    const merged = mergeBannerConversationBrief(
+      {},
+      extractBannerTurnFacts("Sexta feira oração na igreja, as 21h"),
+    );
+    expect(merged).toMatchObject({
+      subject: "oração na igreja",
+      weekday: "sexta-feira",
+      time: "21:00",
+    });
+    expect(merged.offerItems).toEqual(["oração na igreja"]);
+  });
+  it("F-04: typo de dia é tolerado nas duas camadas", () => {
+    expect(normalizeWeekdayTypos("toda secta feira")).toBe("toda sexta feira");
+    expect(normalizeWeekdayTypos("seita secreta")).toBe("seita secreta");
+    const facts = extractBannerTurnFacts("toda secta feira", {
+      pendingQuestion: "subject",
+    });
+    expect(facts.weekday).toBe("sexta-feira");
+    expect(facts.recurrence).toBe("WEEKLY");
+    expect(facts.subject).toBeUndefined();
+  });
+  it("F-05: dias acumulam entre turnos e WEEKLY persiste", () => {
+    let brief = mergeBannerConversationBrief({}, extractBannerTurnFacts("festival de cucas"));
+    brief = mergeBannerConversationBrief(brief, extractBannerTurnFacts("toda quarta feira"));
+    brief = mergeBannerConversationBrief(brief, extractBannerTurnFacts("também no sábado"));
+    expect(brief.weekdays).toEqual(["quarta-feira", "sábado"]);
+    expect(brief.weekday).toBe("quarta-feira");
+    expect(brief.recurrence).toBe("WEEKLY");
+    expect(brief.subject).toBe("festival de cucas");
+  });
+  it("F-05: rebaixamento explícito derruba WEEKLY e correção de dia substitui", () => {
+    let brief = mergeBannerConversationBrief({}, extractBannerTurnFacts("festival de cucas"));
+    brief = mergeBannerConversationBrief(brief, extractBannerTurnFacts("toda quarta feira"));
+    brief = mergeBannerConversationBrief(brief, extractBannerTurnFacts("não é toda semana"));
+    expect(brief.recurrence).toBe("NONE");
+    brief = mergeBannerConversationBrief(brief, extractBannerTurnFacts("toda quarta feira"));
+    brief = mergeBannerConversationBrief(
+      brief,
+      extractBannerTurnFacts("não é quarta, é quinta"),
+    );
+    expect(brief.weekdays).toEqual(["quinta-feira"]);
+    expect(brief.weekday).toBe("quinta-feira");
+  });
+  it("F-02: resposta à pergunta de assunto não é correção de escopo", () => {
+    expect(
+      extractBannerTurnFacts("só bolo de chocolate", { pendingQuestion: "subject" }),
+    ).toMatchObject({ subject: "bolo de chocolate" });
+    expect(
+      extractBannerTurnFacts("bolo sem glúten", { pendingQuestion: "subject" }),
+    ).toMatchObject({ subject: "bolo sem glúten" });
+    expect(
+      extractBannerTurnFacts("sim, quero divulgar o bolo", { pendingQuestion: "subject" }),
+    ).toMatchObject({ subject: "bolo" });
+    expect(
+      extractBannerTurnFacts("só isso", { pendingQuestion: "subject" }).subject,
+    ).toBeUndefined();
+  });
+  it("F-07: correção de assunto funciona com e sem pergunta pendente", () => {
+    const prev = { subject: "bolo", offerItems: ["bolo"] };
+    expect(
+      mergeBannerConversationBrief(
+        prev,
+        extractBannerTurnFacts("na verdade é coxinha", { pendingQuestion: "subject" }),
+      ),
+    ).toMatchObject({ subject: "coxinha", offerItems: ["coxinha"] });
+    expect(extractBannerTurnFacts("na verdade é coxinha").subject).toBe("coxinha");
+    expect(extractBannerTurnFacts("não é troca de óleo, é festival de cucas").subject).toBe(
+      "festival de cucas",
+    );
+  });
+  it("F-08: resíduo só-qualificador não vira assunto no 1º turno", () => {
+    expect(isQualifierOnlySubject("diversos sabores")).toBe(true);
+    expect(isQualifierOnlySubject("vários sabores")).toBe(true);
+    expect(isQualifierOnlySubject("festival de cucas")).toBe(false);
+    const facts = extractBannerTurnFacts("diversos sabores, toda quarta feira");
+    expect(facts.subject).toBeUndefined();
+    expect(facts.weekday).toBe("quarta-feira");
+    expect(
+      mergeBannerConversationBrief({}, facts).subject,
+    ).toBeUndefined();
+  });
+  it("C-2: briefing inclui a logo oficial só quando há logo", () => {
+    const comLogo = formatarBriefing(
+      montarBriefing({ subject: "bolo", offerItems: ["bolo"] }, { temLogo: true }),
+    );
+    const semLogo = formatarBriefing(
+      montarBriefing({ subject: "bolo", offerItems: ["bolo"] }, { temLogo: false }),
+    );
+    expect(comLogo).toContain("logo oficial");
+    expect(semLogo).not.toContain("logo oficial");
   });
 });

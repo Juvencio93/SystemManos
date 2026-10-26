@@ -628,9 +628,10 @@ export const askBannerAgent = createServerFn({ method: "POST" })
         cores: (registeredBannerContext?.colors ?? []).filter(
           (c): c is string => typeof c === "string",
         ),
-        temLogo: Boolean(
-          registeredBannerContext && (registeredBannerContext as { logoUrl?: string }).logoUrl,
-        ),
+        // loadBannerContext devolve a logo como `logo`, não `logoUrl`: ler a
+        // propriedade errada deixava temLogo sempre falso (briefing mentia
+        // por omissão sobre a logo oficial).
+        temLogo: Boolean(registeredBannerContext?.logo),
         estilo: registeredBannerContext?.visualStyle ?? undefined,
       });
       const briefingContext = formatarBriefing(briefing);

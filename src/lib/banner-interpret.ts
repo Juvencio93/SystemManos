@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { BannerConversationBrief } from "./banner-brief";
-import { extractOfferItems } from "./banner-brief";
+import { extractOfferItems, isQualifierOnlySubject, normalizeWeekdayTypos } from "./banner-brief";
 
 /**
  * Interpretação da conversa pela IA.
@@ -127,6 +127,13 @@ export function isFactContaminatedSubject(subject: string | undefined): boolean 
   ]);
   const words = n.split(/\s+/).filter(Boolean);
   if (words.length > 0 && words.every((word) => functionWords.has(word))) return true;
+  // Desconto, hora e resíduo com vírgula final não são produto; assunto
+  // só-qualificador ("diversos sabores") também não. Todos contam como
+  // contaminados para a interpretação poder resgatar o assunto real.
+  if (/\d+\s*%/.test(subject)) return true;
+  if (/,\s*$/.test(subject)) return true;
+  if (/\b\d{1,2}(?::\d{2}|h(?:\d{2})?)\b/.test(subject)) return true;
+  if (isQualifierOnlySubject(subject)) return true;
   if (/\d+\s*,\s*\d{1,2}/.test(subject)) return true;
   if (/\br\$\s*\d/.test(subject)) return true;
   if (/\b\d+\s*(reais|pila|money)\b/.test(n)) return true;
@@ -154,7 +161,7 @@ export function groundInterpretation(
   userMessages: readonly string[],
 ): GroundedInterpretation {
   const grounded: GroundedInterpretation = {};
-  const hayNormalized = normalize(userMessages.join("\n"));
+  const hayNormalized = normalize(normalizeWeekdayTypos(userMessages.join("\n")));
   const hayRaw = userMessages.join("\n").toLocaleLowerCase("pt-BR");
 
   if (interp.subject !== undefined) {
