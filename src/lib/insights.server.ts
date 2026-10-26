@@ -397,7 +397,7 @@ export async function computeInsights(
         acessosSemana: empresaSemana.get(c.id) ?? 0,
         acessosSemanaAnterior: empresaSemanaAnterior.get(c.id) ?? 0,
       }))
-      .sort((a, b) => b.acessosSemana - a.acessosSemana || b.acessosSemanaAnterior - a.acessosSemanaAnterior);
+      .sort((a: UnidadeRanking, b: UnidadeRanking) => b.acessosSemana - a.acessosSemana || b.acessosSemanaAnterior - a.acessosSemanaAnterior);
   }
 
   const topCampSemana = [...campanhaSemanaTotais.entries()].sort((a, b) => b[1] - a[1])[0];
