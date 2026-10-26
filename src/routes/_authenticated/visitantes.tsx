@@ -576,6 +576,28 @@ function CrmWifiLeadsPage() {
   );
 }
 
+const STAGE_BAR_COLORS: Record<CrmStage, string> = {
+  novo: "bg-blue-500",
+  contato_iniciado: "bg-cyan-500",
+  respondeu: "bg-violet-500",
+  interessado: "bg-amber-500",
+  convertido: "bg-emerald-500",
+  nao_respondeu: "bg-slate-500",
+  sem_interesse: "bg-orange-500",
+  nao_contatar: "bg-red-500",
+};
+
+const CAMPAIGN_BAR_COLORS = [
+  "bg-cyan-400",
+  "bg-violet-400",
+  "bg-amber-400",
+  "bg-emerald-400",
+  "bg-rose-400",
+  "bg-blue-400",
+  "bg-orange-400",
+  "bg-teal-400",
+];
+
 const ACTIVITY_LABELS: Record<CrmLeadActivity["type"], string> = {
   note: "Observação",
   stage_changed: "Etapa alterada",
@@ -627,7 +649,7 @@ function FunnelChart({
               <span className="w-[130px] shrink-0 text-muted-foreground">{STAGE_LABELS[item]}</span>
               <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-white/5">
                 <div
-                  className="h-full rounded-full bg-primary"
+                  className={`h-full rounded-full ${STAGE_BAR_COLORS[item]}`}
                   style={{ width: `${(count / max) * 100}%` }}
                 />
               </div>
@@ -662,14 +684,14 @@ function CampaignChart({
         {campaignCounts.length === 0 && (
           <p className="text-sm text-muted-foreground">Sem dados para estes filtros.</p>
         )}
-        {campaignCounts.map((item) => (
+        {campaignCounts.map((item, index) => (
           <div key={item.campaignId ?? "none"} className="flex items-center gap-3 text-sm">
             <span className="w-[130px] shrink-0 truncate text-muted-foreground">
               {item.campaignId ? (campaignNameById.get(item.campaignId) ?? "Campanha") : "Sem campanha"}
             </span>
             <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-white/5">
               <div
-                className="h-full rounded-full bg-cyan-400"
+                className={`h-full rounded-full ${CAMPAIGN_BAR_COLORS[index % CAMPAIGN_BAR_COLORS.length]}`}
                 style={{ width: `${(item.total / max) * 100}%` }}
               />
             </div>
@@ -698,7 +720,7 @@ function EvolutionChart({
                 {item.total > 0 ? item.total : ""}
               </span>
               <div
-                className="w-full max-w-[28px] rounded-t-md bg-primary/70"
+                className={`w-full max-w-[28px] rounded-t-md ${index === evolution.length - 1 ? "bg-cyan-300" : "bg-cyan-600/70"}`}
                 style={{ height: `${(item.total / max) * 72}%`, minHeight: item.total > 0 ? 6 : 0 }}
               />
               <span className="text-[10px] text-muted-foreground">
