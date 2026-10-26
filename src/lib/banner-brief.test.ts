@@ -33,7 +33,8 @@ import {
   validatePromptTextQuality,
   visualPolicy,
   validateSecondPromptCommercialDirection,
-  validatePromptOfferTexts,} from "./banner-brief";
+  validatePromptOfferTexts,
+  validatePromptTypographyContrast,} from "./banner-brief";
 
 describe("banner briefing engine", () => {
   it("retains product/unit and accepts a later price", () => {
@@ -986,6 +987,46 @@ describe("palavra do evento nos textos", () => {
         subject: "sexta-feira",
       }),
     ).toEqual([]);
+  });
+});
+
+describe("contraste tipográfico entre as opções", () => {
+  it("aprova serifada na primeira e sem serifa extrabold na segunda", () => {
+    expect(
+      validatePromptTypographyContrast(
+        'Tipografia serifada elegante, traço fino, caixa alta espaçada.',
+        'Tipografia sem serifa extrabold, compacta, de alto impacto.',
+      ),
+    ).toEqual([]);
+  });
+  it("aprova a ordem inversa", () => {
+    expect(
+      validatePromptTypographyContrast(
+        'Tipografia sem serifa extrabold.',
+        'Título em tipografia serifada.',
+      ),
+    ).toEqual([]);
+  });
+  it("reprova duas opções sem serifa (o padrão que sai igual)", () => {
+    expect(
+      validatePromptTypographyContrast(
+        'Título em bold sans-serif caixa alta.',
+        'Tipografia sem serifa extrabold.',
+      ),
+    ).toContainEqual(expect.objectContaining({ reason: "SAME_TYPEFACE" }));
+  });
+  it("'sem serifa' não conta como serifada", () => {
+    expect(
+      validatePromptTypographyContrast(
+        'Tipografia sem serifa extrabold.',
+        'Tipografia sem serifa.',
+      ),
+    ).toContainEqual(expect.objectContaining({ reason: "SAME_TYPEFACE" }));
+  });
+  it("reprova quando nenhuma declara família tipográfica", () => {
+    expect(
+      validatePromptTypographyContrast('Título grande em caixa alta.', 'Título grande em caixa alta.'),
+    ).toContainEqual(expect.objectContaining({ reason: "SAME_TYPEFACE" }));
   });
 });
 

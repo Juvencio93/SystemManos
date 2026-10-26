@@ -1984,6 +1984,43 @@ export function validateSecondPromptCommercialDirection(
 }
 
 /** Reject near-copy pairs while ignoring shared brand and offer vocabulary. */
+export type TypographyContrastViolation = {
+  reason: "SAME_TYPEFACE";
+  detail: string;
+};
+
+/**
+ * As duas opções não podem sair com o mesmo estilo de letra (o renderizador
+ * normaliza tudo para bold genérico quando o prompt não declara famílias).
+ * Exige famílias opostas: uma serifada, outra sem serifa. "Sem serifa" nunca
+ * conta como serifada.
+ */
+export function validatePromptTypographyContrast(
+  first: string,
+  second: string,
+): TypographyContrastViolation[] {
+  const declaresSerif = (value: string) =>
+    /serif/iu.test(
+      value
+        .replace(/\bsem\s+serifa\b/giu, "")
+        .replace(/\bsans[-\s]?serif\b/giu, ""),
+    );
+  const declaresSans = (value: string) =>
+    /sem\s+serifa|sans-serif|extrabold|grotesc[ao]/iu.test(value);
+  const firstSerif = declaresSerif(first);
+  const secondSerif = declaresSerif(second);
+  const firstSans = declaresSans(first);
+  const secondSans = declaresSans(second);
+  if ((firstSerif && secondSans) || (firstSans && secondSerif)) return [];
+  return [
+    {
+      reason: "SAME_TYPEFACE",
+      detail:
+        "As duas opções devem declarar famílias tipográficas opostas: uma serifada (serifada, traço fino, caixa alta espaçada) e outra sem serifa extrabold — nunca o mesmo estilo de letra nas duas.",
+    },
+  ];
+}
+
 export function validatePromptConceptSeparation(first: string, second: string) {
   const photoLed = (value: string) =>
     /\b(?:protagonismo\s+da\s+oferta|fotografia\s+(?:publicit[aá]ria|editorial|realista)(?:\s+realista)?\s+(?:(?:de|do)\s+)?produto|foto(?:grafia)?\s+de\s+produto\s+(?:como\s+)?(?:foco|protagonista)|still\s+life\s+fotogr[aá]fico|imagem\s+fotogr[aá]fica\s+(?:do\s+)?produto)\b/iu.test(
