@@ -37,6 +37,7 @@ import {
   validatePromptTextQuality,
   visualPolicy,
   validateSecondPromptCommercialDirection,
+  validatePromptLogoReference,
   validatePromptOfferTexts,
   validatePromptSceneItems,
   validatePromptTypographyContrast,} from "./banner-brief";
@@ -1441,5 +1442,38 @@ describe("lote 2 — cena e textos validados", () => {
     expect(
       validatePromptOfferTexts('Textos: "PÃO ARTESANAL".', required),
     ).toEqual([]);
+  });
+});
+
+describe("lote 3 — frase da logo", () => {
+  const withLogo = "Logo oficial anexada como referência no canto superior, discreta.";
+  const withoutRef = "Logotipo discreto no canto superior.";
+  const bareLogo = "Logo no canto superior.";
+  it("com logo: exige a referência anexada", () => {
+    expect(validatePromptLogoReference([withLogo, withLogo], true)).toEqual([]);
+    expect(validatePromptLogoReference([withoutRef, withLogo], true)).toContainEqual(
+      expect.objectContaining({ reason: "MISSING_LOGO_REFERENCE" }),
+    );
+    expect(validatePromptLogoReference([bareLogo, withLogo], true)).toContainEqual(
+      expect.objectContaining({ reason: "MISSING_LOGO_REFERENCE" }),
+    );
+  });
+  it("sem logo: proíbe alegar referência anexada", () => {
+    expect(validatePromptLogoReference([withoutRef, withoutRef], false)).toEqual([]);
+    expect(validatePromptLogoReference([withLogo, withoutRef], false)).toContainEqual(
+      expect.objectContaining({ reason: "LOGO_REFERENCE_WITHOUT_LOGO" }),
+    );
+  });
+  it("URL nunca vai para o prompt", () => {
+    expect(
+      validatePromptLogoReference(
+        ["Veja a logo em https://exemplo.com/logo.png", withoutRef],
+        false,
+      ),
+    ).toContainEqual(expect.objectContaining({ reason: "LOGO_URL_IN_PROMPT" }));
+  });
+  it("requiredOfferFacts carrega hasLogo", () => {
+    expect(requiredOfferFactsFromBrief({}, undefined, { hasLogo: true }).hasLogo).toBe(true);
+    expect(requiredOfferFactsFromBrief({}, undefined).hasLogo).toBeUndefined();
   });
 });

@@ -1753,6 +1753,9 @@ export type RequiredOfferFacts = {
   time?: string;
   /** Assunto do pedido, para exigir a palavra do evento nos textos. */
   subject?: string;
+  /** Há logo oficial cadastrada (referência anexável). Sem ela, o prompt
+   * não pode falar em referência anexada; com ela, precisa citá-la. */
+  hasLogo?: boolean;
   recurrence?: "NONE" | "WEEKLY";
   unit?: string;
   business?: string;
@@ -1796,6 +1799,7 @@ export type GeneratedCommercialMetadata = {
 export function requiredOfferFactsFromBrief(
   brief: BannerConversationBrief,
   business?: string,
+  opts?: { hasLogo?: boolean },
 ): RequiredOfferFacts {
   const items = brief.offerItems?.length ? brief.offerItems : extractOfferItems(brief.subject);
   return {
@@ -1814,6 +1818,7 @@ export function requiredOfferFactsFromBrief(
     ...(brief.recurrence ? { recurrence: brief.recurrence } : {}),
     ...(brief.unit ? { unit: brief.unit } : {}),
     ...(business ? { business } : {}),
+    ...(opts?.hasLogo ? { hasLogo: true } : {}),
     scope: "confirmed",
   };
 }
@@ -2003,6 +2008,54 @@ export function validatePromptSceneItems(
       reason: "UNCONFIRMED_PRICE",
       detail: "O prompt exibe um preço (R$ …) que não foi confirmado no pedido.",
     });
+  }
+  return violations;
+}
+
+export type LogoReferenceViolation = {
+  reason: "MISSING_LOGO_REFERENCE" | "LOGO_REFERENCE_WITHOUT_LOGO" | "LOGO_URL_IN_PROMPT";
+  detail: string;
+};
+
+/**
+ * Lote 3: a frase da logo. Com logo cadastrada, o prompt precisa mandar
+ * usar a referência anexada (senão o renderizador inventa um logo); sem
+ * logo, o prompt não pode alegar referência anexada; e URL nunca vai para
+ * o prompt (fecha o buraco do validador de registro, que não olhava URL).
+ * "Referência" aqui = logo + palavra de anexo (anexada, oficial,
+ * referência, fornecida, cadastrada, original) — "logo no canto" sozinho
+ * não instrui o uso da referência e não conta.
+ */
+export function validatePromptLogoReference(
+  prompts: readonly string[],
+  hasLogo: boolean,
+): LogoReferenceViolation[] {
+  const violations: LogoReferenceViolation[] = [];
+  const mentionsReference = (prompt: string) => {
+    const n = normalizedWords(prompt);
+    const logoWord = /\b(?:logotipo|logo)\b/.test(n);
+    if (!logoWord) return false;
+    return /\b(?:anexad[oa]s?|referencia|oficial|fornecid[oa]s?|cadastrad[oa]s?|original)\b/.test(n);
+  };
+  for (const [index, prompt] of prompts.entries()) {
+    if (/https?:\/\//u.test(prompt)) {
+      violations.push({
+        reason: "LOGO_URL_IN_PROMPT",
+        detail: `A opção ${index + 1} contém uma URL no prompt — URLs nunca vão para a arte; cite a logo como referência anexada, sem endereço.`,
+      });
+    }
+    if (hasLogo && !mentionsReference(prompt)) {
+      violations.push({
+        reason: "MISSING_LOGO_REFERENCE",
+        detail: `A opção ${index + 1} não manda usar a logo oficial anexada como referência — sem isso, a IA de imagens inventa um logo.`,
+      });
+    }
+    if (!hasLogo && mentionsReference(prompt)) {
+      violations.push({
+        reason: "LOGO_REFERENCE_WITHOUT_LOGO",
+        detail: `A opção ${index + 1} alega uma logo anexada como referência, mas não há logo cadastrada — remova a referência.`,
+      });
+    }
   }
   return violations;
 }

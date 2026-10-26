@@ -3,6 +3,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { GATEWAY_TIMEOUT_MESSAGE, callGateway } from "@/lib/ai.server";
 import {
+  type BannerResponse,
   callGatewayJsonWithRetry,
   parseBannerResponse,
 } from "@/lib/banner-response";
@@ -27,8 +28,10 @@ import {
   validatePromptVisualGrounding,
   validatePromptNoRegistryData,
   validatePromptCommercialCopy,
+  validatePromptLogoReference,
   validatePromptOfferTexts,
   validatePromptSceneItems,
+  validateSecondPromptCommercialDirection,
   validatePromptTemporalFacts,
   validatePromptTextQuality,
 } from "@/lib/banner-brief";
@@ -50,7 +53,6 @@ export const BannerAgentInputSchema = z.object({
     .array(BannerMessageSchema.extend({ content: z.string().trim().min(1).max(4_000) }))
     .min(1)
     .max(30),
-  isFinalTurn: z.boolean(),
   conversationId: z.string().uuid(),
   brief: z
     .object({
@@ -579,7 +581,9 @@ export const askBannerAgent = createServerFn({ method: "POST" })
       const visualSceneContract = createVisualSceneContract(
         hasConfirmedVisualEvidence ? "CONFIRMED" : "UNCONFIRMED",
       );
-      const requiredOfferFacts = requiredOfferFactsFromBrief(activeBrief, snapshot.name);
+      const requiredOfferFacts = requiredOfferFactsFromBrief(activeBrief, snapshot.name, {
+        hasLogo: Boolean(registeredBannerContext?.logo),
+      });
       // Guarda "não gerar sem itens" (lote 2): sem item confirmado, gerar
       // queimava 2 correções e rejeitava — custo puro, sem chance de
       // acerto. Pergunta o produto em vez de gerar.
@@ -692,10 +696,11 @@ export const askBannerAgent = createServerFn({ method: "POST" })
 
       // 5. Parse and Validate Response
       const generationRawText = generationCall.rawText;
+      let normalized: BannerResponse;
       try {
         const parsedResponse = generationCall.parsed;
         const validated = parsedResponse.data;
-        let normalized =
+        normalized =
           !validated.needsMoreInfo && validated.promptOptions
             ? {
                 ...validated,
@@ -755,6 +760,16 @@ export const askBannerAgent = createServerFn({ method: "POST" })
           ...validatePromptTypographyContrast(
             options[0]?.prompt ?? "",
             options[1]?.prompt ?? "",
+          ),
+          // Validador morto até aqui: a opção 2 não pode cair no layout
+          // genérico de faixa inferior. Nota: a variante "faixa de texto"
+          // casa também "faixa de texto no topo" — limitação conhecida do
+          // validador, não enfraquecida aqui (o modelo raramente escreve
+          // sobre faixas sem usá-las).
+          ...validateSecondPromptCommercialDirection(options[1]?.prompt ?? ""),
+          ...validatePromptLogoReference(
+            [options[0]?.prompt ?? "", options[1]?.prompt ?? ""],
+            requiredOfferFacts.hasLogo ?? false,
           ),
         ];
         const sanitizeOption = (option: GeneratedOptionShape) => ({
@@ -863,42 +878,6 @@ export const askBannerAgent = createServerFn({ method: "POST" })
           };
         }
 
-        // 6. Quota Logic - Debit only on success (when prompts are generated)
-        if (
-          !normalized.needsMoreInfo &&
-          normalized.promptOptions &&
-          normalized.promptOptions.length === 2
-        ) {
-          const limitCheck = await checkAiLimitAndIncrement(context.supabase, context.userId);
-
-          if (!limitCheck.allowed) {
-            return {
-              success: false,
-              data: null,
-              error: limitCheck.error || "Limite de IA atingido.",
-            };
-          }
-
-          if (limitCheck.increment) {
-            const commit = await limitCheck.increment();
-            if (!commit.allowed) {
-              return {
-                success: false,
-                data: null,
-                error: commit.error || "Erro ao processar cota.",
-              };
-            }
-          }
-        }
-
-        // Return validated data
-        console.info("[BannerAgent] conversation decision", {
-          ...requestTrace,
-          modelProposedQuestion: decision?.data.question ?? null,
-          finalDecision: "generate_prompts",
-          persistedState: activeBrief,
-        });
-        return { success: true, data: { ...normalized, brief: activeBrief }, error: null };
       } catch (parseError: any) {
         console.error("[BannerAgent] Parse/Validation Error:", parseError.message, generationRawText);
         return {
@@ -908,6 +887,45 @@ export const askBannerAgent = createServerFn({ method: "POST" })
           code: "IA-PARSE-ERR",
         };
       }
+
+      // 6. Quota Logic - Debit only on success (when prompts are generated).
+      // FORA do try de parse (lote 3): antes, um erro de cota/Supabase aqui
+      // caía no catch acima e virava "Falha ao processar os dados da IA".
+      if (
+        !normalized.needsMoreInfo &&
+        normalized.promptOptions &&
+        normalized.promptOptions.length === 2
+      ) {
+        const limitCheck = await checkAiLimitAndIncrement(context.supabase, context.userId);
+
+        if (!limitCheck.allowed) {
+          return {
+            success: false,
+            data: null,
+            error: limitCheck.error || "Limite de IA atingido.",
+          };
+        }
+
+        if (limitCheck.increment) {
+          const commit = await limitCheck.increment();
+          if (!commit.allowed) {
+            return {
+              success: false,
+              data: null,
+              error: commit.error || "Erro ao processar cota.",
+            };
+          }
+        }
+      }
+
+      // Return validated data
+      console.info("[BannerAgent] conversation decision", {
+        ...requestTrace,
+        modelProposedQuestion: decision?.data.question ?? null,
+        finalDecision: "generate_prompts",
+        persistedState: activeBrief,
+      });
+      return { success: true, data: { ...normalized, brief: activeBrief }, error: null };
     } catch (e: any) {
       console.error("[BannerAgent] Internal Error:", e.message, e.stack);
       return {

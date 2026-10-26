@@ -244,7 +244,7 @@ CRITÉRIOS DE QUALIDADE PARA AMBAS AS OPÇÕES (ADAPTAR AO PEDIDO, SEM RECEITA V
 - Formato horizontal 16:9, resolução 1920 × 1080 px, próprio para Portal Cativo.
 - Defina hierarquia, posição dos elementos, área de respiro, iluminação, enquadramento e margens seguras.
 - Logotipo discreto, com espaço de respiro, ocupando no máximo 12% da composição; nunca dominar a peça.
-- Use no máximo três blocos curtos de texto: título, oferta/informação principal e CTA. Se um deles não tiver sido informado nem puder ser escrito sem criar uma condição comercial, omita-o.
+- Use no máximo quatro blocos curtos de texto: título, oferta, dia/validade e CTA. Se um deles não tiver sido informado nem puder ser escrito sem criar uma condição comercial, omita-o.
 - Liste no prompt final os textos exatos que podem aparecer e ordene: "não adicionar nenhum outro texto".
 - Preserve as cores coerentes com a identidade informada. Quando houver logo de referência, determine que a paleta seja extraída dela; sem essa referência, não afirme quais são as cores oficiais da marca.
 - O produto ou serviço principal deve ser facilmente reconhecível. Use espaço negativo e evite excesso de objetos, pessoas, selos, etiquetas, ícones e efeitos concorrentes.
@@ -273,7 +273,7 @@ REVISÃO SILENCIOSA ANTES DE RESPONDER:
 1. Confirme que cada preço, horário, produto, condição e alegação veio do contexto ou do usuário e que os valores estão no formato monetário brasileiro, sem duplicar "R$" e "reais".
 2. Confirme que cada elemento físico tem origem permitida; descarte qualquer UNVERIFIED_DECORATION. Uma diferença entre as duas opções nunca justifica introduzir props.
 3. Confirme que não há textos inventados nem placeholders.
-4. Confirme que há no máximo três blocos textuais e que o logo não domina a composição.
+4. Confirme que há no máximo quatro blocos textuais e que o logo não domina a composição.
 5. Confirme que as duas opções são diferentes, profissionais, limpas e coerentes com a marca e com o segmento/pedido, sem aplicar uma composição pré-definida.
 6. Compare as duas opções lado a lado e confirme que as ideias são distintas de um modo adequado ao pedido, sem exigir diferenças específicas de layout ou tipografia.
 7. Se as opções parecerem variações superficiais, escolha uma narrativa visual alternativa que faça sentido para aquele produto, serviço ou comunicação.

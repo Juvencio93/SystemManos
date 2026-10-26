@@ -781,7 +781,6 @@ export const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) =
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [input, setInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isFinalTurn, setIsFinalTurn] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<BannerAgentResponse["data"]>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
@@ -794,6 +793,53 @@ export const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) =
   const [brief, setBrief] = useState<NonNullable<BannerAgentResponse["data"]>["brief"]>({});
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Persistência mínima (lote 3): sobrevive a reload no meio da conversa.
+  // Fechar o diálogo chama reset(), que limpa o storage — persistir é
+  // para reload, não para ressuscitar conversa encerrada de propósito.
+  const dialogStateKey = "banner-agent-dialog-state";
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        dialogStateKey,
+        JSON.stringify({
+          messages,
+          brief,
+          result,
+          conversationId: conversationIdRef.current,
+          savedAt: Date.now(),
+        }),
+      );
+    } catch {
+      // sessionStorage indisponível: conversa segue sem persistir.
+    }
+  }, [messages, brief, result]);
+  const restoreDialogState = () => {
+    if (messages.length > 0 || result) return;
+    try {
+      const raw = sessionStorage.getItem(dialogStateKey);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as {
+        messages?: { role: "user" | "assistant"; content: string }[];
+        brief?: typeof brief;
+        result?: typeof result;
+        conversationId?: string;
+      };
+      if (Array.isArray(saved.messages)) setMessages(saved.messages);
+      if (saved.brief) setBrief(saved.brief);
+      if (saved.result) setResult(saved.result);
+      if (
+        saved.conversationId &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          saved.conversationId,
+        )
+      ) {
+        conversationIdRef.current =
+          saved.conversationId as typeof conversationIdRef.current;
+      }
+    } catch {
+      // Storage corrompido: começa limpo.
+    }
+  };
   const openSendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const conversationIdRef = useRef(crypto.randomUUID());
 
@@ -846,10 +892,38 @@ export const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) =
     return () => clearInterval(timer);
   }, [cooldownUntil]);
 
+  // Progresso honesto (lote 3): um POST só não dá etapas reais (isso
+  // exigiria streaming) — mostra tempo decorrido + cancelar. Cancelar só
+  // ignora a resposta no aparelho; o servidor pode concluir e, se gerar,
+  // a cota é debitada — o aviso diz isso, sem prometer o que não cumpre.
+  const [elapsed, setElapsed] = useState(0);
+  const processingStartRef = useRef<number | null>(null);
+  const sendTokenRef = useRef(0);
+  useEffect(() => {
+    if (!isProcessing) return;
+    const timer = setInterval(() => {
+      if (processingStartRef.current) {
+        setElapsed(Math.floor((Date.now() - processingStartRef.current) / 1000));
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [isProcessing]);
+  const cancelSend = () => {
+    sendTokenRef.current += 1;
+    setIsProcessing(false);
+    setError(
+      "Envio cancelado no seu aparelho. O servidor pode concluir o turno — se gerar os prompts, a cota será debitada.",
+    );
+  };
+
   const handleSend = async (customMessage?: string) => {
     const userMessage = (customMessage || input).trim();
     if (!userMessage || isProcessing) return;
     if (cooldownUntil && Date.now() < cooldownUntil) return;
+    sendTokenRef.current += 1;
+    const sendToken = sendTokenRef.current;
+    processingStartRef.current = Date.now();
+    setElapsed(0);
 
     const greetingName = access?.displayName?.trim() || access?.fullName?.trim();
     const openingGreeting =
@@ -874,6 +948,7 @@ export const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) =
     setError(null);
 
     try {
+      // Resposta que chega após cancelar é ignorada (token mudou).
       // O frontend deve enviar todo o histórico da conversa
       const response = await ask({
         data: {
@@ -882,21 +957,20 @@ export const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) =
           // nunca deve forçar a geração antes de interpretar a resposta atual.
           // A conversa só deve ser finalizada quando o agente confirmar que
           // não faltam dados; nunca pelo estado local de uma pergunta anterior.
-          isFinalTurn: false,
           conversationId: conversationIdRef.current,
           brief,
         },
       });
 
+      if (sendToken !== sendTokenRef.current) return;
       if (!response.success) {
         const errorMsg = response.error || "Erro ao processar sua solicitação.";
-        const isQuotaMsg = errorMsg.toLowerCase().includes("cota") ||
-                          errorMsg.toLowerCase().includes("limite") ||
-                          errorMsg.toLowerCase().includes("excedido");
-
-        // O freio sobrepõe a mensagem: 3ª falha seguida trava o envio.
+        // Lote 3: mensagem do servidor como veio — antes, qualquer erro
+        // com "cota"/"limite" virava "fale com o Suporte", escondendo o
+        // "tente novamente amanhã" da cota de perguntas. O freio de retry
+        // (3ª falha) continua sobrepondo a mensagem.
         if (!registerFailure()) {
-          setError(isQuotaMsg ? "Seu limite diário de comandos IA foi atingido. Entre em contato com o Suporte." : errorMsg);
+          setError(errorMsg);
         }
         setIsProcessing(false);
         return;
@@ -910,7 +984,6 @@ export const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) =
           ...newMessages,
           { role: "assistant" as const, content: response.data.question! },
         ]);
-        setIsFinalTurn(true);
       } else if (response.data.promptOptions) {
         setBrief(response.data.brief ?? brief);
         setResult(response.data);
@@ -931,6 +1004,7 @@ export const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) =
         ]);
       }
     } catch (err) {
+      if (sendToken !== sendTokenRef.current) return;
       if (!registerFailure()) {
         setError("Não foi possível processar sua solicitação.");
       }
@@ -955,16 +1029,49 @@ export const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) =
     },
   }));
 
-  const copyToClipboard = (text: string, index: number) => {
-    navigator.clipboard.writeText(text);
-    setCopiedIndex(index);
-    setTimeout(() => setCopiedIndex(null), 2000);
+  const [copyFailedIndex, setCopyFailedIndex] = useState<number | null>(null);
+  const [expandedPrompt, setExpandedPrompt] = useState<number | null>(null);
+  const copyToClipboard = async (text: string, index: number) => {
+    // Confirmação real (lote 3): antes o "Copiado!" aparecia sem await,
+    // catch ou fallback — falha silenciosa virava sucesso na tela.
+    const markCopied = () => {
+      setCopiedIndex(index);
+      setTimeout(() => setCopiedIndex(null), 2000);
+    };
+    try {
+      await navigator.clipboard.writeText(text);
+      markCopied();
+      return;
+    } catch {
+      // Fallback para navegadores sem Clipboard API / sem permissão.
+    }
+    try {
+      const area = document.createElement("textarea");
+      area.value = text;
+      area.style.position = "fixed";
+      area.style.opacity = "0";
+      document.body.appendChild(area);
+      area.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(area);
+      if (!ok) throw new Error("execCommand copy failed");
+      markCopied();
+    } catch {
+      // Falha total: nada de "Copiado!" — o botão vira instrução para
+      // selecionar o texto e copiar com Ctrl+C.
+      setCopyFailedIndex(index);
+      setTimeout(() => setCopyFailedIndex(null), 5000);
+    }
   };
 
   const reset = () => {
+    try {
+      sessionStorage.removeItem(dialogStateKey);
+    } catch {
+      // Sem storage, nada para limpar.
+    }
     setMessages([]);
     setResult(null);
-    setIsFinalTurn(false);
     setCooldownUntil(null);
     setCooldownLeft(0);
     setError(null);
@@ -979,6 +1086,7 @@ export const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) =
       onOpenChange={(open) => {
         setIsOpen(open);
         if (!open) reset();
+        else restoreDialogState();
       }}
     >
       <DialogContent className="max-w-2xl bg-[#0F172A] border-cyan-500/20 max-h-[90vh] flex flex-col p-0">
@@ -1035,7 +1143,15 @@ export const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) =
           {isProcessing && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground animate-pulse">
               <Sparkles className="size-3 text-cyan-400" />
-              <span>Analisando cadastro e referências...</span>
+              <span>Analisando cadastro e referências... {elapsed}s</span>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 text-[11px] text-red-300 hover:text-red-200"
+                onClick={cancelSend}
+              >
+                Cancelar
+              </Button>
             </div>
           )}
 
@@ -1054,9 +1170,24 @@ export const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) =
                     className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4 space-y-3"
                   >
                     <h5 className="font-semibold text-cyan-300 text-sm">{opt.title}</h5>
-                    <p className="text-xs text-muted-foreground line-clamp-4 leading-relaxed">
+                    <p
+                      className={cn(
+                        "text-xs text-muted-foreground leading-relaxed",
+                        expandedPrompt === i
+                          ? "max-h-64 overflow-y-auto whitespace-pre-wrap"
+                          : "line-clamp-4",
+                        copyFailedIndex === i && "select-all",
+                      )}
+                    >
                       {opt.prompt}
                     </p>
+                    <button
+                      type="button"
+                      className="text-[11px] text-cyan-300 underline underline-offset-2 self-start"
+                      onClick={() => setExpandedPrompt(expandedPrompt === i ? null : i)}
+                    >
+                      {expandedPrompt === i ? "Ver menos" : "Ver prompt completo"}
+                    </button>
                     <Button
                       size="sm"
                       variant="secondary"
@@ -1067,6 +1198,11 @@ export const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) =
                         <>
                           <Check className="size-3 mr-2" />
                           Copiado!
+                        </>
+                      ) : copyFailedIndex === i ? (
+                        <>
+                          <Copy className="size-3 mr-2" />
+                          Selecione o texto e use Ctrl+C
                         </>
                       ) : (
                         <>
@@ -1081,15 +1217,36 @@ export const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) =
 
               <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/10 p-4 flex gap-3">
                 <AlertCircle className="size-5 text-cyan-400 shrink-0 mt-0.5" />
-                <p className="text-sm text-cyan-200/90 leading-relaxed font-medium">
-                  {result.reminder || "Para maior fidelidade, envie à IA de imagens a logo original e fotos reais dos produtos, serviços ou ambiente citados no prompt."}
-                </p>
+                <div>
+                  <p className="text-sm text-cyan-200/90 leading-relaxed font-medium">
+                    {result.reminder || "Para maior fidelidade, envie à IA de imagens a logo original e fotos reais dos produtos, serviços ou ambiente citados no prompt."}
+                  </p>
+                  <p className="text-xs text-cyan-200/70 mt-2">
+                    Depois de gerar a imagem, volte em{" "}
+                    <a href="/campanhas" className="underline text-cyan-300">
+                      Campanhas → sua campanha → subir imagem
+                    </a>
+                    .
+                  </p>
+                </div>
               </div>
             </div>
           )}
         </div>
 
         <div className="p-6 border-t border-white/5 bg-black/20">
+          {messages.length > 0 && (
+            <p
+              className={cn(
+                "text-[11px] mb-2",
+                messages.length >= 25 ? "text-amber-300" : "text-muted-foreground",
+              )}
+            >
+              Mensagem {messages.length} de 30
+              {messages.length >= 25 &&
+                " — faltam poucas; ao atingir 30, comece um novo pedido."}
+            </p>
+          )}
           {!result ? (
             <div>
               {cooldownUntil && cooldownLeft > 0 && (
@@ -1101,7 +1258,7 @@ export const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) =
                 <Input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder={isFinalTurn ? "Responda à IA..." : "O que será o banner?"}
+                  placeholder="O que será o banner?"
                   disabled={isProcessing || (cooldownUntil !== null && cooldownLeft > 0)}
                   onKeyDown={(e) => e.key === "Enter" && handleSend()}
                   className="bg-background/40 border-cyan-500/20 focus-visible:ring-cyan-500/40"
@@ -1116,9 +1273,47 @@ export const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) =
               </div>
             </div>
           ) : (
-            <Button variant="outline" className="w-full border-white/10" onClick={reset}>
-              Preparar outros prompts
-            </Button>
+            // Refinar sem recomeçar (lote 3): o input continua visível com
+            // o briefing preservado; "Gerar outras duas" manda uma mensagem
+            // pronta sem reset (custa uma nova geração, como esperado);
+            // "Novo pedido" é o reset total de antes.
+            <div className="space-y-2">
+              {cooldownUntil && cooldownLeft > 0 && (
+                <p className="text-xs text-amber-300">
+                  Aguarde {cooldownLeft}s para enviar de novo.
+                </p>
+              )}
+              <div className="flex gap-2">
+                <Input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Refinar ou pedir outra coisa..."
+                  disabled={isProcessing || (cooldownUntil !== null && cooldownLeft > 0)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                  className="bg-background/40 border-cyan-500/20 focus-visible:ring-cyan-500/40"
+                />
+                <Button
+                  disabled={!input.trim() || isProcessing || (cooldownUntil !== null && cooldownLeft > 0)}
+                  onClick={() => handleSend()}
+                  className="bg-cyan-600 hover:bg-cyan-700 text-white"
+                >
+                  <Send className="size-4" />
+                </Button>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1 border-white/10"
+                  disabled={isProcessing || (cooldownUntil !== null && cooldownLeft > 0)}
+                  onClick={() => handleSend("Gerar outras duas ideias com o mesmo briefing")}
+                >
+                  Gerar outras duas
+                </Button>
+                <Button variant="outline" className="flex-1 border-white/10" onClick={reset}>
+                  Novo pedido
+                </Button>
+              </div>
+            </div>
           )}
         </div>
       </DialogContent>
