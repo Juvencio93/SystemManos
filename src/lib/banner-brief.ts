@@ -1509,6 +1509,10 @@ export type RequiredOfferFacts = {
   weekday?: string;
   /** Todos os dias citados; `weekday` segue como o primeiro por compatibilidade. */
   weekdays?: string[];
+  /** Horário confirmado no formato HH:MM (ex.: "21:00"). */
+  time?: string;
+  /** Assunto do pedido, para exigir a palavra do evento nos textos. */
+  subject?: string;
   recurrence?: "NONE" | "WEEKLY";
   unit?: string;
   business?: string;
@@ -1525,6 +1529,8 @@ export type CommercialFactViolation = {
     | "MISSING_VALIDITY"
     | "MISSING_UNIT"
     | "INVENTED_RECURRENCE"
+    | "WRONG_TIME"
+    | "MISSING_TIME"
     | "WRONG_BUSINESS"
     | "WRONG_SCOPE";
   detail: string;
@@ -1562,6 +1568,8 @@ export function requiredOfferFactsFromBrief(
     ...(brief.validity ? { validity: brief.validity } : {}),
     ...(brief.weekday ? { weekday: brief.weekday } : {}),
     ...(brief.weekdays?.length ? { weekdays: brief.weekdays } : {}),
+    ...(brief.time ? { time: brief.time } : {}),
+    ...(brief.subject ? { subject: brief.subject } : {}),
     ...(brief.recurrence ? { recurrence: brief.recurrence } : {}),
     ...(brief.unit ? { unit: brief.unit } : {}),
     ...(business ? { business } : {}),
@@ -1767,6 +1775,37 @@ export function validatePromptOfferTexts(
       });
     }
   }
+  if (required.subject) {
+    const ignored = new Set([
+      "segunda", "terca", "terça", "quarta", "quinta", "sexta", "sabado", "sábado",
+      "domingo", "feira",
+      "janeiro", "fevereiro", "marco", "março", "abril", "maio", "junho", "julho",
+      "agosto", "setembro", "outubro", "novembro", "dezembro",
+      "igreja", "loja", "padaria", "restaurante", "mercado", "salao", "salão",
+      "clinica", "clínica", "academia", "escola", "bar", "cafe", "café",
+      "lanchonete", "pizzaria", "farmacia", "farmácia", "oficina", "empresa",
+      "comercio", "comércio",
+      "para", "pela", "pelo", "com", "sem", "sobre", "entre", "toda", "todo",
+      "todas", "todos", "cada", "nesta", "neste", "nessa", "nesse", "das", "dos",
+      "uma", "uns", "umas", "aos", "ao", "os", "as", "de", "da", "do", "em", "na",
+      "no", "que", "e", "um", "a", "o", "por", "seu", "sua", "seus", "suas",
+      "meu", "minha", "nos", "nas", "nosso", "nossa", "dia", "horario", "horário",
+    ]);
+    const core = [
+      ...new Set(
+        normalizedWords(required.subject)
+          .split(/\s+/u)
+          .filter((word) => word.length > 3 && !/\d/.test(word) && !ignored.has(word)),
+      ),
+    ];
+    const hay = normalizedWords(quoted);
+    if (core.length > 0 && !core.some((word) => hay.includes(word))) {
+      violations.push({
+        reason: "MISSING_OFFER_TEXT",
+        detail: `O texto do banner precisa anunciar o assunto "${required.subject}" — inclua uma dessas palavras nos textos entre aspas: ${core.join(", ")}.`,
+      });
+    }
+  }
   if (required.price !== undefined && required.price > 0) {
     const br = required.price.toFixed(2).replace(".", ",");
     const us = required.price.toFixed(2);
@@ -1832,6 +1871,37 @@ export function validatePromptTemporalFacts(
         ? [required.weekday]
         : [];
   const normalized = normalizedWords(prompt);
+  // O horário é fato confirmado como o dia: 21h virando 20h nos textos é
+  // rejeição, não detalhe. Só viola quando nenhum horário citado bate com o
+  // confirmado, para não punir faixas ("das 8h às 18h").
+  if (required.time) {
+    const [reqHour, reqMinute] = required.time.split(":").map(Number);
+    const requiredTime = `${String(reqHour).padStart(2, "0")}:${String(reqMinute).padStart(2, "0")}`;
+    const displayTime =
+      reqMinute === 0 ? `${reqHour}h` : `${reqHour}h${String(reqMinute).padStart(2, "0")}`;
+    const quoted = [...prompt.matchAll(/["“]([^"”]{1,200})["”]/g)].map((m) => m[1] ?? "");
+    const quotedTimes: string[] = [];
+    for (const text of quoted) {
+      for (const m of text.matchAll(/\b(\d{1,2})\s*(?:h(?:\s*(\d{2}))?|:(\d{2}))(?!\d)/giu)) {
+        const hour = Number(m[1]);
+        const minute = Number(m[2] ?? m[3] ?? 0);
+        if (hour <= 23 && minute <= 59) {
+          quotedTimes.push(`${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`);
+        }
+      }
+    }
+    if (quotedTimes.length === 0) {
+      violations.push({
+        reason: "MISSING_TIME",
+        detail: `Horário obrigatório ausente nos textos entre aspas: ${displayTime}.`,
+      });
+    } else if (!quotedTimes.includes(requiredTime)) {
+      violations.push({
+        reason: "WRONG_TIME",
+        detail: `Horário trocado nos textos entre aspas (${quotedTimes.join(", ")}); o horário confirmado é ${displayTime}.`,
+      });
+    }
+  }
   for (const weekday of weekdays) {
     const weekdayPattern = normalizedWords(weekday).replace(" feira", "(?: feira)?");
     // Recorrência inventada: só vale se o usuário informou WEEKLY.

@@ -360,6 +360,7 @@ describe("banner briefing engine", () => {
       validity: "até domingo",
       business: "Panificadora Campos",
       scope: "confirmed",
+      subject: "bolo de cenoura com cobertura de chocolate e café passado",
     });
   });
 
@@ -906,6 +907,84 @@ describe("textos da oferta no banner", () => {
     const prompt = 'Banner. Textos exatos: título "FESTIVAL DE CUCAS"; CTA "PEÇA AGORA".';
     expect(
       validatePromptOfferTexts(prompt, { items: ["festival de cucas"], price: 0, scope: "confirmed" }),
+    ).toEqual([]);
+  });
+});
+
+describe("horário confirmado nos textos", () => {
+  const required = {
+    items: [] as string[],
+    weekday: "sexta-feira",
+    recurrence: "WEEKLY" as const,
+    time: "21:00",
+    scope: "confirmed" as const,
+  };
+  it("reprova 20H quando o confirmado é 21h (caso MAEC)", () => {
+    const prompt = 'Banner. Textos exatos permitidos: "SEXTA-FEIRA", "20H".';
+    expect(validatePromptTemporalFacts(prompt, required)).toContainEqual(
+      expect.objectContaining({ reason: "WRONG_TIME" }),
+    );
+  });
+  it("aprova o horário exato em 21H e 21:00", () => {
+    expect(
+      validatePromptTemporalFacts('Textos: "SEXTA-FEIRA", "21H".', required),
+    ).toEqual([]);
+    expect(
+      validatePromptTemporalFacts('Textos: "SEXTA-FEIRA", "21:00".', required),
+    ).toEqual([]);
+  });
+  it("reprova textos sem nenhum horário quando há horário confirmado", () => {
+    expect(
+      validatePromptTemporalFacts('Textos: "SEXTA-FEIRA".', required),
+    ).toContainEqual(expect.objectContaining({ reason: "MISSING_TIME" }));
+  });
+  it("não pune faixa de horário que inclui o confirmado", () => {
+    expect(
+      validatePromptTemporalFacts('Textos: "DAS 8H ÀS 18H".', {
+        items: [] as string[],
+        scope: "confirmed" as const,
+        time: "08:00",
+      }),
+    ).toEqual([]);
+  });
+});
+
+describe("palavra do evento nos textos", () => {
+  it("reprova banner que só diz o dia e a hora, sem a oração", () => {
+    const violations = validatePromptOfferTexts(
+      'Banner. Textos exatos permitidos: "SEXTA-FEIRA", "21H".',
+      {
+        items: [] as string[],
+        scope: "confirmed" as const,
+        subject: "Sexta feira oração na igreja, as 21h",
+      },
+    );
+    expect(violations).toContainEqual(
+      expect.objectContaining({
+        reason: "MISSING_OFFER_TEXT",
+        detail: expect.stringContaining("oração"),
+      }),
+    );
+  });
+  it("aprova quando o texto anuncia a oração", () => {
+    expect(
+      validatePromptOfferTexts(
+        'Banner. Textos exatos permitidos: "ORAÇÃO", "SEXTA-FEIRA", "21H".',
+        {
+          items: [] as string[],
+          scope: "confirmed" as const,
+          subject: "Sexta feira oração na igreja, as 21h",
+        },
+      ),
+    ).toEqual([]);
+  });
+  it("não exige palavra do assunto quando o assunto só tem dia genérico", () => {
+    expect(
+      validatePromptOfferTexts('Textos: "SEXTA-FEIRA".', {
+        items: [] as string[],
+        scope: "confirmed" as const,
+        subject: "sexta-feira",
+      }),
     ).toEqual([]);
   });
 });
