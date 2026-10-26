@@ -981,7 +981,7 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
 
       <MovimentoChart data={data} showAverage />
 
-      <RankingUnidades data={data} limit={8} titulo="Unidades da rede — últimos 7 dias" />
+      <RankingUnidades data={data} limit={8} titulo="Empresas da rede — últimos 7 dias" entidade="empresa" />
 
       <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {modules.map((module) => (
@@ -1203,7 +1203,8 @@ function MovimentoChart({ data, showAverage }: { data: Insights | undefined; sho
   );
 }
 
-function RankingUnidades({ data, limit, titulo }: { data: Insights | undefined; limit?: number; titulo?: string }) {
+function RankingUnidades({ data, limit, titulo, entidade }: { data: Insights | undefined; limit?: number; titulo?: string; entidade?: "unidade" | "empresa" }) {
+  const ent = entidade ?? "unidade";
   const ranking = data?.rankingUnidades ?? [];
   const exibidas = limit
     ? [...ranking.filter((u) => u.acessosSemana > 0).slice(0, limit), ...ranking.filter((u) => u.acessosSemana === 0)]
@@ -1217,7 +1218,7 @@ function RankingUnidades({ data, limit, titulo }: { data: Insights | undefined; 
         <CardTitle className="flex items-center gap-2"><Store className="size-5 text-primary" /> {titulo ?? "Suas unidades — últimos 7 dias"}
           {semMovimentoCount > 0 && (
             <span className="ml-auto rounded-full border border-amber-300/30 bg-amber-300/10 px-2.5 py-1 text-[11px] font-bold text-amber-300">
-              ⚠ {semMovimentoCount} {semMovimentoCount === 1 ? "unidade sem movimento" : "unidades sem movimento"}
+              ⚠ {semMovimentoCount} {semMovimentoCount === 1 ? `${ent} sem movimento` : `${ent}s sem movimento`}
             </span>
           )}
         </CardTitle>
@@ -1240,10 +1241,10 @@ function RankingUnidades({ data, limit, titulo }: { data: Insights | undefined; 
         ))}
         {exibidas.length > 0 && exibidas.every((u) => u.acessosSemana === 0) && (
           <p className="pt-1 text-xs font-medium leading-relaxed text-muted-foreground">
-            Sem movimento nas unidades esta semana — vale conferir se o QR Code está visível em cada loja.
+            Sem movimento nas {ent}s esta semana — vale conferir se o QR Code está visível em cada loja.
           </p>
         )}
-        {exibidas.length === 0 && <p className="text-sm text-muted-foreground">Você ainda não tem unidades com movimento por aqui.</p>}
+        {exibidas.length === 0 && <p className="text-sm text-muted-foreground">Você ainda não tem {ent}s com movimento por aqui.</p>}
       </CardContent>
     </Card>
   );
