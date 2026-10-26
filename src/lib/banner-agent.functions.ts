@@ -195,17 +195,23 @@ export const getBannerIntro = createServerFn({ method: "GET" })
         .eq("id", companyId)
         .maybeSingle();
       if (!company) return { companyName: null as string | null, segment: null as string | null };
-      const { resolveBusinessArea } = await import("@/lib/business-profile");
+      const { resolveBusinessArea, friendlyBusinessArea } = await import(
+        "@/lib/business-profile"
+      );
       return {
         companyName:
           company.trade_name?.trim() ||
           company.legal_name?.trim() ||
           company.name?.trim() ||
           null,
-        segment: resolveBusinessArea(
-          company.business_segment,
-          company.segment,
-          company.cnae_description,
+        // Só a linha de abertura usa o rótulo amigável; o agente continua
+        // recebendo o texto exato do cadastro no contexto interno.
+        segment: friendlyBusinessArea(
+          resolveBusinessArea(
+            company.business_segment,
+            company.segment,
+            company.cnae_description,
+          ),
         ),
       };
     } catch {
