@@ -589,15 +589,15 @@ function activityDetail(activity: CrmLeadActivity): string {
     return activity.note ?? "Sem detalhes.";
   }
   if (activity.type === "stage_changed") {
-    const from = activity.metadata.from;
-    const to = activity.metadata.to;
+    const from = activity.metadata["from"];
+    const to = activity.metadata["to"];
     const fromLabel =
       typeof from === "string" ? (STAGE_LABELS[from as CrmStage] ?? from) : "?";
     const toLabel = typeof to === "string" ? (STAGE_LABELS[to as CrmStage] ?? to) : "?";
     return `De ${fromLabel} para ${toLabel}.`;
   }
   if (activity.type === "follow_up_scheduled") {
-    const next = activity.metadata.nextActionAt;
+    const next = activity.metadata["nextActionAt"];
     return typeof next === "string" && next
       ? `Próximo contato em ${formatDateTimeBR(next)}.`
       : "Próximo contato removido.";
@@ -609,7 +609,7 @@ function FunnelChart({
   stageCounts,
   total,
 }: {
-  stageCounts?: Record<CrmStage, number>;
+  stageCounts?: Record<CrmStage, number> | undefined;
   total: number;
 }) {
   const max = Math.max(1, ...CRM_STAGES.map((item) => stageCounts?.[item] ?? 0));
@@ -721,7 +721,7 @@ function MetricCard({
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: number;
-  hint?: string;
+  hint?: string | undefined;
 }) {
   return (
     <Card className="glass-panel">
