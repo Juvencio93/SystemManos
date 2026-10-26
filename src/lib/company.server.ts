@@ -211,7 +211,7 @@ PESQUISA EXTERNA E AMBIENTE REAL:
 3. Cidade, bairro ou endereço não comprovam vista para praia, mar, montanha, monumento ou qualquer característica do interior. Nunca converta localização em cenário.
 4. Só considere um ambiente físico identificado quando a fonte corresponder claramente à mesma empresa e descrever ou mostrar aquela característica. Dê preferência ao site e às redes oficiais; na ausência deles, exija concordância entre pelo menos duas fontes públicas.
 5. Quando houver correspondência verificada, use a descrição e as referências visuais públicas como direção de arte do local (materiais, arquitetura, luz e atmosfera), sem copiar imagens, logotipos de terceiros ou inventar detalhes não observados.
-6. Se as fontes divergirem ou não houver evidência suficiente, use fotografia de estúdio, fundo neutro ou composição baseada no produto/serviço. Nunca simule o interior, a fachada ou a vista da empresa.
+6. Se as fontes divergirem ou não houver evidência suficiente, use um ambiente genérico e acolhedor do ramo da empresa (ex.: padaria: balcão, prateleiras, luz quente). Nunca descreva esse ambiente genérico como sendo o interior, a fachada ou a vista da empresa — a cena genérica nunca é o local real.
 7. Nunca copie slogans, ofertas, preços ou textos promocionais encontrados na internet sem confirmação explícita do usuário.
 
 AMBIENTE E FIDELIDADE (REGRA OBRIGATÓRIA):
@@ -219,9 +219,10 @@ AMBIENTE E FIDELIDADE (REGRA OBRIGATÓRIA):
 - Só mantenha um elemento físico se a origem for USER_REQUESTED, PRODUCT_INTRINSIC, BUSINESS_CONFIRMED, REFERENCE_CONFIRMED ou TECHNICALLY_NECESSARY. Todo elemento UNVERIFIED_DECORATION deve ser descartado, mesmo se parecer esteticamente bonito.
 - PRODUCT_INTRINSIC autoriza exclusivamente o produto/serviço anunciado. O nome de um ingrediente, a categoria da empresa ou o ramo não autoriza ingredientes, embalagens, utensílios, produtos relacionados ou props derivados como decoração.
 - TECHNICALLY_NECESSARY é excepcional: permite somente fundo neutro, luz de estúdio, espaço negativo ou uma superfície mínima e neutra que seja indispensável para mostrar o produto. Não autoriza cenário, interior, fachada ou adereços.
-- Separe o ambiente real do produto anunciado. Use no prompt somente elementos arquitetônicos e visuais confirmados no cadastro ou nas fontes verificadas do Tavily.
+- Ambiente genérico do segmento: quando não há referência visual confirmada, o fundo pode ser um ambiente genérico e acolhedor do ramo (balcão, prateleiras, luz quente para padaria). Ele nunca é o estabelecimento real e nunca pode ser descrito como tal; é fundo, não afirmação sobre o local.
+- Separe o ambiente real do produto anunciado. Use no prompt somente elementos arquitetônicos e visuais confirmados no cadastro ou nas fontes verificadas do Tavily — ou, sem confirmação, o ambiente genérico do segmento (nunca como sendo o local real).
 - Quando houver referências visuais públicas confiáveis, determine explicitamente que a IA use essas referências do estabelecimento para reproduzir materiais, disposição, iluminação e atmosfera, sem copiar a imagem.
-- Quando não houver referência suficiente, declare “não simular o interior ou a fachada; usar fundo neutro/estúdio” e recomende o envio de fotos reais.
+- Quando não houver referência suficiente, declare “ambiente genérico do segmento, não o estabelecimento real” e recomende o envio de fotos reais.
 - Os dois prompts devem manter o mesmo ambiente confirmado, mas variar radicalmente layout, enquadramento, tipografia e tratamento de luz; não criar dois locais diferentes.
 
 PROIBIÇÃO DE INVENÇÕES:

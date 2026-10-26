@@ -25,7 +25,12 @@ import {
   validatePromptConceptSeparation,
   validatePromptNoRegistryData,
   validatePromptCommercialCopy,
+  genericSegmentSceneHint,
+  isInstitutionalBannerContext,
+  multiDayFraming,
+  shouldAskPriceBeforeGeneration,
   validatePromptVisualGrounding,
+  validityDaySpan,
   extractBannerTurnFacts,
   formatarBriefing,
   isQualifierOnlySubject,
@@ -241,8 +246,7 @@ describe("banner briefing engine", () => {
     ).toEqual(
       expect.arrayContaining([
         expect.stringContaining("interior aconchegante da cafeteria"),
-        "janela",
-        "balcão",
+        expect.stringContaining("balcão da"),
         expect.stringContaining("canto rústico da padaria"),
       ]),
     );
@@ -252,6 +256,106 @@ describe("banner briefing engine", () => {
         contract,
       ),
     ).toEqual([]);
+  });
+
+  it("allows a generic segment scene but still rejects reality claims (correção 3)", () => {
+    const contract = createVisualSceneContract("UNCONFIRMED");
+    expect(
+      validatePromptVisualGrounding(
+        "fundo com balcão de padaria, prateleiras com pães, luz quente",
+        contract,
+      ),
+    ).toEqual([]);
+    expect(
+      validatePromptVisualGrounding("ambiente genérico de padaria, luz suave", contract),
+    ).toEqual([]);
+    expect(
+      validatePromptVisualGrounding("interior real da padaria ao fundo", contract).length,
+    ).toBeGreaterThan(0);
+    expect(
+      validatePromptVisualGrounding("fachada da Efraim ao fundo", contract).length,
+    ).toBeGreaterThan(0);
+    expect(
+      validatePromptVisualGrounding("salão oficial da empresa", contract).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("asks price once before generating, never for institutional contexts (correção 1)", () => {
+    const base = { items: ["festival de cucas"] };
+    expect(shouldAskPriceBeforeGeneration(base)).toBe(true);
+    expect(shouldAskPriceBeforeGeneration({ ...base, price: 14.99 })).toBe(false);
+    expect(
+      shouldAskPriceBeforeGeneration({ ...base, pricedItems: [{ item: "cuca", price: 10 }] }),
+    ).toBe(false);
+    expect(shouldAskPriceBeforeGeneration({ ...base, freeCondition: true })).toBe(false);
+    expect(shouldAskPriceBeforeGeneration({ ...base, priceAsked: true })).toBe(false);
+    expect(shouldAskPriceBeforeGeneration({ items: [] })).toBe(false);
+    expect(
+      shouldAskPriceBeforeGeneration({
+        ...base,
+        segment: "Atividades de organizações religiosas ou filosóficas",
+        subject: "oração na igreja",
+      }),
+    ).toBe(false);
+    expect(
+      shouldAskPriceBeforeGeneration({ ...base, subject: "oração na igreja" }),
+    ).toBe(false);
+    expect(
+      shouldAskPriceBeforeGeneration({
+        ...base,
+        segment: "padaria e confeitaria com predominância de revenda",
+        subject: "festival de cucas",
+      }),
+    ).toBe(true);
+  });
+
+  it("counts multi-day validity spans and frames them (correção 2)", () => {
+    expect(validityDaySpan("26 a 30 de outubro de 2026")).toEqual({ days: 5 });
+    expect(validityDaySpan("de 26 ao 30 de outubro")).toEqual({ days: 5 });
+    expect(validityDaySpan("segunda a sexta")).toEqual({ days: 5 });
+    expect(validityDaySpan("segunda-feira a sexta-feira")).toEqual({ days: 5 });
+    expect(validityDaySpan("1 a 20 de outubro")).toEqual({ days: 7 });
+    expect(validityDaySpan("30 a 26 de outubro")).toBeNull();
+    expect(validityDaySpan("novembro")).toBeNull();
+    expect(validityDaySpan(undefined)).toBeNull();
+    expect(validityDaySpan("essa semana")).toEqual({ several: true });
+    const framed = multiDayFraming("26 a 30 de outubro de 2026");
+    expect(framed?.framingAxis).toContain("UMA unidade inteira");
+    expect(framed?.framingAxis).toContain("5 unidades variadas");
+    expect(framed?.quantityDirective).toContain("não liste sabores");
+    expect(multiDayFraming("novembro")).toBeNull();
+  });
+
+  it("suggests a generic segment scene, never a neutral studio (correção 3)", () => {
+    const bakery = genericSegmentSceneHint(
+      "padaria e confeitaria com predominância de revenda",
+    );
+    expect(bakery).toContain("balcão");
+    expect(bakery).not.toContain("estúdio neutro");
+    expect(bakery).not.toContain("fundo preto");
+    expect(genericSegmentSceneHint(null)).toContain("genérico");
+    expect(genericSegmentSceneHint("comércio varejista de artigos do vestuário")).toContain(
+      "loja",
+    );
+  });
+
+  it("detects institutional context from segment or subject (correção 1)", () => {
+    expect(
+      isInstitutionalBannerContext(
+        "Atividades de organizações religiosas ou filosóficas",
+        "oração na igreja",
+      ),
+    ).toBe(true);
+    expect(isInstitutionalBannerContext(null, "culto de domingo")).toBe(true);
+    expect(isInstitutionalBannerContext(null, "missa das 19h")).toBe(true);
+    expect(
+      isInstitutionalBannerContext(
+        "padaria e confeitaria com predominância de revenda",
+        "festival de cucas",
+      ),
+    ).toBe(false);
+    expect(isInstitutionalBannerContext(null, "celebração de aniversário")).toBe(false);
+    expect(isInstitutionalBannerContext(null, "retiro de fim de semana")).toBe(false);
   });
 
   it("rejects the generic bottom-band flyer layout in the second direction", () => {

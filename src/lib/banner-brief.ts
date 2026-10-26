@@ -143,11 +143,11 @@ export function createVisualSceneContract(
     : {
         environmentStatus,
         allowedEnvironment: [
-          "fundo neutro de estúdio",
-          "backdrop abstrato mínimo",
+          "ambiente genérico do segmento",
+          "interior genérico do ramo",
           "superfície neutra de apoio",
         ],
-        forbiddenAssumptions: ["ambiente arquitetônico ou comercial não confirmado"],
+        forbiddenAssumptions: ["alegar que a cena genérica é o estabelecimento real"],
       };
 }
 
@@ -156,13 +156,21 @@ export type VisualGroundingViolation = {
   reason: "UNCONFIRMED_ENVIRONMENT";
 };
 
-// These expressions describe generic kinds of environmental assumptions. They
-// are deliberately independent from a business segment, product, or city.
+// These expressions describe claims that a scene IS the real business.
+// Generic segment scenery ("balcão de padaria") is allowed since the
+// generic-scene fallback; only identity/reality claims are rejected.
+// Regra pós-correção 3 (ordem do usuário): sem evidência confirmada, o
+// fallback é um ambiente GENÉRICO do segmento — não mais estúdio neutro.
+// O validador agora barra só a alegação de realidade, não o cenário genérico:
+// "balcão de padaria" passa; "balcão da loja", "interior real" e "fachada
+// da Efraim" continuam proibidos. Em português, "de" + substantivo marca o
+// gênero ("interior de padaria") e "da/do" marca o lugar específico
+// ("interior da padaria") — é essa a distinção que os padrões usam.
 const UNCONFIRMED_ENVIRONMENT_PATTERNS = [
-  /\b(?:interior|fachada|arquitetura|ambiente|canto)\s+(?:(?:[\p{L}]+)\s+){0,2}(?:da|do|de|em)\s+[^,. ;]+/giu,
-  /\b(?:janela|balc[aã]o|vitrine|sal[aã]o|loja|estabelecimento)\b/gi,
-  /\b(?:caf[eé]|cafeteria|padaria|restaurante|oficina)\s+(?:interior|real|f[ií]sica)\b/gi,
-  /\b(?:mesa|superf[ií]cie|cen[aá]rio)\s+(?:r[uú]stic[oa]|tem[aá]tic[oa]|acolhedor(?:a)?)\b/gi,
+  /\b(?:interior|fachada|arquitetura|ambiente|canto)\s+(?:(?:[\p{L}]+)\s+){0,2}(?:da|do)\s+[^,. ;]+/giu,
+  /\b(?:janela|balc[aã]o|vitrine|sal[aã]o|loja|estabelecimento)\s+(?:da|do)\s+/gi,
+  /\b(?:caf[eé]|cafeteria|padaria|restaurante|oficina)\s+(?:interior|real|f[ií]sica|verdadeir[oa])\b/gi,
+  /\b(?:interior|fachada|vista|ambiente|sal[aã]o|loja|estabelecimento)\b[^,.]{0,30}\b(?:real|verdadeir[oa]|oficial)\b/gi,
 ];
 
 /** Deterministic final gate: no unconfirmed environment reaches the user. */
@@ -184,6 +192,175 @@ export function validatePromptVisualGrounding(
     }
   }
   return [...violations.values()];
+}
+
+/**
+ * Correção 1 — contexto institucional: preço não é pergunta cabível para
+ * evento religioso/comunitário (culto, oração, missa). O segmento vem do
+ * cadastro (CNAE ou área); o assunto é o backstop quando o segmento é
+ * genérico. A lista do assunto é propositalmente curta e religiosa: palavra
+ * genérica ("celebração", "retiro") não basta para pular a pergunta.
+ */
+const INSTITUTIONAL_SEGMENT_STEMS = [
+  "religios",
+  "filosofic",
+  "igreja",
+  "templo",
+  "paroqui",
+  "ministeri",
+  "diocese",
+  "seminario",
+  "congregacao",
+];
+const INSTITUTIONAL_SUBJECT_STEMS = [
+  "oracao",
+  "culto",
+  "missa",
+  "vigilia",
+  "novena",
+  "terco",
+  "eucaristia",
+  "batismo",
+  "crisma",
+];
+
+function hasWordStem(text: string, stems: readonly string[]): boolean {
+  return text
+    .split(" ")
+    .some((word) => word.length > 0 && stems.some((stem) => word.startsWith(stem)));
+}
+
+export function isInstitutionalBannerContext(
+  segment: string | null | undefined,
+  subject: string | undefined,
+): boolean {
+  if (hasWordStem(normalizedWords(segment ?? ""), INSTITUTIONAL_SEGMENT_STEMS)) return true;
+  return hasWordStem(normalizedWords(subject ?? ""), INSTITUTIONAL_SUBJECT_STEMS);
+}
+
+/**
+ * Correção 1 — guarda determinística pré-geração. Verdadeiro só quando falta
+ * preço (sem price, pricedItems ou gratuidade), o preço ainda não foi
+ * perguntado e o contexto não é institucional. Pura, para teste.
+ */
+export function shouldAskPriceBeforeGeneration(input: {
+  items: readonly string[];
+  price?: number | undefined;
+  pricedItems?: readonly unknown[] | undefined;
+  freeCondition?: boolean | undefined;
+  priceAsked?: boolean | undefined;
+  segment?: string | null | undefined;
+  subject?: string | undefined;
+}): boolean {
+  if (input.items.length === 0) return false;
+  if (input.price !== undefined) return false;
+  if (input.pricedItems?.length) return false;
+  if (input.freeCondition) return false;
+  if (input.priceAsked) return false;
+  if (isInstitutionalBannerContext(input.segment, input.subject)) return false;
+  return true;
+}
+
+const PORTUGUESE_WEEKDAYS = [
+  "segunda",
+  "terca",
+  "quarta",
+  "quinta",
+  "sexta",
+  "sabado",
+  "domingo",
+];
+
+export type ValidityDaySpan = { days: number } | { several: true };
+
+/**
+ * Correção 2 — quantos dias dura o intervalo de validade ("26 a 30 de
+ * outubro de 2026" = 5; "segunda a sexta" = 5). Teto 7: intervalo maior vira
+ * 7 (uma semana de unidades). "several" para "essa/nesta semana" e afins:
+ * multi-dia sem contagem exata. null = um dia só ou sem intervalo.
+ */
+export function validityDaySpan(validity: string | undefined): ValidityDaySpan | null {
+  if (!validity) return null;
+  const text = normalizedWords(validity);
+  const numeric = text.match(/\b(\d{1,2})\s*(?:a|ao|ate)\s*(\d{1,2})\b/);
+  if (numeric) {
+    const start = Number(numeric[1]);
+    const end = Number(numeric[2]);
+    if (end > start) return { days: Math.min(7, end - start + 1) };
+    return null;
+  }
+  const weekdayRange = text.match(
+    /\b(segunda|terca|quarta|quinta|sexta|sabado|domingo)(?:\s+feira)?\s*(?:a|ao|ate)\s*(segunda|terca|quarta|quinta|sexta|sabado|domingo)(?:\s+feira)?\b/,
+  );
+  if (weekdayRange) {
+    const start = PORTUGUESE_WEEKDAYS.indexOf(weekdayRange[1]!);
+    const end = PORTUGUESE_WEEKDAYS.indexOf(weekdayRange[2]!);
+    if (end > start) return { days: Math.min(7, end - start + 1) };
+    return null;
+  }
+  if (/\b(?:essa|esta|nesta)\s+semana\b|\bdurante\s+a\s+semana\b/.test(text)) {
+    return { several: true };
+  }
+  return null;
+}
+
+/**
+ * Correção 2 — enquadramento e diretriz de quantidade para o prompt de
+ * geração, a partir do intervalo de validade. null = comportamento atual.
+ * O close-up mostra UMA unidade inteira (nunca macro de fatia); a opção
+ * aberta mostra uma unidade por dia. sceneItems continua listando só o
+ * produto confirmado — sabores não viram itens.
+ */
+export function multiDayFraming(validity: string | undefined): {
+  framingAxis: string;
+  quantityDirective: string;
+} | null {
+  const span = validityDaySpan(validity);
+  if (!span) return null;
+  const units = "days" in span ? `${span.days} unidades variadas` : "várias unidades variadas";
+  return {
+    framingAxis:
+      `(1) enquadramento: a primeira em plano fechado, com UMA unidade inteira do produto ` +
+      `em destaque (nunca macro de fatia nem detalhe ampliado); a segunda em plano aberto, ` +
+      `visão ampla, com ${units} do produto, uma para cada dia do intervalo;`,
+    quantityDirective:
+      `QUANTIDADE DO EVENTO: a validade cobre vários dias — a segunda opção (plano aberto) ` +
+      `mostra ${units} do produto, uma para cada dia do intervalo, e a primeira opção ` +
+      `(plano fechado) mostra UMA unidade inteira do produto em destaque, nunca macro de ` +
+      `fatia nem detalhe ampliado. Em sceneItems, mantenha o produto confirmado; não liste ` +
+      `sabores ou variedades como itens separados.`,
+  };
+}
+
+/**
+ * Correção 3 — sugestão de cenário genérico do segmento para o fallback sem
+ * evidência confirmada. É fundo, nunca o estabelecimento real: a frase que
+ * acompanha este hint sempre diz isso explicitamente.
+ */
+export function genericSegmentSceneHint(segment: string | null | undefined): string {
+  const words = normalizedWords(segment ?? "")
+    .split(" ")
+    .filter(Boolean);
+  const has = (...stems: string[]) =>
+    words.some((word) => stems.some((stem) => word.startsWith(stem)));
+  if (has("padaria", "confeitaria"))
+    return "ambiente genérico e acolhedor de padaria (balcão, prateleiras com pães, luz quente)";
+  if (has("restaurante"))
+    return "salão genérico e acolhedor de restaurante (mesas postas, luz quente)";
+  if (has("lanchonete"))
+    return "balcão genérico e acolhedor de lanchonete (mesas simples, luz clara)";
+  if (has("salao", "estetica", "cabeleireiro", "barbearia", "beleza"))
+    return "salão genérico de beleza (cadeiras e espelhos, luz clara)";
+  if (words.includes("bar") || words.includes("bares"))
+    return "balcão genérico de bar (prateleiras, luz quente)";
+  if (has("loja", "vestuario", "roupa", "varejo"))
+    return "interior genérico de loja (araras e prateleiras, luz clara)";
+  if (has("hotel")) return "recepção genérica de hotel (lounge, luz suave)";
+  if (has("academia")) return "espaço genérico de academia (equipamentos ao fundo, luz clara)";
+  if (has("supermercado")) return "corredor genérico de supermercado (gôndolas, luz clara)";
+  if (has("igreja", "religios", "templo"))
+    return "salão genérico de encontro comunitário (espaço amplo, luz suave)";
+  return "ambiente genérico e acolhedor do ramo da empresa (luz suave)";
 }
 
 export type ConversationCommercialState = {
@@ -252,6 +429,12 @@ export type BannerConversationBrief = {
   compatibilityConfirmed?: boolean | undefined;
   /** Marcado quando a pergunta proativa de data/dia já foi feita (evita repetir). */
   dateAsked?: boolean | undefined;
+  /**
+   * Marcado quando a pergunta de preço pré-geração já foi feita (correção 1):
+   * impede perguntar preço duas vezes. Persiste via spread do merge; quem
+   * responde sem preço gera sem preço no turno seguinte.
+   */
+  priceAsked?: boolean | undefined;
   pendingQuestion?:
     | "subject"
     | "objective"

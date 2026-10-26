@@ -13,7 +13,9 @@ import {
   extractBannerTurnFacts,
   formatOfferPrice,
   formatarBriefing,
+  genericSegmentSceneHint,
   montarBriefing,
+  multiDayFraming,
   rebuildBannerConversationBrief,
   isResolvedQuestion,
   nextCommercialQuestion,
@@ -22,6 +24,7 @@ import {
   physicalElementGroundingRule,
   requiredOfferFactsFromBrief,
   sanitizeGeneratedItems,
+  shouldAskPriceBeforeGeneration,
   validateGeneratedCommercialFacts,
   validatePromptConceptSeparation,
   validatePromptTypographyContrast,
@@ -78,6 +81,7 @@ export const BannerAgentInputSchema = z.object({
       weekday: z.string().optional(),
       weekdays: z.array(z.string()).optional(),
       dateAsked: z.boolean().optional(),
+      priceAsked: z.boolean().optional(),
       dateContext: z.enum(["this", "next"]).optional(),
       recurrence: z.enum(["NONE", "WEEKLY"]).optional(),
       unit: z.string().optional(),
@@ -123,6 +127,7 @@ export type BannerAgentResponse =
           unit?: string | undefined;
           time?: string | undefined;
           scopeConfirmed?: boolean | undefined;
+          priceAsked?: boolean | undefined;
           pendingQuestion?:
             | "subject"
             | "objective"
@@ -571,9 +576,15 @@ export const askBannerAgent = createServerFn({ method: "POST" })
       // prompts e evita chamadas duplicadas ao Tavily no mesmo turno.
       const hasConfirmedVisualEvidence = initialResearch?.hasVisualEvidence === true;
       const visualGuidance = initialResearch?.visualGuidance ?? null;
+      // Correção 3 (ordem do usuário): sem evidência confirmada, o fundo
+      // deixa de ser estúdio neutro e passa a ser um ambiente genérico do
+      // segmento — nunca o estabelecimento real.
+      const genericScene = genericSegmentSceneHint(
+        registeredBannerContext?.segment ?? snapshot.business_segment,
+      );
       const finalEnvironmentResearchContext = initialResearch?.hasVisualEvidence
         ? `Validação da empresa concluída antes desta resposta. Use somente estas referências públicas confirmadas:\n\n${initialResearch.context}`
-        : "Nenhuma característica visual externa foi confirmada. Derive a direção de marca da logo e do cadastro, sem citar pesquisa ou afirmar ausência de referências públicas. Não simule o estabelecimento real.";
+        : `Nenhuma característica visual externa foi confirmada. Use como fundo um ${genericScene}, sem citar pesquisa e sem afirmar que a cena é o estabelecimento real — é um cenário genérico do segmento, não o local.`;
 
       // Identity evidence returned by Tavily is not automatically visual
       // evidence of an interior. Only an explicit visual/material reference
@@ -597,6 +608,37 @@ export const askBannerAgent = createServerFn({ method: "POST" })
             promptOptions: null,
             reminder: null,
             brief: activeBrief,
+          },
+          error: null,
+        };
+      }
+      // Guarda de preço (correção 1): a decisão de gerar não pode descartar
+      // uma pergunta de preço nunca feita. Preço é opcional por desenho —
+      // mas gerar sem nunca ter perguntado foi o "nem perguntou valor" do
+      // teste da Semana da cuca. Pergunta uma vez; na volta, com ou sem
+      // preço, gera (priceAsked impede o loop). Institucional não pergunta.
+      if (
+        shouldAskPriceBeforeGeneration({
+          items: requiredOfferFacts.items,
+          price: requiredOfferFacts.price,
+          pricedItems: requiredOfferFacts.pricedItems,
+          freeCondition: activeBrief.freeCopyConfirmed === true,
+          priceAsked: activeBrief.priceAsked,
+          segment: registeredBannerContext?.segment ?? snapshot.business_segment,
+          subject: activeBrief.subject,
+        })
+      ) {
+        console.info("[BannerAgent] price question", { ...requestTrace });
+        await debitQuestionTurn();
+        return {
+          success: true,
+          data: {
+            needsMoreInfo: true,
+            question:
+              "Tem algum preço para divulgar nessa oferta? 💰 Se não tiver, é só dizer 'sem preço'.",
+            promptOptions: null,
+            reminder: null,
+            brief: { ...activeBrief, priceAsked: true },
           },
           error: null,
         };
@@ -652,7 +694,7 @@ export const askBannerAgent = createServerFn({ method: "POST" })
           : "use somente a evidência visual confirmada.",
         hasConfirmedVisualEvidence
           ? "Cada opção deve traduzir pelo menos uma EVIDÊNCIA VISUAL CONFIRMADA da pesquisa em uma característica observável da cena. Não basta citar a marca, a cidade, a paleta ou o logotipo."
-          : "Não alegue fidelidade ao local: mantenha a cena em estúdio neutro e recomende foto real quando a fidelidade ao ambiente for importante.",
+          : `Sem evidência confirmada, o fundo é um ${genericScene} — cenário genérico do segmento, nunca o estabelecimento real; não alegue fidelidade ao local e recomende foto real quando a fidelidade ao ambiente for importante.`,
         "O contrato será validado localmente; uma opção fora dele será rejeitada.",
       ].join(" ");
 
@@ -671,9 +713,14 @@ export const askBannerAgent = createServerFn({ method: "POST" })
         estilo: registeredBannerContext?.visualStyle ?? undefined,
       });
       const briefingContext = formatarBriefing(briefing);
+      // Correção 2: evento de vários dias mostra uma unidade por dia.
+      const multiDay = multiDayFraming(requiredOfferFacts.validity);
+      const framingAxis = multiDay
+        ? multiDay.framingAxis
+        : "(1) enquadramento: a primeira em plano fechado, detalhe ampliado; a segunda em plano aberto, visão ampla;";
 
       // 3. Prepare AI Prompt with the scanned company context
-      const systemPrompt = `${BANNER_SYSTEM}\n\n${briefingContext}\n\n${skillsContext ? `${skillsContext}\n\n` : ""}${groundingDirective}\n\n${sceneContractDirective}\n\n${commercialContractDirective}\n\nDIFERENÇA CRIATIVA: crie duas propostas TOTALMENTE DIFERENTES uma da outra — não variações superficiais. As duas opções devem declarar escolhas OPOSTAS em cada um destes quatro eixos, com estas palavras no próprio texto do prompt: (1) enquadramento: a primeira em plano fechado, detalhe ampliado; a segunda em plano aberto, visão ampla; (2) composição: a primeira com ponto focal, produto dominante e área negativa; a segunda em composição ampla contextual; (3) iluminação: a primeira com luz lateral dramática; a segunda com luz difusa e uniforme; (4) tipografia: a primeira com tipografia SERIFADA elegante (traço fino, caixa alta com espaçamento amplo entre letras) em segundo plano e hierarquia visual liderada pela imagem; a segunda com tipografia SEM SERIFA EXTRABOLD, compacta e de alto impacto como protagonista e texto que conduz a leitura. As duas opções NUNCA usam a mesma família tipográfica. Uma opção não deve ser apenas uma variação superficial da outra. Marque as estratégias no próprio texto: a primeira opção diz explicitamente “protagonismo da oferta” com fotografia publicitária de produto em plano próximo; a segunda diz explicitamente “experiência da marca” em composição ampla. Se o pedido for um serviço, ideia ou comunicação institucional, represente isso de modo adequado sem inventar produto físico. Preserve os mesmos fatos comerciais confirmados nas duas. No máximo 4 blocos de texto entre aspas por banner (título, oferta, dia/validade e CTA). Os textos entre aspas devem anunciar o nome da oferta, o dia e a validade quando confirmados, cada item+preço confirmado e, quando houver preço confirmado, o preço exato (ex.: R$ 14,99). Não troque o produto da oferta por outro. Textos compactos: o título ocupa no máximo um terço da largura da peça e nunca toma a imagem; o produto é o protagonista visual. As duas opções devem ter fundos e paletas VISIVELMENTE diferentes entre si: uma com fundo escuro, outra com fundo claro (cores derivadas da logo, sem repetir o mesmo fundo nas duas). Varie o papel da cor de destaque: ela pode protagonizar o título em no máximo uma das opções; na outra, o título vai em cor neutra (preto ou branco) e a cor de destaque aparece só em detalhe ou no botão. As duas opções devem ser COMPLETAMENTE diferentes entre si em narrativa, cena, layout, fundo/paleta e hierarquia tipográfica — sem repetir a mesma composição com outra foto — e ao mesmo tempo fiéis ao pedido: mesmo nome da oferta, mesmo preço, mesmo dia, mesmo horário e mesma empresa nas duas. Se não houver referência visual confirmada, derive a direção da identidade cadastrada sem afirmar cores não confirmadas; não mencione pesquisa, fontes ou limitações técnicas no texto final. Nunca invente ambientes ou adereços. Especifique foco visual, leitura da mensagem, área segura e textos permitidos conforme o contexto.\n\nCONTEXTO OFICIAL DA EMPRESA:\n${companyCtx}\n\nCOMPATIBILIDADE DO PEDIDO: ${compatibility.classification}. ${compatibility.reason} Segmento é contexto, não whitelist; não bloqueie extensões plausíveis.\n\nEVIDÊNCIA VISUAL INTERNA — use apenas para orientar a criação e nunca mencione sua origem no prompt final:\n${finalEnvironmentResearchContext}`;
+      const systemPrompt = `${BANNER_SYSTEM}\n\n${briefingContext}\n\n${skillsContext ? `${skillsContext}\n\n` : ""}${groundingDirective}\n\n${sceneContractDirective}\n\n${commercialContractDirective}\n\nDIFERENÇA CRIATIVA: crie duas propostas TOTALMENTE DIFERENTES uma da outra — não variações superficiais. As duas opções devem declarar escolhas OPOSTAS em cada um destes quatro eixos, com estas palavras no próprio texto do prompt: ${framingAxis} (2) composição: a primeira com ponto focal, produto dominante e área negativa; a segunda em composição ampla contextual; (3) iluminação: a primeira com luz lateral dramática; a segunda com luz difusa e uniforme; (4) tipografia: a primeira com tipografia SERIFADA elegante (traço fino, caixa alta com espaçamento amplo entre letras) em segundo plano e hierarquia visual liderada pela imagem; a segunda com tipografia SEM SERIFA EXTRABOLD, compacta e de alto impacto como protagonista e texto que conduz a leitura. ${multiDay ? `${multiDay.quantityDirective} ` : ""}As duas opções NUNCA usam a mesma família tipográfica. Uma opção não deve ser apenas uma variação superficial da outra. Marque as estratégias no próprio texto: a primeira opção diz explicitamente “protagonismo da oferta” com fotografia publicitária de produto em plano próximo; a segunda diz explicitamente “experiência da marca” em composição ampla. Se o pedido for um serviço, ideia ou comunicação institucional, represente isso de modo adequado sem inventar produto físico. Preserve os mesmos fatos comerciais confirmados nas duas. No máximo 4 blocos de texto entre aspas por banner (título, oferta, dia/validade e CTA). Os textos entre aspas devem anunciar o nome da oferta, o dia e a validade quando confirmados, cada item+preço confirmado e, quando houver preço confirmado, o preço exato (ex.: R$ 14,99). Não troque o produto da oferta por outro. Textos compactos: o título ocupa no máximo um terço da largura da peça e nunca toma a imagem; o produto é o protagonista visual. As duas opções devem ter fundos e paletas VISIVELMENTE diferentes entre si: uma com fundo escuro, outra com fundo claro (cores derivadas da logo, sem repetir o mesmo fundo nas duas). Varie o papel da cor de destaque: ela pode protagonizar o título em no máximo uma das opções; na outra, o título vai em cor neutra (preto ou branco) e a cor de destaque aparece só em detalhe ou no botão. As duas opções devem ser COMPLETAMENTE diferentes entre si em narrativa, cena, layout, fundo/paleta e hierarquia tipográfica — sem repetir a mesma composição com outra foto — e ao mesmo tempo fiéis ao pedido: mesmo nome da oferta, mesmo preço, mesmo dia, mesmo horário e mesma empresa nas duas. Se não houver referência visual confirmada, derive a direção da identidade cadastrada sem afirmar cores não confirmadas; não mencione pesquisa, fontes ou limitações técnicas no texto final. Não afirme que um ambiente genérico é o estabelecimento real; ambientes genéricos do ramo são permitidos quando não há referência confirmada, mas nunca como se fossem o local. Especifique foco visual, leitura da mensagem, área segura e textos permitidos conforme o contexto.\n\nCONTEXTO OFICIAL DA EMPRESA:\n${companyCtx}\n\nCOMPATIBILIDADE DO PEDIDO: ${compatibility.classification}. ${compatibility.reason} Segmento é contexto, não whitelist; não bloqueie extensões plausíveis.\n\nEVIDÊNCIA VISUAL INTERNA — use apenas para orientar a criação e nunca mencione sua origem no prompt final:\n${finalEnvironmentResearchContext}`;
       const userPrompt = `Histórico da conversa:\n${chatHistory}\n\nResponda apenas com o JSON conforme o formato obrigatório.`;
 
       // 4. Call AI (Dry Run - no quota yet), com retry de JSON quebrado
