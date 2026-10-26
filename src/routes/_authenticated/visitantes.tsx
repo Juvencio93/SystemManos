@@ -36,13 +36,17 @@ import {
 } from "@/components/ui/select";
 import {
   CRM_STAGES,
+  getCrmCompanies,
+  getCrmLeadActivities,
   getCrmCampaigns,
   getCrmLeads,
   registerCrmWhatsAppOpen,
   updateCrmLead,
+  type CrmLeadActivity,
   type CrmLeadListItem,
   type CrmStage,
 } from "@/lib/crm.functions";
+import { useAccess } from "@/hooks/use-access";
 import { formatDateTimeBR } from "@/lib/utils/date-utils";
 
 export const Route = createFileRoute("/_authenticated/visitantes")({
@@ -87,9 +91,13 @@ function CrmWifiLeadsPage() {
   const saveLead = useServerFn(updateCrmLead);
   const recordWhatsApp = useServerFn(registerCrmWhatsAppOpen);
 
+  const { data: access } = useAccess();
+  const isAdm = access?.role === "adm";
   const [term, setTerm] = useState("");
   const [campaignId, setCampaignId] = useState("all");
+  const [companyId, setCompanyId] = useState("all");
   const [stage, setStage] = useState<CrmStage | "all">("all");
+  const [overdueOnly, setOverdueOnly] = useState(false);
   const [page, setPage] = useState(1);
   const [selectedVisitorId, setSelectedVisitorId] = useState<string | null>(null);
   const [editingLead, setEditingLead] = useState<CrmLeadListItem | null>(null);
@@ -101,13 +109,29 @@ function CrmWifiLeadsPage() {
     queryFn: () => fetchCampaigns(),
   });
 
+  const fetchCompanies = useServerFn(getCrmCompanies);
+  const companies = useQuery({
+    queryKey: ["crm-companies"],
+    queryFn: () => fetchCompanies(),
+    enabled: isAdm,
+  });
+
+  const fetchActivities = useServerFn(getCrmLeadActivities);
+  const activities = useQuery({
+    queryKey: ["crm-lead-activities", editingLead?.id ?? ""],
+    queryFn: () => fetchActivities({ data: { leadId: editingLead!.id } }),
+    enabled: !!editingLead,
+  });
+
   const leads = useQuery({
-    queryKey: ["crm-leads", campaignId, stage, term, page],
+    queryKey: ["crm-leads", campaignId, companyId, stage, overdueOnly, term, page],
     queryFn: () =>
       fetchLeads({
         data: {
           campaignId: campaignId === "all" ? null : campaignId,
+          companyId: companyId === "all" ? null : companyId,
           stage: stage === "all" ? null : stage,
+          overdueOnly,
           term,
           page,
           pageSize: 25,
@@ -164,6 +188,9 @@ function CrmWifiLeadsPage() {
   const converted = result?.stageCounts.convertido ?? 0;
   const interested = result?.stageCounts.interessado ?? 0;
   const pending = (result?.stageCounts.novo ?? 0) + (result?.stageCounts.nao_respondeu ?? 0);
+  const funnelTotal = CRM_STAGES.reduce((acc, item) => acc + (result?.stageCounts[item] ?? 0), 0);
+  const conversionPct = funnelTotal > 0 ? Math.round((converted / funnelTotal) * 100) : 0;
+  const campaignNameById = new Map((campaigns.data ?? []).map((campaign) => [campaign.id, campaign.name]));
 
   return (
     <div>
@@ -179,7 +206,12 @@ function CrmWifiLeadsPage() {
       <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard icon={Users} label="Leads encontrados" value={result?.total ?? 0} />
         <MetricCard icon={Target} label="Interessados" value={interested} />
-        <MetricCard icon={UserCheck} label="Convertidos" value={converted} />
+        <MetricCard
+          icon={UserCheck}
+          label="Convertidos"
+          value={converted}
+          hint={funnelTotal > 0 ? `${conversionPct}% dos leads` : undefined}
+        />
         <MetricCard icon={CalendarClock} label="Aguardando contato" value={pending} />
       </div>
 
@@ -241,6 +273,57 @@ function CrmWifiLeadsPage() {
         </CardContent>
       </Card>
 
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        {isAdm && (
+          <Select
+            value={companyId}
+            onValueChange={(value) => {
+              setCompanyId(value);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-[220px] rounded-xl">
+              <SelectValue placeholder="Empresa" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as empresas</SelectItem>
+              {(companies.data ?? []).map((company) => (
+                <SelectItem key={company.id} value={company.id}>
+                  {company.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        <Button
+          variant={overdueOnly ? "default" : "outline"}
+          size="sm"
+          className="rounded-xl"
+          onClick={() => {
+            setOverdueOnly((current) => !current);
+            setPage(1);
+          }}
+        >
+          Só ações atrasadas
+        </Button>
+        {overdueOnly && (
+          <span className="text-xs text-muted-foreground">
+            Mostrando só leads com próximo contato vencido.
+          </span>
+        )}
+      </div>
+
+      <div className="mb-4 grid gap-3 lg:grid-cols-2">
+        <FunnelChart stageCounts={result?.stageCounts} total={funnelTotal} />
+        <CampaignChart
+          campaignCounts={result?.campaignCounts ?? []}
+          campaignNameById={campaignNameById}
+        />
+      </div>
+      <div className="mb-4">
+        <EvolutionChart evolution={result?.evolution ?? []} />
+      </div>
+
       <Card className="glass-panel overflow-hidden">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -248,6 +331,7 @@ function CrmWifiLeadsPage() {
               <thead className="border-b border-border bg-white/[0.02] text-left text-xs uppercase tracking-wider text-muted-foreground">
                 <tr>
                   <th className="px-5 py-4">Lead</th>
+                  {isAdm && <th className="px-4 py-4">Empresa</th>}
                   <th className="px-4 py-4">Campanha / origem</th>
                   <th className="px-4 py-4">Etapa</th>
                   <th className="px-4 py-4">Comportamento</th>
@@ -264,6 +348,11 @@ function CrmWifiLeadsPage() {
                       <p className="text-xs text-muted-foreground">{lead.phoneE164}</p>
                       {lead.email && <p className="text-xs text-muted-foreground">{lead.email}</p>}
                     </td>
+                    {isAdm && (
+                      <td className="px-4 py-4">
+                        <p className="max-w-[180px] truncate font-medium">{lead.companyName}</p>
+                      </td>
+                    )}
                     <td className="px-4 py-4">
                       <p className="max-w-[220px] truncate font-medium">{lead.campaignName}</p>
                       <p className="text-xs text-muted-foreground">
@@ -277,7 +366,7 @@ function CrmWifiLeadsPage() {
                           updateMutation.mutate({ leadId: lead.id, stage: value as CrmStage })
                         }
                       >
-                        <SelectTrigger className="h-9 w-[180px] rounded-lg">
+                        <SelectTrigger className={`h-9 w-[180px] rounded-lg ${STAGE_BADGES[lead.stage]}`}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -288,9 +377,6 @@ function CrmWifiLeadsPage() {
                           ))}
                         </SelectContent>
                       </Select>
-                      <Badge variant="outline" className={`mt-2 ${STAGE_BADGES[lead.stage]}`}>
-                        {STAGE_LABELS[lead.stage]}
-                      </Badge>
                     </td>
                     <td className="px-4 py-4">
                       <p title="Contagem desde o horário de virada configurado para a unidade">                        Período atual: {lead.todayConnectionsCount} acesso{lead.todayConnectionsCount === 1 ? "" : "s"}                      </p>
@@ -316,8 +402,11 @@ function CrmWifiLeadsPage() {
                         </p>
                       )}
                     </td>
-                    <td className="px-4 py-4 text-xs text-muted-foreground">
+                    <td
+                      className={`px-4 py-4 text-xs ${lead.overdue ? "font-semibold text-red-300" : "text-muted-foreground"}`}
+                    >
                       {lead.nextActionAt ? formatDateTimeBR(lead.nextActionAt) : "Não agendada"}
+                      {lead.overdue && <span className="block">Atrasada</span>}
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex justify-end gap-1">
@@ -336,6 +425,7 @@ function CrmWifiLeadsPage() {
                           size="icon"
                           onClick={() => {
                             setEditingLead(lead);
+                            setNote("");
                             setNextActionAt(lead.nextActionAt?.slice(0, 16) ?? "");
                           }}
                           title="Registrar acompanhamento"
@@ -356,7 +446,7 @@ function CrmWifiLeadsPage() {
                 ))}
                 {!leads.isLoading && !(result?.leads.length ?? 0) && (
                   <tr>
-                    <td colSpan={7} className="px-5 py-14 text-center text-muted-foreground">
+                    <td colSpan={isAdm ? 8 : 7} className="px-5 py-14 text-center text-muted-foreground">
                       Nenhum lead encontrado para estes filtros.
                     </td>
                   </tr>
@@ -454,6 +544,26 @@ function CrmWifiLeadsPage() {
                 Salvar acompanhamento
               </Button>
             </div>
+            <div className="border-t border-border pt-4">
+              <p className="mb-3 text-sm font-semibold">Histórico</p>
+              {activities.isLoading && (
+                <p className="text-sm text-muted-foreground">Carregando histórico…</p>
+              )}
+              {!activities.isLoading && !(activities.data?.activities.length ?? 0) && (
+                <p className="text-sm text-muted-foreground">Nenhum registro ainda.</p>
+              )}
+              <div className="space-y-3">
+                {(activities.data?.activities ?? []).map((activity) => (
+                  <div key={activity.id} className="text-sm">
+                    <p className="font-medium">{ACTIVITY_LABELS[activity.type]}</p>
+                    <p className="text-muted-foreground">{activityDetail(activity)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatDateTimeBR(activity.createdAt)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -466,14 +576,152 @@ function CrmWifiLeadsPage() {
   );
 }
 
+const ACTIVITY_LABELS: Record<CrmLeadActivity["type"], string> = {
+  note: "Observação",
+  stage_changed: "Etapa alterada",
+  follow_up_scheduled: "Acompanhamento agendado",
+  opt_out: "Não contatar",
+  whatsapp_opened: "WhatsApp aberto",
+};
+
+function activityDetail(activity: CrmLeadActivity): string {
+  if (activity.type === "note" || activity.type === "opt_out") {
+    return activity.note ?? "Sem detalhes.";
+  }
+  if (activity.type === "stage_changed") {
+    const from = activity.metadata.from;
+    const to = activity.metadata.to;
+    const fromLabel =
+      typeof from === "string" ? (STAGE_LABELS[from as CrmStage] ?? from) : "?";
+    const toLabel = typeof to === "string" ? (STAGE_LABELS[to as CrmStage] ?? to) : "?";
+    return `De ${fromLabel} para ${toLabel}.`;
+  }
+  if (activity.type === "follow_up_scheduled") {
+    const next = activity.metadata.nextActionAt;
+    return typeof next === "string" && next
+      ? `Próximo contato em ${formatDateTimeBR(next)}.`
+      : "Próximo contato removido.";
+  }
+  return "Contato iniciado pelo WhatsApp.";
+}
+
+function FunnelChart({
+  stageCounts,
+  total,
+}: {
+  stageCounts?: Record<CrmStage, number>;
+  total: number;
+}) {
+  const max = Math.max(1, ...CRM_STAGES.map((item) => stageCounts?.[item] ?? 0));
+  return (
+    <Card className="glass-panel">
+      <CardContent className="space-y-2.5 p-4">
+        <p className="text-sm font-semibold">Funil de vendas</p>
+        {total === 0 && (
+          <p className="text-sm text-muted-foreground">Sem dados para estes filtros.</p>
+        )}
+        {CRM_STAGES.map((item) => {
+          const count = stageCounts?.[item] ?? 0;
+          return (
+            <div key={item} className="flex items-center gap-3 text-sm">
+              <span className="w-[130px] shrink-0 text-muted-foreground">{STAGE_LABELS[item]}</span>
+              <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-white/5">
+                <div
+                  className="h-full rounded-full bg-primary"
+                  style={{ width: `${(count / max) * 100}%` }}
+                />
+              </div>
+              <span className="w-14 shrink-0 text-right font-semibold">
+                {count}
+                {total > 0 && (
+                  <span className="ml-1 text-xs font-normal text-muted-foreground">
+                    {Math.round((count / total) * 100)}%
+                  </span>
+                )}
+              </span>
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
+}
+
+function CampaignChart({
+  campaignCounts,
+  campaignNameById,
+}: {
+  campaignCounts: { campaignId: string | null; total: number }[];
+  campaignNameById: Map<string, string>;
+}) {
+  const max = Math.max(1, ...campaignCounts.map((item) => item.total));
+  return (
+    <Card className="glass-panel">
+      <CardContent className="space-y-2.5 p-4">
+        <p className="text-sm font-semibold">Leads por campanha</p>
+        {campaignCounts.length === 0 && (
+          <p className="text-sm text-muted-foreground">Sem dados para estes filtros.</p>
+        )}
+        {campaignCounts.map((item) => (
+          <div key={item.campaignId ?? "none"} className="flex items-center gap-3 text-sm">
+            <span className="w-[130px] shrink-0 truncate text-muted-foreground">
+              {item.campaignId ? (campaignNameById.get(item.campaignId) ?? "Campanha") : "Sem campanha"}
+            </span>
+            <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-white/5">
+              <div
+                className="h-full rounded-full bg-cyan-400"
+                style={{ width: `${(item.total / max) * 100}%` }}
+              />
+            </div>
+            <span className="w-10 shrink-0 text-right font-semibold">{item.total}</span>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+function EvolutionChart({
+  evolution,
+}: {
+  evolution: { date: string; total: number }[];
+}) {
+  const max = Math.max(1, ...evolution.map((item) => item.total));
+  return (
+    <Card className="glass-panel">
+      <CardContent className="p-4">
+        <p className="mb-3 text-sm font-semibold">Novos leads — últimos 14 dias</p>
+        <div className="flex h-28 items-end gap-1.5">
+          {evolution.map((item, index) => (
+            <div key={item.date} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
+              <span className="text-[11px] font-semibold text-muted-foreground">
+                {item.total > 0 ? item.total : ""}
+              </span>
+              <div
+                className="w-full max-w-[28px] rounded-t-md bg-primary/70"
+                style={{ height: `${(item.total / max) * 72}%`, minHeight: item.total > 0 ? 6 : 0 }}
+              />
+              <span className="text-[10px] text-muted-foreground">
+                {index % 2 === 0 || index === evolution.length - 1 ? item.date : ""}
+              </span>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function MetricCard({
   icon: Icon,
   label,
   value,
+  hint,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: number;
+  hint?: string;
 }) {
   return (
     <Card className="glass-panel">
@@ -484,6 +732,7 @@ function MetricCard({
         <div>
           <p className="text-xs text-muted-foreground">{label}</p>
           <p className="font-display text-2xl font-black">{value}</p>
+          {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
         </div>
       </CardContent>
     </Card>

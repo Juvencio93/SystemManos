@@ -36,7 +36,24 @@ export type CrmLeadListItem = {
   lastContactedAt: string | null;
   sourceName: string;
   sourceType: "Matriz" | "Filial" | "Evento";
+  overdue: boolean;
 };
+
+export type CrmLeadActivity = {
+  id: string;
+  type: "note" | "stage_changed" | "follow_up_scheduled" | "opt_out" | "whatsapp_opened";
+  note: string | null;
+  metadata: { [key: string]: string | boolean | null };
+  createdAt: string;
+};
+
+const OVERDUE_EXCLUDED_STAGES: CrmStage[] = ["convertido", "nao_contatar", "sem_interesse"];
+
+function isOverdue(stage: string, nextActionAt: string | null, nowMs: number): boolean {
+  if (!nextActionAt) return false;
+  if (OVERDUE_EXCLUDED_STAGES.includes(stage as CrmStage)) return false;
+  return new Date(nextActionAt).getTime() < nowMs;
+}
 
 type CrmRoleScope = {
   role: "adm" | "matriz" | "filial" | "revenda";
@@ -98,6 +115,50 @@ async function assertLeadAccess(
   return lead;
 }
 
+export const getCrmCompanies = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const scope = await resolveCrmScope(context.supabase, context.userId);
+    if (scope.role !== "adm") return [];
+    const { data, error } = await context.supabase
+      .from("companies")
+      .select("id, name, trade_name, legal_name");
+    if (error) throw error;
+    return (data ?? [])
+      .map((company) => ({
+        id: company.id,
+        name:
+          company.trade_name?.trim() ||
+          company.legal_name?.trim() ||
+          company.name?.trim() ||
+          "Empresa sem nome",
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  });
+
+export const getCrmLeadActivities = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) => z.object({ leadId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const scope = await resolveCrmScope(context.supabase, context.userId);
+    await assertLeadAccess(context.supabase, scope, data.leadId);
+    const { data: rows, error } = await context.supabase
+      .from("crm_lead_activities")
+      .select("id, activity_type, note, metadata, created_at")
+      .eq("lead_id", data.leadId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    const activities: CrmLeadActivity[] = (rows ?? []).map((row) => ({
+      id: row.id,
+      type: row.activity_type as CrmLeadActivity["type"],
+      note: row.note,
+      metadata: (row.metadata ?? {}) as CrmLeadActivity["metadata"],
+      createdAt: row.created_at,
+    }));
+    return { activities };
+  });
+
 export const getCrmCampaigns = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -121,7 +182,9 @@ export const getCrmLeads = createServerFn({ method: "GET" })
   .validator((input: unknown) =>
     z.object({
       campaignId: z.string().uuid().nullable().optional(),
+      companyId: z.string().uuid().nullable().optional(),
       stage: z.enum(CRM_STAGES).nullable().optional(),
+      overdueOnly: z.boolean().optional().default(false),
       term: z.string().trim().max(80).optional().default(""),
       page: z.number().int().min(1).optional().default(1),
       pageSize: z.number().int().min(10).max(100).optional().default(25),
@@ -143,10 +206,26 @@ export const getCrmLeads = createServerFn({ method: "GET" })
       query = query.eq("source_branch_id", scope.branchId);
     }
     if (filters.campaignId) query = query.eq("campaign_id", filters.campaignId);
+    if (filters.companyId) query = query.eq("company_id", filters.companyId);
     if (filters.stage) query = query.eq("stage", filters.stage);
 
     const { data, error } = await query;
     if (error) throw error;
+
+    // Segunda consulta leve, só para os gráficos: mesmo escopo, SEM os
+    // filtros de campanha/etapa (o funil precisa de todas as etapas e o
+    // comparativo por campanha precisa de todas as campanhas).
+    let chartQuery = context.supabase
+      .from("crm_leads")
+      .select("id, stage, campaign_id, company_id, created_at")
+      .order("created_at", { ascending: false })
+      .limit(2000);
+    if (scope.role !== "adm" && scope.companyId) chartQuery = chartQuery.eq("company_id", scope.companyId);
+    if (scope.role === "filial" && scope.branchId) {
+      chartQuery = chartQuery.eq("source_branch_id", scope.branchId);
+    }
+    if (filters.companyId) chartQuery = chartQuery.eq("company_id", filters.companyId);
+    const { data: chartRows } = await chartQuery;
 
     const visitorIds = [...new Set((data ?? []).map((row) => row.visitor_id))];
     const now = new Date();
@@ -209,6 +288,7 @@ export const getCrmLeads = createServerFn({ method: "GET" })
         lastContactedAt: row.last_contacted_at,
         sourceName: event?.name ?? branch?.trade_name ?? branch?.name ?? "Matriz",
         sourceType: event ? "Evento" : branch ? "Filial" : "Matriz",
+        overdue: isOverdue(row.stage as CrmStage, row.next_action_at, now.getTime()),
       };
     });
 
@@ -220,25 +300,64 @@ export const getCrmLeads = createServerFn({ method: "GET" })
       return bTime - aTime;
     });
 
-    const visible = cleanTerm
+    let visible = cleanTerm
       ? mapped.filter((lead) =>
           [lead.fullName, lead.phoneE164, lead.email ?? "", lead.city ?? ""]
             .some((value) => value.toLocaleLowerCase("pt-BR").includes(cleanTerm)),
         )
       : mapped;
+    if (filters.overdueOnly) visible = visible.filter((lead) => lead.overdue);
 
-    const start = (filters.page - 1) * filters.pageSize;
+    // Funil: respeita o filtro de campanha, ignora o de etapa (senão o
+    // funil some quando uma etapa é selecionada). Os cards do topo usam
+    // esses mesmos números, então passam a refletir a campanha, não a etapa.
+    const chartList = chartRows ?? [];
+    const funnelRows = filters.campaignId
+      ? chartList.filter((row) => row.campaign_id === filters.campaignId)
+      : chartList;
     const stageCounts = CRM_STAGES.reduce<Record<CrmStage, number>>((acc, stage) => {
-      acc[stage] = mapped.filter((lead) => lead.stage === stage).length;
+      acc[stage] = funnelRows.filter((row) => row.stage === stage).length;
       return acc;
     }, {} as Record<CrmStage, number>);
 
+    // Comparativo por campanha: ignora o filtro de campanha (comparar
+    // exige todas) e respeita o de empresa, já aplicado na consulta.
+    const campaignTotals = new Map<string | null, number>();
+    for (const row of chartList) {
+      campaignTotals.set(row.campaign_id, (campaignTotals.get(row.campaign_id) ?? 0) + 1);
+    }
+    const campaignCounts = [...campaignTotals.entries()]
+      .map(([campaignId, total]) => ({ campaignId, total }))
+      .sort((a, b) => b.total - a.total);
+
+    // Evolução: novos leads por dia nos últimos 14 dias (respeita a
+    // campanha selecionada, ignora a etapa), data no fuso de São Paulo.
+    const spDay = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" });
+    const evolutionDays: string[] = [];
+    for (let i = 13; i >= 0; i--) {
+      evolutionDays.push(spDay.format(new Date(now.getTime() - i * 24 * 60 * 60 * 1000)));
+    }
+    const evolutionTotals = new Map<string, number>();
+    for (const row of funnelRows) {
+      const day = spDay.format(new Date(row.created_at));
+      if (evolutionDays.includes(day)) {
+        evolutionTotals.set(day, (evolutionTotals.get(day) ?? 0) + 1);
+      }
+    }
+    const evolution = evolutionDays.map((day) => ({
+      date: `${day.slice(8, 10)}/${day.slice(5, 7)}`,
+      total: evolutionTotals.get(day) ?? 0,
+    }));
+
+    const start = (filters.page - 1) * filters.pageSize;
     return {
       leads: visible.slice(start, start + filters.pageSize),
       total: visible.length,
       page: filters.page,
       pageSize: filters.pageSize,
       stageCounts,
+      campaignCounts,
+      evolution,
     };
   });
 
