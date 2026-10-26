@@ -185,6 +185,55 @@ export function parseBannerResponse(raw: string): BannerResponseParseResult {
   return { ok: true, data: validated.data };
 }
 
+export type BannerGatewayCall = (
+  system: string,
+  user: string,
+) => Promise<{
+  ok: boolean;
+  text?: string | null;
+  requestId: string;
+  error?: string | null;
+}>;
+
+export type BannerGatewayJsonResult =
+  | {
+      ok: true;
+      parsed: Extract<BannerResponseParseResult, { ok: true }>;
+      rawText: string;
+    }
+  | { ok: false; gatewayError?: string | null; parseFailed: boolean };
+
+/**
+ * JSON quebrado é instabilidade do modelo, não pedido mal entendido: tenta
+ * a mesma chamada de novo uma vez antes de desistir. Falha de gateway não
+ * é retentada aqui — o chamador decide o erro a exibir.
+ */
+export async function callGatewayJsonWithRetry(
+  call: BannerGatewayCall,
+  system: string,
+  user: string,
+  onParseFailure: (
+    requestId: string,
+    failure: Exclude<BannerResponseParseResult, { ok: true }>,
+  ) => void,
+): Promise<BannerGatewayJsonResult> {
+  const first = await call(system, user);
+  if (!first.ok || !first.text) {
+    return { ok: false, gatewayError: first.error ?? null, parseFailed: false };
+  }
+  const parsed = parseBannerResponse(first.text);
+  if (parsed.ok) return { ok: true, parsed, rawText: first.text };
+  onParseFailure(first.requestId, parsed);
+  const second = await call(system, user);
+  if (!second.ok || !second.text) {
+    return { ok: false, gatewayError: second.error ?? null, parseFailed: false };
+  }
+  const reparsed = parseBannerResponse(second.text);
+  if (reparsed.ok) return { ok: true, parsed: reparsed, rawText: second.text };
+  onParseFailure(second.requestId, reparsed);
+  return { ok: false, gatewayError: null, parseFailed: true };
+}
+
 export function safeBriefingFallbackQuestion(lastUserMessage: string) {
   const subject = lastUserMessage.replace(/\s+/g, " ").trim().slice(0, 300);
   if (!subject)
