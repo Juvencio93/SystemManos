@@ -17,6 +17,7 @@ import {
   pendingQuestionForCommercialState,
   physicalElementGroundingRule,
   requiredOfferFactsFromBrief,
+  sanitizeGeneratedItems,
   validateGeneratedCommercialFacts,
   validatePromptConceptSeparation,
   validatePromptVisualGrounding,
@@ -612,7 +613,7 @@ export const askBannerAgent = createServerFn({ method: "POST" })
       const briefingContext = formatarBriefing(briefing);
 
       // 3. Prepare AI Prompt with the scanned company context
-      const systemPrompt = `${BANNER_SYSTEM}\n\n${briefingContext}\n\n${skillsContext ? `${skillsContext}\n\n` : ""}${groundingDirective}\n\n${sceneContractDirective}\n\n${commercialContractDirective}\n\nDIFERENÇA CRIATIVA: crie duas propostas TOTALMENTE DIFERENTES uma da outra — não variações superficiais. Escolha livremente narrativas, enquadramento, composição, hierarquia, tipografia e luz; não imponha macro, plano aberto, produto físico, ambiente ou layout fixo. Uma opção não deve ser apenas uma variação superficial da outra. Se o pedido for um serviço, ideia ou comunicação institucional, represente isso de modo adequado sem inventar produto físico. Preserve os mesmos fatos comerciais confirmados nas duas. Se não houver referência visual confirmada, derive a direção da identidade cadastrada sem afirmar cores não confirmadas; não mencione pesquisa, fontes ou limitações técnicas no texto final. Nunca invente ambientes ou adereços. Especifique foco visual, leitura da mensagem, área segura e textos permitidos conforme o contexto.\n\nCONTEXTO OFICIAL DA EMPRESA:\n${companyCtx}\n\nCOMPATIBILIDADE DO PEDIDO: ${compatibility.classification}. ${compatibility.reason} Segmento é contexto, não whitelist; não bloqueie extensões plausíveis.\n\nEVIDÊNCIA VISUAL INTERNA — use apenas para orientar a criação e nunca mencione sua origem no prompt final:\n${finalEnvironmentResearchContext}`;
+      const systemPrompt = `${BANNER_SYSTEM}\n\n${briefingContext}\n\n${skillsContext ? `${skillsContext}\n\n` : ""}${groundingDirective}\n\n${sceneContractDirective}\n\n${commercialContractDirective}\n\nDIFERENÇA CRIATIVA: crie duas propostas TOTALMENTE DIFERENTES uma da outra — não variações superficiais. Escolha livremente narrativas, enquadramento, composição, hierarquia, tipografia e luz; não imponha macro, plano aberto, produto físico, ambiente ou layout fixo. Uma opção não deve ser apenas uma variação superficial da outra. Marque as estratégias no próprio texto: a primeira opção diz explicitamente “protagonismo da oferta” com fotografia publicitária de produto em plano próximo; a segunda diz explicitamente “experiência da marca” em composição ampla. Se o pedido for um serviço, ideia ou comunicação institucional, represente isso de modo adequado sem inventar produto físico. Preserve os mesmos fatos comerciais confirmados nas duas. Se não houver referência visual confirmada, derive a direção da identidade cadastrada sem afirmar cores não confirmadas; não mencione pesquisa, fontes ou limitações técnicas no texto final. Nunca invente ambientes ou adereços. Especifique foco visual, leitura da mensagem, área segura e textos permitidos conforme o contexto.\n\nCONTEXTO OFICIAL DA EMPRESA:\n${companyCtx}\n\nCOMPATIBILIDADE DO PEDIDO: ${compatibility.classification}. ${compatibility.reason} Segmento é contexto, não whitelist; não bloqueie extensões plausíveis.\n\nEVIDÊNCIA VISUAL INTERNA — use apenas para orientar a criação e nunca mencione sua origem no prompt final:\n${finalEnvironmentResearchContext}`;
       const userPrompt = `Histórico da conversa:\n${chatHistory}\n\nResponda apenas com o JSON conforme o formato obrigatório.`;
 
       // 4. Call AI (Dry Run - no quota yet)
@@ -650,32 +651,78 @@ export const askBannerAgent = createServerFn({ method: "POST" })
             : validated;
 
         // Deterministic enforcement: prompts are inspected after generation,
-        // not merely instructed. An invalid option is never returned; one
-        // corrective generation receives the exact contract and is validated
-        // again before it can proceed.
-        const violations =
+        // not merely instructed. An invalid option is never returned; corrective
+        // generations receive the exact contract and are validated again before
+        // they can proceed. Até duas correções: o modelo costuma acertar os
+        // metadados na segunda tentativa, e desistir na primeira desperdiçava
+        // ideias criativamente boas por erro de metadado.
+        type GeneratedOptionShape = {
+          title: string;
+          prompt: string;
+          visualItems?: readonly string[] | undefined;
+          commercialFacts?:
+            | {
+                items?: readonly string[] | undefined;
+                price?: number | undefined;
+                pricedItems?:
+                  | {
+                      item: string;
+                      price: number;
+                      unit?: string | undefined;
+                    }[]
+                  | undefined;
+                validity?: string | undefined;
+                unit?: string | undefined;
+                business?: string | undefined;
+                scope?: "confirmed" | "corrected" | undefined;
+              }
+            | undefined;
+        };
+        const collectViolations = (options: readonly GeneratedOptionShape[]) => [
+          ...options.flatMap((option, index) =>
+            [
+              ...validatePromptVisualGrounding(option.prompt, visualSceneContract),
+              ...validatePromptNoRegistryData(option.prompt),
+              ...validatePromptCommercialCopy(option.prompt, requiredOfferFacts),
+              ...validatePromptTemporalFacts(option.prompt, requiredOfferFacts),
+              ...validateGeneratedCommercialFacts(option, requiredOfferFacts),
+              ...validatePromptTextQuality(option.prompt),
+            ].map((violation) => ({ ...violation, option: index + 1 })),
+          ),
+          ...validatePromptConceptSeparation(
+            options[0]?.prompt ?? "",
+            options[1]?.prompt ?? "",
+          ),
+        ];
+        const sanitizeOption = (option: GeneratedOptionShape) => ({
+          ...option,
+          visualItems: sanitizeGeneratedItems(option.visualItems),
+          commercialFacts: option.commercialFacts
+            ? {
+                ...option.commercialFacts,
+                items: sanitizeGeneratedItems(option.commercialFacts.items),
+              }
+            : option.commercialFacts,
+        });
+        if (!normalized.needsMoreInfo && normalized.promptOptions) {
+          normalized = {
+            ...normalized,
+            promptOptions: normalized.promptOptions.map((option) => ({
+              ...sanitizeOption(option),
+              prompt: normalizeCurrencyCopy(option.prompt),
+            })),
+          };
+        }
+        let violations =
           !normalized.needsMoreInfo && normalized.promptOptions
-            ? [
-                ...normalized.promptOptions.flatMap((option, index) =>
-                  [
-                    ...validatePromptVisualGrounding(option.prompt, visualSceneContract),
-                    ...validatePromptNoRegistryData(option.prompt),
-                    ...validatePromptCommercialCopy(option.prompt, requiredOfferFacts),
-                    ...validatePromptTemporalFacts(option.prompt, requiredOfferFacts),
-                    ...validateGeneratedCommercialFacts(option, requiredOfferFacts),
-                    ...validatePromptTextQuality(option.prompt),
-                  ].map((violation) => ({ ...violation, option: index + 1 })),
-                ),
-                ...validatePromptConceptSeparation(
-                  normalized.promptOptions[0]?.prompt ?? "",
-                  normalized.promptOptions[1]?.prompt ?? "",
-                ),
-              ]
+            ? collectViolations(normalized.promptOptions)
             : [];
-
-        if (violations.length > 0) {
+        let correctionAttempts = 0;
+        let lastCorrectionRequestId: string | undefined;
+        while (violations.length > 0 && correctionAttempts < 2) {
+          correctionAttempts += 1;
           const correction = await callGateway(
-            `${systemPrompt}\n\nCORREÇÃO: reescreva integralmente as duas opções para cumprir os contratos visuais e comerciais e resolver as violações indicadas. Adapte as soluções ao segmento, serviço/produto e intenção descritos no pedido; não use layout ou estilo como receita fixa. Mantenha as duas opções distintas e preserve todos os itens, preço, validade, empresa, escopo e texto comercial confirmados, incluindo visualItems e commercialFacts completos. Se a frase escolhida for “por conta da casa”, mantenha-a exatamente e não a substitua por “GRÁTIS”. Retorne somente o JSON obrigatório, sem perguntas.`,
+            `${systemPrompt}\n\nCORREÇÃO: reescreva integralmente as duas opções para cumprir os contratos visuais e comerciais e resolver as violações indicadas. Adapte as soluções ao segmento, serviço/produto e intenção descritos no pedido; não use layout ou estilo como receita fixa. Mantenha as duas opções distintas e preserve todos os itens, preço, validade, empresa, escopo e texto comercial confirmados, incluindo visualItems e commercialFacts completos. Mantenha as marcas de estratégia: a primeira opção deve dizer explicitamente “protagonismo da oferta” em plano próximo; a segunda, “experiência da marca” em composição ampla. Se a frase escolhida for “por conta da casa”, mantenha-a exatamente e não a substitua por “GRÁTIS”. Retorne somente o JSON obrigatório, sem perguntas.`,
             `Resposta rejeitada pelo validador local: ${JSON.stringify(violations)}\n\nResposta a corrigir:\n${JSON.stringify(normalized)}`,
           );
           if (!correction.ok || !correction.text) {
@@ -685,6 +732,7 @@ export const askBannerAgent = createServerFn({ method: "POST" })
               error: "Não consegui ajustar as ideias com segurança. Tente novamente em instantes.",
             };
           }
+          lastCorrectionRequestId = correction.requestId;
           const corrected = parseBannerResponse(correction.text);
           if (!corrected.ok || corrected.data.needsMoreInfo || !corrected.data.promptOptions) {
             if (!corrected.ok)
@@ -696,37 +744,22 @@ export const askBannerAgent = createServerFn({ method: "POST" })
             };
           }
           const correctedOptions = corrected.data.promptOptions.map((option) => ({
-            ...option,
+            ...sanitizeOption(option),
             prompt: normalizeCurrencyCopy(option.prompt),
           }));
-          const correctionViolations = [
-            ...correctedOptions.flatMap((option, index) =>
-              [
-                ...validatePromptVisualGrounding(option.prompt, visualSceneContract),
-                ...validatePromptNoRegistryData(option.prompt),
-                ...validatePromptCommercialCopy(option.prompt, requiredOfferFacts),
-                ...validatePromptTemporalFacts(option.prompt, requiredOfferFacts),
-                ...validateGeneratedCommercialFacts(option, requiredOfferFacts),
-                ...validatePromptTextQuality(option.prompt),
-              ].map((violation) => ({ ...violation, option: index + 1 })),
-            ),
-            ...validatePromptConceptSeparation(
-              correctedOptions[0]?.prompt ?? "",
-              correctedOptions[1]?.prompt ?? "",
-            ),
-          ];
-          if (correctionViolations.length > 0) {
-            console.error("[BannerAgent] Visual grounding correction rejected", {
-              requestId: correction.requestId,
-              violations: correctionViolations,
-            });
-            return {
-              success: false,
-              data: null,
-              error: "Não consegui ajustar as ideias com segurança. Tente novamente em instantes.",
-            };
-          }
           normalized = { ...corrected.data, promptOptions: correctedOptions };
+          violations = collectViolations(correctedOptions);
+        }
+        if (violations.length > 0) {
+          console.error("[BannerAgent] Visual grounding correction rejected", {
+            requestId: lastCorrectionRequestId,
+            violations,
+          });
+          return {
+            success: false,
+            data: null,
+            error: "Não consegui ajustar as ideias com segurança. Tente novamente em instantes.",
+          };
         }
 
         // 6. Quota Logic - Debit only on success (when prompts are generated)

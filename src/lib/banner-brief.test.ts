@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { resolveBannerConversationTurn } from "./banner-agent.functions";
 import {
   commercialCompletenessQuestion,
   createVisualSceneContract,
@@ -26,6 +27,8 @@ import {
   validatePromptCommercialCopy,
   validatePromptVisualGrounding,
   extractBannerTurnFacts,
+  isResolvedQuestion,
+  sanitizeGeneratedItems,
   validatePromptTemporalFacts,
   validatePromptTextQuality,
   visualPolicy,
@@ -767,7 +770,9 @@ describe("relative date resolution", () => {
     const facts = extractBannerTurnFacts("promoção válida pra essa semana");
     // Não deve manter o texto cru "essa semana".
     expect(facts.validity).not.toMatch(/essa semana/i);
-    expect(facts.validity).toMatch(/\d{1,2} a \d{1,2} de \w+ de \d{4}/);
+    expect(facts.validity).toMatch(
+      /\d{1,2} a \d{1,2} de \w+ de \d{4}|\d{1,2} de \w+ a \d{1,2} de \w+ de \d{4}/,
+    );
   });
 });
 
@@ -874,5 +879,68 @@ describe("prompt text quality", () => {
     expect(violations).toContainEqual(
       expect.objectContaining({ reason: "VAGUE_TEXT_INSTRUCTION" }),
     );
+  });
+});
+
+describe("interpretação de gratuidade e higiene de metadados", () => {
+  it("por conta da casa já é preço zero com cópia confirmada", () => {
+    const facts = extractBannerTurnFacts("Quero um banner do café por conta da casa", {});
+    expect(facts.price).toBe(0);
+    expect(facts.commercialCondition).toBe("por conta da casa");
+    expect(facts.freeCopyConfirmed).toBe(true);
+  });
+
+  it.each([
+    ["café de graça", 0],
+    ["pão na faixa", 0],
+    ["bolo cortesia", 0],
+    ["café sem pagar nada", 0],
+    ["a casa paga o café", 0],
+    ["café gratuito", 0],
+  ])("associa %s a gratuidade", (message, expected) => {
+    expect(extractBannerTurnFacts(message, {}).price).toBe(expected);
+  });
+
+  it("sem cortesia não é gratuidade", () => {
+    const facts = extractBannerTurnFacts("café sem cortesia", {});
+    expect(facts.price).toBeUndefined();
+    expect(facts.commercialCondition).toBeUndefined();
+    expect(facts.freeCopyConfirmed).toBeUndefined();
+  });
+
+  it("na faixa de número é faixa de preço, não gratuidade", () => {
+    const facts = extractBannerTurnFacts("café na faixa de 20 reais", {});
+    expect(facts.price).toBe(20);
+  });
+
+  it("por conta da casa não gera pergunta de valor nem de redação da cortesia", () => {
+    const turn = resolveBannerConversationTurn({}, ["Quero um banner do café por conta da casa"]);
+    expect(turn.brief.price).toBe(0);
+    expect(turn.brief.freeCopyConfirmed).toBe(true);
+    expect(turn.nextQuestion).not.toMatch(/cortesia|qual (o )?valor/i);
+  });
+
+  it("pergunta de redação da cortesia é resolvida quando a cópia já foi confirmada", () => {
+    expect(
+      isResolvedQuestion(
+        "Como você prefere escrever essa cortesia no banner: “Grátis” ou “Por conta da casa”?",
+        ["café por conta da casa"],
+        { freeCopyConfirmed: true },
+      ),
+    ).toBe(true);
+  });
+
+  it("remove preço, validade e dia da lista de itens gerados", () => {
+    expect(
+      sanitizeGeneratedItems([
+        "Festival de cucas",
+        "R$ 19,90",
+        "válido para o mês de novembro",
+        "toda quarta-feira",
+        "cucas",
+        "",
+      ]),
+    ).toEqual(["Festival de cucas", "cucas"]);
+    expect(sanitizeGeneratedItems(undefined)).toBeUndefined();
   });
 });

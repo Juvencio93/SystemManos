@@ -310,14 +310,25 @@ const COMMERCIAL_SUBJECT =
   /\b(?:banner|arte|imagem|divulga(?:r|ção)|promo(?:ç|c)[aã]o|oferta|combo|desconto|happy\s*hour|por\s+r?\$|pre[cç]o|valor)\b/iu;
 const EVENT_OR_OFFER_SUBJECT =
   /\b(?:festival|feira|evento|edi[çc][aã]o\s+especial|rod[ií]zio|degusta[çc][aã]o)\b/iu;
-const PRICE_MENTION =
-  /(?:r\$\s*\d|\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila|money|bar(?:ão|ao|ões|oes)|conto?s?)\b|\b(?:valor|pre[cç]o)\s*(?:de|:)?\s*r?\$?\s*\d|\b(?:gr[aá]tis|gratuita?|sem\s+custo|por\s+conta\s+da\s+casa)\b)/iu;
+/**
+ * Formas de dizer "grátis" que o cliente usa, numa fonte só reutilizada por
+ * todos os extratores — nenhuma variação pode ficar de fora em um lugar e
+ * dentro em outro. "na faixa" só vale como cortesia quando não vem seguida
+ * de "de <número>" ("na faixa de 20 reais" é faixa de preço, não gratuidade).
+ */
+const FREE_WORDING_SOURCE = String.raw`gr[aá]tis|gratuit[oa]s?|sem\s+custo|por\s+conta\s+da\s+casa|de\s+graça|na\s+faixa(?!\s+de\s+\d)|sem\s+pagar\s+nada|a\s+casa\s+paga|cortesia`;
+const PRICE_MENTION = new RegExp(
+  String.raw`(?:r\$\s*\d|\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila|money|bar(?:ão|ao|ões|oes)|conto?s?)\b|\b(?:valor|pre[cç]o)\s*(?:de|:)?\s*r?\$?\s*\d|\b(?:${FREE_WORDING_SOURCE})\b)`,
+  "iu",
+);
 const SCOPE_CONFIRMATION =
   /\b(?:mesma\s+(?:promo[çc][aã]o|oferta)|combo\s*(?:completo|inclui)?|oferta\s+completa|oferta\s+completa|inclui\s+(?:o|a|os|as)|valor\s+(?:do|da)\s+(?:combo|oferta)|isso|sim|correto|exato|pode\s+ser|perfeito)\b/i;
 
-const FREE_OFFER = /\b(?:gr[aá]tis|gratuita?|sem\s+custo|por\s+conta\s+da\s+casa)\b/iu;
-const NEGATED_FREE_OFFER =
-  /\b(?:n[aã]o|nunca|jamais)\s+(?:[eé]\s+)?(?:gr[aá]tis|gratuita?|sem\s+custo|por\s+conta\s+da\s+casa)\b/iu;
+const FREE_OFFER = new RegExp(`\\b(?:${FREE_WORDING_SOURCE})\\b`, "iu");
+const NEGATED_FREE_OFFER = new RegExp(
+  `\\b(?:n[aã]o|nunca|jamais)\\s+(?:[eé]\\s+)?(?:${FREE_WORDING_SOURCE})\\b|\\bsem\\s+cortesia\\b`,
+  "iu",
+);
 const PRICE_FACT =
   /(?:r\$\s*\d|\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila|money|bar(?:ão|ao|ões|oes)|conto?s?)\b|\b(?:valor|pre[cç]o)\b[^\d]{0,24}\d)/i;
 const BARE_PRICE = /^\s*\d{1,6}(?:[.,]\d{1,2})?\s*$/u;
@@ -407,7 +418,7 @@ function cleanPricedItemSegment(segment: string): string {
         /\b\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?\s*(?:reais?|pila|money|bar(?:ão|ao|ões|oes)|conto?s?)\b/giu,
         "",
       )
-      .replace(/\b(?:gr[aá]tis|gratuita?|sem\s+custo|por\s+conta\s+da\s+casa)\b/giu, "")
+      .replace(new RegExp(`\\b(?:${FREE_WORDING_SOURCE})\\b`, "giu"), "")
       // Preço "nu" com decimal, ex: "por 89,90".
       .replace(/(?:por\s+)?\b\d{1,3}(?:\.\d{3})*,\d{2}\b/giu, "")
       .replace(
@@ -671,7 +682,12 @@ function extractCommercialCondition(message: string) {
   const percentage = message.match(/\b\d{1,3}\s*%\s*(?:de\s+)?desconto\b/iu);
   if (percentage) return percentage[0];
   if (NEGATED_FREE_OFFER.test(message)) return undefined;
-  return message.match(/\b(?:gr[aá]tis|gratuita?|sem\s+custo|por\s+conta\s+da\s+casa)\b/iu)?.[0];
+  // Redação explícita do banner ("grátis", "por conta da casa") vence outras
+  // formas de dizer grátis ("cortesia" aparece antes no texto, mas não é a
+  // cópia que vai para a arte).
+  const explicit = message.match(/\b(?:gr[aá]tis|gratuit[oa]s?|por\s+conta\s+da\s+casa)\b/iu)?.[0];
+  if (explicit) return explicit;
+  return message.match(new RegExp(`\\b(?:${FREE_WORDING_SOURCE})\\b`, "iu"))?.[0];
 }
 
 /**
@@ -1557,6 +1573,32 @@ function normalizedCommercialUnit(value: string) {
  * inspectable separately from the artwork copy, so writing “+ café” in text
  * cannot hide the fact that the coffee was omitted from the composition.
  */
+/**
+ * Fragmentos que o modelo enfia na lista de itens quando o pedido mistura
+ * evento + dia recorrente + validade + preço (visto em produção: "R$ 19,90",
+ * "válido para", "toda quarta-feira"). Preço, validade e dia não são itens
+ * comerciais — removê-los antes de validar evita rejeitar uma boa ideia por
+ * metadado sujo, sem inventar nem apagar item real.
+ */
+export function sanitizeGeneratedItems(items: readonly string[] | undefined): string[] | undefined {
+  if (!items) return items;
+  return items
+    .map((item) => item.trim())
+    .filter((item) => {
+      if (!item) return false;
+      if (/r\$/iu.test(item)) return false;
+      if (/^\s*(?:\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?)\s*$/.test(item)) return false;
+      if (/^\s*v[aá]lid[oa]?\b/iu.test(item)) return false;
+      if (
+        /^(?:toda|todo|todas|todos)?\s*(?:segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo)(?:-?feira)?\s*$/iu.test(
+          item,
+        )
+      )
+        return false;
+      return true;
+    });
+}
+
 export function validateGeneratedCommercialFacts(
   generated: GeneratedCommercialMetadata,
   required: RequiredOfferFacts,
@@ -1958,6 +2000,14 @@ export function isResolvedQuestion(
   // A CTA is optional unless the user expressly asks for one, so it can never
   // become a mandatory missing-field question.
   if (/\bcta\b|chamada\s+para\s+a[cç][aã]o/.test(normalized)) return true;
+  // A pergunta "Grátis ou Por conta da casa?" já está respondida quando o
+  // cliente usou a própria expressão ou o briefing confirmou a cópia — sem
+  // ela, o modelo pergunta de novo o que o cliente acabou de dizer.
+  if (/\bcortesia\b/.test(normalized)) {
+    if (brief?.freeCopyConfirmed) return true;
+    const userConversation = messages.join("\n").toLocaleLowerCase("pt-BR");
+    if (/\bgr[aá]tis\b|\bpor\s+conta\s+da\s+casa\b/.test(userConversation)) return true;
+  }
   return false;
 }
 

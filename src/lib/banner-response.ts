@@ -98,6 +98,25 @@ function parseJsonWithSafeStructuralRepair(json: string): unknown {
   }
 }
 
+/**
+ * O modelo devolve null em campos opcionais ("unit": null) e o esquema
+ * rejeita null — foi a causa da primeira falha da Fran. Remover nulos só
+ * dentro das opções (os nulos do topo — question/promptOptions — são
+ * significativos para o contrato) transforma ausência em ausência.
+ */
+function stripNullValues(value: unknown): unknown {
+  if (Array.isArray(value))
+    return value.filter((entry) => entry !== null).map((entry) => stripNullValues(entry));
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+      if (entry !== null) out[key] = stripNullValues(entry);
+    }
+    return out;
+  }
+  return value;
+}
+
 function normalizeResponseShape(input: unknown): unknown {
   if (!input || typeof input !== "object" || Array.isArray(input)) return input;
   const value = input as Record<string, unknown>;
@@ -110,13 +129,13 @@ function normalizeResponseShape(input: unknown): unknown {
     ? promptOptions.map((option) => {
         if (!option || typeof option !== "object" || Array.isArray(option)) return option;
         const item = option as Record<string, unknown>;
-        return {
+        return stripNullValues({
           ...item,
           title: item["title"] ?? item["titulo"],
           prompt: item["prompt"] ?? item["texto"],
           visualItems: item["visualItems"] ?? item["visual_items"],
           commercialFacts: item["commercialFacts"] ?? item["commercial_facts"],
-        };
+        });
       })
     : promptOptions;
 

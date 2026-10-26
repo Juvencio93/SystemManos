@@ -83,3 +83,48 @@ describe("banner response contract", () => {
   });
 });
 
+
+describe("banner response null tolerance", () => {
+  it("aceita unit null como ausência em vez de rejeitar o contrato", () => {
+    const raw = `\`\`\`json
+{
+  "needsMoreInfo": false,
+  "question": null,
+  "promptOptions": [
+    {
+      "title": "Cuca em destaque",
+      "prompt": "Banner com cuca em primeiro plano e texto 'FESTIVAL DE CUCAS'",
+      "visualItems": ["cucas"],
+      "commercialFacts": {
+        "items": ["cucas"],
+        "price": 19.9,
+        "validity": "mês de novembro",
+        "unit": null,
+        "business": "EFRAIM PADARIA E CONFEITARIA LTDA",
+        "scope": "confirmed"
+      }
+    },
+    {
+      "title": "Festival na padaria",
+      "prompt": "Banner com vitrine de cucas e texto 'FESTIVAL DE CUCAS'",
+      "visualItems": ["cucas"],
+      "commercialFacts": {
+        "items": ["cucas"],
+        "price": 19.9,
+        "validity": "mês de novembro",
+        "unit": null,
+        "business": "EFRAIM PADARIA E CONFEITARIA LTDA",
+        "scope": "confirmed"
+      }
+    }
+  ],
+  "reminder": null
+}
+\`\`\``;
+    const parsed = parseBannerResponse(raw);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.data.promptOptions?.[0]?.commercialFacts?.unit).toBeUndefined();
+    expect(parsed.data.promptOptions?.[0]?.commercialFacts?.price).toBe(19.9);
+  });
+});
