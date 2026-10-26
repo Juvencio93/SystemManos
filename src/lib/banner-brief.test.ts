@@ -882,6 +882,17 @@ describe("prompt text quality", () => {
   });
 });
 
+describe("direção criativa instruída", () => {
+  it("passa na separação de conceitos com o vocabulário dos quatro eixos opostos", () => {
+    const primeira =
+      "protagonismo da oferta, fotografia publicitária de produto em plano próximo: plano fechado, detalhe ampliado, ponto focal, produto dominante e área negativa, luz lateral dramática, tipografia discreta em segundo plano, hierarquia visual liderada pela imagem";
+    const segunda =
+      "experiência da marca em composição ampla: plano aberto, visão ampla, composição ampla contextual, cena editorial, luz difusa e uniforme, tipografia como protagonista, texto que conduz a leitura";
+    expect(validatePromptConceptSeparation(primeira, segunda)).toEqual([]);
+    expect(validatePromptConceptSeparation(segunda, primeira)).toEqual([]);
+  });
+});
+
 describe("interpretação de gratuidade e higiene de metadados", () => {
   it("por conta da casa já é preço zero com cópia confirmada", () => {
     const facts = extractBannerTurnFacts("Quero um banner do café por conta da casa", {});
