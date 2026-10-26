@@ -32,6 +32,7 @@ import {
   compatibilityConfirmationQuestion,
 } from "@/lib/banner-compatibility";
 import type { BannerConversationBrief } from "@/lib/banner-brief";
+import { interpretBannerBrief } from "@/lib/banner-interpret";
 
 const BannerMessageSchema = z.object({
   role: z.enum(["user", "assistant"]),
@@ -398,7 +399,26 @@ export const askBannerAgent = createServerFn({ method: "POST" })
       // the complete user history only adds explicitly mentioned facts; it can
       // never erase a value because a later message omits it.
       const turn = resolveBannerConversationTurn(data.brief, userMessages);
-      const activeBrief = turn.brief;
+      let activeBrief = turn.brief;
+      // Interpretação pela IA: ela separa assunto, preço, dia e validade com
+      // entendimento, e o determinístico confere cada fato contra as
+      // mensagens. Qualquer falha cai para o brief determinístico.
+      try {
+        const interpreted = await interpretBannerBrief(userMessages, activeBrief, callGateway);
+        if (interpreted) {
+          const changedFields = (
+            Object.keys(interpreted) as Array<keyof BannerConversationBrief>
+          ).filter(
+            (key) => JSON.stringify(interpreted[key]) !== JSON.stringify(activeBrief[key]),
+          );
+          if (changedFields.length > 0) {
+            console.info("[BannerAgent] interpretation applied", { fields: changedFields });
+            activeBrief = interpreted;
+          }
+        }
+      } catch {
+        // Fallback silencioso: o brief determinístico segue valendo.
+      }
       const beforeState = commercialStateFromBrief(data.brief, userMessages.slice(0, -1));
       const afterState = turn.state;
       const compatibility = classifyBannerCompatibility(
