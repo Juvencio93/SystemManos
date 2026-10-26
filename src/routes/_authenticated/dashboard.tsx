@@ -48,7 +48,6 @@ import { AiAgentCard } from "@/components/app/ai-agent-card";
 import { CampanhaDestaqueCard } from "@/components/app/campanha-destaque-card";
 import { WifiVisitantesCard } from "@/components/app/wifi-visitantes-card";
 import { HotspotNetworkMap } from "@/components/app/hotspot-network-map";
-import { MonitorPreviewPanel } from "@/components/app/monitor-preview-panel";
 import { DeviceCard } from "@/components/app/dashboard/DeviceCard";
 import { PageHeader } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -830,11 +829,6 @@ function ProblemasRedeResumo() {
 }
 
 function AdminDashboard({ access }: { access: AccessInfo | null }) {
-  // UX parte 6: o painel de monitoramento abre SÓ no clique. Antes,
-  // passar o mouse sobre o card "Hotspot" abria o painel em tela cheia
-  // sem querer (overlay por hover).
-  const [hotspotExpanded, setHotspotExpanded] = useState(false);
-  const hotspotOpen = hotspotExpanded;
   const hotspotDevices = useQuery({ queryKey: ["dashboard-hotspot-devices", access?.role, access?.companyId, access?.branchId, access?.resellerId], enabled: Boolean(access?.userId), refetchInterval: 5000, refetchIntervalInBackground: true, queryFn: async () => {
     let query = (supabase as any).from("hotspot_devices").select("id,router_identity,last_seen_at,last_seen_ip,last_seen_uptime,router_version,active_sessions,rx_bytes,tx_bytes,latency_ms,packet_loss_pct,status,company_id,branch_id,reboot_requested_at,reboot_applied_at,router_applied_status,router_status_applied_at,latitude,longitude,maps_url,companies(name,trade_name,address,neighborhood,city,state,zip_code),branches(name,trade_name,address,neighborhood,city,state,zip_code)");
     if (access?.role === "revenda" && access.resellerId) {
@@ -914,37 +908,6 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
 
   const data = insights.data as Insights | undefined;
 
-  const modules = [
-    {
-      // UX parte 5: um destino, um card. "Empresas" e "Filiais" levavam
-      // os dois para /empresas — agora é um card só, com os dois números.
-      to: "/empresas",
-      label: "Empresas",
-      icon: Building2,
-      count: data?.empresasTotal,
-      countLabel: `empresas ativas · ${data?.filiaisTotal ?? 0} filiais`,
-      order: 1,
-    },
-    {
-      to: "/portais",
-      label: "Portais & QR",
-      icon: QrCode,
-      count: data?.portaisAtivos,
-      countLabel: "Portais cativos e códigos QR ativos",
-      order: 2,
-    },
-    {
-      to: "/visitantes",
-      label: "CRM",
-      icon: Users,
-      count: data?.leadsBase,
-      countLabel: "Gerencie visitantes e leads captados",
-      order: 3,
-    },
-    { to: "/financeiro", label: "Financeiro", icon: Wallet, order: 4 },
-    { to: "/relatorios", label: "Relatórios", icon: FileBarChart, order: 5 },
-    { to: "/hotspot", label: "Hotspot", icon: Wifi, count: connectedClients, countLabel: "clientes conectados agora", order: 4.5 },
-  ].sort((a, b) => a.order - b.order);
 
   return (
     <DashboardLayout
@@ -982,15 +945,6 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
       <MovimentoChart data={data} showAverage />
 
       <RankingUnidades data={data} limit={8} titulo="Empresas da rede — últimos 7 dias" entidade="empresa" />
-
-      <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {modules.map((module) => (
-          <ModuleCard key={module.label} module={module} isLoading={module.label === "Hotspot" ? hotspotDevices.isLoading : insights.isLoading} {...(module.label === "Hotspot" ? { onHotspotClick: () => setHotspotExpanded((value) => !value) } : {})} />
-        ))}
-      </div>
-      {hotspotOpen && (access?.role === "adm"
-        ? <MonitorPreviewPanel devices={hotspotDevices.data ?? []} isLoading={hotspotDevices.isLoading} overlay={hotspotExpanded} onClose={() => setHotspotExpanded(false)} onMouseLeave={() => {}} />
-        : <NetworkMapPanel devices={hotspotDevices.data ?? []} isLoading={hotspotDevices.isLoading} overlay={hotspotExpanded} onClose={() => setHotspotExpanded(false)} onMouseLeave={() => {}} />)}
 
     </DashboardLayout>
   );
