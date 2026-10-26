@@ -1944,6 +1944,26 @@ export function validatePromptConceptSeparation(first: string, second: string) {
     ];
   }
 
+  // Fundos iguais derrubam a diferença visual: duas peças com o mesmo fundo
+  // escuro (ou claro) renderizam quase iguais mesmo com eixos opostos. Só
+  // reprova quando AMBAS declaram o mesmo lado; sem declaração, não julga.
+  const darkBg = (value: string) =>
+    /\b(?:fundo\s+(?:escuro|preto|profundo)|superficie\s+escura)\b/u.test(value);
+  const lightBg = (value: string) =>
+    /\b(?:fundo\s+(?:claro|branco|bege|creme)|superficie\s+clara)\b/u.test(value);
+  if (
+    (darkBg(normalizedFirst) && darkBg(normalizedSecond)) ||
+    (lightBg(normalizedFirst) && lightBg(normalizedSecond))
+  ) {
+    return [
+      {
+        reason: "SIMILAR_PROMPT_CONCEPTS",
+        detail:
+          "As opções precisam ter fundos distintos: uma com fundo escuro, outra com fundo claro.",
+      },
+    ];
+  }
+
   const stopWords = new Set([
     "para",
     "com",

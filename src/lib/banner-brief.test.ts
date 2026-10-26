@@ -919,6 +919,17 @@ describe("direção criativa instruída", () => {
     expect(validatePromptConceptSeparation(primeira, segunda)).toEqual([]);
     expect(validatePromptConceptSeparation(segunda, primeira)).toEqual([]);
   });
+  it("reprova duas opções com o mesmo fundo e aprova fundo escuro × claro", () => {
+    const primeira =
+      "protagonismo da oferta, fotografia publicitária de produto em plano próximo: plano fechado, detalhe ampliado, ponto focal, produto dominante e área negativa, luz lateral dramática, tipografia discreta em segundo plano, hierarquia visual liderada pela imagem, fundo escuro";
+    const segundaClara =
+      "experiência da marca em composição ampla: plano aberto, visão ampla, composição ampla contextual, cena editorial, luz difusa e uniforme, tipografia como protagonista, texto que conduz a leitura, fundo claro";
+    const segundaEscura = segundaClara.replace("fundo claro", "fundo escuro");
+    expect(validatePromptConceptSeparation(primeira, segundaClara)).toEqual([]);
+    expect(validatePromptConceptSeparation(primeira, segundaEscura)).toContainEqual(
+      expect.objectContaining({ reason: "SIMILAR_PROMPT_CONCEPTS" }),
+    );
+  });
 });
 
 describe("interpretação de gratuidade e higiene de metadados", () => {
