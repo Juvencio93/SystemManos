@@ -114,6 +114,19 @@ export function parseBannerInterpretation(text: string): BannerInterpretation | 
 export function isFactContaminatedSubject(subject: string | undefined): boolean {
   if (!subject) return false;
   const n = normalize(subject);
+  // Assunto feito só de palavras funcionais ("toda") não é produto: veio de
+  // resíduo de resposta de dia/recorrência. Conta como contaminado para a
+  // interpretação da IA vencer o determinístico.
+  const functionWords = new Set([
+    "toda", "todo", "todas", "todos", "tota",
+    "para", "pela", "pelo", "com", "sem", "sobre", "entre", "cada",
+    "nesta", "neste", "nessa", "nesse", "das", "dos", "uma", "uns", "umas",
+    "aos", "ao", "os", "as", "de", "da", "do", "em", "na", "no", "que", "e",
+    "um", "a", "o", "por", "seu", "sua", "seus", "suas", "meu", "minha",
+    "nos", "nas", "nosso", "nossa",
+  ]);
+  const words = n.split(/\s+/).filter(Boolean);
+  if (words.length > 0 && words.every((word) => functionWords.has(word))) return true;
   if (/\d+\s*,\s*\d{1,2}/.test(subject)) return true;
   if (/\br\$\s*\d/.test(subject)) return true;
   if (/\b\d+\s*(reais|pila|money)\b/.test(n)) return true;

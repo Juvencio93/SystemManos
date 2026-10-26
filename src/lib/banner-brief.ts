@@ -918,6 +918,11 @@ function extractCommercialSubject(message: string) {
       "",
     )
     .replace(/^\s*,\s*/u, "")
+    // Resíduo só de recorrência ("toda" de "toda quarta feira", "tota" do
+    // typo) não é produto: mensagem que só responde dia/recorrência nunca
+    // pode virar assunto e expulsar o assunto anterior.
+    .replace(/^\s*(?:toda|todo|todas|todos|tota)\b\s*/iu, "")
+    .replace(/\s+(?:toda|todo|todas|todos|tota)\b\s*$/iu, "")
     .trim();
   return normalized.length >= 2 &&
     !/^(?:(?:como\s+)?(?:criar|fazer|montar)\s+)?(?:um(?:a)?\s+)?(?:banner|arte|imagem)(?:\s+de)?\s+(?:promo(?:ç|c)[aã]o|oferta)(?:\s+da\s+semana)?$/iu.test(
@@ -1762,13 +1767,29 @@ export function validatePromptOfferTexts(
     .map((m) => m[1]?.trim())
     .filter((t): t is string => Boolean(t && t.length > 0))
     .join(" ");
+  // Palavras que nunca anunciam um produto sozinhas. Um item feito só delas
+  // ("toda") é brief quebrado, não oferta — reprovar aqui impede que ele
+  // passe por substring do dia ("TODA QUARTA-FEIRA").
+  const functionWords = new Set([
+    "toda", "todo", "todas", "todos", "tota",
+    "para", "pela", "pelo", "com", "sem", "sobre", "entre", "cada",
+    "nesta", "neste", "nessa", "nesse", "das", "dos", "uma", "uns", "umas",
+    "aos", "ao", "os", "as", "de", "da", "do", "em", "na", "no", "que", "e",
+    "um", "a", "o", "por", "seu", "sua", "seus", "suas", "meu", "minha",
+    "nos", "nas", "nosso", "nossa",
+  ]);
   const mainItem = required.items?.[0];
   if (mainItem) {
     const words = normalizedWords(mainItem)
       .split(/\s+/u)
       .filter((word) => word.length > 3);
     const hay = normalizedWords(quoted);
-    if (words.length > 0 && !words.some((word) => hay.includes(word))) {
+    if (words.length > 0 && words.every((word) => functionWords.has(word))) {
+      violations.push({
+        reason: "MISSING_OFFER_TEXT",
+        detail: `O item obrigatório "${mainItem}" não tem palavra anunciável para o texto do banner — o assunto do pedido foi perdido; inclua o produto ou evento real nos textos entre aspas.`,
+      });
+    } else if (words.length > 0 && !words.some((word) => hay.includes(word))) {
       violations.push({
         reason: "MISSING_OFFER_TEXT",
         detail: `O texto do banner precisa anunciar a oferta "${mainItem}" — inclua uma dessas palavras nos textos entre aspas: ${words.join(", ")}.`,

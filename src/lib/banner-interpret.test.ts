@@ -34,6 +34,8 @@ describe("interpretação da conversa pela IA", () => {
     ).toBe(true);
     expect(isFactContaminatedSubject("Cucas diversos sabores por 14,99")).toBe(true);
     expect(isFactContaminatedSubject("festival de cucas")).toBe(false);
+    expect(isFactContaminatedSubject("toda")).toBe(true);
+    expect(isFactContaminatedSubject("Tota")).toBe(true);
     expect(isFactContaminatedSubject(undefined)).toBe(false);
   });
 

@@ -989,6 +989,38 @@ describe("palavra do evento nos textos", () => {
   });
 });
 
+describe("resposta só de dia não vira assunto (caso cuca/toda)", () => {
+  it("extrai dia e recorrência de 'toda quarta feira' sem criar assunto", () => {
+    const facts = extractBannerTurnFacts("toda quarta feira");
+    expect(facts.subject).toBeUndefined();
+    expect(facts.weekday).toBe("quarta-feira");
+    expect(facts.recurrence).toBe("WEEKLY");
+  });
+  it("typo 'Tota quarta feira' também não vira assunto", () => {
+    const facts = extractBannerTurnFacts("Tota quarta feira");
+    expect(facts.subject).toBeUndefined();
+    expect(facts.weekday).toBe("quarta-feira");
+  });
+  it("merge mantém 'festival de cucas' quando a resposta é só o dia", () => {
+    const merged = mergeBannerConversationBrief(
+      { subject: "festival de cucas", offerItems: ["festival de cucas"] },
+      extractBannerTurnFacts("toda quarta feira"),
+    );
+    expect(merged.subject).toBe("festival de cucas");
+    expect(merged.offerItems).toEqual(["festival de cucas"]);
+    expect(merged.weekday).toBe("quarta-feira");
+    expect(merged.recurrence).toBe("WEEKLY");
+  });
+  it("validador reprova item feito só de palavra funcional", () => {
+    expect(
+      validatePromptOfferTexts('Textos: "TODA QUARTA-FEIRA".', {
+        items: ["toda"],
+        scope: "confirmed" as const,
+      }),
+    ).toContainEqual(expect.objectContaining({ reason: "MISSING_OFFER_TEXT" }));
+  });
+});
+
 describe("assunto não vira fato", () => {
   it("resposta tudo junto não substitui o assunto nem vira item", () => {
     const facts = extractBannerTurnFacts(
