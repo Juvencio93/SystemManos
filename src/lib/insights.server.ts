@@ -143,6 +143,7 @@ export async function computeInsights(
     leadsNovosRes,
     activeCompaniesCountRes,
     activeEventsCountRes,
+    companiesDataRes,
   ] = await Promise.all([
     connectionQuery.limit(20000),
     campaignQuery,
@@ -194,10 +195,13 @@ export async function computeInsights(
       .from("events")
       .select("id", { count: "exact", head: true })
       .in("status", ["ativo", "planejado"]),
+    role === "adm"
+      ? supabase.from("companies").select("id, name, trade_name, legal_name, status, blocked")
+      : Promise.resolve({ data: [] }),
   ]);
 
   const branches = branchesDataRes.data ?? [];
-  const { getBranchDisplayName } = await import("@/lib/name-utils");
+  const { getBranchDisplayName, getCompanyDisplayName } = await import("@/lib/name-utils");
   const branchNameMap = new Map(branches.map((b) => [b.id, getBranchDisplayName(b)]));
 
   const rows = connectionsRes.data ?? [];
@@ -359,7 +363,7 @@ export async function computeInsights(
       if (b.company_id === companyId && !b.is_headquarters) chavesUnidades.add(b.id);
     }
   }
-  const rankingUnidades: UnidadeRanking[] = [...chavesUnidades]
+  let rankingUnidades: UnidadeRanking[] = [...chavesUnidades]
     .map((chave) => ({
       chave,
       nome: chave === "matriz" ? "Matriz" : (branchNameMap.get(chave) ?? "Unidade"),
@@ -367,6 +371,34 @@ export async function computeInsights(
       acessosSemanaAnterior: fonteSemanaAnterior.get(chave) ?? 0,
     }))
     .sort((a, b) => b.acessosSemana - a.acessosSemana || b.acessosSemanaAnterior - a.acessosSemanaAnterior);
+
+  // ADM: o ranking é por EMPRESA, não por unidade. A chave "matriz" do
+  // ranking por unidade soma os acessos de todas as matrizes da rede
+  // (branch_id nulo) — por isso o ADM via um "Matriz" sem empresa.
+  // Aqui cada linha é uma empresa ativa, com o total da empresa na semana
+  // (matriz + filiais), incluindo as zeradas.
+  if (role === "adm") {
+    const empresaSemana = new Map<string, number>();
+    const empresaSemanaAnterior = new Map<string, number>();
+    for (const row of rows) {
+      const cid = (row as any).company_id as string | null;
+      if (!cid) continue;
+      const ms = new Date(row.created_at).getTime();
+      if (ms >= weekStart) empresaSemana.set(cid, (empresaSemana.get(cid) ?? 0) + 1);
+      else if (ms >= prevWeekStart) empresaSemanaAnterior.set(cid, (empresaSemanaAnterior.get(cid) ?? 0) + 1);
+    }
+    const empresas = ((companiesDataRes as any).data ?? []).filter(
+      (c: any) => c.status === "ativa" && !c.blocked,
+    );
+    rankingUnidades = empresas
+      .map((c: any) => ({
+        chave: c.id,
+        nome: getCompanyDisplayName(c),
+        acessosSemana: empresaSemana.get(c.id) ?? 0,
+        acessosSemanaAnterior: empresaSemanaAnterior.get(c.id) ?? 0,
+      }))
+      .sort((a, b) => b.acessosSemana - a.acessosSemana || b.acessosSemanaAnterior - a.acessosSemanaAnterior);
+  }
 
   const topCampSemana = [...campanhaSemanaTotais.entries()].sort((a, b) => b[1] - a[1])[0];
   const topCampanhaSemana = topCampSemana
