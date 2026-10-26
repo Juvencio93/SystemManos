@@ -1719,6 +1719,52 @@ export type TextQualityViolation = {
  * ou vagos ("texto sobre a promoção") quase sempre saem com letras
  * bagunçadas — o validador prefere encurtar.
  */
+export type OfferTextViolation = {
+  reason: "MISSING_OFFER_TEXT";
+  detail: string;
+};
+
+/**
+ * O banner precisa VENDER a oferta: o nome do produto e o preço confirmado
+ * têm que aparecer nos textos entre aspas (o que o cliente lê). Metadados
+ * certos com texto errado (ex.: cuca virando pão, preço sumindo) passam nos
+ * outros validadores — este fecha esse buraco.
+ */
+export function validatePromptOfferTexts(
+  prompt: string,
+  required: RequiredOfferFacts,
+): OfferTextViolation[] {
+  const violations: OfferTextViolation[] = [];
+  const quoted = [...prompt.matchAll(/["“]([^"”]{1,200})["”]/g)]
+    .map((m) => m[1]?.trim())
+    .filter((t): t is string => Boolean(t && t.length > 0))
+    .join(" ");
+  const mainItem = required.items?.[0];
+  if (mainItem) {
+    const words = normalizedWords(mainItem)
+      .split(/\s+/u)
+      .filter((word) => word.length > 3);
+    const hay = normalizedWords(quoted);
+    if (words.length > 0 && !words.some((word) => hay.includes(word))) {
+      violations.push({
+        reason: "MISSING_OFFER_TEXT",
+        detail: `O texto do banner precisa anunciar a oferta "${mainItem}" — inclua uma dessas palavras nos textos entre aspas: ${words.join(", ")}.`,
+      });
+    }
+  }
+  if (required.price !== undefined && required.price > 0) {
+    const br = required.price.toFixed(2).replace(".", ",");
+    const us = required.price.toFixed(2);
+    if (!quoted.includes(br) && !quoted.includes(us)) {
+      violations.push({
+        reason: "MISSING_OFFER_TEXT",
+        detail: `O texto do banner precisa mostrar o preço R$ ${br} entre aspas.`,
+      });
+    }
+  }
+  return violations;
+}
+
 export function validatePromptTextQuality(prompt: string): TextQualityViolation[] {
   const violations: TextQualityViolation[] = [];
   const quoted = [...prompt.matchAll(/["“]([^"”]{1,200})["”]/g)]

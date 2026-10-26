@@ -33,7 +33,7 @@ import {
   validatePromptTextQuality,
   visualPolicy,
   validateSecondPromptCommercialDirection,
-} from "./banner-brief";
+  validatePromptOfferTexts,} from "./banner-brief";
 
 describe("banner briefing engine", () => {
   it("retains product/unit and accepts a later price", () => {
@@ -879,6 +879,34 @@ describe("prompt text quality", () => {
     expect(violations).toContainEqual(
       expect.objectContaining({ reason: "VAGUE_TEXT_INSTRUCTION" }),
     );
+  });
+});
+
+describe("textos da oferta no banner", () => {
+  const required = {
+    items: ["festival de cucas"],
+    price: 14.99,
+    scope: "confirmed" as const,
+  };
+  it("reprova textos que trocam a cuca por pão e escondem o preço", () => {
+    const prompt =
+      'Banner. Textos exatos: título "TODA QUARTA-FEIRA"; abaixo "PÃO QUENTINHO"; CTA "PEÇA AGORA". Um pão dourado em primeiro plano.';
+    const violations = validatePromptOfferTexts(prompt, required);
+    expect(violations.map((v) => v.reason)).toEqual([
+      "MISSING_OFFER_TEXT",
+      "MISSING_OFFER_TEXT",
+    ]);
+  });
+  it("aprova textos com o nome da oferta e o preço", () => {
+    const prompt =
+      'Banner. Textos exatos: título "FESTIVAL DE CUCAS"; abaixo "CUCAS DIVERSOS SABORES POR R$ 14,99"; CTA "PEÇA AGORA". Cucas variadas em primeiro plano.';
+    expect(validatePromptOfferTexts(prompt, required)).toEqual([]);
+  });
+  it("não exige preço de oferta gratuita", () => {
+    const prompt = 'Banner. Textos exatos: título "FESTIVAL DE CUCAS"; CTA "PEÇA AGORA".';
+    expect(
+      validatePromptOfferTexts(prompt, { items: ["festival de cucas"], price: 0, scope: "confirmed" }),
+    ).toEqual([]);
   });
 });
 
