@@ -918,6 +918,8 @@ function extractCommercialSubject(message: string) {
       "",
     )
     .replace(/^\s*,\s*/u, "")
+    // Unidade ("a unidade", "por porção") é atributo, não produto.
+    .replace(/(?:\s+(?:a|por)\s+(?:unidade|por[çc][aã]o|pessoa))\s*$/iu, "")
     // Resíduo só de recorrência ("toda" de "toda quarta feira", "tota" do
     // typo) não é produto: mensagem que só responde dia/recorrência nunca
     // pode virar assunto e expulsar o assunto anterior.
@@ -1031,11 +1033,27 @@ export function mergeBannerConversationBrief(
   previous: BannerConversationBrief,
   facts: BannerTurnFacts,
 ): BannerConversationBrief {
-  const subject = facts.subject !== undefined ? facts.subject : previous.subject;
+  // Uma mensagem que só adiciona atributos (preço, unidade, dia, validade)
+  // a um assunto já estabelecido não troca o assunto: "Varios sabores,
+  // valor 14,99 a unidade" não pode expulsar "Festival de cucas". Só troca
+  // quando ainda não há assunto ou quando a mensagem não traz nenhum outro
+  // fato (troca seca de produto, ex.: "coxinha").
+  const carriesOtherFacts =
+    facts.price !== undefined ||
+    facts.pricedItems !== undefined ||
+    facts.priceUnit !== undefined ||
+    facts.unit !== undefined ||
+    facts.validity !== undefined ||
+    facts.weekday !== undefined ||
+    facts.time !== undefined ||
+    facts.commercialCondition !== undefined;
+  const replacesSubject =
+    facts.subject !== undefined && (previous.subject === undefined || !carriesOtherFacts);
+  const subject = replacesSubject ? facts.subject : previous.subject;
   return {
     ...previous,
-    ...(facts.subject !== undefined ? { subject: facts.subject } : {}),
-    ...(facts.subject !== undefined ? { offerItems: extractOfferItems(subject) } : {}),
+    ...(replacesSubject ? { subject: facts.subject } : {}),
+    ...(replacesSubject ? { offerItems: extractOfferItems(subject) } : {}),
     ...(facts.objective !== undefined ? { objective: facts.objective } : {}),
     ...(facts.mandatoryTexts !== undefined ? { mandatoryTexts: facts.mandatoryTexts } : {}),
     ...(facts.price !== undefined ? { price: facts.price } : {}),

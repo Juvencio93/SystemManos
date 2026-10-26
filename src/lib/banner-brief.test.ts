@@ -990,6 +990,42 @@ describe("palavra do evento nos textos", () => {
   });
 });
 
+describe("atributo não expulsa assunto estabelecido", () => {
+  it("sabores + preço mantêm 'Festival de cucas' e atualizam preço/unidade", () => {
+    const merged = mergeBannerConversationBrief(
+      { subject: "Festival de cucas", offerItems: ["Festival de cucas"] },
+      extractBannerTurnFacts("Varios sabores, valor 14,99 a unidade"),
+    );
+    expect(merged.subject).toBe("Festival de cucas");
+    expect(merged.offerItems).toEqual(["Festival de cucas"]);
+    expect(merged.price).toBe(14.99);
+  });
+  it("resposta só de dia mantém o assunto anterior", () => {
+    const merged = mergeBannerConversationBrief(
+      { subject: "Festival de cucas", offerItems: ["Festival de cucas"] },
+      extractBannerTurnFacts("vai acontecer toda quarta feira"),
+    );
+    expect(merged.subject).toBe("Festival de cucas");
+    expect(merged.weekday).toBe("quarta-feira");
+  });
+  it("primeira definição com outros fatos ainda cria o assunto", () => {
+    const merged = mergeBannerConversationBrief(
+      {},
+      { subject: "Festival de cucas", price: 14.99, weekday: "quarta-feira" },
+    );
+    expect(merged.subject).toBe("Festival de cucas");
+    expect(merged.price).toBe(14.99);
+  });
+  it("troca seca de produto (sem outros fatos) continua trocando", () => {
+    const merged = mergeBannerConversationBrief(
+      { subject: "bolo", offerItems: ["bolo"] },
+      { subject: "coxinha" },
+    );
+    expect(merged.subject).toBe("coxinha");
+    expect(merged.offerItems).toEqual(["coxinha"]);
+  });
+});
+
 describe("contraste tipográfico entre as opções", () => {
   it("aprova serifada na primeira e sem serifa extrabold na segunda", () => {
     expect(
