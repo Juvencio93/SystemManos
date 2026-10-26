@@ -1168,7 +1168,7 @@ function RankingUnidades({ data, limit, titulo, entidade }: { data: Insights | u
   if (!data) return null;
   // Sem filiais, o ranking teria uma única linha (a própria matriz) —
   // nesse caso o card não informa nada e nem aparece.
-  if (exibidas.length === 1 && exibidas[0].chave === "matriz") return null;
+  if (exibidas.length === 1 && exibidas[0]?.chave === "matriz") return null;
   return (
     <Card className="mb-10">
       <CardHeader>
