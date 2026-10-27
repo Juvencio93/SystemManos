@@ -329,8 +329,8 @@ const recipes: Record<PortalVisualStyle, Recipe> = {
   /** Profundo, neutro e sofisticado: linhas finas, sombras suaves, nada de neon. */
   elegante: {
     rootClass: "portal-theme-elegante",
-    cardClass: "rounded-xl border",
-    panelClass: "rounded-lg border",
+    cardClass: "rounded-lg border",
+    panelClass: "rounded-md border",
     buttonClass: "rounded-lg border font-medium uppercase tracking-[0.16em]",
     bannerClass: "rounded-lg border",
     sectionGapClass: "space-y-7 max-sm:space-y-5",
