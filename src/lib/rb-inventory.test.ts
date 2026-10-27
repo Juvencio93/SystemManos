@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { assignmentAllowsAccess, grantMatchesAssignment, type InventoryDevice } from "./rb-inventory";
+import { assignmentAllowsAccess, grantMatchesAssignment, inventorySection, normalizeMac, stockCardTitle, type InventoryDevice } from "./rb-inventory";
 import { assignmentCleanupScript, assignmentSignature, validAssignmentSignature } from "./rb-assignment.server";
 import { hasAssignedRouterAuth, hotspotRouterToken } from "./hotspot-router-auth";
 
@@ -44,5 +44,29 @@ describe("RB assignment isolation",()=>{
     expect(script).toContain(hotspotRouterToken(d.router_identity,2));
     expect(script).not.toMatch(/reset-configuration|\/interface.*remove|\/ip address.*remove/);
     expect(()=>assignmentCleanupScript('MT-X"; /system reset-configuration',2)).toThrow();
+  });
+});
+
+describe("Estoque de RBs por MAC",()=>{
+  it("normaliza o MAC para maiúsculo com dois-pontos ou rejeita",()=>{
+    expect(normalizeMac("cc:2d:e0:3b:d1:ef")).toBe("CC:2D:E0:3B:D1:EF");
+    expect(normalizeMac("CC-2D-E0-3B-D1-EF")).toBe("CC:2D:E0:3B:D1:EF");
+    expect(normalizeMac("cc2de03bd1ef")).toBe("CC:2D:E0:3B:D1:EF");
+    expect(normalizeMac("CC:2D:E0")).toBe(null);
+    expect(normalizeMac("")).toBe(null);
+    expect(normalizeMac(null)).toBe(null);
+  });
+  it("separa estoque (zerada ou aguardando) de operacional",()=>{
+    for(const status of ["stock","transfer_pending","verifying","awaiting_homologation","awaiting_provisioning"])
+      expect(inventorySection({status})).toBe("stock");
+    for(const status of ["operational","blocked","error"])
+      expect(inventorySection({status})).toBe("operational");
+  });
+  it("mostra o MAC no cartão em estoque sem destino, e o nome quando há destino",()=>{
+    const stock = {...d, company_id:null, hotspot_config_id:null, inventory_label:null, ap_mac:"CC:2D:E0:3B:D1:EF", status:"stock"};
+    expect(stockCardTitle(stock)).toBe("CC:2D:E0:3B:D1:EF");
+    expect(stockCardTitle({...stock, ap_mac:null})).toBe("RB sem MAC");
+    expect(stockCardTitle({...d, inventory_label:"Padaria Barão"})).toBe("Padaria Barão");
+    expect(stockCardTitle({...d, inventory_label:null})).toBe("MT-RB000001");
   });
 });

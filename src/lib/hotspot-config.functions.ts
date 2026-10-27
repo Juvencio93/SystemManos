@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Database } from "@/integrations/supabase/types";
+import { normalizeMac } from "./rb-inventory";
 
 const targetSchema = z.object({
   kind: z.enum(["company", "branch"]),
@@ -254,7 +255,31 @@ export const saveHotspotConfig = createServerFn({ method: "POST" })
     const { data: existing, error: lookupError } = await existingQuery.maybeSingle();
     if (lookupError) throw new Error("Não foi possível localizar a configuração atual.");
 
-    if (data.routerIdentity) {
+    // Anexar o MAC de uma RB em estoque transfere a RB automaticamente para
+    // este destino (o MAC manda; a identidade digitada, se houver, é ignorada).
+    // Sem MAC em estoque, o fluxo antigo continua valendo.
+    const macNorm = data.vendor === "mikrotik_hotspot" ? normalizeMac(data.apMac) : null;
+    let linkedDeviceId: string | null = null;
+    if (existing) {
+      const { data: linked } = await (supabaseAdmin as any).from("hotspot_devices").select("id").eq("hotspot_config_id", existing.id).maybeSingle();
+      linkedDeviceId = linked?.id ?? null;
+    }
+    const tryAssignFromStock = async (configId: string): Promise<"assigned" | "not-in-stock"> => {
+      const { error } = await (supabaseAdmin as any).rpc("manage_hotspot_inventory", {
+        p_actor: context.userId, p_action: "assign_by_mac", p_config: configId, p_mac: macNorm,
+      });
+      if (!error) return "assigned";
+      if (error.message.includes("não está no estoque")) return "not-in-stock";
+      throw new Error(error.message);
+    };
+    let assigned = false;
+    let assignAttempted = false;
+    if (macNorm && !linkedDeviceId && existing) {
+      assignAttempted = true;
+      assigned = (await tryAssignFromStock(existing.id)) === "assigned";
+    }
+
+    if (data.routerIdentity && !assigned && !(macNorm && !existing)) {
       const { data: physical, error: physicalError } = await (supabaseAdmin as any).from("hotspot_devices")
         .select("hotspot_config_id").eq("router_identity", data.routerIdentity).maybeSingle();
       if (physicalError || !physical || physical.hotspot_config_id !== existing?.id) {
@@ -288,7 +313,15 @@ export const saveHotspotConfig = createServerFn({ method: "POST" })
       throw new Error("Não foi possível salvar a configuração do equipamento.");
     }
 
-    if (data.vendor === "mikrotik_hotspot" && data.routerIdentity) {
+    // Config nova: só aqui existe o id para atribuir. Sem MAC em estoque e com
+    // identidade digitada, a configuração fica salva sem vínculo (o erro abaixo
+    // orienta a cadastrar a RB no estoque e salvar de novo).
+    if (macNorm && !linkedDeviceId && !assigned && !assignAttempted) {
+      assigned = (await tryAssignFromStock(result.data.id)) === "assigned";
+      if (!assigned && data.routerIdentity) throw new Error("Use o Estoque de RBs para cadastrar ou transferir este equipamento.");
+    }
+
+    if (data.vendor === "mikrotik_hotspot" && data.routerIdentity && !assigned) {
       const devicePayload = {
         hotspot_config_id: result.data.id,
         company_id: scope.companyId,
@@ -311,11 +344,13 @@ export const saveHotspotConfig = createServerFn({ method: "POST" })
       success: true,
       config: toPublicConfig(result.data),
       message:
-        data.vendor === "test"
-          ? "Configuração salva em modo de simulação."
-          : isOperational
-            ? "Configuração salva. A nova política vale a partir do próximo check-in."
-            : "Configuração salva, mas a liberação para visitantes ainda não está ativa.",
+        assigned
+          ? "RB saiu do estoque e está aguardando homologação."
+          : data.vendor === "test"
+            ? "Configuração salva em modo de simulação."
+            : isOperational
+              ? "Configuração salva. A nova política vale a partir do próximo check-in."
+              : "Configuração salva, mas a liberação para visitantes ainda não está ativa.",
     };
   });
 
