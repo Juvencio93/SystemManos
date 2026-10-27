@@ -305,7 +305,7 @@ const recipes: Record<PortalVisualStyle, Recipe> = {
   /** Camadas suaves, transparência e profundidade discreta. Cor só em ações. */
   moderno: {
     rootClass: "portal-theme-moderno",
-    cardClass: "rounded-3xl border backdrop-blur-xl",
+    cardClass: "rounded-[20px] border backdrop-blur-xl",
     panelClass: "rounded-2xl border",
     buttonClass: "rounded-2xl font-semibold tracking-tight",
     bannerClass: "rounded-3xl border",
@@ -316,7 +316,7 @@ const recipes: Record<PortalVisualStyle, Recipe> = {
       `radial-gradient(1100px 480px at 50% -20%, ${p.primary}26, transparent 70%), linear-gradient(180deg, ${p.bgAlt} 0%, ${p.bg} 78%)`,
     cardBackground: (p) => `linear-gradient(160deg, ${p.surfaceAlt}e6 0%, ${p.surface}f2 100%)`,
     cardBorder: (p) => `${p.border}99`,
-    cardShadow: () => `0 24px 60px -34px rgba(0,0,0,.85)`,
+    cardShadow: (p) => `0 18px 44px -24px rgba(0,0,0,.54), 0 0 0 1px ${p.primary}16`,
     panelBackground: (p) => `${p.surfaceAlt}b3`,
     panelBorder: (p) => `${p.border}80`,
     buttonBase: (p) => p.primary,
@@ -331,23 +331,23 @@ const recipes: Record<PortalVisualStyle, Recipe> = {
     rootClass: "portal-theme-elegante",
     cardClass: "rounded-xl border",
     panelClass: "rounded-lg border",
-    buttonClass: "rounded-lg font-medium uppercase tracking-[0.16em]",
+    buttonClass: "rounded-lg border font-medium uppercase tracking-[0.16em]",
     bannerClass: "rounded-lg border",
     sectionGapClass: "space-y-7 max-sm:space-y-5",
     inputClass: "rounded-md border",
     labelClass: "text-[10px] font-medium uppercase tracking-[0.24em]",
     background: (p) =>
       `radial-gradient(760px 380px at 50% -12%, ${p.primary}26, transparent 68%), linear-gradient(168deg, ${mix(p.bg, BLACK, 0.3)} 0%, ${p.bg} 65%, ${mix(p.bg, BLACK, 0.5)} 100%)`,
-    cardBackground: (p) => `linear-gradient(168deg, ${p.surface} 0%, ${mix(p.surface, BLACK, 0.4)} 100%)`,
-    cardBorder: (p) => `${p.border}b3`,
-    cardShadow: () => `0 22px 50px -32px rgba(0,0,0,.95)`,
-    panelBackground: (p) => `${mix(p.surface, BLACK, 0.3)}d9`,
+    cardBackground: () => "transparent",
+    cardBorder: (p) => `${p.border}99`,
+    cardShadow: () => "none",
+    panelBackground: () => "transparent",
     panelBorder: (p) => `${p.border}80`,
     buttonBase: (p) => p.accent,
-    buttonBackground: (base) => base,
-    buttonShadow: () => `0 14px 28px -20px rgba(0,0,0,.9)`,
+    buttonBackground: () => "transparent",
+    buttonShadow: () => "none",
     bannerBorder: (p) => `${p.border}99`,
-    inputBackground: (p) => mix(p.bg, BLACK, 0.2),
+    inputBackground: () => "transparent",
     inputBorder: (p) => `${p.border}b3`,
   },
   /** Limpo e espaçado: quase sem sombra e sem borda, destaque só nas ações. */
@@ -377,7 +377,7 @@ const recipes: Record<PortalVisualStyle, Recipe> = {
   /** Intenso e publicitário: gradiente profundo da cor, blocos e contraste alto. */
   vibrante: {
     rootClass: "portal-theme-vibrante",
-    cardClass: "rounded-[1.75rem] border-2 backdrop-blur-xl",
+    cardClass: "rounded-[24px] border-2 backdrop-blur-xl",
     panelClass: "rounded-2xl border",
     buttonClass: "rounded-2xl font-black uppercase tracking-wide",
     bannerClass: "rounded-[1.5rem] border-2",
@@ -411,6 +411,7 @@ export function portalTheme(appearance: PortalAppearance): PortalTheme {
   const buttonBase = recipe.buttonBase(base);
   const buttonText = readableOn(buttonBase);
   const disabledBg = mix(buttonBase, base.bg, 0.34);
+  const isElegant = appearance.visualStyle === "elegante";
   const accentOn = ensureContrast(base.accent, base.surface);
   const primaryOn = ensureContrast(base.primary, base.surface);
 
@@ -487,15 +488,15 @@ export function portalTheme(appearance: PortalAppearance): PortalTheme {
     buttonStyle: {
       background: recipe.buttonBackground(buttonBase, base),
       boxShadow: recipe.buttonShadow(buttonBase),
-      color: pal.buttonText,
-      borderColor: "transparent",
+      color: isElegant ? pal.accentOn : pal.buttonText,
+      borderColor: isElegant ? pal.accentOn : "transparent",
       opacity: 1,
     },
     buttonDisabledStyle: {
-      background: pal.buttonDisabledBg,
+      background: isElegant ? "transparent" : pal.buttonDisabledBg,
       boxShadow: "none",
-      color: pal.buttonDisabledText,
-      borderColor: "transparent",
+      color: isElegant ? pal.accentOn : pal.buttonDisabledText,
+      borderColor: isElegant ? pal.border : "transparent",
       /* Nunca cinza lavado: mistura opaca da cor principal com o fundo. */
       opacity: 1,
     },
