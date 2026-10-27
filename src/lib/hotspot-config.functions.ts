@@ -195,7 +195,7 @@ export const getMikrotikProvisioning = createServerFn({ method: "GET" })
     configQuery = scope.branchId ? configQuery.eq("branch_id", scope.branchId) : configQuery.is("branch_id", null);
     const { data: config } = await configQuery.maybeSingle();
     if (!config || !["mikrotik_hotspot", "mikrotik"].includes(config.vendor)) {
-      throw new Error("Salve primeiro uma configuração MikroTik para esta unidade.");
+      throw new Error("Salve primeiro uma configuração de Wi-Fi para esta unidade.");
     }
 
     const { data: existing } = await (supabaseAdmin as any)
@@ -205,7 +205,7 @@ export const getMikrotikProvisioning = createServerFn({ method: "GET" })
       .maybeSingle();
     if (existing) return { routerIdentity: existing.router_identity as string, status: existing.status as string };
 
-    throw new Error("Cadastre a RB no Estoque e atribua este destino antes de baixar a ativação.");
+    throw new Error("Cadastre o equipamento no Estoque e atribua este destino antes de baixar a ativação.");
   });
 
 export const saveHotspotConfig = createServerFn({ method: "POST" })
@@ -302,7 +302,7 @@ export const saveHotspotConfig = createServerFn({ method: "POST" })
         ? await (supabaseAdmin as any).from("hotspot_devices").update(devicePayload).eq("id", existingDevice.id)
         : await (supabaseAdmin as any).from("hotspot_devices").insert(devicePayload);
       const deviceError = deviceResult.error;
-      if (deviceError) throw new Error("Configuração salva, mas não foi possível cadastrar a RB.");
+      if (deviceError) throw new Error("Configuração salva, mas não foi possível concluir a ativação do Wi-Fi.");
     }
 
     const isOperational = record.status === "operational" && record.is_active === true;
@@ -314,8 +314,8 @@ export const saveHotspotConfig = createServerFn({ method: "POST" })
         data.vendor === "test"
           ? "Configuração salva em modo de simulação."
           : isOperational
-            ? "Configuração salva. A RB está operacional e a nova política será aplicada no próximo check-in."
-            : "Configuração técnica salva. A liberação real continua desativada até a homologação.",
+            ? "Configuração salva. A nova política vale a partir do próximo check-in."
+            : "Configuração salva, mas a liberação para visitantes ainda não está ativa.",
     };
   });
 
@@ -345,7 +345,7 @@ export const cancelHotspotHomologation = createServerFn({ method: "POST" })
       .select("id,assignment_version")
       .eq("hotspot_config_id", configId)
       .maybeSingle();
-    if (physicalLookupError) throw new Error("Não foi possível localizar a RB para cancelar a homologação.");
+    if (physicalLookupError) throw new Error("Não foi possível localizar o equipamento para cancelar a homologação.");
 
     if (physical) {
       // A canceled assignment must be detached from this customer, including legacy
@@ -377,7 +377,7 @@ export const activateHotspotHomologation = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: physical } = await (supabaseAdmin as any).from("hotspot_devices").select("id,assignment_version").eq("hotspot_config_id",configId).maybeSingle();
     if (physical?.assignment_version > 0) {
-      throw new Error("A homologação desta RB começa automaticamente após a confirmação do novo vínculo pelo equipamento e termina no primeiro check-in validado pelo RADIUS.");
+      throw new Error("A homologação deste equipamento começa automaticamente após a confirmação do novo vínculo e termina no primeiro check-in confirmado.");
     }
     const now = new Date().toISOString();
     const { error } = await supabaseAdmin

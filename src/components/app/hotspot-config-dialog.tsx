@@ -58,7 +58,7 @@ const EMPTY_FORM: FormState = {
 const STATUS_LABELS: Record<string, string> = {
   not_configured: "Não configurado",
   configuration_incomplete: "Configuração incompleta",
-  awaiting_radius: "Aguardando RADIUS",
+  awaiting_radius: "Aguardando confirmação",
   awaiting_secret: "Aguardando credencial segura",
   awaiting_homologation: "Aguardando homologação",
   simulation_only: "Somente simulação",
@@ -91,7 +91,7 @@ function statusProgressLabel(status: string): string | null {
 const VENDOR_HELP: Record<Vendor, string> = {
   test: "Somente para simulação. Não libera internet em equipamento real.",
   mikrotik_hotspot:
-    "O MikroTik exigirá a etapa de integração com RADIUS. Esta tela não armazena o segredo RADIUS.",
+    "Será necessária a etapa de integração com o roteador. Esta tela não armazena o segredo de acesso.",
   intelbras_zeus:
     "Para equipamentos Intelbras com portal cativo externo. Zeus OS/AP corporativo e HotSpot 300 original exigem homologação antes da liberação real.",
   intelbras_hotspot300_legacy:
@@ -221,7 +221,7 @@ export function HotspotConfigDialog({
       toast.success(
         action === "cancel"
           ? "unlinked" in result && result.unlinked
-            ? "Homologação cancelada. A RB foi desvinculada deste cliente e ficará disponível no estoque após confirmar a limpeza."
+            ? "Homologação cancelada. O equipamento foi desvinculado deste cliente e ficará disponível no estoque após confirmar a limpeza."
             : "Homologação cancelada."
           : "Status do equipamento atualizado.",
       );
@@ -322,7 +322,7 @@ export function HotspotConfigDialog({
 
             {!isClientPolicyView ? <div className="grid gap-4">
               <div className="grid gap-2">
-                <Label htmlFor={`router-identity-${targetId}`}>Identidade da RB</Label>
+                <Label htmlFor={`router-identity-${targetId}`}>Identidade do equipamento</Label>
                 <Input id={`router-identity-${targetId}`} value={form.routerIdentity} onChange={(event) => set("routerIdentity", event.target.value.toUpperCase())} placeholder="Ex.: MT-EFRAIM" />
               </div>
               <div className="grid gap-2">
@@ -350,7 +350,7 @@ export function HotspotConfigDialog({
                 <div>
                   <p className="text-sm font-medium">Política do Wi-Fi para visitantes</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Aplicada pelo RADIUS a cada novo check-in. A sessão é encerrada ao atingir o
+                    Aplicada a cada novo check-in. A sessão é encerrada ao atingir o
                     tempo máximo ou o período sem tráfego.
                   </p>
                 </div>
@@ -385,7 +385,7 @@ export function HotspotConfigDialog({
             ) : null}
 
             {!isClientPolicyView ? <p className="text-xs text-muted-foreground">
-              Senhas, segredos RADIUS, tokens e chaves não são solicitados nem enviados ao navegador
+              Senhas, segredos de acesso, tokens e chaves não são solicitados nem enviados ao navegador
               nesta etapa.
             </p> : null}
 
@@ -416,7 +416,7 @@ export function HotspotConfigDialog({
                     <p>
                       O login.html universal deve enviar por POST os campos <code>router-id</code>, <code>mac</code>,
                       <code>ip</code>, <code>link-login-only</code> e <code>link-orig</code>. O sistema resolve o
-                      portal correto pela identidade da RB; não informe slug de campanha no arquivo.
+                      portal correto pela identidade do equipamento; não informe slug de campanha no arquivo.
                       Após o check-in, o portal devolve o visitante ao HotSpot para autenticação.
                     </p>
                   </div>
