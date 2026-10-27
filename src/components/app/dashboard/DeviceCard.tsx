@@ -76,8 +76,7 @@ export function DeviceCard() {
     queryKey: ["dispositivos-hoje"],
     queryFn: () => fetchDevices(),
     enabled: !demo,
-    refetchInterval: 5000,
-    refetchIntervalInBackground: true,
+    refetchInterval: 60_000,
   });
 
   if (!demo && isLoading) return <Skeleton className="h-[260px] w-full rounded-xl" />;

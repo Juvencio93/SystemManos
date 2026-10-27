@@ -42,7 +42,7 @@ export function LiveCrmPreview() {
     };
 
     void refresh();
-    const timer = window.setInterval(() => void refresh(), 30_000);
+    const timer = window.setInterval(() => void refresh(), 60_000);
     document.addEventListener("visibilitychange", refresh);
     return () => {
       active = false;
