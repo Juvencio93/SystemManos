@@ -81,7 +81,9 @@ export function RbInventoryView({ data, loading, error, refresh, action, downloa
   }
   const stockDevices = devices.filter(d => inventorySection(d)==="stock");
   const operationalDevices = devices.filter(d => inventorySection(d)==="operational");
-  return <Card className="border-cyan-400/20">
+  return <div className="space-y-4">
+    {!loading && !error && <div className="grid grid-cols-3 gap-3">{[["Total de equipamentos",devices.length],["Estoque",stockDevices.length],["Operacional",operationalDevices.length]].map(([title,count]) => <div key={title} className="rounded-xl border bg-background/50 p-3"><div className="text-xs text-muted-foreground">{title}</div><strong className="text-2xl">{count}</strong></div>)}</div>}
+    <Card className="border-cyan-400/20">
     <CardHeader>
       <button type="button" aria-expanded={expanded} aria-controls="rb-inventory-content" onClick={() => setExpanded(value => !value)} className="flex w-full items-center gap-2 text-left">
         <Package className="size-5 text-primary" /><CardTitle>Estoque e transferência de RBs</CardTitle>
@@ -136,5 +138,6 @@ export function RbInventoryView({ data, loading, error, refresh, action, downloa
       <Button disabled={busy || !settingMac || !settingMac.value.trim()} onClick={()=> settingMac && void run(()=>action({action:"set_mac",deviceId:settingMac.device.id,expectedVersion:settingMac.device.assignment_version,mac:settingMac.value.trim()}),"MAC registrado. O cartão passa a mostrar o MAC.")}>{busy ? "Salvando…" : "Salvar MAC"}</Button>
       </DialogContent>
     </Dialog>
-  </Card>;
+  </Card>
+  </div>;
 }
