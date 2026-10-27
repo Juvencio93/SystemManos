@@ -54,7 +54,9 @@ function VibranteLayout({ theme, identity, banner, quickInfo, form, sponsors, fo
       >
         <div
           className="relative overflow-hidden rounded-[inherit]"
-          style={{ background: `linear-gradient(150deg, ${pal.bgAlt} 0%, ${pal.bg} 100%)` }}
+          style={{
+            background: `linear-gradient(135deg, color-mix(in srgb, ${pal.primary} 44%, ${pal.bg}) 0%, color-mix(in srgb, ${pal.accent} 32%, ${pal.bg}) 52%, ${pal.bg} 100%)`,
+          }}
         >
           {/* Faixas geométricas discretas derivadas da cor da campanha. */}
           <div
@@ -184,7 +186,7 @@ function EleganteLayout({ theme, identity, banner, quickInfo, form, sponsors, fo
         {/* Painel exclusivo de reserva de acesso. */}
         <div
           className={`px-9 py-10 max-sm:px-5 max-sm:py-7 ${theme.cardClass}`}
-          style={theme.cardStyle}
+          style={{ ...theme.cardStyle, background: "transparent", boxShadow: "none", borderColor: pal.border }}
         >
           <p
             className="mb-2 text-[10px] font-medium uppercase tracking-[.4em]"
