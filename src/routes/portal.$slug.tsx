@@ -820,7 +820,13 @@ function PortalPage() {
           </button>
         </div>
       )}
-      <div className={style === "minimalista" ? "grid gap-5 sm:grid-cols-2" : "grid gap-4 sm:grid-cols-2"}>
+      <div
+        className={
+          style === "minimalista"
+            ? "grid gap-x-8 gap-y-6 sm:grid-cols-2"
+            : "grid gap-4 sm:grid-cols-2"
+        }
+      >
 
                   <div className="space-y-1.5 sm:col-span-2">
                     <FieldLabel htmlFor="fullName" className={theme.labelClass}>Nome completo *</FieldLabel>
@@ -840,7 +846,7 @@ function PortalPage() {
                     <FieldError id="fullName-error" message={fieldErrors.fullName} />
                   </div>
 
-                  <div className="space-y-1.5 sm:col-span-2">
+                  <div className={"space-y-1.5 " + (style === "minimalista" ? "sm:col-span-1" : "sm:col-span-2")}>
                     <FieldLabel htmlFor="email" className={theme.labelClass}>E-mail *</FieldLabel>
                     <Input
                       id="email"
@@ -859,7 +865,7 @@ function PortalPage() {
                     <FieldError id="email-error" message={fieldErrors.email} />
                   </div>
 
-                  <div className="space-y-1.5 sm:col-span-2">
+                  <div className={"space-y-1.5 " + (style === "minimalista" ? "sm:col-span-1" : "sm:col-span-2")}>
                     <FieldLabel htmlFor="phone" className={theme.labelClass}>WhatsApp *</FieldLabel>
                     <div className="flex items-stretch gap-2">
                       <Select value={countryKey} onValueChange={setCountryKey}>
@@ -925,7 +931,7 @@ function PortalPage() {
                     <FieldError id="phone-error" message={fieldErrors.phone} />
                   </div>
 
-                  <div className="space-y-1.5 sm:col-span-2">
+                  <div className={"space-y-1.5 " + (style === "minimalista" ? "sm:col-span-1" : "sm:col-span-2")}>
                     <FieldLabel htmlFor="city" className={theme.labelClass}>Cidade (opcional)</FieldLabel>
                     <Input
                       id="city"
