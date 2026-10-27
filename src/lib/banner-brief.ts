@@ -128,8 +128,8 @@ export type VisualSceneContract = {
 /**
  * A search result that identifies the business is not, by itself, visual
  * evidence of its interior. Until a real visual reference is confirmed, the
- * prompt is constrained to a neutral presentation instead of a fictional
- * version of the establishment.
+ * prompt uses a GENERIC segment scene (correção 3) — never a claim that
+ * the scene is the real establishment (see validatePromptVisualGrounding).
  */
 export function createVisualSceneContract(
   environmentStatus: VisualSceneContract["environmentStatus"],
@@ -156,32 +156,77 @@ export type VisualGroundingViolation = {
   reason: "UNCONFIRMED_ENVIRONMENT";
 };
 
-// These expressions describe claims that a scene IS the real business.
-// Generic segment scenery ("balcão de padaria") is allowed since the
-// generic-scene fallback; only identity/reality claims are rejected.
-// Regra pós-correção 3 (ordem do usuário): sem evidência confirmada, o
-// fallback é um ambiente GENÉRICO do segmento — não mais estúdio neutro.
-// O validador agora barra só a alegação de realidade, não o cenário genérico:
-// "balcão de padaria" passa; "balcão da loja", "interior real" e "fachada
-// da Efraim" continuam proibidos. Em português, "de" + substantivo marca o
-// gênero ("interior de padaria") e "da/do" marca o lugar específico
-// ("interior da padaria") — é essa a distinção que os padrões usam.
-const UNCONFIRMED_ENVIRONMENT_PATTERNS = [
-  /\b(?:interior|fachada|arquitetura|ambiente|canto)\s+(?:(?:[\p{L}]+)\s+){0,2}(?:da|do)\s+[^,. ;]+/giu,
-  /\b(?:janela|balc[aã]o|vitrine|sal[aã]o|loja|estabelecimento)\s+(?:da|do)\s+/gi,
-  /\b(?:caf[eé]|cafeteria|padaria|restaurante|oficina)\s+(?:interior|real|f[ií]sica|verdadeir[oa])\b/gi,
-  /\b(?:interior|fachada|vista|ambiente|sal[aã]o|loja|estabelecimento)\b[^,.]{0,30}\b(?:real|verdadeir[oa]|oficial)\b/gi,
+// Correção B (ordem do usuário, 26/10): só alegação ESPECÍFICA é barrada.
+// Mudança de regra em relação à correção 3: a distinção "de = gênero /
+// da-do = específico" era estrita demais para o português real — o modelo
+// escreve cena genérica com fraseado natural ("balcão da loja", "vitrine
+// da padaria") e o loop de correção não removia a frase, derrubando o
+// turno inteiro (caso "loja da" do teste Festival de cucas). Agora passa
+// o genérico sem nome próprio; continua proibido: (a) lugar + nome da
+// marca ("fachada da Efraim", "loja da Efraim") e (b) afirmação de
+// realidade ou oficialidade ("loja oficial", "padaria real", "o local
+// real", "fotografia do local"). "o verdadeiro" só barra junto de lugar
+// ("a verdadeira padaria") — "o verdadeiro sabor" é texto comercial,
+// não alegação de lugar.
+const UNCONFIRMED_REALITY_PATTERNS = [
+  /\b(?:interior|fachada|vista|ambiente|sal[aã]o|loja|estabelecimento|local|padaria|caf[eé]|cafeteria|restaurante|oficina|lanchonete)\b[^,.]{0,30}\b(?:real|verdadeir[oa]|oficial)\b/gi,
+  /\bverdadeir[oa]\s+(?:interior|fachada|ambiente|sal[aã]o|loja|padaria|local|estabelecimento)\b/gi,
+  /\bfotografia\s+do\s+local\b/gi,
 ];
+
+// Palavras genéricas de ramo que nunca identificam uma marca sozinhas.
+const GENERIC_BRAND_WORDS = new Set([
+  "padaria", "confeitaria", "panificadora", "restaurante", "lanchonete",
+  "bar", "boteco", "bistro", "cantina", "churrascaria", "pizzaria",
+  "hamburgueria", "doceria", "sorveteria", "cafeteria", "cafe", "loja",
+  "mercado", "minimercado", "supermercado", "farmacia", "papelaria",
+  "livraria", "otica", "pet", "shop", "salao", "barbearia", "academia",
+  "hotel", "pousada", "clinica", "estudio", "espaco", "emporio", "grill",
+  "sushi", "temakeria", "pastelaria", "delicatessen", "de", "do", "da",
+  "dos", "das", "e",
+]);
+
+function stripAccents(word: string): string {
+  return word.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Primeiro termo distintivo do nome do cadastro ("Efraim Padaria e
+// Confeitaria" → "Efraim"; "Padaria Efraim" → "Efraim"). Sem termo
+// distintivo (nome só genérico), não há padrão de marca.
+function brandPlacePattern(brandName: string | undefined): RegExp | null {
+  if (!brandName) return null;
+  const token = brandName
+    .split(/[\s\-/]+/)
+    .filter(Boolean)
+    .find(
+      (word) =>
+        word.length >= 3 &&
+        !GENERIC_BRAND_WORDS.has(stripAccents(word).toLocaleLowerCase("pt-BR")),
+    );
+  if (!token) return null;
+  return new RegExp(
+    `\\b(?:interior|fachada|arquitetura|ambiente|canto|janela|balc[aã]o|vitrine|sal[aã]o|loja|estabelecimento|mesa|espaço|local|fundo)\\s+(?:da|do)\\s+(?:[\\p{L}]+\\s+){0,2}${escapeRegExp(token)}\\b`,
+    "giu",
+  );
+}
 
 /** Deterministic final gate: no unconfirmed environment reaches the user. */
 export function validatePromptVisualGrounding(
   prompt: string,
   contract: VisualSceneContract,
+  brandName?: string | undefined,
 ): VisualGroundingViolation[] {
   if (contract.environmentStatus === "CONFIRMED") return [];
 
+  const patterns = [...UNCONFIRMED_REALITY_PATTERNS];
+  const brandPattern = brandPlacePattern(brandName);
+  if (brandPattern) patterns.push(brandPattern);
   const violations = new Map<string, VisualGroundingViolation>();
-  for (const pattern of UNCONFIRMED_ENVIRONMENT_PATTERNS) {
+  for (const pattern of patterns) {
     for (const match of prompt.matchAll(pattern)) {
       const phrase = match[0]?.trim();
       if (phrase)
@@ -687,7 +732,10 @@ export function extractPricedItems(message: string): PricedItem[] {
 function extractBarePriceCandidate(message: string) {
   if ((FREE_OFFER.test(message) && !NEGATED_FREE_OFFER.test(message)) || !BARE_PRICE.test(message))
     return undefined;
-  return normalizePrice(message);
+  // BARE_PRICE só casa número solto (até 2 casas após o separador): o
+  // separador é decimal, vírgula ou ponto ("14,99" e "14.99" = 14.99).
+  // normalizePrice trataria o ponto como milhar e devolveria 99 — errado.
+  return Number(message.trim().replace(",", "."));
 }
 
 function extractValidityFact(message: string) {
@@ -1261,7 +1309,10 @@ function extractCommercialSubject(message: string) {
 /** Extract only facts explicitly stated in the current user turn. */
 export function extractBannerTurnFacts(
   message: string,
-  context?: Pick<BannerConversationBrief, "pendingQuestion" | "priceCandidate">,
+  context?: Pick<
+    BannerConversationBrief,
+    "pendingQuestion" | "priceCandidate" | "priceAsked"
+  >,
 ): BannerTurnFacts {
   message = normalizeWeekdayTypos(message);
   const facts: BannerTurnFacts = {};
@@ -1277,7 +1328,15 @@ export function extractBannerTurnFacts(
     if (priceUnit) facts.priceUnit = priceUnit;
   }
   const barePrice = extractBarePriceCandidate(message);
-  if (barePrice !== undefined) facts.priceCandidate = barePrice;
+  if (barePrice !== undefined) {
+    // Correção A: após a pergunta de preço da guarda, um número solto
+    // ("14,99") É a resposta — vira preço confirmado, não candidato.
+    // Sem priceAsked, mantém o comportamento atual (candidato). O
+    // BARE_PRICE já garante que a mensagem é essencialmente só o número.
+    const prevBrief = context as BannerConversationBrief | undefined;
+    if (prevBrief?.priceAsked) facts.price = barePrice;
+    else facts.priceCandidate = barePrice;
+  }
   const commercialCondition = extractCommercialCondition(message);
   if (commercialCondition) facts.commercialCondition = commercialCondition;
   if (FREE_OFFER.test(message) && !NEGATED_FREE_OFFER.test(message)) facts.freeCopyConfirmed = true;
@@ -2793,7 +2852,16 @@ export function isResolvedQuestion(
   const normalized = question.toLocaleLowerCase("pt-BR");
   if (/\b(?:validade|v[aá]lid|at[eé]\s+quando|per[ií]odo)\b/.test(normalized))
     return state.hasValidity;
-  if (/\b(?:pre[cç]o|valor|r\$|pila|reais?)\b/.test(normalized)) return state.hasPrice;
+  if (/\b(?:pre[cç]o|valor|r\$|pila|reais?)\b/.test(normalized)) {
+    // Correção A (ordem do usuário): o preço já foi perguntado uma vez
+    // pela guarda — a LLM perguntar de novo foi o bug do teste "Festival
+    // de cucas" (turno 4 repetiu a pergunta do turno 3, quando o usuário
+    // só corrigia um typo no dia). Com priceAsked marcado, a pergunta de
+    // preço conta como resolvida e o turno segue para a geração, mesmo
+    // sem preço confirmado.
+    if (brief?.priceAsked) return true;
+    return state.hasPrice;
+  }
   if (/\b(?:itens|mesma\s+(?:promo[çc][aã]o|oferta)|combo|oferta\s+completa)\b/.test(normalized))
     return state.hasConfirmedScope;
   if (/\b(?:empresa|estabelecimento|nome\s+da\s+(?:empresa|loja))\b/.test(normalized)) return true;

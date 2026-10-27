@@ -790,7 +790,11 @@ export const askBannerAgent = createServerFn({ method: "POST" })
         const collectViolations = (options: readonly GeneratedOptionShape[]) => [
           ...options.flatMap((option, index) =>
             [
-              ...validatePromptVisualGrounding(option.prompt, visualSceneContract),
+              ...validatePromptVisualGrounding(
+                option.prompt,
+                visualSceneContract,
+                registeredBannerContext?.name ?? snapshot.name,
+              ),
               ...validatePromptNoRegistryData(option.prompt),
               ...validatePromptCommercialCopy(option.prompt, requiredOfferFacts),
               ...validatePromptOfferTexts(option.prompt, requiredOfferFacts),

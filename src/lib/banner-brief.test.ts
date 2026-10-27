@@ -231,25 +231,22 @@ describe("banner briefing engine", () => {
     expect(truth.restrictions).toContain("UNVERIFIED_DECORATION");
   });
 
-  it("rejects unconfirmed environmental inventions before a prompt can be returned", () => {
+  it("allows generic segment scenery without a brand name (correção B)", () => {
+    // Mudança de regra por ordem do usuário (correção B): o genérico sem
+    // nome próprio passa — a regra antiga barrava "balcão da loja" e
+    // "canto rústico da padaria", e foi ela que derrubou o turno do teste
+    // Festival de cucas ("loja da"). Só alegação específica barra.
     const contract = createVisualSceneContract("UNCONFIRMED");
-    const invalid = [
-      "fotografia no interior aconchegante da cafeteria",
-      "janela ao fundo e balcão da loja",
-      "canto rústico da padaria",
-    ].join("; ");
-
     expect(
-      validatePromptVisualGrounding(invalid, contract).map((violation) =>
-        violation.phrase.toLowerCase(),
+      validatePromptVisualGrounding(
+        [
+          "fotografia no interior aconchegante da cafeteria",
+          "janela ao fundo e balcão da loja",
+          "canto rústico da padaria",
+        ].join("; "),
+        contract,
       ),
-    ).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining("interior aconchegante da cafeteria"),
-        expect.stringContaining("balcão da"),
-        expect.stringContaining("canto rústico da padaria"),
-      ]),
-    );
+    ).toEqual([]);
     expect(
       validatePromptVisualGrounding(
         "fundo neutro de estúdio e superfície neutra de apoio",
@@ -273,11 +270,58 @@ describe("banner briefing engine", () => {
       validatePromptVisualGrounding("interior real da padaria ao fundo", contract).length,
     ).toBeGreaterThan(0);
     expect(
-      validatePromptVisualGrounding("fachada da Efraim ao fundo", contract).length,
-    ).toBeGreaterThan(0);
-    expect(
       validatePromptVisualGrounding("salão oficial da empresa", contract).length,
     ).toBeGreaterThan(0);
+  });
+
+  it("bars only specific place claims, never generic scenery (correção B)", () => {
+    const contract = createVisualSceneContract("UNCONFIRMED");
+    // Genérico sem nome próprio passa, com ou sem marca conhecida.
+    expect(validatePromptVisualGrounding("vitrine da padaria", contract)).toEqual([]);
+    expect(validatePromptVisualGrounding("balcão da loja", contract)).toEqual([]);
+    expect(validatePromptVisualGrounding("interior da confeitaria", contract)).toEqual([]);
+    expect(
+      validatePromptVisualGrounding("balcão da loja", contract, "Efraim"),
+    ).toEqual([]);
+    // Lugar + nome do cadastro barra (com e sem palavra genérica no meio).
+    expect(
+      validatePromptVisualGrounding("fachada da Efraim ao fundo", contract, "Efraim")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      validatePromptVisualGrounding("loja da Efraim ao fundo", contract, "Efraim").length,
+    ).toBeGreaterThan(0);
+    expect(
+      validatePromptVisualGrounding(
+        "interior da padaria Efraim ao fundo",
+        contract,
+        "Efraim",
+      ).length,
+    ).toBeGreaterThan(0);
+    // Sem o nome do cadastro, "fachada da Efraim" não é identificável.
+    expect(
+      validatePromptVisualGrounding("fachada da Efraim ao fundo", contract),
+    ).toEqual([]);
+    // Afirmação de realidade/oficialidade barra sem precisar de marca.
+    expect(validatePromptVisualGrounding("loja oficial", contract).length).toBeGreaterThan(
+      0,
+    );
+    expect(validatePromptVisualGrounding("padaria real", contract).length).toBeGreaterThan(
+      0,
+    );
+    expect(
+      validatePromptVisualGrounding("fotografia do local ao fundo", contract).length,
+    ).toBeGreaterThan(0);
+    expect(
+      validatePromptVisualGrounding("o local real ao fundo", contract).length,
+    ).toBeGreaterThan(0);
+    // "o verdadeiro" só barra junto de lugar, não de produto/sabor.
+    expect(
+      validatePromptVisualGrounding("a verdadeira padaria ao fundo", contract).length,
+    ).toBeGreaterThan(0);
+    expect(validatePromptVisualGrounding("o verdadeiro sabor da cuca", contract)).toEqual(
+      [],
+    );
   });
 
   it("asks price once before generating, never for institutional contexts (correção 1)", () => {
@@ -1579,5 +1623,46 @@ describe("lote 3 — frase da logo", () => {
   it("requiredOfferFacts carrega hasLogo", () => {
     expect(requiredOfferFactsFromBrief({}, undefined, { hasLogo: true }).hasLogo).toBe(true);
     expect(requiredOfferFactsFromBrief({}, undefined).hasLogo).toBeUndefined();
+  });
+});
+
+describe("correção A — preço perguntado uma vez só + número solto vira preço", () => {
+  it("pergunta de preço conta como resolvida quando priceAsked está marcado", () => {
+    const brief = { subject: "festival de cucas", priceAsked: true };
+    expect(
+      isResolvedQuestion("Tem algum preço para divulgar nessa oferta?", [], brief),
+    ).toBe(true);
+    expect(
+      isResolvedQuestion("Qual é o valor exato da oferta?", ["toda quinta feira"], brief),
+    ).toBe(true);
+    // Sem priceAsked, pergunta de preço sem preço confirmado NÃO está resolvida.
+    expect(
+      isResolvedQuestion(
+        "Tem algum preço para divulgar nessa oferta?",
+        ["festival de cucas"],
+        { subject: "festival de cucas" },
+      ),
+    ).toBe(false);
+    // priceAsked não resolve outros tipos de pergunta.
+    expect(
+      isResolvedQuestion("Até quando essa promoção é válida?", [], brief),
+    ).toBe(false);
+  });
+
+  it("número solto após pergunta de preço vira preço confirmado, não candidato", () => {
+    const facts = extractBannerTurnFacts("14,99", { priceAsked: true });
+    expect(facts.price).toBe(14.99);
+    expect(facts.priceCandidate).toBeUndefined();
+    const factsDot = extractBannerTurnFacts("14.99", { priceAsked: true });
+    expect(factsDot.price).toBe(14.99);
+  });
+
+  it("sem priceAsked, número solto continua candidato (comportamento geral intacto)", () => {
+    const facts = extractBannerTurnFacts("14,99", {});
+    expect(facts.price).toBeUndefined();
+    expect(facts.priceCandidate).toBe(14.99);
+    const factsNoCtx = extractBannerTurnFacts("14,99");
+    expect(factsNoCtx.price).toBeUndefined();
+    expect(factsNoCtx.priceCandidate).toBe(14.99);
   });
 });
