@@ -26,8 +26,7 @@ export function BannerAgentHost() {
         <div className="min-w-0 flex-1">
           <p className="font-display font-bold">Criar banner com IA</p>
           <p className="text-xs text-muted-foreground">
-            Conte o que você quer divulgar e a IA prepara prompts profissionais pro banner da sua
-            campanha.
+            Descreva o banner que você quer e a IA gera a imagem com a logo da sua empresa.
           </p>
         </div>
         <Button onClick={() => bannerAgentRef.current?.openWithPrompt("")}>Começar</Button>
