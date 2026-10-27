@@ -16,7 +16,7 @@ export async function postHotspotAction(path: string, body: Record<string, unkno
 export async function hotspotActionError(response: Response, fallback: string) {
   if (response.ok) return null;
   const message = await response.text().catch(() => "");
-  if (response.status === 409) return message || "A RB está offline ou já tem uma operação pendente.";
-  if (response.status === 403) return "Seu perfil não tem acesso a esta RB.";
+  if (response.status === 409) return message || "Não foi possível concluir agora: já há uma operação em andamento ou o Wi-Fi está indisponível. Tente de novo em instantes.";
+  if (response.status === 403) return "Seu perfil não tem acesso a este Wi-Fi.";
   return message || fallback;
 }

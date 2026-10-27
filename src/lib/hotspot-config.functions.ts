@@ -302,7 +302,7 @@ export const saveHotspotConfig = createServerFn({ method: "POST" })
         ? await (supabaseAdmin as any).from("hotspot_devices").update(devicePayload).eq("id", existingDevice.id)
         : await (supabaseAdmin as any).from("hotspot_devices").insert(devicePayload);
       const deviceError = deviceResult.error;
-      if (deviceError) throw new Error("Configuração salva, mas não foi possível cadastrar a RB.");
+      if (deviceError) throw new Error("Configuração salva, mas não foi possível concluir a ativação do Wi-Fi.");
     }
 
     const isOperational = record.status === "operational" && record.is_active === true;
@@ -314,8 +314,8 @@ export const saveHotspotConfig = createServerFn({ method: "POST" })
         data.vendor === "test"
           ? "Configuração salva em modo de simulação."
           : isOperational
-            ? "Configuração salva. A RB está operacional e a nova política será aplicada no próximo check-in."
-            : "Configuração técnica salva. A liberação real continua desativada até a homologação.",
+            ? "Configuração salva. A nova política vale a partir do próximo check-in."
+            : "Configuração salva, mas a liberação para visitantes ainda não está ativa.",
     };
   });
 
