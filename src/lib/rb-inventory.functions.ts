@@ -32,13 +32,17 @@ export const listRbInventory = createServerFn({ method: "GET" }).middleware([req
     return { devices: devices.data as InventoryDevice[], targets, resellers: resellers ?? [] };
   });
 
-const actionSchema = z.object({ action: z.enum(["create", "transfer", "verify", "allocate", "archive"]),
+const actionSchema = z.object({ action: z.enum(["create", "transfer", "verify", "allocate", "archive", "assign_by_mac", "set_mac"]),
   deviceId: z.string().uuid().optional(), expectedVersion: z.number().int().nonnegative().optional(),
   label: z.string().trim().min(1).max(80).optional(), configId: z.string().uuid().nullable().optional(),
-  resellerId: z.string().uuid().nullable().optional(),
+  resellerId: z.string().uuid().nullable().optional(), mac: z.string().trim().max(20).optional(),
 }).superRefine((v,c) => {
-  if (v.action === "create" ? !v.label : !v.deviceId || v.expectedVersion === undefined)
-    c.addIssue({ code: "custom", message: "Dados da operação incompletos." });
+  const incomplete =
+    v.action === "create" ? (!v.label && !v.mac)
+    : v.action === "assign_by_mac" ? (!v.mac || !v.configId)
+    : v.action === "set_mac" ? (!v.deviceId || v.expectedVersion === undefined || !v.mac)
+    : (!v.deviceId || v.expectedVersion === undefined);
+  if (incomplete) c.addIssue({ code: "custom", message: "Dados da operação incompletos." });
 });
 
 export const manageRbInventory = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
@@ -48,7 +52,7 @@ export const manageRbInventory = createServerFn({ method: "POST" }).middleware([
       p_actor: context.userId, p_action: data.action, p_device: data.deviceId ?? null,
       p_version: data.expectedVersion ?? null, p_config: data.configId ?? null, p_label: data.label ?? null,
       p_identity: data.action === "create" ? `MT-${randomBytes(8).toString("hex").toUpperCase()}` : null,
-      p_owner: data.resellerId ?? null,
+      p_owner: data.resellerId ?? null, p_mac: data.mac ?? null,
     });
     if (error) throw new Error(error.message || "Não foi possível atualizar a RB.");
     return { id: id as string };

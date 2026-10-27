@@ -342,6 +342,7 @@ export function HotspotConfigDialog({
                   onChange={(event) => set("apMac", event.target.value)}
                   placeholder="Ex.: 00:11:22:33:44:55"
                 />
+                <p className="text-xs text-muted-foreground">Se o MAC for de uma RB em estoque, ela é transferida automaticamente para este destino.</p>
               </div>
             </div> : null}
 

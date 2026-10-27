@@ -16,9 +16,30 @@ export type InventoryDevice = {
 export type InventoryTarget = { id: string; label: string; companyId: string; branchId: string | null };
 export type InventoryData = { devices: InventoryDevice[]; targets: InventoryTarget[]; resellers?: { id: string; name: string }[] };
 export type InventoryAction = {
-  action: "create" | "transfer" | "verify" | "allocate" | "archive";
-  deviceId?: string; expectedVersion?: number; label?: string; configId?: string | null; resellerId?: string | null;
+  action: "create" | "transfer" | "verify" | "allocate" | "archive" | "assign_by_mac" | "set_mac";
+  deviceId?: string; expectedVersion?: number; label?: string; configId?: string | null; resellerId?: string | null; mac?: string;
 };
+
+/** MAC normalizado (XX:XX:XX:XX:XX:XX, maiúsculo) ou null quando ausente/inválido. */
+export function normalizeMac(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const hex = value.replace(/[^0-9A-Fa-f]/g, "").toUpperCase();
+  if (hex.length !== 12) return null;
+  return hex.match(/.{2}/g)!.join(":");
+}
+
+/** Categoria da RB na tela: estoque (zerada ou aguardando homologação) ou operacional. */
+export function inventorySection(device: Pick<InventoryDevice, "status">): "stock" | "operational" {
+  return ["stock", "transfer_pending", "verifying", "awaiting_homologation", "awaiting_provisioning"].includes(device.status)
+    ? "stock"
+    : "operational";
+}
+
+/** Título do cartão em estoque: sem destino, a RB é o MAC (sem nome antigo). */
+export function stockCardTitle(device: InventoryDevice): string {
+  if (device.company_id) return device.inventory_label || device.router_identity;
+  return device.ap_mac || "RB sem MAC";
+}
 
 export function assignmentReady(device: Pick<InventoryDevice, "assignment_version" | "assignment_applied_version">) {
   return device.assignment_version === device.assignment_applied_version;
