@@ -335,6 +335,7 @@ function NetworkMapPanel({ devices, isLoading, overlay, onClose, onMouseLeave }:
         )}
         <HotspotNetworkMap
           devices={devices}
+          refreshSeconds={60}
           isLoading={isLoading}
           onBlock={changeStatus}
           onReboot={requestReboot}
@@ -687,7 +688,7 @@ function ProblemasRedeResumo() {
   const buscarResumo = useServerFn(getHermesResumo);
   const resumo = useQuery({
     queryKey: ["monitoramento-resumo"],
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
     queryFn: () => buscarResumo() as Promise<HermesResumoResult>,
   });
   if (!resumo.data?.ok) return null;
@@ -829,7 +830,7 @@ function ProblemasRedeResumo() {
 }
 
 function AdminDashboard({ access }: { access: AccessInfo | null }) {
-  const hotspotDevices = useQuery({ queryKey: ["dashboard-hotspot-devices", access?.role, access?.companyId, access?.branchId, access?.resellerId], enabled: Boolean(access?.userId), refetchInterval: 5000, refetchIntervalInBackground: true, queryFn: async () => {
+  const hotspotDevices = useQuery({ queryKey: ["dashboard-hotspot-devices", access?.role, access?.companyId, access?.branchId, access?.resellerId], enabled: Boolean(access?.userId), refetchInterval: 60_000, queryFn: async () => {
     let query = (supabase as any).from("hotspot_devices").select("id,router_identity,last_seen_at,last_seen_ip,last_seen_uptime,router_version,active_sessions,rx_bytes,tx_bytes,latency_ms,packet_loss_pct,status,company_id,branch_id,reboot_requested_at,reboot_applied_at,router_applied_status,router_status_applied_at,latitude,longitude,maps_url,companies(name,trade_name,address,neighborhood,city,state,zip_code),branches(name,trade_name,address,neighborhood,city,state,zip_code)");
     if (access?.role === "revenda" && access.resellerId) {
       const [{ data: companies }, { data: branches }] = await Promise.all([
@@ -902,8 +903,7 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
     queryKey: ["insights"],
     queryFn: () => fetchInsights(),
     enabled: Boolean(access?.userId),
-    refetchInterval: 5000,
-    refetchIntervalInBackground: true,
+    refetchInterval: 60_000,
   });
 
   const data = insights.data as Insights | undefined;
@@ -933,6 +933,7 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
         </div>
         <HotspotNetworkMap
           devices={radarDevices}
+          refreshSeconds={60}
           isLoading={hotspotDevices.isLoading}
           compact
           onBlock={handleRadarBlock}

@@ -21,7 +21,7 @@ export function ChatTrigger({ onClick, isOpen }: { onClick: () => void; isOpen: 
     queryKey: ["conversations"],
     queryFn: async () => (await getConversations()) as TriggerConversation[],
     enabled: Boolean(access?.userId && access?.role),
-    refetchInterval: 10_000,
+    refetchInterval: 30_000,
   });
 
   const hasUnread = useMemo(

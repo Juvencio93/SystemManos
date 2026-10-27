@@ -32,6 +32,8 @@ type Props = {
   // compact: mapa em faixa (h-40) e sem a grade de indicadores — usado no
   // Monitoramento. O painel da RB selecionada abre SOBRE o mapa.
   compact?: boolean;
+  // Segundos entre atualizações dos dados — o rótulo mostra este valor.
+  refreshSeconds?: number;
   onBlock?: (device: Device, blocked: boolean) => Promise<void> | void;
   onReboot?: (device: Device) => Promise<void> | void;
 };
@@ -77,7 +79,7 @@ function googleMapsUrl(device: Device) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query || device.router_identity)}`;
 }
 
-export function HotspotNetworkMap({ devices, isLoading = false, compact = false, onBlock, onReboot }: Props) {
+export function HotspotNetworkMap({ devices, isLoading = false, compact = false, onBlock, onReboot, refreshSeconds = 60 }: Props) {
   const [selected, setSelected] = useState<Device | null>(null);
   const [recenterSignal, setRecenterSignal] = useState(0);
   const [search, setSearch] = useState("");
@@ -86,9 +88,9 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
   const selectedId = selected?.id;
 
   useEffect(() => {
-    const interval = window.setInterval(() => setSeconds((value) => (value + 1) % 5), 1_000);
+    const interval = window.setInterval(() => setSeconds((value) => (value + 1) % refreshSeconds), 1_000);
     return () => window.clearInterval(interval);
-  }, []);
+  }, [refreshSeconds]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -263,7 +265,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
                 <Wifi className="size-4 text-primary" /> Mapa da rede
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Heartbeat em {seconds}s · mapa operacional atualizado a cada 5s
+                Heartbeat em {seconds}s · mapa operacional atualizado a cada {refreshSeconds}s
               </p>
             </div>
             <input
@@ -352,7 +354,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
                 <Wifi className="size-5 text-primary" /> Mapa da rede
               </CardTitle>
               <p className="mt-1 text-xs text-muted-foreground">
-                Heartbeat em {seconds}s · mapa operacional atualizado a cada 5s
+                Heartbeat em {seconds}s · mapa operacional atualizado a cada {refreshSeconds}s
               </p>
             </div>
             <Button

@@ -72,7 +72,7 @@ export function NotificationCenter({ userId, role }: { userId: string; role: App
 
   const query = useQuery({
     queryKey: ["notifications", userId, role],
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
     queryFn: async () => {
       const [{ data: devices, error: devicesError }, { data: audits, error: auditsError }, { data: systemNotifications, error: systemError }] =
         await Promise.all([

@@ -187,7 +187,7 @@ export function useAccess() {
     staleTime: 15_000,
     // A payment webhook can release a blocked company while its screen remains
     // open. Polling keeps the access state aligned without requiring a logout.
-    refetchInterval: 15_000,
+    refetchInterval: 60_000,
     retry: false,
   });
 }

@@ -179,7 +179,7 @@ function MensagensPage() {
     enabled: !!access?.userId && !!access?.role,
     // Realtime mantém a lista atualizada; polling moderado evita requests
     // agressivos e é pausado quando a aba fica em segundo plano.
-    refetchInterval: 10000,
+    refetchInterval: 30000,
     refetchIntervalInBackground: false,
   });
 
@@ -197,7 +197,7 @@ function MensagensPage() {
     queryKey: ["chat-presence-status", trackedPresenceProfileIds],
     queryFn: async () => getPresenceStatus({ data: { profileIds: trackedPresenceProfileIds } }),
     enabled: trackedPresenceProfileIds.length > 0,
-    refetchInterval: 10000,
+    refetchInterval: 30000,
     refetchIntervalInBackground: false,
   });
 

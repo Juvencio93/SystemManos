@@ -53,7 +53,7 @@ export function MonitorPreviewPanel({
   const navigate = useNavigate();
   const resumoQuery = useQuery({
     queryKey: ["monitoramento-resumo"],
-    refetchInterval: 30000,
+    refetchInterval: 60_000,
     queryFn: () => fetchResumo() as Promise<HermesResumoResult>,
   });
   const listaResumo =

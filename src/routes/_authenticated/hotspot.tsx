@@ -35,7 +35,7 @@ function HotspotPage() {
   const portalItems = (portalsQuery.data?.items ?? []) as PortalItem[];
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<any>(null);
-  const clientsQuery = useQuery({ queryKey: ["hotspot-approved-clients", access?.role, access?.resellerId, access?.companyId, access?.branchId], enabled: canManageHotspot, refetchInterval: 5000, queryFn: async () => {
+  const clientsQuery = useQuery({ queryKey: ["hotspot-approved-clients", access?.role, access?.resellerId, access?.companyId, access?.branchId], enabled: canManageHotspot, refetchInterval: 60_000, queryFn: async () => {
     let query = (supabase as any).from("hotspot_devices").select("id,router_identity,ap_mac,status,company_id,branch_id,updated_at,last_seen_at,last_seen_ip,last_seen_uptime,router_version,active_sessions,rx_bytes,tx_bytes,latency_ms,packet_loss_pct,sync_requested_at,sync_applied_at,reboot_requested_at,reboot_applied_at,router_applied_status,router_status_applied_at,latitude,longitude,maps_url,companies(name,trade_name,address,neighborhood,city,state,zip_code),branches(name,trade_name,address,neighborhood,city,state,zip_code)");
     if (access?.role === "revenda" && access.resellerId) {
       const [{ data: companies }, { data: branches }] = await Promise.all([

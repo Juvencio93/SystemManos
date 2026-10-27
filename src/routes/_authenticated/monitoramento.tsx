@@ -168,6 +168,7 @@ function MonitoramentoPage() {
       <div className="-mt-2 mb-6">
         <HotspotNetworkMap
           devices={mapDevices}
+          refreshSeconds={30}
           isLoading={devicesQuery.isLoading}
           compact
           onBlock={handleMapBlock}
