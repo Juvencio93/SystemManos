@@ -12,7 +12,6 @@ import {
   MessageCircle,
   ChevronLeft,
   ChevronRight,
-  Play,
   RadioTower,
   Wifi,
 } from "lucide-react";
@@ -518,7 +517,6 @@ function NotebookCheckinDemo() {
 function SalesHomePage() {
   const heroVisualRef = useRef<HTMLDivElement>(null);
   const [showBackToTop, setShowBackToTop] = useState(false);
-  const [videoOpen, setVideoOpen] = useState(false);
 
   useEffect(() => {
     let frame = 0;
@@ -606,13 +604,6 @@ function SalesHomePage() {
               >
                 Ver portais reais <ArrowRight className="size-4" />
               </a>
-              <button
-                type="button"
-                onClick={() => setVideoOpen(true)}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/15 px-6 font-semibold text-white transition hover:border-white/35"
-              >
-                <Play className="size-4" /> Ver funcionando (1 min)
-              </button>
             </div>
             <p className="mt-4 text-sm text-slate-400">
               Ativação única + mensalidade, sem fidelidade — valores na proposta, sem compromisso.
@@ -931,25 +922,6 @@ function SalesHomePage() {
       </section>
 
       <PreSaleForm />
-
-      <Dialog open={videoOpen} onOpenChange={setVideoOpen}>
-        <DialogContent className="max-w-md border-white/10 bg-[#05080F] p-3 sm:p-4">
-          <DialogTitle className="px-1 pb-2 text-sm font-semibold text-slate-200">
-            Manos Tech — Wi-Fi que vende
-          </DialogTitle>
-          {videoOpen ? (
-            <video
-              controls
-              autoPlay
-              preload="none"
-              className="aspect-[9/16] max-h-[75vh] w-full rounded-lg bg-black object-contain"
-              src="/marketing/video-manostech.mp4"
-            >
-              Seu navegador não reproduz vídeo.
-            </video>
-          ) : null}
-        </DialogContent>
-      </Dialog>
 
       <ScrollReveal>
       <footer className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-8 text-xs text-slate-500 sm:px-8 md:flex-row md:items-center md:justify-between">
