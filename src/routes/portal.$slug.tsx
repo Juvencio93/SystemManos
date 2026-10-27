@@ -1076,7 +1076,7 @@ function PortalPage() {
       <Button
         type="submit"
         size="default"
-        className={`z-10 w-full border-0 transition-all hover:brightness-[1.08] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-100 ${
+        className={`z-10 w-full ${style === "elegante" ? "border" : "border-0"} transition-all hover:brightness-[1.08] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-100 ${
           style === "vibrante"
             ? "h-16 text-lg max-sm:h-14 max-sm:sticky max-sm:bottom-2"
             : style === "minimalista"
