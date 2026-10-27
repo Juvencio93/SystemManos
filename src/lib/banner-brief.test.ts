@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { resolveBannerConversationTurn } from "./banner-agent.functions";
 import {
   commercialCompletenessQuestion,
   createVisualSceneContract,
@@ -24,13 +25,27 @@ import {
   validatePromptConceptSeparation,
   validatePromptNoRegistryData,
   validatePromptCommercialCopy,
+  genericSegmentSceneHint,
+  isInstitutionalBannerContext,
+  multiDayFraming,
+  shouldAskPriceBeforeGeneration,
   validatePromptVisualGrounding,
+  validityDaySpan,
   extractBannerTurnFacts,
+  formatarBriefing,
+  isQualifierOnlySubject,
+  isResolvedQuestion,
+  montarBriefing,
+  normalizeWeekdayTypos,
+  sanitizeGeneratedItems,
   validatePromptTemporalFacts,
   validatePromptTextQuality,
   visualPolicy,
   validateSecondPromptCommercialDirection,
-} from "./banner-brief";
+  validatePromptLogoReference,
+  validatePromptOfferTexts,
+  validatePromptSceneItems,
+  validatePromptTypographyContrast,} from "./banner-brief";
 
 describe("banner briefing engine", () => {
   it("retains product/unit and accepts a later price", () => {
@@ -216,32 +231,175 @@ describe("banner briefing engine", () => {
     expect(truth.restrictions).toContain("UNVERIFIED_DECORATION");
   });
 
-  it("rejects unconfirmed environmental inventions before a prompt can be returned", () => {
+  it("allows generic segment scenery without a brand name (correção B)", () => {
+    // Mudança de regra por ordem do usuário (correção B): o genérico sem
+    // nome próprio passa — a regra antiga barrava "balcão da loja" e
+    // "canto rústico da padaria", e foi ela que derrubou o turno do teste
+    // Festival de cucas ("loja da"). Só alegação específica barra.
     const contract = createVisualSceneContract("UNCONFIRMED");
-    const invalid = [
-      "fotografia no interior aconchegante da cafeteria",
-      "janela ao fundo e balcão da loja",
-      "canto rústico da padaria",
-    ].join("; ");
-
     expect(
-      validatePromptVisualGrounding(invalid, contract).map((violation) =>
-        violation.phrase.toLowerCase(),
+      validatePromptVisualGrounding(
+        [
+          "fotografia no interior aconchegante da cafeteria",
+          "janela ao fundo e balcão da loja",
+          "canto rústico da padaria",
+        ].join("; "),
+        contract,
       ),
-    ).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining("interior aconchegante da cafeteria"),
-        "janela",
-        "balcão",
-        expect.stringContaining("canto rústico da padaria"),
-      ]),
-    );
+    ).toEqual([]);
     expect(
       validatePromptVisualGrounding(
         "fundo neutro de estúdio e superfície neutra de apoio",
         contract,
       ),
     ).toEqual([]);
+  });
+
+  it("allows a generic segment scene but still rejects reality claims (correção 3)", () => {
+    const contract = createVisualSceneContract("UNCONFIRMED");
+    expect(
+      validatePromptVisualGrounding(
+        "fundo com balcão de padaria, prateleiras com pães, luz quente",
+        contract,
+      ),
+    ).toEqual([]);
+    expect(
+      validatePromptVisualGrounding("ambiente genérico de padaria, luz suave", contract),
+    ).toEqual([]);
+    expect(
+      validatePromptVisualGrounding("interior real da padaria ao fundo", contract).length,
+    ).toBeGreaterThan(0);
+    expect(
+      validatePromptVisualGrounding("salão oficial da empresa", contract).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("bars only specific place claims, never generic scenery (correção B)", () => {
+    const contract = createVisualSceneContract("UNCONFIRMED");
+    // Genérico sem nome próprio passa, com ou sem marca conhecida.
+    expect(validatePromptVisualGrounding("vitrine da padaria", contract)).toEqual([]);
+    expect(validatePromptVisualGrounding("balcão da loja", contract)).toEqual([]);
+    expect(validatePromptVisualGrounding("interior da confeitaria", contract)).toEqual([]);
+    expect(
+      validatePromptVisualGrounding("balcão da loja", contract, "Efraim"),
+    ).toEqual([]);
+    // Lugar + nome do cadastro barra (com e sem palavra genérica no meio).
+    expect(
+      validatePromptVisualGrounding("fachada da Efraim ao fundo", contract, "Efraim")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      validatePromptVisualGrounding("loja da Efraim ao fundo", contract, "Efraim").length,
+    ).toBeGreaterThan(0);
+    expect(
+      validatePromptVisualGrounding(
+        "interior da padaria Efraim ao fundo",
+        contract,
+        "Efraim",
+      ).length,
+    ).toBeGreaterThan(0);
+    // Sem o nome do cadastro, "fachada da Efraim" não é identificável.
+    expect(
+      validatePromptVisualGrounding("fachada da Efraim ao fundo", contract),
+    ).toEqual([]);
+    // Afirmação de realidade/oficialidade barra sem precisar de marca.
+    expect(validatePromptVisualGrounding("loja oficial", contract).length).toBeGreaterThan(
+      0,
+    );
+    expect(validatePromptVisualGrounding("padaria real", contract).length).toBeGreaterThan(
+      0,
+    );
+    expect(
+      validatePromptVisualGrounding("fotografia do local ao fundo", contract).length,
+    ).toBeGreaterThan(0);
+    expect(
+      validatePromptVisualGrounding("o local real ao fundo", contract).length,
+    ).toBeGreaterThan(0);
+    // "o verdadeiro" só barra junto de lugar, não de produto/sabor.
+    expect(
+      validatePromptVisualGrounding("a verdadeira padaria ao fundo", contract).length,
+    ).toBeGreaterThan(0);
+    expect(validatePromptVisualGrounding("o verdadeiro sabor da cuca", contract)).toEqual(
+      [],
+    );
+  });
+
+  it("asks price once before generating, never for institutional contexts (correção 1)", () => {
+    const base = { items: ["festival de cucas"] };
+    expect(shouldAskPriceBeforeGeneration(base)).toBe(true);
+    expect(shouldAskPriceBeforeGeneration({ ...base, price: 14.99 })).toBe(false);
+    expect(
+      shouldAskPriceBeforeGeneration({ ...base, pricedItems: [{ item: "cuca", price: 10 }] }),
+    ).toBe(false);
+    expect(shouldAskPriceBeforeGeneration({ ...base, freeCondition: true })).toBe(false);
+    expect(shouldAskPriceBeforeGeneration({ ...base, priceAsked: true })).toBe(false);
+    expect(shouldAskPriceBeforeGeneration({ items: [] })).toBe(false);
+    expect(
+      shouldAskPriceBeforeGeneration({
+        ...base,
+        segment: "Atividades de organizações religiosas ou filosóficas",
+        subject: "oração na igreja",
+      }),
+    ).toBe(false);
+    expect(
+      shouldAskPriceBeforeGeneration({ ...base, subject: "oração na igreja" }),
+    ).toBe(false);
+    expect(
+      shouldAskPriceBeforeGeneration({
+        ...base,
+        segment: "padaria e confeitaria com predominância de revenda",
+        subject: "festival de cucas",
+      }),
+    ).toBe(true);
+  });
+
+  it("counts multi-day validity spans and frames them (correção 2)", () => {
+    expect(validityDaySpan("26 a 30 de outubro de 2026")).toEqual({ days: 5 });
+    expect(validityDaySpan("de 26 ao 30 de outubro")).toEqual({ days: 5 });
+    expect(validityDaySpan("segunda a sexta")).toEqual({ days: 5 });
+    expect(validityDaySpan("segunda-feira a sexta-feira")).toEqual({ days: 5 });
+    expect(validityDaySpan("1 a 20 de outubro")).toEqual({ days: 7 });
+    expect(validityDaySpan("30 a 26 de outubro")).toBeNull();
+    expect(validityDaySpan("novembro")).toBeNull();
+    expect(validityDaySpan(undefined)).toBeNull();
+    expect(validityDaySpan("essa semana")).toEqual({ several: true });
+    const framed = multiDayFraming("26 a 30 de outubro de 2026");
+    expect(framed?.framingAxis).toContain("UMA unidade inteira");
+    expect(framed?.framingAxis).toContain("5 unidades variadas");
+    expect(framed?.quantityDirective).toContain("não liste sabores");
+    expect(multiDayFraming("novembro")).toBeNull();
+  });
+
+  it("suggests a generic segment scene, never a neutral studio (correção 3)", () => {
+    const bakery = genericSegmentSceneHint(
+      "padaria e confeitaria com predominância de revenda",
+    );
+    expect(bakery).toContain("balcão");
+    expect(bakery).not.toContain("estúdio neutro");
+    expect(bakery).not.toContain("fundo preto");
+    expect(genericSegmentSceneHint(null)).toContain("genérico");
+    expect(genericSegmentSceneHint("comércio varejista de artigos do vestuário")).toContain(
+      "loja",
+    );
+  });
+
+  it("detects institutional context from segment or subject (correção 1)", () => {
+    expect(
+      isInstitutionalBannerContext(
+        "Atividades de organizações religiosas ou filosóficas",
+        "oração na igreja",
+      ),
+    ).toBe(true);
+    expect(isInstitutionalBannerContext(null, "culto de domingo")).toBe(true);
+    expect(isInstitutionalBannerContext(null, "missa das 19h")).toBe(true);
+    expect(
+      isInstitutionalBannerContext(
+        "padaria e confeitaria com predominância de revenda",
+        "festival de cucas",
+      ),
+    ).toBe(false);
+    expect(isInstitutionalBannerContext(null, "celebração de aniversário")).toBe(false);
+    expect(isInstitutionalBannerContext(null, "retiro de fim de semana")).toBe(false);
   });
 
   it("rejects the generic bottom-band flyer layout in the second direction", () => {
@@ -357,6 +515,7 @@ describe("banner briefing engine", () => {
       validity: "até domingo",
       business: "Panificadora Campos",
       scope: "confirmed",
+      subject: "bolo de cenoura com cobertura de chocolate e café passado",
     });
   });
 
@@ -556,7 +715,8 @@ describe("weekday and recurrence semantics", () => {
       expect.objectContaining({ reason: "INVENTED_RECURRENCE" }),
     );
     const weekly = requiredOfferFactsFromBrief({ weekday: "quarta-feira", recurrence: "WEEKLY" });
-    expect(validatePromptTemporalFacts("Oferta toda quarta-feira", weekly)).toEqual([]);
+    // Lote 2 (V5): o dia também precisa estar nos textos citados, não só no prompt.
+    expect(validatePromptTemporalFacts('Oferta toda "QUARTA-FEIRA"', weekly)).toEqual([]);
   });
 });
 
@@ -767,7 +927,9 @@ describe("relative date resolution", () => {
     const facts = extractBannerTurnFacts("promoção válida pra essa semana");
     // Não deve manter o texto cru "essa semana".
     expect(facts.validity).not.toMatch(/essa semana/i);
-    expect(facts.validity).toMatch(/\d{1,2} a \d{1,2} de \w+ de \d{4}/);
+    expect(facts.validity).toMatch(
+      /\d{1,2} a \d{1,2} de \w+ de \d{4}|\d{1,2} de \w+ a \d{1,2} de \w+ de \d{4}/,
+    );
   });
 });
 
@@ -814,7 +976,7 @@ describe("multi-day offers", () => {
     });
     expect(
       validatePromptTemporalFacts(
-        "Música ao vivo toda terça e quinta-feira, entrada gratuita",
+        'Música ao vivo toda "TERÇA" e "QUINTA-FEIRA", entrada gratuita',
         required,
       ),
     ).toEqual([]);
@@ -874,5 +1036,633 @@ describe("prompt text quality", () => {
     expect(violations).toContainEqual(
       expect.objectContaining({ reason: "VAGUE_TEXT_INSTRUCTION" }),
     );
+  });
+});
+
+describe("textos da oferta no banner", () => {
+  const required = {
+    items: ["festival de cucas"],
+    price: 14.99,
+    scope: "confirmed" as const,
+  };
+  it("reprova textos que trocam a cuca por pão e escondem o preço", () => {
+    const prompt =
+      'Banner. Textos exatos: título "TODA QUARTA-FEIRA"; abaixo "PÃO QUENTINHO"; CTA "PEÇA AGORA". Um pão dourado em primeiro plano.';
+    const violations = validatePromptOfferTexts(prompt, required);
+    expect(violations.map((v) => v.reason)).toEqual([
+      "MISSING_OFFER_TEXT",
+      "MISSING_OFFER_TEXT",
+    ]);
+  });
+  it("aprova textos com o nome da oferta e o preço", () => {
+    const prompt =
+      'Banner. Textos exatos: título "FESTIVAL DE CUCAS"; abaixo "CUCAS DIVERSOS SABORES POR R$ 14,99"; CTA "PEÇA AGORA". Cucas variadas em primeiro plano.';
+    expect(validatePromptOfferTexts(prompt, required)).toEqual([]);
+  });
+  it("não exige preço de oferta gratuita (mas exige a gratuidade citada)", () => {
+    const prompt =
+      'Banner. Textos exatos: título "FESTIVAL DE CUCAS"; selo "GRÁTIS"; CTA "PEÇA AGORA".';
+    expect(
+      validatePromptOfferTexts(prompt, { items: ["festival de cucas"], price: 0, scope: "confirmed" }),
+    ).toEqual([]);
+  });
+});
+
+describe("horário confirmado nos textos", () => {
+  const required = {
+    items: [] as string[],
+    weekday: "sexta-feira",
+    recurrence: "WEEKLY" as const,
+    time: "21:00",
+    scope: "confirmed" as const,
+  };
+  it("reprova 20H quando o confirmado é 21h (caso MAEC)", () => {
+    const prompt = 'Banner. Textos exatos permitidos: "SEXTA-FEIRA", "20H".';
+    expect(validatePromptTemporalFacts(prompt, required)).toContainEqual(
+      expect.objectContaining({ reason: "WRONG_TIME" }),
+    );
+  });
+  it("aprova o horário exato em 21H e 21:00", () => {
+    expect(
+      validatePromptTemporalFacts('Textos: "SEXTA-FEIRA", "21H".', required),
+    ).toEqual([]);
+    expect(
+      validatePromptTemporalFacts('Textos: "SEXTA-FEIRA", "21:00".', required),
+    ).toEqual([]);
+  });
+  it("reprova textos sem nenhum horário quando há horário confirmado", () => {
+    expect(
+      validatePromptTemporalFacts('Textos: "SEXTA-FEIRA".', required),
+    ).toContainEqual(expect.objectContaining({ reason: "MISSING_TIME" }));
+  });
+  it("não pune faixa de horário que inclui o confirmado", () => {
+    expect(
+      validatePromptTemporalFacts('Textos: "DAS 8H ÀS 18H".', {
+        items: [] as string[],
+        scope: "confirmed" as const,
+        time: "08:00",
+      }),
+    ).toEqual([]);
+  });
+});
+
+describe("palavra do evento nos textos", () => {
+  it("reprova banner que só diz o dia e a hora, sem a oração", () => {
+    const violations = validatePromptOfferTexts(
+      'Banner. Textos exatos permitidos: "SEXTA-FEIRA", "21H".',
+      {
+        items: [] as string[],
+        scope: "confirmed" as const,
+        subject: "Sexta feira oração na igreja, as 21h",
+      },
+    );
+    expect(violations).toContainEqual(
+      expect.objectContaining({
+        reason: "MISSING_OFFER_TEXT",
+        detail: expect.stringContaining("oração"),
+      }),
+    );
+  });
+  it("aprova quando o texto anuncia a oração", () => {
+    expect(
+      validatePromptOfferTexts(
+        'Banner. Textos exatos permitidos: "ORAÇÃO", "SEXTA-FEIRA", "21H".',
+        {
+          items: [] as string[],
+          scope: "confirmed" as const,
+          subject: "Sexta feira oração na igreja, as 21h",
+        },
+      ),
+    ).toEqual([]);
+  });
+  it("não exige palavra do assunto quando o assunto só tem dia genérico", () => {
+    expect(
+      validatePromptOfferTexts('Textos: "SEXTA-FEIRA".', {
+        items: [] as string[],
+        scope: "confirmed" as const,
+        subject: "sexta-feira",
+      }),
+    ).toEqual([]);
+  });
+});
+
+describe("atributo não expulsa assunto estabelecido", () => {
+  it("sabores + preço mantêm 'Festival de cucas' e atualizam preço/unidade", () => {
+    const merged = mergeBannerConversationBrief(
+      { subject: "Festival de cucas", offerItems: ["Festival de cucas"] },
+      extractBannerTurnFacts("Varios sabores, valor 14,99 a unidade"),
+    );
+    expect(merged.subject).toBe("Festival de cucas");
+    expect(merged.offerItems).toEqual(["Festival de cucas"]);
+    expect(merged.price).toBe(14.99);
+  });
+  it("resposta só de dia mantém o assunto anterior", () => {
+    const merged = mergeBannerConversationBrief(
+      { subject: "Festival de cucas", offerItems: ["Festival de cucas"] },
+      extractBannerTurnFacts("vai acontecer toda quarta feira"),
+    );
+    expect(merged.subject).toBe("Festival de cucas");
+    expect(merged.weekday).toBe("quarta-feira");
+  });
+  it("primeira definição com outros fatos ainda cria o assunto", () => {
+    const merged = mergeBannerConversationBrief(
+      {},
+      { subject: "Festival de cucas", price: 14.99, weekday: "quarta-feira" },
+    );
+    expect(merged.subject).toBe("Festival de cucas");
+    expect(merged.price).toBe(14.99);
+  });
+  it("troca seca de produto (sem outros fatos) continua trocando", () => {
+    const merged = mergeBannerConversationBrief(
+      { subject: "bolo", offerItems: ["bolo"] },
+      { subject: "coxinha" },
+    );
+    expect(merged.subject).toBe("coxinha");
+    expect(merged.offerItems).toEqual(["coxinha"]);
+  });
+});
+
+describe("contraste tipográfico entre as opções", () => {
+  it("aprova serifada na primeira e sem serifa extrabold na segunda", () => {
+    expect(
+      validatePromptTypographyContrast(
+        'Tipografia serifada elegante, traço fino, caixa alta espaçada.',
+        'Tipografia sem serifa extrabold, compacta, de alto impacto.',
+      ),
+    ).toEqual([]);
+  });
+  it("aprova a ordem inversa", () => {
+    expect(
+      validatePromptTypographyContrast(
+        'Tipografia sem serifa extrabold.',
+        'Título em tipografia serifada.',
+      ),
+    ).toEqual([]);
+  });
+  it("reprova duas opções sem serifa (o padrão que sai igual)", () => {
+    expect(
+      validatePromptTypographyContrast(
+        'Título em bold sans-serif caixa alta.',
+        'Tipografia sem serifa extrabold.',
+      ),
+    ).toContainEqual(expect.objectContaining({ reason: "SAME_TYPEFACE" }));
+  });
+  it("'sem serifa' não conta como serifada", () => {
+    expect(
+      validatePromptTypographyContrast(
+        'Tipografia sem serifa extrabold.',
+        'Tipografia sem serifa.',
+      ),
+    ).toContainEqual(expect.objectContaining({ reason: "SAME_TYPEFACE" }));
+  });
+  it("reprova quando nenhuma declara família tipográfica", () => {
+    expect(
+      validatePromptTypographyContrast('Título grande em caixa alta.', 'Título grande em caixa alta.'),
+    ).toContainEqual(expect.objectContaining({ reason: "SAME_TYPEFACE" }));
+  });
+});
+
+describe("resposta só de dia não vira assunto (caso cuca/toda)", () => {
+  it("extrai dia e recorrência de 'toda quarta feira' sem criar assunto", () => {
+    const facts = extractBannerTurnFacts("toda quarta feira");
+    expect(facts.subject).toBeUndefined();
+    expect(facts.weekday).toBe("quarta-feira");
+    expect(facts.recurrence).toBe("WEEKLY");
+  });
+  it("typo 'Tota quarta feira' também não vira assunto", () => {
+    const facts = extractBannerTurnFacts("Tota quarta feira");
+    expect(facts.subject).toBeUndefined();
+    expect(facts.weekday).toBe("quarta-feira");
+  });
+  it("merge mantém 'festival de cucas' quando a resposta é só o dia", () => {
+    const merged = mergeBannerConversationBrief(
+      { subject: "festival de cucas", offerItems: ["festival de cucas"] },
+      extractBannerTurnFacts("toda quarta feira"),
+    );
+    expect(merged.subject).toBe("festival de cucas");
+    expect(merged.offerItems).toEqual(["festival de cucas"]);
+    expect(merged.weekday).toBe("quarta-feira");
+    expect(merged.recurrence).toBe("WEEKLY");
+  });
+  it("validador reprova item feito só de palavra funcional", () => {
+    expect(
+      validatePromptOfferTexts('Textos: "TODA QUARTA-FEIRA".', {
+        items: ["toda"],
+        scope: "confirmed" as const,
+      }),
+    ).toContainEqual(expect.objectContaining({ reason: "MISSING_OFFER_TEXT" }));
+  });
+});
+
+describe("assunto não vira fato", () => {
+  it("resposta tudo junto não substitui o assunto nem vira item", () => {
+    const facts = extractBannerTurnFacts(
+      "toda quarta feira, valor de 14,99 válidos para o mês de novembro",
+    );
+    expect(facts.subject).toBeUndefined();
+    expect(facts.price).toBe(14.99);
+    expect(facts.weekday).toMatch(/quarta/iu);
+    expect(facts.validity).toMatch(/novembro/iu);
+    const merged = mergeBannerConversationBrief(
+      { subject: "festival de cucas", offerItems: ["festival de cucas"] },
+      facts,
+    );
+    expect(merged.subject).toBe("festival de cucas");
+    expect(merged.offerItems).toEqual(["festival de cucas"]);
+    expect(
+      extractOfferItems("toda quarta feira, valor de 14,99 válidos para o mês de novembro"),
+    ).toEqual([]);
+  });
+});
+
+describe("direção criativa instruída", () => {
+  it("passa na separação de conceitos com o vocabulário dos quatro eixos opostos", () => {
+    const primeira =
+      "protagonismo da oferta, fotografia publicitária de produto em plano próximo: plano fechado, detalhe ampliado, ponto focal, produto dominante e área negativa, luz lateral dramática, tipografia discreta em segundo plano, hierarquia visual liderada pela imagem";
+    const segunda =
+      "experiência da marca em composição ampla: plano aberto, visão ampla, composição ampla contextual, cena editorial, luz difusa e uniforme, tipografia como protagonista, texto que conduz a leitura";
+    expect(validatePromptConceptSeparation(primeira, segunda)).toEqual([]);
+    expect(validatePromptConceptSeparation(segunda, primeira)).toEqual([]);
+  });
+  it("reprova duas opções com o mesmo fundo e aprova fundo escuro × claro", () => {
+    const primeira =
+      "protagonismo da oferta, fotografia publicitária de produto em plano próximo: plano fechado, detalhe ampliado, ponto focal, produto dominante e área negativa, luz lateral dramática, tipografia discreta em segundo plano, hierarquia visual liderada pela imagem, fundo escuro";
+    const segundaClara =
+      "experiência da marca em composição ampla: plano aberto, visão ampla, composição ampla contextual, cena editorial, luz difusa e uniforme, tipografia como protagonista, texto que conduz a leitura, fundo claro";
+    const segundaEscura = segundaClara.replace("fundo claro", "fundo escuro");
+    expect(validatePromptConceptSeparation(primeira, segundaClara)).toEqual([]);
+    expect(validatePromptConceptSeparation(primeira, segundaEscura)).toContainEqual(
+      expect.objectContaining({ reason: "SIMILAR_PROMPT_CONCEPTS" }),
+    );
+  });
+});
+
+describe("interpretação de gratuidade e higiene de metadados", () => {
+  it("por conta da casa já é preço zero com cópia confirmada", () => {
+    const facts = extractBannerTurnFacts("Quero um banner do café por conta da casa", {});
+    expect(facts.price).toBe(0);
+    expect(facts.commercialCondition).toBe("por conta da casa");
+    expect(facts.freeCopyConfirmed).toBe(true);
+  });
+
+  it.each([
+    ["café de graça", 0],
+    ["pão na faixa", 0],
+    ["bolo cortesia", 0],
+    ["café sem pagar nada", 0],
+    ["a casa paga o café", 0],
+    ["café gratuito", 0],
+  ])("associa %s a gratuidade", (message, expected) => {
+    expect(extractBannerTurnFacts(message, {}).price).toBe(expected);
+  });
+
+  it("sem cortesia não é gratuidade", () => {
+    const facts = extractBannerTurnFacts("café sem cortesia", {});
+    expect(facts.price).toBeUndefined();
+    expect(facts.commercialCondition).toBeUndefined();
+    expect(facts.freeCopyConfirmed).toBeUndefined();
+  });
+
+  it("na faixa de número é faixa de preço, não gratuidade", () => {
+    const facts = extractBannerTurnFacts("café na faixa de 20 reais", {});
+    expect(facts.price).toBe(20);
+  });
+
+  it("por conta da casa não gera pergunta de valor nem de redação da cortesia", () => {
+    const turn = resolveBannerConversationTurn({}, ["Quero um banner do café por conta da casa"]);
+    expect(turn.brief.price).toBe(0);
+    expect(turn.brief.freeCopyConfirmed).toBe(true);
+    expect(turn.nextQuestion).not.toMatch(/cortesia|qual (o )?valor/i);
+  });
+
+  it("pergunta de redação da cortesia é resolvida quando a cópia já foi confirmada", () => {
+    expect(
+      isResolvedQuestion(
+        "Como você prefere escrever essa cortesia no banner: “Grátis” ou “Por conta da casa”?",
+        ["café por conta da casa"],
+        { freeCopyConfirmed: true },
+      ),
+    ).toBe(true);
+  });
+
+  it("remove preço e validade da lista de itens gerados, mas mantém o dia", () => {
+    expect(
+      sanitizeGeneratedItems([
+        "Festival de cucas",
+        "R$ 19,90",
+        "válido para o mês de novembro",
+        "toda quarta-feira",
+        "cucas",
+        "",
+      ]),
+    ).toEqual(["Festival de cucas", "toda quarta-feira", "cucas"]);
+    expect(sanitizeGeneratedItems(undefined)).toBeUndefined();
+  });
+});
+
+describe("lote 1 — brief confiável (auditoria 26/10)", () => {
+  it("C-1: % de desconto nunca é assunto", () => {
+    const facts = extractBannerTurnFacts("20% de desconto no bolo", {
+      pendingQuestion: "subject",
+    });
+    expect(facts).toMatchObject({
+      subject: "bolo",
+      commercialCondition: "20% de desconto",
+    });
+    expect(extractOfferItems(facts.subject)).toEqual(["bolo"]);
+    expect(
+      extractBannerTurnFacts("bolo com 20% de desconto", { pendingQuestion: "subject" }),
+    ).toMatchObject({ subject: "bolo" });
+    expect(extractOfferItems("20% de desconto no bolo")).not.toContain(
+      "20% de desconto no bolo",
+    );
+  });
+  it("F-03: horário HH:MM puro é extraído e não vira assunto nem item", () => {
+    const facts = extractBannerTurnFacts("evento 21:00");
+    expect(facts).toMatchObject({ time: "21:00", subject: "evento" });
+    const oracao = mergeBannerConversationBrief(
+      {},
+      extractBannerTurnFacts("oração na igreja, as 21h", { pendingQuestion: "subject" }),
+    );
+    expect(oracao).toMatchObject({ time: "21:00", subject: "oração na igreja" });
+    expect(oracao.offerItems).toEqual(["oração na igreja"]);
+    expect(extractOfferItems("oração na igreja, as 21h")).toEqual(["oração na igreja"]);
+  });
+  it("F-06: dia no início + horário não colapsam os itens para a hora", () => {
+    const merged = mergeBannerConversationBrief(
+      {},
+      extractBannerTurnFacts("Sexta feira oração na igreja, as 21h"),
+    );
+    expect(merged).toMatchObject({
+      subject: "oração na igreja",
+      weekday: "sexta-feira",
+      time: "21:00",
+    });
+    expect(merged.offerItems).toEqual(["oração na igreja"]);
+  });
+  it("F-04: typo de dia é tolerado nas duas camadas", () => {
+    expect(normalizeWeekdayTypos("toda secta feira")).toBe("toda sexta feira");
+    expect(normalizeWeekdayTypos("seita secreta")).toBe("seita secreta");
+    const facts = extractBannerTurnFacts("toda secta feira", {
+      pendingQuestion: "subject",
+    });
+    expect(facts.weekday).toBe("sexta-feira");
+    expect(facts.recurrence).toBe("WEEKLY");
+    expect(facts.subject).toBeUndefined();
+  });
+  it("F-05: dias acumulam entre turnos e WEEKLY persiste", () => {
+    let brief = mergeBannerConversationBrief({}, extractBannerTurnFacts("festival de cucas"));
+    brief = mergeBannerConversationBrief(brief, extractBannerTurnFacts("toda quarta feira"));
+    brief = mergeBannerConversationBrief(brief, extractBannerTurnFacts("também no sábado"));
+    expect(brief.weekdays).toEqual(["quarta-feira", "sábado"]);
+    expect(brief.weekday).toBe("quarta-feira");
+    expect(brief.recurrence).toBe("WEEKLY");
+    expect(brief.subject).toBe("festival de cucas");
+  });
+  it("F-05: rebaixamento explícito derruba WEEKLY e correção de dia substitui", () => {
+    let brief = mergeBannerConversationBrief({}, extractBannerTurnFacts("festival de cucas"));
+    brief = mergeBannerConversationBrief(brief, extractBannerTurnFacts("toda quarta feira"));
+    brief = mergeBannerConversationBrief(brief, extractBannerTurnFacts("não é toda semana"));
+    expect(brief.recurrence).toBe("NONE");
+    brief = mergeBannerConversationBrief(brief, extractBannerTurnFacts("toda quarta feira"));
+    brief = mergeBannerConversationBrief(
+      brief,
+      extractBannerTurnFacts("não é quarta, é quinta"),
+    );
+    expect(brief.weekdays).toEqual(["quinta-feira"]);
+    expect(brief.weekday).toBe("quinta-feira");
+  });
+  it("F-02: resposta à pergunta de assunto não é correção de escopo", () => {
+    expect(
+      extractBannerTurnFacts("só bolo de chocolate", { pendingQuestion: "subject" }),
+    ).toMatchObject({ subject: "bolo de chocolate" });
+    expect(
+      extractBannerTurnFacts("bolo sem glúten", { pendingQuestion: "subject" }),
+    ).toMatchObject({ subject: "bolo sem glúten" });
+    expect(
+      extractBannerTurnFacts("sim, quero divulgar o bolo", { pendingQuestion: "subject" }),
+    ).toMatchObject({ subject: "bolo" });
+    expect(
+      extractBannerTurnFacts("só isso", { pendingQuestion: "subject" }).subject,
+    ).toBeUndefined();
+  });
+  it("F-07: correção de assunto funciona com e sem pergunta pendente", () => {
+    const prev = { subject: "bolo", offerItems: ["bolo"] };
+    expect(
+      mergeBannerConversationBrief(
+        prev,
+        extractBannerTurnFacts("na verdade é coxinha", { pendingQuestion: "subject" }),
+      ),
+    ).toMatchObject({ subject: "coxinha", offerItems: ["coxinha"] });
+    expect(extractBannerTurnFacts("na verdade é coxinha").subject).toBe("coxinha");
+    expect(extractBannerTurnFacts("não é troca de óleo, é festival de cucas").subject).toBe(
+      "festival de cucas",
+    );
+  });
+  it("F-08: resíduo só-qualificador não vira assunto no 1º turno", () => {
+    expect(isQualifierOnlySubject("diversos sabores")).toBe(true);
+    expect(isQualifierOnlySubject("vários sabores")).toBe(true);
+    expect(isQualifierOnlySubject("festival de cucas")).toBe(false);
+    const facts = extractBannerTurnFacts("diversos sabores, toda quarta feira");
+    expect(facts.subject).toBeUndefined();
+    expect(facts.weekday).toBe("quarta-feira");
+    expect(
+      mergeBannerConversationBrief({}, facts).subject,
+    ).toBeUndefined();
+  });
+  it("C-2: briefing inclui a logo oficial só quando há logo", () => {
+    const comLogo = formatarBriefing(
+      montarBriefing({ subject: "bolo", offerItems: ["bolo"] }, { temLogo: true }),
+    );
+    const semLogo = formatarBriefing(
+      montarBriefing({ subject: "bolo", offerItems: ["bolo"] }, { temLogo: false }),
+    );
+    expect(comLogo).toContain("logo oficial");
+    expect(semLogo).not.toContain("logo oficial");
+  });
+});
+
+describe("lote 2 — cena e textos validados", () => {
+  const base = { items: ["festival de cucas"], scope: "confirmed" as const };
+  it("C-3: cena sem declaração é rejeitada; item inventado é rejeitado", () => {
+    expect(
+      validatePromptSceneItems({ prompt: "Pães dourados em close." }, base),
+    ).toContainEqual(expect.objectContaining({ reason: "MISSING_SCENE_ITEMS" }));
+    expect(
+      validatePromptSceneItems(
+        { prompt: "Pães dourados em close.", sceneItems: ["pão francês"] },
+        base,
+      ),
+    ).toContainEqual(expect.objectContaining({ reason: "SCENE_ITEM_NOT_CONFIRMED" }));
+    expect(
+      validatePromptSceneItems(
+        { prompt: "Cucas variadas em close.", sceneItems: ["festival de cucas"] },
+        base,
+      ),
+    ).toEqual([]);
+  });
+  it("C-3: preço sem confirmação no prompt é rejeitado", () => {
+    expect(
+      validatePromptSceneItems(
+        { prompt: 'Cucas. Texto "CUCAS POR R$ 14,99".', sceneItems: ["festival de cucas"] },
+        base,
+      ),
+    ).toContainEqual(expect.objectContaining({ reason: "UNCONFIRMED_PRICE" }));
+    expect(
+      validatePromptSceneItems(
+        { prompt: 'Cucas. Texto "CUCAS POR R$ 14,99".', sceneItems: ["festival de cucas"] },
+        { ...base, price: 14.99 },
+      ),
+    ).toEqual([]);
+  });
+  it("V3: cada item+preço precisa aparecer citado", () => {
+    const required = {
+      items: ["salgadinhos", "bolo"],
+      pricedItems: [
+        { item: "salgadinhos", price: 89.9 },
+        { item: "bolo", price: 35 },
+      ],
+      scope: "confirmed" as const,
+    };
+    const ok =
+      'Textos: "SALGADINHOS R$ 89,90" e "BOLO R$ 35,00".';
+    expect(validatePromptOfferTexts(ok, required)).toEqual([]);
+    const missingPrice =
+      'Textos: "SALGADINHOS R$ 89,90" e "BOLO".';
+    expect(validatePromptOfferTexts(missingPrice, required)).toContainEqual(
+      expect.objectContaining({ reason: "MISSING_OFFER_TEXT" }),
+    );
+  });
+  it("V3+V6: item gratuito exige a expressão de gratuidade citada", () => {
+    const required = {
+      items: ["polenta", "bolo"],
+      pricedItems: [
+        { item: "polenta", price: 0 },
+        { item: "bolo", price: 35 },
+      ],
+      commercialCopy: "por conta da casa",
+      scope: "confirmed" as const,
+    };
+    const ok = 'Textos: "POLENTA POR CONTA DA CASA" e "BOLO R$ 35,00".';
+    expect(validatePromptOfferTexts(ok, required)).toEqual([]);
+    const missingFree = 'Textos: "POLENTA" e "BOLO R$ 35,00".';
+    expect(validatePromptOfferTexts(missingFree, required)).toContainEqual(
+      expect.objectContaining({ reason: "MISSING_OFFER_TEXT" }),
+    );
+  });
+  it("V4: validade confirmada precisa aparecer citada", () => {
+    const required = { ...base, validity: "novembro" };
+    expect(
+      validatePromptOfferTexts('Textos: "FESTIVAL DE CUCAS".', required),
+    ).toContainEqual(expect.objectContaining({ reason: "MISSING_OFFER_TEXT" }));
+    expect(
+      validatePromptOfferTexts('Textos: "FESTIVAL DE CUCAS" e "NOVEMBRO".', required),
+    ).toEqual([]);
+  });
+  it("V5: dia confirmado precisa aparecer citado, não só no prompt", () => {
+    const required = {
+      items: [] as string[],
+      weekday: "quarta-feira",
+      recurrence: "WEEKLY" as const,
+      scope: "confirmed" as const,
+    };
+    expect(
+      validatePromptTemporalFacts("Oferta toda quarta-feira, sem textos.", required),
+    ).toContainEqual(expect.objectContaining({ reason: "MISSING_WEEKDAY_TEXT" }));
+    expect(
+      validatePromptTemporalFacts('Oferta toda "QUARTA-FEIRA".', required),
+    ).toEqual([]);
+  });
+  it("V6: oferta gratuita legada exige a expressão citada", () => {
+    const required = { ...base, price: 0, commercialCopy: "por conta da casa" };
+    expect(
+      validatePromptOfferTexts('Textos: "FESTIVAL DE CUCAS".', required),
+    ).toContainEqual(expect.objectContaining({ reason: "MISSING_OFFER_TEXT" }));
+    expect(
+      validatePromptOfferTexts('Textos: "FESTIVAL DE CUCAS POR CONTA DA CASA".', required),
+    ).toEqual([]);
+  });
+  it("V7: produto curto (pão) é exigido nos textos", () => {
+    const required = { items: ["pão"], scope: "confirmed" as const };
+    expect(
+      validatePromptOfferTexts('Textos: "PADARIA ARTESANAL".', required),
+    ).toContainEqual(expect.objectContaining({ reason: "MISSING_OFFER_TEXT" }));
+    expect(
+      validatePromptOfferTexts('Textos: "PÃO ARTESANAL".', required),
+    ).toEqual([]);
+  });
+});
+
+describe("lote 3 — frase da logo", () => {
+  const withLogo = "Logo oficial anexada como referência no canto superior, discreta.";
+  const withoutRef = "Logotipo discreto no canto superior.";
+  const bareLogo = "Logo no canto superior.";
+  it("com logo: exige a referência anexada", () => {
+    expect(validatePromptLogoReference([withLogo, withLogo], true)).toEqual([]);
+    expect(validatePromptLogoReference([withoutRef, withLogo], true)).toContainEqual(
+      expect.objectContaining({ reason: "MISSING_LOGO_REFERENCE" }),
+    );
+    expect(validatePromptLogoReference([bareLogo, withLogo], true)).toContainEqual(
+      expect.objectContaining({ reason: "MISSING_LOGO_REFERENCE" }),
+    );
+  });
+  it("sem logo: proíbe alegar referência anexada", () => {
+    expect(validatePromptLogoReference([withoutRef, withoutRef], false)).toEqual([]);
+    expect(validatePromptLogoReference([withLogo, withoutRef], false)).toContainEqual(
+      expect.objectContaining({ reason: "LOGO_REFERENCE_WITHOUT_LOGO" }),
+    );
+  });
+  it("URL nunca vai para o prompt", () => {
+    expect(
+      validatePromptLogoReference(
+        ["Veja a logo em https://exemplo.com/logo.png", withoutRef],
+        false,
+      ),
+    ).toContainEqual(expect.objectContaining({ reason: "LOGO_URL_IN_PROMPT" }));
+  });
+  it("requiredOfferFacts carrega hasLogo", () => {
+    expect(requiredOfferFactsFromBrief({}, undefined, { hasLogo: true }).hasLogo).toBe(true);
+    expect(requiredOfferFactsFromBrief({}, undefined).hasLogo).toBeUndefined();
+  });
+});
+
+describe("correção A — preço perguntado uma vez só + número solto vira preço", () => {
+  it("pergunta de preço conta como resolvida quando priceAsked está marcado", () => {
+    const brief = { subject: "festival de cucas", priceAsked: true };
+    expect(
+      isResolvedQuestion("Tem algum preço para divulgar nessa oferta?", [], brief),
+    ).toBe(true);
+    expect(
+      isResolvedQuestion("Qual é o valor exato da oferta?", ["toda quinta feira"], brief),
+    ).toBe(true);
+    // Sem priceAsked, pergunta de preço sem preço confirmado NÃO está resolvida.
+    expect(
+      isResolvedQuestion(
+        "Tem algum preço para divulgar nessa oferta?",
+        ["festival de cucas"],
+        { subject: "festival de cucas" },
+      ),
+    ).toBe(false);
+    // priceAsked não resolve outros tipos de pergunta.
+    expect(
+      isResolvedQuestion("Até quando essa promoção é válida?", [], brief),
+    ).toBe(false);
+  });
+
+  it("número solto após pergunta de preço vira preço confirmado, não candidato", () => {
+    const facts = extractBannerTurnFacts("14,99", { priceAsked: true });
+    expect(facts.price).toBe(14.99);
+    expect(facts.priceCandidate).toBeUndefined();
+    const factsDot = extractBannerTurnFacts("14.99", { priceAsked: true });
+    expect(factsDot.price).toBe(14.99);
+  });
+
+  it("sem priceAsked, número solto continua candidato (comportamento geral intacto)", () => {
+    const facts = extractBannerTurnFacts("14,99", {});
+    expect(facts.price).toBeUndefined();
+    expect(facts.priceCandidate).toBe(14.99);
+    const factsNoCtx = extractBannerTurnFacts("14,99");
+    expect(factsNoCtx.price).toBeUndefined();
+    expect(factsNoCtx.priceCandidate).toBe(14.99);
   });
 });

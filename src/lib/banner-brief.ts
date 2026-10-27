@@ -128,8 +128,8 @@ export type VisualSceneContract = {
 /**
  * A search result that identifies the business is not, by itself, visual
  * evidence of its interior. Until a real visual reference is confirmed, the
- * prompt is constrained to a neutral presentation instead of a fictional
- * version of the establishment.
+ * prompt uses a GENERIC segment scene (correção 3) — never a claim that
+ * the scene is the real establishment (see validatePromptVisualGrounding).
  */
 export function createVisualSceneContract(
   environmentStatus: VisualSceneContract["environmentStatus"],
@@ -143,11 +143,11 @@ export function createVisualSceneContract(
     : {
         environmentStatus,
         allowedEnvironment: [
-          "fundo neutro de estúdio",
-          "backdrop abstrato mínimo",
+          "ambiente genérico do segmento",
+          "interior genérico do ramo",
           "superfície neutra de apoio",
         ],
-        forbiddenAssumptions: ["ambiente arquitetônico ou comercial não confirmado"],
+        forbiddenAssumptions: ["alegar que a cena genérica é o estabelecimento real"],
       };
 }
 
@@ -156,24 +156,77 @@ export type VisualGroundingViolation = {
   reason: "UNCONFIRMED_ENVIRONMENT";
 };
 
-// These expressions describe generic kinds of environmental assumptions. They
-// are deliberately independent from a business segment, product, or city.
-const UNCONFIRMED_ENVIRONMENT_PATTERNS = [
-  /\b(?:interior|fachada|arquitetura|ambiente|canto)\s+(?:(?:[\p{L}]+)\s+){0,2}(?:da|do|de|em)\s+[^,. ;]+/giu,
-  /\b(?:janela|balc[aã]o|vitrine|sal[aã]o|loja|estabelecimento)\b/gi,
-  /\b(?:caf[eé]|cafeteria|padaria|restaurante|oficina)\s+(?:interior|real|f[ií]sica)\b/gi,
-  /\b(?:mesa|superf[ií]cie|cen[aá]rio)\s+(?:r[uú]stic[oa]|tem[aá]tic[oa]|acolhedor(?:a)?)\b/gi,
+// Correção B (ordem do usuário, 26/10): só alegação ESPECÍFICA é barrada.
+// Mudança de regra em relação à correção 3: a distinção "de = gênero /
+// da-do = específico" era estrita demais para o português real — o modelo
+// escreve cena genérica com fraseado natural ("balcão da loja", "vitrine
+// da padaria") e o loop de correção não removia a frase, derrubando o
+// turno inteiro (caso "loja da" do teste Festival de cucas). Agora passa
+// o genérico sem nome próprio; continua proibido: (a) lugar + nome da
+// marca ("fachada da Efraim", "loja da Efraim") e (b) afirmação de
+// realidade ou oficialidade ("loja oficial", "padaria real", "o local
+// real", "fotografia do local"). "o verdadeiro" só barra junto de lugar
+// ("a verdadeira padaria") — "o verdadeiro sabor" é texto comercial,
+// não alegação de lugar.
+const UNCONFIRMED_REALITY_PATTERNS = [
+  /\b(?:interior|fachada|vista|ambiente|sal[aã]o|loja|estabelecimento|local|padaria|caf[eé]|cafeteria|restaurante|oficina|lanchonete)\b[^,.]{0,30}\b(?:real|verdadeir[oa]|oficial)\b/gi,
+  /\bverdadeir[oa]\s+(?:interior|fachada|ambiente|sal[aã]o|loja|padaria|local|estabelecimento)\b/gi,
+  /\bfotografia\s+do\s+local\b/gi,
 ];
+
+// Palavras genéricas de ramo que nunca identificam uma marca sozinhas.
+const GENERIC_BRAND_WORDS = new Set([
+  "padaria", "confeitaria", "panificadora", "restaurante", "lanchonete",
+  "bar", "boteco", "bistro", "cantina", "churrascaria", "pizzaria",
+  "hamburgueria", "doceria", "sorveteria", "cafeteria", "cafe", "loja",
+  "mercado", "minimercado", "supermercado", "farmacia", "papelaria",
+  "livraria", "otica", "pet", "shop", "salao", "barbearia", "academia",
+  "hotel", "pousada", "clinica", "estudio", "espaco", "emporio", "grill",
+  "sushi", "temakeria", "pastelaria", "delicatessen", "de", "do", "da",
+  "dos", "das", "e",
+]);
+
+function stripAccents(word: string): string {
+  return word.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Primeiro termo distintivo do nome do cadastro ("Efraim Padaria e
+// Confeitaria" → "Efraim"; "Padaria Efraim" → "Efraim"). Sem termo
+// distintivo (nome só genérico), não há padrão de marca.
+function brandPlacePattern(brandName: string | undefined): RegExp | null {
+  if (!brandName) return null;
+  const token = brandName
+    .split(/[\s\-/]+/)
+    .filter(Boolean)
+    .find(
+      (word) =>
+        word.length >= 3 &&
+        !GENERIC_BRAND_WORDS.has(stripAccents(word).toLocaleLowerCase("pt-BR")),
+    );
+  if (!token) return null;
+  return new RegExp(
+    `\\b(?:interior|fachada|arquitetura|ambiente|canto|janela|balc[aã]o|vitrine|sal[aã]o|loja|estabelecimento|mesa|espaço|local|fundo)\\s+(?:da|do)\\s+(?:[\\p{L}]+\\s+){0,2}${escapeRegExp(token)}\\b`,
+    "giu",
+  );
+}
 
 /** Deterministic final gate: no unconfirmed environment reaches the user. */
 export function validatePromptVisualGrounding(
   prompt: string,
   contract: VisualSceneContract,
+  brandName?: string | undefined,
 ): VisualGroundingViolation[] {
   if (contract.environmentStatus === "CONFIRMED") return [];
 
+  const patterns = [...UNCONFIRMED_REALITY_PATTERNS];
+  const brandPattern = brandPlacePattern(brandName);
+  if (brandPattern) patterns.push(brandPattern);
   const violations = new Map<string, VisualGroundingViolation>();
-  for (const pattern of UNCONFIRMED_ENVIRONMENT_PATTERNS) {
+  for (const pattern of patterns) {
     for (const match of prompt.matchAll(pattern)) {
       const phrase = match[0]?.trim();
       if (phrase)
@@ -184,6 +237,175 @@ export function validatePromptVisualGrounding(
     }
   }
   return [...violations.values()];
+}
+
+/**
+ * Correção 1 — contexto institucional: preço não é pergunta cabível para
+ * evento religioso/comunitário (culto, oração, missa). O segmento vem do
+ * cadastro (CNAE ou área); o assunto é o backstop quando o segmento é
+ * genérico. A lista do assunto é propositalmente curta e religiosa: palavra
+ * genérica ("celebração", "retiro") não basta para pular a pergunta.
+ */
+const INSTITUTIONAL_SEGMENT_STEMS = [
+  "religios",
+  "filosofic",
+  "igreja",
+  "templo",
+  "paroqui",
+  "ministeri",
+  "diocese",
+  "seminario",
+  "congregacao",
+];
+const INSTITUTIONAL_SUBJECT_STEMS = [
+  "oracao",
+  "culto",
+  "missa",
+  "vigilia",
+  "novena",
+  "terco",
+  "eucaristia",
+  "batismo",
+  "crisma",
+];
+
+function hasWordStem(text: string, stems: readonly string[]): boolean {
+  return text
+    .split(" ")
+    .some((word) => word.length > 0 && stems.some((stem) => word.startsWith(stem)));
+}
+
+export function isInstitutionalBannerContext(
+  segment: string | null | undefined,
+  subject: string | undefined,
+): boolean {
+  if (hasWordStem(normalizedWords(segment ?? ""), INSTITUTIONAL_SEGMENT_STEMS)) return true;
+  return hasWordStem(normalizedWords(subject ?? ""), INSTITUTIONAL_SUBJECT_STEMS);
+}
+
+/**
+ * Correção 1 — guarda determinística pré-geração. Verdadeiro só quando falta
+ * preço (sem price, pricedItems ou gratuidade), o preço ainda não foi
+ * perguntado e o contexto não é institucional. Pura, para teste.
+ */
+export function shouldAskPriceBeforeGeneration(input: {
+  items: readonly string[];
+  price?: number | undefined;
+  pricedItems?: readonly unknown[] | undefined;
+  freeCondition?: boolean | undefined;
+  priceAsked?: boolean | undefined;
+  segment?: string | null | undefined;
+  subject?: string | undefined;
+}): boolean {
+  if (input.items.length === 0) return false;
+  if (input.price !== undefined) return false;
+  if (input.pricedItems?.length) return false;
+  if (input.freeCondition) return false;
+  if (input.priceAsked) return false;
+  if (isInstitutionalBannerContext(input.segment, input.subject)) return false;
+  return true;
+}
+
+const PORTUGUESE_WEEKDAYS = [
+  "segunda",
+  "terca",
+  "quarta",
+  "quinta",
+  "sexta",
+  "sabado",
+  "domingo",
+];
+
+export type ValidityDaySpan = { days: number } | { several: true };
+
+/**
+ * Correção 2 — quantos dias dura o intervalo de validade ("26 a 30 de
+ * outubro de 2026" = 5; "segunda a sexta" = 5). Teto 7: intervalo maior vira
+ * 7 (uma semana de unidades). "several" para "essa/nesta semana" e afins:
+ * multi-dia sem contagem exata. null = um dia só ou sem intervalo.
+ */
+export function validityDaySpan(validity: string | undefined): ValidityDaySpan | null {
+  if (!validity) return null;
+  const text = normalizedWords(validity);
+  const numeric = text.match(/\b(\d{1,2})\s*(?:a|ao|ate)\s*(\d{1,2})\b/);
+  if (numeric) {
+    const start = Number(numeric[1]);
+    const end = Number(numeric[2]);
+    if (end > start) return { days: Math.min(7, end - start + 1) };
+    return null;
+  }
+  const weekdayRange = text.match(
+    /\b(segunda|terca|quarta|quinta|sexta|sabado|domingo)(?:\s+feira)?\s*(?:a|ao|ate)\s*(segunda|terca|quarta|quinta|sexta|sabado|domingo)(?:\s+feira)?\b/,
+  );
+  if (weekdayRange) {
+    const start = PORTUGUESE_WEEKDAYS.indexOf(weekdayRange[1]!);
+    const end = PORTUGUESE_WEEKDAYS.indexOf(weekdayRange[2]!);
+    if (end > start) return { days: Math.min(7, end - start + 1) };
+    return null;
+  }
+  if (/\b(?:essa|esta|nesta)\s+semana\b|\bdurante\s+a\s+semana\b/.test(text)) {
+    return { several: true };
+  }
+  return null;
+}
+
+/**
+ * Correção 2 — enquadramento e diretriz de quantidade para o prompt de
+ * geração, a partir do intervalo de validade. null = comportamento atual.
+ * O close-up mostra UMA unidade inteira (nunca macro de fatia); a opção
+ * aberta mostra uma unidade por dia. sceneItems continua listando só o
+ * produto confirmado — sabores não viram itens.
+ */
+export function multiDayFraming(validity: string | undefined): {
+  framingAxis: string;
+  quantityDirective: string;
+} | null {
+  const span = validityDaySpan(validity);
+  if (!span) return null;
+  const units = "days" in span ? `${span.days} unidades variadas` : "várias unidades variadas";
+  return {
+    framingAxis:
+      `(1) enquadramento: a primeira em plano fechado, com UMA unidade inteira do produto ` +
+      `em destaque (nunca macro de fatia nem detalhe ampliado); a segunda em plano aberto, ` +
+      `visão ampla, com ${units} do produto, uma para cada dia do intervalo;`,
+    quantityDirective:
+      `QUANTIDADE DO EVENTO: a validade cobre vários dias — a segunda opção (plano aberto) ` +
+      `mostra ${units} do produto, uma para cada dia do intervalo, e a primeira opção ` +
+      `(plano fechado) mostra UMA unidade inteira do produto em destaque, nunca macro de ` +
+      `fatia nem detalhe ampliado. Em sceneItems, mantenha o produto confirmado; não liste ` +
+      `sabores ou variedades como itens separados.`,
+  };
+}
+
+/**
+ * Correção 3 — sugestão de cenário genérico do segmento para o fallback sem
+ * evidência confirmada. É fundo, nunca o estabelecimento real: a frase que
+ * acompanha este hint sempre diz isso explicitamente.
+ */
+export function genericSegmentSceneHint(segment: string | null | undefined): string {
+  const words = normalizedWords(segment ?? "")
+    .split(" ")
+    .filter(Boolean);
+  const has = (...stems: string[]) =>
+    words.some((word) => stems.some((stem) => word.startsWith(stem)));
+  if (has("padaria", "confeitaria"))
+    return "ambiente genérico e acolhedor de padaria (balcão, prateleiras com pães, luz quente)";
+  if (has("restaurante"))
+    return "salão genérico e acolhedor de restaurante (mesas postas, luz quente)";
+  if (has("lanchonete"))
+    return "balcão genérico e acolhedor de lanchonete (mesas simples, luz clara)";
+  if (has("salao", "estetica", "cabeleireiro", "barbearia", "beleza"))
+    return "salão genérico de beleza (cadeiras e espelhos, luz clara)";
+  if (words.includes("bar") || words.includes("bares"))
+    return "balcão genérico de bar (prateleiras, luz quente)";
+  if (has("loja", "vestuario", "roupa", "varejo"))
+    return "interior genérico de loja (araras e prateleiras, luz clara)";
+  if (has("hotel")) return "recepção genérica de hotel (lounge, luz suave)";
+  if (has("academia")) return "espaço genérico de academia (equipamentos ao fundo, luz clara)";
+  if (has("supermercado")) return "corredor genérico de supermercado (gôndolas, luz clara)";
+  if (has("igreja", "religios", "templo"))
+    return "salão genérico de encontro comunitário (espaço amplo, luz suave)";
+  return "ambiente genérico e acolhedor do ramo da empresa (luz suave)";
 }
 
 export type ConversationCommercialState = {
@@ -252,6 +474,12 @@ export type BannerConversationBrief = {
   compatibilityConfirmed?: boolean | undefined;
   /** Marcado quando a pergunta proativa de data/dia já foi feita (evita repetir). */
   dateAsked?: boolean | undefined;
+  /**
+   * Marcado quando a pergunta de preço pré-geração já foi feita (correção 1):
+   * impede perguntar preço duas vezes. Persiste via spread do merge; quem
+   * responde sem preço gera sem preço no turno seguinte.
+   */
+  priceAsked?: boolean | undefined;
   pendingQuestion?:
     | "subject"
     | "objective"
@@ -263,7 +491,12 @@ export type BannerConversationBrief = {
     | undefined;
 };
 
-export type BannerTurnFacts = Partial<BannerConversationBrief>;
+export type BannerTurnFacts = Partial<BannerConversationBrief> & {
+  /** "não é toda semana": rebaixa WEEKLY para NONE no merge (não persiste). */
+  recurrenceDowngrade?: boolean | undefined;
+  /** Correção explícita de dia ("não é quarta, é quinta"): substitui, não acumula. */
+  weekdaysReplace?: boolean | undefined;
+};
 
 function normalizedWords(value: string) {
   return value
@@ -302,7 +535,14 @@ export function extractOfferItems(subject: string | undefined) {
       (item) =>
         item.length > 1 &&
         !/^(?:at[ée]|v[áa]lid)/iu.test(item) &&
-        !/^(?:promo(?:ç|c)[aã]o|oferta)(?:\s+da\s+semana|\s+especial)?$/iu.test(item),
+        !/^(?:promo(?:ç|c)[aã]o|oferta)(?:\s+da\s+semana|\s+especial)?$/iu.test(item) &&
+        !/^(?:toda|todo|todas|todos)?\s*(?:segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo)(?:[-\s]?feira)?\b/iu.test(item) &&
+        !/\bvalor\s+(?:de\s+)?\d/iu.test(item) &&
+        !/v[áa]lid/iu.test(item) &&
+        // Desconto não é produto; hora não é produto.
+        !/^\d{1,3}\s*%\s*(?:de\s+)?desconto\b/iu.test(item) &&
+        !/^desconto\s+(?:de\s+)?\d{1,3}\s*%/iu.test(item) &&
+        !/^\d{1,2}(?::\d{2}|h(?:\d{2})?)$/iu.test(item),
     );
 }
 
@@ -310,14 +550,25 @@ const COMMERCIAL_SUBJECT =
   /\b(?:banner|arte|imagem|divulga(?:r|ção)|promo(?:ç|c)[aã]o|oferta|combo|desconto|happy\s*hour|por\s+r?\$|pre[cç]o|valor)\b/iu;
 const EVENT_OR_OFFER_SUBJECT =
   /\b(?:festival|feira|evento|edi[çc][aã]o\s+especial|rod[ií]zio|degusta[çc][aã]o)\b/iu;
-const PRICE_MENTION =
-  /(?:r\$\s*\d|\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila|money|bar(?:ão|ao|ões|oes)|conto?s?)\b|\b(?:valor|pre[cç]o)\s*(?:de|:)?\s*r?\$?\s*\d|\b(?:gr[aá]tis|gratuita?|sem\s+custo|por\s+conta\s+da\s+casa)\b)/iu;
+/**
+ * Formas de dizer "grátis" que o cliente usa, numa fonte só reutilizada por
+ * todos os extratores — nenhuma variação pode ficar de fora em um lugar e
+ * dentro em outro. "na faixa" só vale como cortesia quando não vem seguida
+ * de "de <número>" ("na faixa de 20 reais" é faixa de preço, não gratuidade).
+ */
+const FREE_WORDING_SOURCE = String.raw`gr[aá]tis|gratuit[oa]s?|sem\s+custo|por\s+conta\s+da\s+casa|de\s+graça|na\s+faixa(?!\s+de\s+\d)|sem\s+pagar\s+nada|a\s+casa\s+paga|cortesia`;
+const PRICE_MENTION = new RegExp(
+  String.raw`(?:r\$\s*\d|\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila|money|bar(?:ão|ao|ões|oes)|conto?s?)\b|\b(?:valor|pre[cç]o)\s*(?:de|:)?\s*r?\$?\s*\d|\b(?:${FREE_WORDING_SOURCE})\b)`,
+  "iu",
+);
 const SCOPE_CONFIRMATION =
   /\b(?:mesma\s+(?:promo[çc][aã]o|oferta)|combo\s*(?:completo|inclui)?|oferta\s+completa|oferta\s+completa|inclui\s+(?:o|a|os|as)|valor\s+(?:do|da)\s+(?:combo|oferta)|isso|sim|correto|exato|pode\s+ser|perfeito)\b/i;
 
-const FREE_OFFER = /\b(?:gr[aá]tis|gratuita?|sem\s+custo|por\s+conta\s+da\s+casa)\b/iu;
-const NEGATED_FREE_OFFER =
-  /\b(?:n[aã]o|nunca|jamais)\s+(?:[eé]\s+)?(?:gr[aá]tis|gratuita?|sem\s+custo|por\s+conta\s+da\s+casa)\b/iu;
+const FREE_OFFER = new RegExp(`\\b(?:${FREE_WORDING_SOURCE})\\b`, "iu");
+const NEGATED_FREE_OFFER = new RegExp(
+  `\\b(?:n[aã]o|nunca|jamais)\\s+(?:[eé]\\s+)?(?:${FREE_WORDING_SOURCE})\\b|\\bsem\\s+cortesia\\b`,
+  "iu",
+);
 const PRICE_FACT =
   /(?:r\$\s*\d|\d+(?:[.,]\d{1,2})?\s*(?:reais?|pila|money|bar(?:ão|ao|ões|oes)|conto?s?)\b|\b(?:valor|pre[cç]o)\b[^\d]{0,24}\d)/i;
 const BARE_PRICE = /^\s*\d{1,6}(?:[.,]\d{1,2})?\s*$/u;
@@ -407,7 +658,7 @@ function cleanPricedItemSegment(segment: string): string {
         /\b\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?\s*(?:reais?|pila|money|bar(?:ão|ao|ões|oes)|conto?s?)\b/giu,
         "",
       )
-      .replace(/\b(?:gr[aá]tis|gratuita?|sem\s+custo|por\s+conta\s+da\s+casa)\b/giu, "")
+      .replace(new RegExp(`\\b(?:${FREE_WORDING_SOURCE})\\b`, "giu"), "")
       // Preço "nu" com decimal, ex: "por 89,90".
       .replace(/(?:por\s+)?\b\d{1,3}(?:\.\d{3})*,\d{2}\b/giu, "")
       .replace(
@@ -481,7 +732,10 @@ export function extractPricedItems(message: string): PricedItem[] {
 function extractBarePriceCandidate(message: string) {
   if ((FREE_OFFER.test(message) && !NEGATED_FREE_OFFER.test(message)) || !BARE_PRICE.test(message))
     return undefined;
-  return normalizePrice(message);
+  // BARE_PRICE só casa número solto (até 2 casas após o separador): o
+  // separador é decimal, vírgula ou ponto ("14,99" e "14.99" = 14.99).
+  // normalizePrice trataria o ponto como milhar e devolveria 99 — errado.
+  return Number(message.trim().replace(",", "."));
 }
 
 function extractValidityFact(message: string) {
@@ -620,6 +874,75 @@ function normalizeWeekday(day: string) {
       : normalized;
 }
 
+const WEEKDAY_STEMS_NORMALIZED = [
+  "segunda",
+  "terca",
+  "quarta",
+  "quinta",
+  "sexta",
+  "sabado",
+  "domingo",
+] as const;
+
+/** Distância de edição ≤ 1 (inserção, remoção ou troca de um caractere). */
+function editDistanceAtMostOne(a: string, b: string): boolean {
+  const m = a.length;
+  const n = b.length;
+  if (Math.abs(m - n) > 1) return false;
+  let i = 0;
+  let j = 0;
+  let edits = 0;
+  while (i < m && j < n) {
+    if (a[i] === b[j]) {
+      i++;
+      j++;
+    } else {
+      edits++;
+      if (edits > 1) return false;
+      if (m > n) i++;
+      else if (n > m) j++;
+      else {
+        i++;
+        j++;
+      }
+    }
+  }
+  if (i < m || j < n) edits++;
+  return edits <= 1;
+}
+
+function closestWeekdayStem(word: string): string | undefined {
+  const n = normalizedWords(word);
+  if (!n) return undefined;
+  const matches = WEEKDAY_STEMS_NORMALIZED.filter((stem) => editDistanceAtMostOne(n, stem));
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
+/**
+ * Tolera typos de dia da semana em contextos sem ambiguidade: palavra
+ * seguida de "feira" ("secta feira") ou precedida de "toda" ("toda secta").
+ * Fora desses contextos a palavra não é tocada ("seita" nunca vira dia).
+ * Palavra já certa volta intacta (preserva acento); só o typo é reescrito.
+ */
+export function normalizeWeekdayTypos(message: string): string {
+  return message
+    .replace(/\b([\p{L}]+)\s+(feira)\b/giu, (m, word: string, feira: string) => {
+      const n = normalizedWords(word);
+      if ((WEEKDAY_STEMS_NORMALIZED as readonly string[]).includes(n)) return m;
+      const stem = closestWeekdayStem(word);
+      return stem ? `${stem} ${feira}` : m;
+    })
+    .replace(
+      /\b(toda|todo|todas|todos)\s+([\p{L}]+)\b/giu,
+      (m, toda: string, word: string) => {
+        const n = normalizedWords(word);
+        if ((WEEKDAY_STEMS_NORMALIZED as readonly string[]).includes(n)) return m;
+        const stem = closestWeekdayStem(word);
+        return stem ? `${toda} ${stem}` : m;
+      },
+    );
+}
+
 function extractWeekdayFacts(message: string) {
   return [...message.matchAll(WEEKDAY_FACTS)]
     .map((match) => (match[1] ? normalizeWeekday(match[1]) : undefined))
@@ -657,7 +980,8 @@ function extractUnitFact(message: string) {
 function extractTimeFact(message: string) {
   const match =
     message.match(/(?:^|[^\p{L}\d])(?:[àa]s|as)\s*(\d{1,2})(?::(\d{2})|h(\d{2})?)?/iu) ??
-    message.match(/\b(\d{1,2})h(\d{2})?\b/iu);
+    message.match(/\b(\d{1,2})h(\d{2})?\b/iu) ??
+    message.match(/\b(\d{1,2}):(\d{2})\b/iu);
   const hour = match?.[1];
   if (!hour) return undefined;
   const minute = match?.[2] ?? match?.[3] ?? "00";
@@ -671,7 +995,12 @@ function extractCommercialCondition(message: string) {
   const percentage = message.match(/\b\d{1,3}\s*%\s*(?:de\s+)?desconto\b/iu);
   if (percentage) return percentage[0];
   if (NEGATED_FREE_OFFER.test(message)) return undefined;
-  return message.match(/\b(?:gr[aá]tis|gratuita?|sem\s+custo|por\s+conta\s+da\s+casa)\b/iu)?.[0];
+  // Redação explícita do banner ("grátis", "por conta da casa") vence outras
+  // formas de dizer grátis ("cortesia" aparece antes no texto, mas não é a
+  // cópia que vai para a arte).
+  const explicit = message.match(/\b(?:gr[aá]tis|gratuit[oa]s?|por\s+conta\s+da\s+casa)\b/iu)?.[0];
+  if (explicit) return explicit;
+  return message.match(new RegExp(`\\b(?:${FREE_WORDING_SOURCE})\\b`, "iu"))?.[0];
 }
 
 /**
@@ -816,7 +1145,42 @@ export function formatarBriefing(briefing: BannerBriefing): string {
   return linhas.join("\n");
 }
 
+const SUBJECT_FUNCTION_WORDS = new Set([
+  "toda", "todo", "todas", "todos", "tota",
+  "para", "pela", "pelo", "com", "sem", "sobre", "entre", "cada",
+  "nesta", "neste", "nessa", "nesse", "das", "dos", "uma", "uns", "umas",
+  "aos", "ao", "os", "as", "de", "da", "do", "em", "na", "no", "que", "e",
+  "um", "a", "o", "por", "seu", "sua", "seus", "suas", "meu", "minha",
+  "nos", "nas", "nosso", "nossa", "isso", "isto", "aquilo", "sim", "nao",
+]);
+
+/** Assunto feito só de palavras funcionais ("toda", "isso") não é produto. */
+function isOnlyFunctionWordsSubject(subject: string | undefined): boolean {
+  if (!subject) return false;
+  const words = normalizedWords(subject).split(/\s+/u).filter(Boolean);
+  return words.length > 0 && words.every((word) => SUBJECT_FUNCTION_WORDS.has(word));
+}
+
+/**
+ * Resíduo só-qualificador ("diversos sabores", "vários sabores", "sabores
+ * diversos"): descreve variedade, não nomeia produto. Nunca pode virar
+ * assunto — o assunto ficaria travado num genérico e a pergunta "o que
+ * divulgar?" nunca seria refeita.
+ */
+export function isQualifierOnlySubject(subject: string | undefined): boolean {
+  if (!subject) return false;
+  const n = normalizedWords(subject).replace(/,\s*$/u, "").trim();
+  const qualifier =
+    "(?:diversos|diversas|varios|varias|variados|variadas|diferentes|muitos|muitas|sortidos|sortidas)";
+  const category = "(?:sabores|sabor|opcoes|tipos|modelos|itens|escolhas)";
+  return new RegExp(
+    `^(?:${qualifier} +${category}|${category} +${qualifier}|${qualifier})$`,
+    "iu",
+  ).test(n);
+}
+
 function extractCommercialSubject(message: string) {
+  message = normalizeWeekdayTypos(message);
   if (/^\s*(?:o\s+)?(?:pre[cç]o|valor)\b/iu.test(message)) return undefined;
 
   // A common promotion structure combines a purchased item with a courtesy
@@ -855,6 +1219,10 @@ function extractCommercialSubject(message: string) {
   )
     return undefined;
   const normalized = messageCore
+    // Correção ("na verdade é X") e "só X" como resposta: o prefixo não é
+    // produto e não pode virar nome do produto.
+    .replace(/^\s*(?:na\s+verdade\s+(?:é\s+)?|na\s+realidade\s+(?:é\s+)?|corrigindo\s*:?\s*|correção\s*:?\s*|é\s+)/iu, "")
+    .replace(/^\s*(?:s[oó]|somente|apenas)\s+/iu, "")
     .replace(/[.!?]+\s*$/u, "")
     .replace(/\s+/gu, " ")
     .replace(
@@ -865,12 +1233,25 @@ function extractCommercialSubject(message: string) {
       /^\s*(?:segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo)(?:-?feira)?\s+(?:vai\s+ter|tem)\s+/iu,
       "",
     )
+    // Mensagem que É só um dia não é assunto; dia no início + resto é
+    // agenda, não produto ("Sexta feira oração na igreja" → "oração na igreja").
+    .replace(
+      /^\s*(?:segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo)(?:-feira|\s+feira)?\s*$/iu,
+      "",
+    )
+    .replace(
+      /^\s*(?:segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo)(?:-feira|\s+feira)?\s+(?:vai\s+ter|tem\s+)?/iu,
+      "",
+    )
     .replace(/^\s*(?:promo(?:ç|c)[aã]o|oferta)\s*:\s*/iu, "")
     .replace(/(?:por\s+)?r?\$\s*\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?/giu, "")
     .replace(
       /\b\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?\s*(?:reais?|pila|money|bar(?:ão|ao|ões|oes)|conto?s?)\b/giu,
       "",
     )
+    // Desconto é condição, nunca produto: "20% de desconto no bolo" → "bolo".
+    .replace(/\b\d{1,3}\s*%\s*(?:de\s+)?desconto(?:\s+(?:no|na|nos|nas|em|de|do|da|dos|das|para|pro|pra))?\s*/giu, "")
+    .replace(/\bdesconto\s+(?:de\s+)?\d{1,3}\s*%(?:\s+(?:no|na|nos|nas|em|de|do|da|dos|das|para|pro|pra))?\s*/giu, "")
     // "Avaliação gratuita" is the commercial subject itself and should stay
     // readable; standalone free-price expressions are conditions, not items.
     .replace(/\b(?:gr[aá]tis|sem\s+custo|por\s+conta\s+da\s+casa)\b/giu, "")
@@ -887,6 +1268,34 @@ function extractCommercialSubject(message: string) {
       "",
     )
     .replace(/\bpor\s*$/iu, "")
+    // Resposta "tudo junto" (dia + preço + validade) não é assunto: tira as
+    // cláusulas de fato para não virar item obrigatório impossível de cumprir.
+    .replace(
+      /^\s*(?:toda|todo|todas|todos)?\s*(?:segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo)(?:-feira|\s+feira)?\s*,\s*/iu,
+      "",
+    )
+    .replace(/,?\s*valor\s+(?:de\s+)?\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?\b/giu, "")
+    .replace(
+      /,?\s*v[áa]lid[oa]s?\s+para\s+(?:o\s+m[êe]s\s+de\s+)?(?:janeiro|fevereiro|mar[çc]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\b/giu,
+      "",
+    )
+    .replace(
+      /(?:^|[\s,])(?:[àa]s|as)\s*\d{1,2}(?::\d{2}|h(?:\d{2})?)?\b/giu,
+      "",
+    )
+    .replace(/\b\d{1,2}:\d{2}\b/giu, "")
+    .replace(/\b\d{1,2}h(?:\d{2})?\b/giu, "")
+    .replace(/^\s*,\s*/u, "")
+    // Unidade ("a unidade", "por porção") é atributo, não produto.
+    .replace(/(?:\s+(?:a|por)\s+(?:unidade|por[çc][aã]o|pessoa))\s*$/iu, "")
+    // Resíduo só de recorrência ("toda" de "toda quarta feira", "tota" do
+    // typo) não é produto: mensagem que só responde dia/recorrência nunca
+    // pode virar assunto e expulsar o assunto anterior.
+    .replace(/^\s*(?:toda|todo|todas|todos|tota)\b\s*/iu, "")
+    .replace(/\s+(?:toda|todo|todas|todos|tota)\b\s*$/iu, "")
+    .replace(/,\s*$/u, "")
+    .replace(/\s+(?:com|e)\s*$/iu, "")
+    .replace(/^\s*(?:um(?:a)?|o|a|os|as)\s+/iu, "")
     .trim();
   return normalized.length >= 2 &&
     !/^(?:(?:como\s+)?(?:criar|fazer|montar)\s+)?(?:um(?:a)?\s+)?(?:banner|arte|imagem)(?:\s+de)?\s+(?:promo(?:ç|c)[aã]o|oferta)(?:\s+da\s+semana)?$/iu.test(
@@ -900,8 +1309,12 @@ function extractCommercialSubject(message: string) {
 /** Extract only facts explicitly stated in the current user turn. */
 export function extractBannerTurnFacts(
   message: string,
-  context?: Pick<BannerConversationBrief, "pendingQuestion" | "priceCandidate">,
+  context?: Pick<
+    BannerConversationBrief,
+    "pendingQuestion" | "priceCandidate" | "priceAsked"
+  >,
 ): BannerTurnFacts {
+  message = normalizeWeekdayTypos(message);
   const facts: BannerTurnFacts = {};
   // Pedido multi-preço: cada item carrega seu próprio preço (um pode ser
   // grátis enquanto outro tem preço). O preço único legado é ignorado aqui.
@@ -915,7 +1328,15 @@ export function extractBannerTurnFacts(
     if (priceUnit) facts.priceUnit = priceUnit;
   }
   const barePrice = extractBarePriceCandidate(message);
-  if (barePrice !== undefined) facts.priceCandidate = barePrice;
+  if (barePrice !== undefined) {
+    // Correção A: após a pergunta de preço da guarda, um número solto
+    // ("14,99") É a resposta — vira preço confirmado, não candidato.
+    // Sem priceAsked, mantém o comportamento atual (candidato). O
+    // BARE_PRICE já garante que a mensagem é essencialmente só o número.
+    const prevBrief = context as BannerConversationBrief | undefined;
+    if (prevBrief?.priceAsked) facts.price = barePrice;
+    else facts.priceCandidate = barePrice;
+  }
   const commercialCondition = extractCommercialCondition(message);
   if (commercialCondition) facts.commercialCondition = commercialCondition;
   if (FREE_OFFER.test(message) && !NEGATED_FREE_OFFER.test(message)) facts.freeCopyConfirmed = true;
@@ -933,11 +1354,34 @@ export function extractBannerTurnFacts(
   // de qualquer outra interpretação de validade.
   const validity = resolveRelativeDateValidity(message) ?? extractValidityFact(message);
   if (validity) facts.validity = validity;
-  const weekdays = extractWeekdayFacts(message);
+  // Dia negado ("não é quarta, é quinta") não é dia informado: tira a
+  // cláusula negada antes de extrair, e marca correção explícita de dia
+  // para o merge substituir em vez de acumular.
+  const weekdayMessage = message.replace(
+    /\bn[aã]o\s+[eé]\s+(?:segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo)(?:-feira|\s+feira)?\s*,?\s*/iu,
+    "",
+  );
+  const dayCorrection =
+    weekdayMessage !== message ||
+    /\bem\s+vez\s+de\b/iu.test(message) ||
+    /\b(?:trocar|mudar|alterar|corrigir)\b[^,.]*\bpara\b/iu.test(message);
+  const weekdays = extractWeekdayFacts(weekdayMessage);
   if (weekdays.length) {
     facts.weekday = weekdays[0];
     facts.weekdays = weekdays;
-    facts.recurrence = extractRecurrence(message) ?? "NONE";
+    facts.recurrence = extractRecurrence(weekdayMessage) ?? "NONE";
+    if (dayCorrection) facts.weekdaysReplace = true;
+  }
+  // Rebaixamento explícito ("não é toda semana") vence a persistência do
+  // WEEKLY no merge; sem ele, um "só sábado" posterior apagaria a
+  // recorrência afirmada antes.
+  if (
+    /\bn[aã]o\s+(?:é\s+)?toda\s+semana\b|\bsem\s+recorrência\b|\bn[aã]o\s+é\s+semanal\b/iu.test(
+      message,
+    )
+  ) {
+    facts.recurrence = "NONE";
+    facts.recurrenceDowngrade = true;
   }
   const dateContext = extractDateContext(message);
   if (dateContext) facts.dateContext = dateContext;
@@ -956,18 +1400,40 @@ export function extractBannerTurnFacts(
   const time = extractTimeFact(message);
   if (time) facts.time = time;
   if (SCOPE_CONFIRMATION.test(message)) facts.scopeConfirmed = true;
+  // "não é X, é Y" é correção explícita de assunto: Y vence, sem depender
+  // do gate de escopo (que classificaria a frase como REJECT_ALL).
+  const subjectCorrection = message.match(
+    /^\s*n[aã]o\s+[eé]\s+[^,;]+?,\s*(?:[eé]\s+)?(.+)$/iu,
+  );
+  if (subjectCorrection?.[1]) {
+    const corrected = extractCommercialSubject(subjectCorrection[1].trim());
+    if (corrected && !isQualifierOnlySubject(corrected)) facts.subject = corrected;
+  }
+  // Resposta à pergunta "o que divulgar?" nunca é correção de escopo: "só
+  // bolo", "bolo sem glúten" e "sim, quero divulgar o bolo" nomeiam o
+  // produto. O prefixo de confirmação é removido antes de extrair.
+  const answeringSubject = context?.pendingQuestion === "subject";
+  const answerCore = answeringSubject
+    ? message.replace(/^\s*(?:sim|isso|correto|exato|perfeito|pode\s+ser)\s*[,;.!?]?\s*/iu, "")
+    : message;
+  const subjectSource = answeringSubject ? answerCore : message;
   if (
-    scopeCorrectionOperation(message) === "UNCLEAR" &&
-    !/^\s*(?:sim|isso|pode ser|ok|certo)\b/i.test(message)
+    facts.subject === undefined &&
+    (scopeCorrectionOperation(message) === "UNCLEAR" ||
+      (answeringSubject && subjectSource.trim().length >= 2)) &&
+    !/^\s*(?:sim|isso|pode ser|ok|certo)\b/i.test(subjectSource)
   ) {
-    const subject = extractCommercialSubject(message);
+    const subject = extractCommercialSubject(subjectSource);
     if (
       subject &&
-      !/^\s*(?:combo|completa|completo|combo\s+completo)\s*[.!]?\s*$/iu.test(message) &&
+      !isQualifierOnlySubject(subject) &&
+      !isOnlyFunctionWordsSubject(subject) &&
+      !/^\s*(?:combo|completa|completo|combo\s+completo)\s*[.!]?\s*$/iu.test(subjectSource) &&
       (COMMERCIAL_SUBJECT.test(message) ||
         EVENT_OR_OFFER_SUBJECT.test(message) ||
         PRICE_FACT.test(message) ||
         FREE_OFFER.test(message) ||
+        /^\s*(?:na\s+verdade|na\s+realidade|corrigindo|correção)\b/iu.test(message) ||
         context?.pendingQuestion === "subject")
     )
       facts.subject = subject;
@@ -978,9 +1444,14 @@ export function extractBannerTurnFacts(
       !facts.subject &&
       !PRICE_FACT.test(message) &&
       context?.pendingQuestion === "subject" &&
-      !/^\s*(?:vai|até|somente|apenas)\b/iu.test(message) &&
+      !/^\s*(?:vai|até|somente|apenas|só|sim|isso|ok|certo)(?:\s|$|[.,;!?])/iu.test(
+        message,
+      ) &&
+      !WEEKDAY_FACT.test(message) &&
       !/\b(?:promo(?:ç|c)[aã]o|oferta)\s+(?:da|de)\s+semana\b/iu.test(message) &&
-      message.trim().length >= 2
+      message.trim().length >= 2 &&
+      !isQualifierOnlySubject(message.trim()) &&
+      !isOnlyFunctionWordsSubject(message.trim())
     )
       facts.subject = subject ?? message.trim();
   }
@@ -995,11 +1466,27 @@ export function mergeBannerConversationBrief(
   previous: BannerConversationBrief,
   facts: BannerTurnFacts,
 ): BannerConversationBrief {
-  const subject = facts.subject !== undefined ? facts.subject : previous.subject;
+  // Uma mensagem que só adiciona atributos (preço, unidade, dia, validade)
+  // a um assunto já estabelecido não troca o assunto: "Varios sabores,
+  // valor 14,99 a unidade" não pode expulsar "Festival de cucas". Só troca
+  // quando ainda não há assunto ou quando a mensagem não traz nenhum outro
+  // fato (troca seca de produto, ex.: "coxinha").
+  const carriesOtherFacts =
+    facts.price !== undefined ||
+    facts.pricedItems !== undefined ||
+    facts.priceUnit !== undefined ||
+    facts.unit !== undefined ||
+    facts.validity !== undefined ||
+    facts.weekday !== undefined ||
+    facts.time !== undefined ||
+    facts.commercialCondition !== undefined;
+  const replacesSubject =
+    facts.subject !== undefined && (previous.subject === undefined || !carriesOtherFacts);
+  const subject = replacesSubject ? facts.subject : previous.subject;
   return {
     ...previous,
-    ...(facts.subject !== undefined ? { subject: facts.subject } : {}),
-    ...(facts.subject !== undefined ? { offerItems: extractOfferItems(subject) } : {}),
+    ...(replacesSubject ? { subject: facts.subject } : {}),
+    ...(replacesSubject ? { offerItems: extractOfferItems(subject) } : {}),
     ...(facts.objective !== undefined ? { objective: facts.objective } : {}),
     ...(facts.mandatoryTexts !== undefined ? { mandatoryTexts: facts.mandatoryTexts } : {}),
     ...(facts.price !== undefined ? { price: facts.price } : {}),
@@ -1026,10 +1513,36 @@ export function mergeBannerConversationBrief(
       ? { freeCopyConfirmed: facts.freeCopyConfirmed }
       : {}),
     ...(facts.validity !== undefined ? { validity: facts.validity } : {}),
-    ...(facts.weekday !== undefined ? { weekday: facts.weekday } : {}),
-    ...(facts.weekdays !== undefined ? { weekdays: facts.weekdays } : {}),
+    // Dias acumulam entre turnos ("toda quarta" + "também no sábado" =
+    // quarta + sábado); o singular segue sendo o primeiro, por
+    // compatibilidade. Correção explícita de dia substitui, não acumula.
+    ...(facts.weekdays !== undefined
+      ? {
+          weekdays: facts.weekdaysReplace
+            ? facts.weekdays
+            : [...(previous.weekdays ?? []), ...facts.weekdays].filter(
+                (day, index, days) => days.indexOf(day) === index,
+              ),
+          weekday: facts.weekdaysReplace
+            ? facts.weekday
+            : (previous.weekday ?? facts.weekday),
+        }
+      : {}),
+    ...(facts.weekday !== undefined && facts.weekdays === undefined
+      ? { weekday: facts.weekday }
+      : {}),
     ...(facts.dateContext !== undefined ? { dateContext: facts.dateContext } : {}),
-    ...(facts.recurrence !== undefined ? { recurrence: facts.recurrence } : {}),
+    // WEEKLY persiste quando qualquer turno a afirmou; só um rebaixamento
+    // explícito ("não é toda semana") a derruba.
+    ...(facts.recurrence !== undefined
+      ? {
+          recurrence: facts.recurrenceDowngrade
+            ? "NONE"
+            : facts.recurrence === "WEEKLY" || previous.recurrence === "WEEKLY"
+              ? "WEEKLY"
+              : facts.recurrence,
+        }
+      : {}),
     ...(facts.unit !== undefined ? { unit: facts.unit } : {}),
     ...(facts.time !== undefined ? { time: facts.time } : {}),
     ...(facts.scopeConfirmed !== undefined ? { scopeConfirmed: facts.scopeConfirmed } : {}),
@@ -1478,6 +1991,13 @@ export type RequiredOfferFacts = {
   weekday?: string;
   /** Todos os dias citados; `weekday` segue como o primeiro por compatibilidade. */
   weekdays?: string[];
+  /** Horário confirmado no formato HH:MM (ex.: "21:00"). */
+  time?: string;
+  /** Assunto do pedido, para exigir a palavra do evento nos textos. */
+  subject?: string;
+  /** Há logo oficial cadastrada (referência anexável). Sem ela, o prompt
+   * não pode falar em referência anexada; com ela, precisa citá-la. */
+  hasLogo?: boolean;
   recurrence?: "NONE" | "WEEKLY";
   unit?: string;
   business?: string;
@@ -1494,6 +2014,9 @@ export type CommercialFactViolation = {
     | "MISSING_VALIDITY"
     | "MISSING_UNIT"
     | "INVENTED_RECURRENCE"
+    | "WRONG_TIME"
+    | "MISSING_TIME"
+    | "MISSING_WEEKDAY_TEXT"
     | "WRONG_BUSINESS"
     | "WRONG_SCOPE";
   detail: string;
@@ -1518,6 +2041,7 @@ export type GeneratedCommercialMetadata = {
 export function requiredOfferFactsFromBrief(
   brief: BannerConversationBrief,
   business?: string,
+  opts?: { hasLogo?: boolean },
 ): RequiredOfferFacts {
   const items = brief.offerItems?.length ? brief.offerItems : extractOfferItems(brief.subject);
   return {
@@ -1531,9 +2055,12 @@ export function requiredOfferFactsFromBrief(
     ...(brief.validity ? { validity: brief.validity } : {}),
     ...(brief.weekday ? { weekday: brief.weekday } : {}),
     ...(brief.weekdays?.length ? { weekdays: brief.weekdays } : {}),
+    ...(brief.time ? { time: brief.time } : {}),
+    ...(brief.subject ? { subject: brief.subject } : {}),
     ...(brief.recurrence ? { recurrence: brief.recurrence } : {}),
     ...(brief.unit ? { unit: brief.unit } : {}),
     ...(business ? { business } : {}),
+    ...(opts?.hasLogo ? { hasLogo: true } : {}),
     scope: "confirmed",
   };
 }
@@ -1557,6 +2084,28 @@ function normalizedCommercialUnit(value: string) {
  * inspectable separately from the artwork copy, so writing “+ café” in text
  * cannot hide the fact that the coffee was omitted from the composition.
  */
+/**
+ * Fragmentos que o modelo enfia na lista de itens quando o pedido mistura
+ * evento + dia recorrente + validade + preço (visto em produção: "R$ 19,90",
+ * "válido para", "toda quarta-feira"). Preço, validade e dia não são itens
+ * comerciais — removê-los antes de validar evita rejeitar uma boa ideia por
+ * metadado sujo, sem inventar nem apagar item real.
+ */
+export function sanitizeGeneratedItems(items: readonly string[] | undefined): string[] | undefined {
+  if (!items) return items;
+  return items
+    .map((item) => item.trim())
+    .filter((item) => {
+      if (!item) return false;
+      if (/r\$/iu.test(item)) return false;
+      if (/^\s*(?:\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?)\s*$/.test(item)) return false;
+      if (/^\s*v[aá]lid[oa]?\b/iu.test(item)) return false;
+      // O dia da semana NÃO é apagado: quando ele vem do assunto, o validador
+      // o exige como item obrigatório — apagar aqui criava MISSING_OFFER_ITEM.
+      return true;
+    });
+}
+
 export function validateGeneratedCommercialFacts(
   generated: GeneratedCommercialMetadata,
   required: RequiredOfferFacts,
@@ -1657,6 +2206,102 @@ export function validateGeneratedCommercialFacts(
 }
 
 /** Ensure the actual image prompt includes the benefit wording the user chose. */
+export type SceneViolation = {
+  reason: "MISSING_SCENE_ITEMS" | "SCENE_ITEM_NOT_CONFIRMED" | "UNCONFIRMED_PRICE";
+  detail: string;
+};
+
+/**
+ * C-3: a cena é o que o render mostra, e até aqui nenhum validador olhava
+ * para ela — só para metadados que o próprio modelo escreveu. A opção
+ * declara em sceneItems o que aparece visível na cena; o validador cobra
+ * a declaração (ausente = rejeita) e proíbe item não confirmado e preço
+ * sem confirmação nos textos e na cena. Limitação honesta: o modelo
+ * autodeclara sceneItems (réu e testemunha); o sistema nunca vê o render,
+ * então isto força uma declaração cobrável, não prova os pixels.
+ */
+export function validatePromptSceneItems(
+  option: { prompt: string; sceneItems?: readonly string[] | undefined },
+  required: RequiredOfferFacts,
+): SceneViolation[] {
+  const violations: SceneViolation[] = [];
+  const sceneItems = option.sceneItems?.length ? option.sceneItems : undefined;
+  if (!sceneItems) {
+    violations.push({
+      reason: "MISSING_SCENE_ITEMS",
+      detail:
+        "A opção não declarou sceneItems: liste todos os produtos visíveis na cena, sem exceção.",
+    });
+  } else {
+    for (const item of sceneItems) {
+      if (!required.items.some((requiredItem) => sameCommercialItem(item, requiredItem))) {
+        violations.push({
+          reason: "SCENE_ITEM_NOT_CONFIRMED",
+          detail: `Produto visível na cena não foi confirmado no pedido: ${item}`,
+        });
+      }
+    }
+  }
+  const hasConfirmedPrice =
+    (required.price !== undefined && required.price > 0) ||
+    (required.pricedItems?.some((priced) => priced.price > 0) ?? false);
+  if (!hasConfirmedPrice && /R\$\s*\d/u.test(option.prompt)) {
+    violations.push({
+      reason: "UNCONFIRMED_PRICE",
+      detail: "O prompt exibe um preço (R$ …) que não foi confirmado no pedido.",
+    });
+  }
+  return violations;
+}
+
+export type LogoReferenceViolation = {
+  reason: "MISSING_LOGO_REFERENCE" | "LOGO_REFERENCE_WITHOUT_LOGO" | "LOGO_URL_IN_PROMPT";
+  detail: string;
+};
+
+/**
+ * Lote 3: a frase da logo. Com logo cadastrada, o prompt precisa mandar
+ * usar a referência anexada (senão o renderizador inventa um logo); sem
+ * logo, o prompt não pode alegar referência anexada; e URL nunca vai para
+ * o prompt (fecha o buraco do validador de registro, que não olhava URL).
+ * "Referência" aqui = logo + palavra de anexo (anexada, oficial,
+ * referência, fornecida, cadastrada, original) — "logo no canto" sozinho
+ * não instrui o uso da referência e não conta.
+ */
+export function validatePromptLogoReference(
+  prompts: readonly string[],
+  hasLogo: boolean,
+): LogoReferenceViolation[] {
+  const violations: LogoReferenceViolation[] = [];
+  const mentionsReference = (prompt: string) => {
+    const n = normalizedWords(prompt);
+    const logoWord = /\b(?:logotipo|logo)\b/.test(n);
+    if (!logoWord) return false;
+    return /\b(?:anexad[oa]s?|referencia|oficial|fornecid[oa]s?|cadastrad[oa]s?|original)\b/.test(n);
+  };
+  for (const [index, prompt] of prompts.entries()) {
+    if (/https?:\/\//u.test(prompt)) {
+      violations.push({
+        reason: "LOGO_URL_IN_PROMPT",
+        detail: `A opção ${index + 1} contém uma URL no prompt — URLs nunca vão para a arte; cite a logo como referência anexada, sem endereço.`,
+      });
+    }
+    if (hasLogo && !mentionsReference(prompt)) {
+      violations.push({
+        reason: "MISSING_LOGO_REFERENCE",
+        detail: `A opção ${index + 1} não manda usar a logo oficial anexada como referência — sem isso, a IA de imagens inventa um logo.`,
+      });
+    }
+    if (!hasLogo && mentionsReference(prompt)) {
+      violations.push({
+        reason: "LOGO_REFERENCE_WITHOUT_LOGO",
+        detail: `A opção ${index + 1} alega uma logo anexada como referência, mas não há logo cadastrada — remova a referência.`,
+      });
+    }
+  }
+  return violations;
+}
+
 export function validatePromptCommercialCopy(prompt: string, required: RequiredOfferFacts) {
   if (!required.commercialCopy) return [];
   const promptWords = normalizedWords(prompt);
@@ -1681,6 +2326,160 @@ export type TextQualityViolation = {
  * ou vagos ("texto sobre a promoção") quase sempre saem com letras
  * bagunçadas — o validador prefere encurtar.
  */
+export type OfferTextViolation = {
+  reason: "MISSING_OFFER_TEXT";
+  detail: string;
+};
+
+/**
+ * O banner precisa VENDER a oferta: o nome do produto e o preço confirmado
+ * têm que aparecer nos textos entre aspas (o que o cliente lê). Metadados
+ * certos com texto errado (ex.: cuca virando pão, preço sumindo) passam nos
+ * outros validadores — este fecha esse buraco.
+ */
+export function validatePromptOfferTexts(
+  prompt: string,
+  required: RequiredOfferFacts,
+): OfferTextViolation[] {
+  const violations: OfferTextViolation[] = [];
+  const quoted = [...prompt.matchAll(/["“]([^"”]{1,200})["”]/g)]
+    .map((m) => m[1]?.trim())
+    .filter((t): t is string => Boolean(t && t.length > 0))
+    .join(" ");
+  // Palavras que nunca anunciam um produto sozinhas. Um item feito só delas
+  // ("toda") é brief quebrado, não oferta — reprovar aqui impede que ele
+  // passe por substring do dia ("TODA QUARTA-FEIRA").
+  const functionWords = new Set([
+    "toda", "todo", "todas", "todos", "tota",
+    "para", "pela", "pelo", "com", "sem", "sobre", "entre", "cada",
+    "nesta", "neste", "nessa", "nesse", "das", "dos", "uma", "uns", "umas",
+    "aos", "ao", "os", "as", "de", "da", "do", "em", "na", "no", "que", "e",
+    "um", "a", "o", "por", "seu", "sua", "seus", "suas", "meu", "minha",
+    "nos", "nas", "nosso", "nossa",
+  ]);
+  const quotedNorm = normalizedWords(quoted);
+  const mainItem = required.items?.[0];
+  if (mainItem) {
+    // V7: >= 3 letras (não > 3): "pão"/"chá"/"mel"/"ovo" normalizam para 3
+    // letras e escapavam da exigência. 2 letras ficam fora de propósito:
+    // quase sempre são palavras-função e o teste "alguma palavra" não tem
+    // filtro por palavra no ramo do item — "de" casaria em qualquer texto.
+    const words = normalizedWords(mainItem)
+      .split(/\s+/u)
+      .filter((word) => word.length > 2);
+    const hay = normalizedWords(quoted);
+    if (words.length > 0 && words.every((word) => functionWords.has(word))) {
+      violations.push({
+        reason: "MISSING_OFFER_TEXT",
+        detail: `O item obrigatório "${mainItem}" não tem palavra anunciável para o texto do banner — o assunto do pedido foi perdido; inclua o produto ou evento real nos textos entre aspas.`,
+      });
+    } else if (words.length > 0 && !words.some((word) => hay.includes(word))) {
+      violations.push({
+        reason: "MISSING_OFFER_TEXT",
+        detail: `O texto do banner precisa anunciar a oferta "${mainItem}" — inclua uma dessas palavras nos textos entre aspas: ${words.join(", ")}.`,
+      });
+    }
+  }
+  if (required.subject) {
+    const ignored = new Set([
+      "segunda", "terca", "terça", "quarta", "quinta", "sexta", "sabado", "sábado",
+      "domingo", "feira",
+      "janeiro", "fevereiro", "marco", "março", "abril", "maio", "junho", "julho",
+      "agosto", "setembro", "outubro", "novembro", "dezembro",
+      "igreja", "loja", "padaria", "restaurante", "mercado", "salao", "salão",
+      "clinica", "clínica", "academia", "escola", "bar", "cafe", "café",
+      "lanchonete", "pizzaria", "farmacia", "farmácia", "oficina", "empresa",
+      "comercio", "comércio",
+      "para", "pela", "pelo", "com", "sem", "sobre", "entre", "toda", "todo",
+      "todas", "todos", "cada", "nesta", "neste", "nessa", "nesse", "das", "dos",
+      "uma", "uns", "umas", "aos", "ao", "os", "as", "de", "da", "do", "em", "na",
+      "no", "que", "e", "um", "a", "o", "por", "seu", "sua", "seus", "suas",
+      "meu", "minha", "nos", "nas", "nosso", "nossa", "dia", "horario", "horário",
+    ]);
+    const core = [
+      ...new Set(
+        normalizedWords(required.subject)
+          .split(/\s+/u)
+          .filter((word) => word.length > 2 && !/\d/.test(word) && !ignored.has(word)),
+      ),
+    ];
+    const hay = normalizedWords(quoted);
+    if (core.length > 0 && !core.some((word) => hay.includes(word))) {
+      violations.push({
+        reason: "MISSING_OFFER_TEXT",
+        detail: `O texto do banner precisa anunciar o assunto "${required.subject}" — inclua uma dessas palavras nos textos entre aspas: ${core.join(", ")}.`,
+      });
+    }
+  }
+  // V3: cada item+preço confirmado precisa aparecer citado: a palavra do
+  // item E o preço exato, nos textos entre aspas. Item gratuito exige a
+  // expressão de gratuidade citada (V6), não um preço.
+  const freeExpression = normalizedWords(required.commercialCopy ?? "grátis");
+  if (required.pricedItems?.length) {
+    for (const priced of required.pricedItems) {
+      const words = normalizedWords(priced.item)
+        .split(/\s+/u)
+        .filter((word) => word.length > 2 && !functionWords.has(word));
+      if (words.length > 0 && !words.some((word) => quotedNorm.includes(word))) {
+        violations.push({
+          reason: "MISSING_OFFER_TEXT",
+          detail: `O texto do banner precisa anunciar o item "${priced.item}" nos textos entre aspas.`,
+        });
+      }
+      if (priced.price > 0) {
+        const br = priced.price.toFixed(2).replace(".", ",");
+        const us = priced.price.toFixed(2);
+        if (!quoted.includes(br) && !quoted.includes(us)) {
+          violations.push({
+            reason: "MISSING_OFFER_TEXT",
+            detail: `O texto do banner precisa mostrar o preço R$ ${br} de "${priced.item}" entre aspas.`,
+          });
+        }
+      } else if (freeExpression && !quotedNorm.includes(freeExpression)) {
+        violations.push({
+          reason: "MISSING_OFFER_TEXT",
+          detail: `O texto do banner precisa mostrar a gratuidade "${required.commercialCopy ?? "grátis"}" de "${priced.item}" entre aspas.`,
+        });
+      }
+    }
+  } else if (required.price !== undefined && required.price > 0) {
+    const br = required.price.toFixed(2).replace(".", ",");
+    const us = required.price.toFixed(2);
+    if (!quoted.includes(br) && !quoted.includes(us)) {
+      violations.push({
+        reason: "MISSING_OFFER_TEXT",
+        detail: `O texto do banner precisa mostrar o preço R$ ${br} entre aspas.`,
+      });
+    }
+  } else if (required.price === 0) {
+    // V6: gratuidade citada, não só no prompt inteiro (o validador de copy
+    // só olha o prompt todo — "GRÁTIS" no rodapé técnico não é texto lido).
+    if (freeExpression && !quotedNorm.includes(freeExpression)) {
+      violations.push({
+        reason: "MISSING_OFFER_TEXT",
+        detail: `O texto do banner precisa mostrar a gratuidade "${required.commercialCopy ?? "grátis"}" entre aspas.`,
+      });
+    }
+  }
+  // V4: validade confirmada precisa aparecer citada. Sem palavra
+  // distinguível (ex.: só "30/11"), não há o que exigir — sem violação.
+  if (required.validity) {
+    const validityWords = normalizedWords(required.validity)
+      .split(/\s+/u)
+      .filter((word) => word.length > 2 && !/\d/.test(word) && !functionWords.has(word));
+    if (
+      validityWords.length > 0 &&
+      !validityWords.some((word) => quotedNorm.includes(word))
+    ) {
+      violations.push({
+        reason: "MISSING_OFFER_TEXT",
+        detail: `O texto do banner precisa mostrar a validade "${required.validity}" entre aspas.`,
+      });
+    }
+  }
+  return violations;
+}
+
 export function validatePromptTextQuality(prompt: string): TextQualityViolation[] {
   const violations: TextQualityViolation[] = [];
   const quoted = [...prompt.matchAll(/["“]([^"”]{1,200})["”]/g)]
@@ -1733,6 +2532,42 @@ export function validatePromptTemporalFacts(
         ? [required.weekday]
         : [];
   const normalized = normalizedWords(prompt);
+  const quotedTextsNorm = normalizedWords(
+    [...prompt.matchAll(/["“]([^"”]{1,200})["”]/g)]
+      .map((m) => m[1] ?? "")
+      .join(" "),
+  );
+  // O horário é fato confirmado como o dia: 21h virando 20h nos textos é
+  // rejeição, não detalhe. Só viola quando nenhum horário citado bate com o
+  // confirmado, para não punir faixas ("das 8h às 18h").
+  if (required.time) {
+    const [reqHour, reqMinute] = required.time.split(":").map(Number);
+    const requiredTime = `${String(reqHour).padStart(2, "0")}:${String(reqMinute).padStart(2, "0")}`;
+    const displayTime =
+      reqMinute === 0 ? `${reqHour}h` : `${reqHour}h${String(reqMinute).padStart(2, "0")}`;
+    const quoted = [...prompt.matchAll(/["“]([^"”]{1,200})["”]/g)].map((m) => m[1] ?? "");
+    const quotedTimes: string[] = [];
+    for (const text of quoted) {
+      for (const m of text.matchAll(/\b(\d{1,2})\s*(?:h(?:\s*(\d{2}))?|:(\d{2}))(?!\d)/giu)) {
+        const hour = Number(m[1]);
+        const minute = Number(m[2] ?? m[3] ?? 0);
+        if (hour <= 23 && minute <= 59) {
+          quotedTimes.push(`${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`);
+        }
+      }
+    }
+    if (quotedTimes.length === 0) {
+      violations.push({
+        reason: "MISSING_TIME",
+        detail: `Horário obrigatório ausente nos textos entre aspas: ${displayTime}.`,
+      });
+    } else if (!quotedTimes.includes(requiredTime)) {
+      violations.push({
+        reason: "WRONG_TIME",
+        detail: `Horário trocado nos textos entre aspas (${quotedTimes.join(", ")}); o horário confirmado é ${displayTime}.`,
+      });
+    }
+  }
   for (const weekday of weekdays) {
     const weekdayPattern = normalizedWords(weekday).replace(" feira", "(?: feira)?");
     // Recorrência inventada: só vale se o usuário informou WEEKLY.
@@ -1754,6 +2589,16 @@ export function validatePromptTemporalFacts(
       violations.push({
         reason: "MISSING_VALIDITY",
         detail: `Dia obrigatório ausente no prompt: ${weekday}`,
+      });
+    }
+    // V5: o dia também precisa estar nos TEXTOS citados — antes bastava
+    // estar em qualquer lugar do prompt (ex.: numa instrução técnica), e o
+    // cliente lia um banner sem o dia. Assimetria com o horário, que já
+    // era exigido citado, corrigida aqui.
+    if (!new RegExp(`\\b${base}s?\\b`, "iu").test(quotedTextsNorm)) {
+      violations.push({
+        reason: "MISSING_WEEKDAY_TEXT",
+        detail: `Dia obrigatório ausente nos textos entre aspas: ${weekday}`,
       });
     }
   }
@@ -1794,6 +2639,43 @@ export function validateSecondPromptCommercialDirection(
 }
 
 /** Reject near-copy pairs while ignoring shared brand and offer vocabulary. */
+export type TypographyContrastViolation = {
+  reason: "SAME_TYPEFACE";
+  detail: string;
+};
+
+/**
+ * As duas opções não podem sair com o mesmo estilo de letra (o renderizador
+ * normaliza tudo para bold genérico quando o prompt não declara famílias).
+ * Exige famílias opostas: uma serifada, outra sem serifa. "Sem serifa" nunca
+ * conta como serifada.
+ */
+export function validatePromptTypographyContrast(
+  first: string,
+  second: string,
+): TypographyContrastViolation[] {
+  const declaresSerif = (value: string) =>
+    /serif/iu.test(
+      value
+        .replace(/\bsem\s+serifa\b/giu, "")
+        .replace(/\bsans[-\s]?serif\b/giu, ""),
+    );
+  const declaresSans = (value: string) =>
+    /sem\s+serifa|sans-serif|extrabold|grotesc[ao]/iu.test(value);
+  const firstSerif = declaresSerif(first);
+  const secondSerif = declaresSerif(second);
+  const firstSans = declaresSans(first);
+  const secondSans = declaresSans(second);
+  if ((firstSerif && secondSans) || (firstSans && secondSerif)) return [];
+  return [
+    {
+      reason: "SAME_TYPEFACE",
+      detail:
+        "As duas opções devem declarar famílias tipográficas opostas: uma serifada (serifada, traço fino, caixa alta espaçada) e outra sem serifa extrabold — nunca o mesmo estilo de letra nas duas.",
+    },
+  ];
+}
+
 export function validatePromptConceptSeparation(first: string, second: string) {
   const photoLed = (value: string) =>
     /\b(?:protagonismo\s+da\s+oferta|fotografia\s+(?:publicit[aá]ria|editorial|realista)(?:\s+realista)?\s+(?:(?:de|do)\s+)?produto|foto(?:grafia)?\s+de\s+produto\s+(?:como\s+)?(?:foco|protagonista)|still\s+life\s+fotogr[aá]fico|imagem\s+fotogr[aá]fica\s+(?:do\s+)?produto)\b/iu.test(
@@ -1856,6 +2738,26 @@ export function validatePromptConceptSeparation(first: string, second: string) {
         reason: "SIMILAR_PROMPT_CONCEPTS",
         detail:
           "As opções devem declarar diferenças concretas em pelo menos três eixos entre enquadramento, composição, iluminação e hierarquia tipográfica. Especifique escolhas opostas para cada direção; não basta trocar adjetivos ou apenas a imagem.",
+      },
+    ];
+  }
+
+  // Fundos iguais derrubam a diferença visual: duas peças com o mesmo fundo
+  // escuro (ou claro) renderizam quase iguais mesmo com eixos opostos. Só
+  // reprova quando AMBAS declaram o mesmo lado; sem declaração, não julga.
+  const darkBg = (value: string) =>
+    /\b(?:fundo\s+(?:escuro|preto|profundo)|superficie\s+escura)\b/u.test(value);
+  const lightBg = (value: string) =>
+    /\b(?:fundo\s+(?:claro|branco|bege|creme)|superficie\s+clara)\b/u.test(value);
+  if (
+    (darkBg(normalizedFirst) && darkBg(normalizedSecond)) ||
+    (lightBg(normalizedFirst) && lightBg(normalizedSecond))
+  ) {
+    return [
+      {
+        reason: "SIMILAR_PROMPT_CONCEPTS",
+        detail:
+          "As opções precisam ter fundos distintos: uma com fundo escuro, outra com fundo claro.",
       },
     ];
   }
@@ -1950,7 +2852,16 @@ export function isResolvedQuestion(
   const normalized = question.toLocaleLowerCase("pt-BR");
   if (/\b(?:validade|v[aá]lid|at[eé]\s+quando|per[ií]odo)\b/.test(normalized))
     return state.hasValidity;
-  if (/\b(?:pre[cç]o|valor|r\$|pila|reais?)\b/.test(normalized)) return state.hasPrice;
+  if (/\b(?:pre[cç]o|valor|r\$|pila|reais?)\b/.test(normalized)) {
+    // Correção A (ordem do usuário): o preço já foi perguntado uma vez
+    // pela guarda — a LLM perguntar de novo foi o bug do teste "Festival
+    // de cucas" (turno 4 repetiu a pergunta do turno 3, quando o usuário
+    // só corrigia um typo no dia). Com priceAsked marcado, a pergunta de
+    // preço conta como resolvida e o turno segue para a geração, mesmo
+    // sem preço confirmado.
+    if (brief?.priceAsked) return true;
+    return state.hasPrice;
+  }
   if (/\b(?:itens|mesma\s+(?:promo[çc][aã]o|oferta)|combo|oferta\s+completa)\b/.test(normalized))
     return state.hasConfirmedScope;
   if (/\b(?:empresa|estabelecimento|nome\s+da\s+(?:empresa|loja))\b/.test(normalized)) return true;
@@ -1958,6 +2869,14 @@ export function isResolvedQuestion(
   // A CTA is optional unless the user expressly asks for one, so it can never
   // become a mandatory missing-field question.
   if (/\bcta\b|chamada\s+para\s+a[cç][aã]o/.test(normalized)) return true;
+  // A pergunta "Grátis ou Por conta da casa?" já está respondida quando o
+  // cliente usou a própria expressão ou o briefing confirmou a cópia — sem
+  // ela, o modelo pergunta de novo o que o cliente acabou de dizer.
+  if (/\bcortesia\b/.test(normalized)) {
+    if (brief?.freeCopyConfirmed) return true;
+    const userConversation = messages.join("\n").toLocaleLowerCase("pt-BR");
+    if (/\bgr[aá]tis\b|\bpor\s+conta\s+da\s+casa\b/.test(userConversation)) return true;
+  }
   return false;
 }
 

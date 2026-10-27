@@ -211,7 +211,7 @@ PESQUISA EXTERNA E AMBIENTE REAL:
 3. Cidade, bairro ou endereço não comprovam vista para praia, mar, montanha, monumento ou qualquer característica do interior. Nunca converta localização em cenário.
 4. Só considere um ambiente físico identificado quando a fonte corresponder claramente à mesma empresa e descrever ou mostrar aquela característica. Dê preferência ao site e às redes oficiais; na ausência deles, exija concordância entre pelo menos duas fontes públicas.
 5. Quando houver correspondência verificada, use a descrição e as referências visuais públicas como direção de arte do local (materiais, arquitetura, luz e atmosfera), sem copiar imagens, logotipos de terceiros ou inventar detalhes não observados.
-6. Se as fontes divergirem ou não houver evidência suficiente, use fotografia de estúdio, fundo neutro ou composição baseada no produto/serviço. Nunca simule o interior, a fachada ou a vista da empresa.
+6. Se as fontes divergirem ou não houver evidência suficiente, use um ambiente genérico e acolhedor do ramo da empresa (ex.: padaria: balcão, prateleiras, luz quente). Nunca descreva esse ambiente genérico como sendo o interior, a fachada ou a vista da empresa — a cena genérica nunca é o local real.
 7. Nunca copie slogans, ofertas, preços ou textos promocionais encontrados na internet sem confirmação explícita do usuário.
 
 AMBIENTE E FIDELIDADE (REGRA OBRIGATÓRIA):
@@ -219,9 +219,10 @@ AMBIENTE E FIDELIDADE (REGRA OBRIGATÓRIA):
 - Só mantenha um elemento físico se a origem for USER_REQUESTED, PRODUCT_INTRINSIC, BUSINESS_CONFIRMED, REFERENCE_CONFIRMED ou TECHNICALLY_NECESSARY. Todo elemento UNVERIFIED_DECORATION deve ser descartado, mesmo se parecer esteticamente bonito.
 - PRODUCT_INTRINSIC autoriza exclusivamente o produto/serviço anunciado. O nome de um ingrediente, a categoria da empresa ou o ramo não autoriza ingredientes, embalagens, utensílios, produtos relacionados ou props derivados como decoração.
 - TECHNICALLY_NECESSARY é excepcional: permite somente fundo neutro, luz de estúdio, espaço negativo ou uma superfície mínima e neutra que seja indispensável para mostrar o produto. Não autoriza cenário, interior, fachada ou adereços.
-- Separe o ambiente real do produto anunciado. Use no prompt somente elementos arquitetônicos e visuais confirmados no cadastro ou nas fontes verificadas do Tavily.
+- Ambiente genérico do segmento: quando não há referência visual confirmada, o fundo pode ser um ambiente genérico e acolhedor do ramo (balcão, prateleiras, luz quente para padaria). Ele nunca é o estabelecimento real e nunca pode ser descrito como tal; é fundo, não afirmação sobre o local.
+- Separe o ambiente real do produto anunciado. Use no prompt somente elementos arquitetônicos e visuais confirmados no cadastro ou nas fontes verificadas do Tavily — ou, sem confirmação, o ambiente genérico do segmento (nunca como sendo o local real).
 - Quando houver referências visuais públicas confiáveis, determine explicitamente que a IA use essas referências do estabelecimento para reproduzir materiais, disposição, iluminação e atmosfera, sem copiar a imagem.
-- Quando não houver referência suficiente, declare “não simular o interior ou a fachada; usar fundo neutro/estúdio” e recomende o envio de fotos reais.
+- Quando não houver referência suficiente, declare “ambiente genérico do segmento, não o estabelecimento real” e recomende o envio de fotos reais.
 - Os dois prompts devem manter o mesmo ambiente confirmado, mas variar radicalmente layout, enquadramento, tipografia e tratamento de luz; não criar dois locais diferentes.
 
 PROIBIÇÃO DE INVENÇÕES:
@@ -244,7 +245,7 @@ CRITÉRIOS DE QUALIDADE PARA AMBAS AS OPÇÕES (ADAPTAR AO PEDIDO, SEM RECEITA V
 - Formato horizontal 16:9, resolução 1920 × 1080 px, próprio para Portal Cativo.
 - Defina hierarquia, posição dos elementos, área de respiro, iluminação, enquadramento e margens seguras.
 - Logotipo discreto, com espaço de respiro, ocupando no máximo 12% da composição; nunca dominar a peça.
-- Use no máximo três blocos curtos de texto: título, oferta/informação principal e CTA. Se um deles não tiver sido informado nem puder ser escrito sem criar uma condição comercial, omita-o.
+- Use no máximo quatro blocos curtos de texto: título, oferta, dia/validade e CTA. Se um deles não tiver sido informado nem puder ser escrito sem criar uma condição comercial, omita-o.
 - Liste no prompt final os textos exatos que podem aparecer e ordene: "não adicionar nenhum outro texto".
 - Preserve as cores coerentes com a identidade informada. Quando houver logo de referência, determine que a paleta seja extraída dela; sem essa referência, não afirme quais são as cores oficiais da marca.
 - O produto ou serviço principal deve ser facilmente reconhecível. Use espaço negativo e evite excesso de objetos, pessoas, selos, etiquetas, ícones e efeitos concorrentes.
@@ -273,7 +274,7 @@ REVISÃO SILENCIOSA ANTES DE RESPONDER:
 1. Confirme que cada preço, horário, produto, condição e alegação veio do contexto ou do usuário e que os valores estão no formato monetário brasileiro, sem duplicar "R$" e "reais".
 2. Confirme que cada elemento físico tem origem permitida; descarte qualquer UNVERIFIED_DECORATION. Uma diferença entre as duas opções nunca justifica introduzir props.
 3. Confirme que não há textos inventados nem placeholders.
-4. Confirme que há no máximo três blocos textuais e que o logo não domina a composição.
+4. Confirme que há no máximo quatro blocos textuais e que o logo não domina a composição.
 5. Confirme que as duas opções são diferentes, profissionais, limpas e coerentes com a marca e com o segmento/pedido, sem aplicar uma composição pré-definida.
 6. Compare as duas opções lado a lado e confirme que as ideias são distintas de um modo adequado ao pedido, sem exigir diferenças específicas de layout ou tipografia.
 7. Se as opções parecerem variações superficiais, escolha uma narrativa visual alternativa que faça sentido para aquele produto, serviço ou comunicação.

@@ -7,6 +7,12 @@ const BannerPromptOptionSchema = z.object({
   // it exists solely so the server can prove both directions depict the same
   // confirmed commercial offer before returning their prompts.
   visualItems: z.array(z.string().trim().min(1)).optional(),
+  // C-3: o modelo declara o que aparece VISIVELMENTE na cena, separado dos
+  // metadados comerciais. Sem essa declaração, a cena podia inventar
+  // produtos (pães para um festival de cucas) sem nenhum validador ver.
+  // Limitação honesta: o modelo autodeclara — o validador cobra a
+  // declaração, não verifica os pixels (o sistema nunca vê o render).
+  sceneItems: z.array(z.string().trim().min(1)).optional(),
   commercialFacts: z
     .object({
       items: z.array(z.string().trim().min(1)).optional(),
@@ -98,6 +104,25 @@ function parseJsonWithSafeStructuralRepair(json: string): unknown {
   }
 }
 
+/**
+ * O modelo devolve null em campos opcionais ("unit": null) e o esquema
+ * rejeita null — foi a causa da primeira falha da Fran. Remover nulos só
+ * dentro das opções (os nulos do topo — question/promptOptions — são
+ * significativos para o contrato) transforma ausência em ausência.
+ */
+function stripNullValues(value: unknown): unknown {
+  if (Array.isArray(value))
+    return value.filter((entry) => entry !== null).map((entry) => stripNullValues(entry));
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+      if (entry !== null) out[key] = stripNullValues(entry);
+    }
+    return out;
+  }
+  return value;
+}
+
 function normalizeResponseShape(input: unknown): unknown {
   if (!input || typeof input !== "object" || Array.isArray(input)) return input;
   const value = input as Record<string, unknown>;
@@ -110,13 +135,13 @@ function normalizeResponseShape(input: unknown): unknown {
     ? promptOptions.map((option) => {
         if (!option || typeof option !== "object" || Array.isArray(option)) return option;
         const item = option as Record<string, unknown>;
-        return {
+        return stripNullValues({
           ...item,
           title: item["title"] ?? item["titulo"],
           prompt: item["prompt"] ?? item["texto"],
           visualItems: item["visualItems"] ?? item["visual_items"],
           commercialFacts: item["commercialFacts"] ?? item["commercial_facts"],
-        };
+        });
       })
     : promptOptions;
 
@@ -164,6 +189,80 @@ export function parseBannerResponse(raw: string): BannerResponseParseResult {
     };
   }
   return { ok: true, data: validated.data };
+}
+
+export type BannerGatewayCall = (
+  system: string,
+  user: string,
+) => Promise<{
+  ok: boolean;
+  text?: string | null;
+  requestId: string;
+  error?: string | null;
+}>;
+
+export type BannerGatewayJsonResult =
+  | {
+      ok: true;
+      parsed: Extract<BannerResponseParseResult, { ok: true }>;
+      rawText: string;
+    }
+  | { ok: false; gatewayError?: string | null; parseFailed: boolean };
+
+const RETRY_BACKOFF_MS = 700;
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Robustez do turno (lote 2):
+ * - Falha de gateway (HTTP 500/429, transporte): 1 retry com backoff de
+ *   700 ms, mesma chamada. Antes era zero retry — qualquer soluço do
+ *   provedor virava erro técnico para o usuário.
+ * - JSON quebrado: 1 retry com instrução de reparo ANEXADA ao user
+ *   ("responda SOMENTE com JSON válido, escapando aspas...") em vez de
+ *   reenviar o prompt idêntico — causa sistemática falhava duas vezes.
+ * - Sinal de deadline: antes de cada retry, se o turno estourou o orçamento
+ *   (AbortSignal), para sem gastar outra chamada.
+ * Pior caso: 3 chamadas (gateway falha → retry → parse falha → retry JSON).
+ */
+export async function callGatewayJsonWithRetry(
+  call: BannerGatewayCall,
+  system: string,
+  user: string,
+  onParseFailure: (
+    requestId: string,
+    failure: Exclude<BannerResponseParseResult, { ok: true }>,
+  ) => void,
+  options?: { signal?: AbortSignal },
+): Promise<BannerGatewayJsonResult> {
+  const attemptGateway = async () => {
+    const first = await call(system, user);
+    if (first.ok && first.text) return first;
+    if (options?.signal?.aborted) return first;
+    await sleep(RETRY_BACKOFF_MS);
+    if (options?.signal?.aborted) return first;
+    return call(system, user);
+  };
+  const first = await attemptGateway();
+  if (!first.ok || !first.text) {
+    return { ok: false, gatewayError: first.error ?? null, parseFailed: false };
+  }
+  const parsed = parseBannerResponse(first.text);
+  if (parsed.ok) return { ok: true, parsed, rawText: first.text };
+  onParseFailure(first.requestId, parsed);
+  if (options?.signal?.aborted) {
+    return { ok: false, gatewayError: null, parseFailed: true };
+  }
+  await sleep(RETRY_BACKOFF_MS);
+  const repairUser =
+    `${user}\n\nATENÇÃO: a resposta anterior veio com JSON inválido. Responda SOMENTE com JSON válido, escapando aspas duplas dentro de strings, sem nenhum texto fora do JSON.`;
+  const second = await call(system, repairUser);
+  if (!second.ok || !second.text) {
+    return { ok: false, gatewayError: second.error ?? null, parseFailed: false };
+  }
+  const reparsed = parseBannerResponse(second.text);
+  if (reparsed.ok) return { ok: true, parsed: reparsed, rawText: second.text };
+  onParseFailure(second.requestId, reparsed);
+  return { ok: false, gatewayError: null, parseFailed: true };
 }
 
 export function safeBriefingFallbackQuestion(lastUserMessage: string) {

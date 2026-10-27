@@ -13,6 +13,7 @@ import {
   Calculator,
   Copy,
   Check,
+  Download,
   AlertCircle,
   Image as ImageIcon,
   X,
@@ -38,7 +39,11 @@ import {
   getAiUsageSummary,
   type AskAgentResponse,
 } from "@/lib/insights.functions";
-import { askBannerAgent, getBannerIntro, type BannerAgentResponse } from "@/lib/banner-agent.functions";
+import { getBannerIntro } from "@/lib/banner-agent.functions";
+import {
+  getBannerDescribeStatus,
+  generateBannerImage,
+} from "@/lib/banner-describe.functions";
 import { getLatestOperationalAnalysis } from "@/lib/operational.functions";
 import { AiStructuredResponse } from "@/components/app/ai/AiStructuredResponse";
 import { normalizeAiResponse } from "@/lib/ai-response-parser";
@@ -311,8 +316,8 @@ function ClientAiAgentCard({
     if (!value || chat.isPending) return;
 
     // No dashboard de Matriz e Filial, a Manos Tech IA é a entrada do
-    // gerador de prompts. Toda mensagem segue para o mesmo diálogo, que
-    // interpreta o texto livre e pergunta apenas o que ainda for necessário.
+    // gerador de banners. A mensagem vira a descrição inicial do diálogo
+    // do modo descrever (sem chat, sem perguntas guiadas).
     if (onBannerPrompt) {
       onBannerPrompt(value);
       setQuestion("");
@@ -766,9 +771,8 @@ function ClientAiAgentCard({
 }
 
 export const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) => void }, any>((_props, ref) => {
-  const ask = useServerFn(askBannerAgent);
-  const queryClient = useQueryClient();
-  const { data: access } = useAccess();
+  const fetchStatus = useServerFn(getBannerDescribeStatus);
+  const generate = useServerFn(generateBannerImage);
   const fetchIntro = useServerFn(getBannerIntro);
   const introQuery = useQuery({
     queryKey: ["banner-intro"],
@@ -778,140 +782,167 @@ export const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) =
   const [isOpen, setIsOpen] = useState(false);
   const introCompany = introQuery.data?.companyName ?? null;
   const introSegment = introQuery.data?.segment ?? null;
-  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
-  const [input, setInput] = useState("");
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isFinalTurn, setIsFinalTurn] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<BannerAgentResponse["data"]>(null);
-  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-  const [brief, setBrief] = useState<NonNullable<BannerAgentResponse["data"]>["brief"]>({});
 
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const openSendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const conversationIdRef = useRef(crypto.randomUUID());
+  const [description, setDescription] = useState("");
+  const [files, setFiles] = useState<{ name: string; dataUrl: string }[]>([]);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [status, setStatus] = useState<{
+    available: boolean;
+    hasLogo: boolean;
+    used: number;
+    remaining: number;
+  } | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [quotaExhausted, setQuotaExhausted] = useState(false);
+  const [image, setImage] = useState<{
+    dataUrl: string;
+    mimeType: string;
+    summary: string;
+    fileName: string;
+  } | null>(null);
+  const [dimensions, setDimensions] = useState<{ w: number; h: number } | null>(null);
+
+  const generationStartRef = useRef<number | null>(null);
+  const generationTokenRef = useRef(0);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages, result]);
+    if (!isGenerating) return;
+    const timer = setInterval(() => {
+      if (generationStartRef.current) {
+        setElapsed(Math.floor((Date.now() - generationStartRef.current) / 1000));
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [isGenerating]);
 
-  const handleSend = async (customMessage?: string) => {
-    const userMessage = (customMessage || input).trim();
-    if (!userMessage || isProcessing) return;
-
-    const greetingName = access?.displayName?.trim() || access?.fullName?.trim();
-    const openingGreeting =
-      messages.length === 0
-        ? [
-            {
-              role: "assistant" as const,
-              content: greetingName
-                ? `Oi, tudo bom, ${greetingName}? Me conta o que você quer divulgar que eu preparo duas ideias bem caprichadas.`
-                : "Oi, tudo bom? Me conta o que você quer divulgar que eu preparo duas ideias bem caprichadas.",
-            },
-          ]
-        : [];
-    const newMessages = [
-      ...messages,
-      ...openingGreeting,
-      { role: "user" as const, content: userMessage },
-    ];
-    setMessages(newMessages);
-    setInput("");
-    setIsProcessing(true);
-    setError(null);
-
+  const loadStatus = async () => {
     try {
-      // O frontend deve enviar todo o histórico da conversa
-      const response = await ask({
-        data: {
-          messages: newMessages,
-          // O briefing decide quando está completo; a quantidade de mensagens
-          // nunca deve forçar a geração antes de interpretar a resposta atual.
-          // A conversa só deve ser finalizada quando o agente confirmar que
-          // não faltam dados; nunca pelo estado local de uma pergunta anterior.
-          isFinalTurn: false,
-          conversationId: conversationIdRef.current,
-          brief,
-        },
-      });
-
-      if (!response.success) {
-        const errorMsg = response.error || "Erro ao processar sua solicitação.";
-        const isQuotaMsg = errorMsg.toLowerCase().includes("cota") || 
-                          errorMsg.toLowerCase().includes("limite") || 
-                          errorMsg.toLowerCase().includes("excedido");
-
-        setError(isQuotaMsg ? "Seu limite diário de comandos IA foi atingido. Entre em contato com o Suporte." : errorMsg);
-        setIsProcessing(false);
-        return;
-      }
-
-      if (response.data.needsMoreInfo) {
-        setBrief(response.data.brief ?? brief);
-        setMessages([
-          ...newMessages,
-          { role: "assistant" as const, content: response.data.question! },
-        ]);
-        setIsFinalTurn(true);
-      } else if (response.data.promptOptions) {
-        setBrief(response.data.brief ?? brief);
-        setResult(response.data);
-        queryClient.invalidateQueries({ queryKey: ["company-ai-usage"] });
+      const next = await fetchStatus();
+      if (next.available) {
+        setStatus({
+          available: true,
+          hasLogo: next.hasLogo,
+          used: next.used,
+          remaining: next.remaining,
+        });
       } else {
-        setBrief(response.data.brief ?? brief);
-        // A resposta pode chegar sem opções quando a IA precisa de um dado
-        // comercial adicional. Não transforme isso em uma falha silenciosa:
-        // mantenha a conversa aberta e peça o próximo dado de forma clara.
-        setMessages([
-          ...newMessages,
-          {
-            role: "assistant" as const,
-            content:
-              response.data.question ||
-              "Quero entender melhor o que você tem em mente. Pode me contar um pouco mais?",
-          },
-        ]);
+        setStatus({ available: false, hasLogo: false, used: 0, remaining: 0 });
       }
-    } catch (err) {
-      setError("Não foi possível processar sua solicitação.");
-    } finally {
-      setIsProcessing(false);
+    } catch {
+      setStatus({ available: false, hasLogo: false, used: 0, remaining: 0 });
     }
+  };
+
+  const reset = () => {
+    generationTokenRef.current += 1;
+    setDescription("");
+    setFiles([]);
+    setFileError(null);
+    setIsGenerating(false);
+    setElapsed(0);
+    setError(null);
+    setNotice(null);
+    setQuotaExhausted(false);
+    setImage(null);
+    setDimensions(null);
   };
 
   useImperativeHandle(ref, () => ({
     openWithPrompt: (prompt: string) => {
-      if (openSendTimerRef.current) clearTimeout(openSendTimerRef.current);
       reset();
       setIsOpen(true);
+      setDescription(prompt);
       introQuery.refetch();
-      // Wait for the originating click to finish before sending. Otherwise
-      // Radix can interpret the same pointer event as an outside click and
-      // close the newly opened dialog immediately.
-      openSendTimerRef.current = setTimeout(() => {
-        handleSend(prompt);
-        openSendTimerRef.current = null;
-      }, 180);
+      loadStatus();
     },
   }));
 
-  const copyToClipboard = (text: string, index: number) => {
-    navigator.clipboard.writeText(text);
-    setCopiedIndex(index);
-    setTimeout(() => setCopiedIndex(null), 2000);
+  const cancelGenerate = () => {
+    generationTokenRef.current += 1;
+    setIsGenerating(false);
+    setNotice(
+      "Geração cancelada no seu aparelho. Se o servidor concluir, a imagem conta na cota do dia.",
+    );
   };
 
-  const reset = () => {
-    setMessages([]);
-    setResult(null);
-    setIsFinalTurn(false);
+  const handleFiles = async (list: FileList | null) => {
+    if (!list) return;
+    setFileError(null);
+    const picked = Array.from(list).filter((file) => file.type.startsWith("image/"));
+    const room = 4 - files.length;
+    if (picked.length > room) {
+      setFileError(`Só cabem ${room} foto(s) a mais — o limite é 4 por geração.`);
+    }
+    const accepted = picked.slice(0, Math.max(0, room));
+    const resized: { name: string; dataUrl: string }[] = [];
+    for (const file of accepted) {
+      try {
+        resized.push({ name: file.name, dataUrl: await resizeImageFile(file) });
+      } catch {
+        setFileError(`Não consegui ler "${file.name}". Tenta outra foto.`);
+      }
+    }
+    if (resized.length > 0) setFiles((prev) => [...prev, ...resized]);
+  };
+
+  const handleGenerate = async () => {
+    const text = description.trim();
+    if (!text || isGenerating) return;
+    if (status && status.remaining <= 0) {
+      setQuotaExhausted(true);
+      return;
+    }
+    generationTokenRef.current += 1;
+    const token = generationTokenRef.current;
+    generationStartRef.current = Date.now();
+    setElapsed(0);
+    setIsGenerating(true);
     setError(null);
-    setInput("");
-    setBrief({});
-    conversationIdRef.current = crypto.randomUUID();
+    setNotice(null);
+    setQuotaExhausted(false);
+    setImage(null);
+    setDimensions(null);
+    try {
+      const response = await generate({
+        data: {
+          description: text,
+          attachments: files.map((file) => ({ dataUrl: file.dataUrl, fileName: file.name })),
+        },
+      });
+      if (token !== generationTokenRef.current) return;
+      if (!response.success) {
+        if ("code" in response && response.code === "QUOTA_EXHAUSTED") {
+          setQuotaExhausted(true);
+          setStatus((prev) => (prev ? { ...prev, remaining: 0 } : prev));
+        } else {
+          setError(response.error);
+        }
+        return;
+      }
+      const ext = response.mimeType === "image/jpeg" ? "jpg" : "png";
+      const stamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 12);
+      setImage({
+        dataUrl: response.imageDataUrl,
+        mimeType: response.mimeType,
+        summary: response.summary,
+        fileName: `banner-${stamp}.${ext}`,
+      });
+      setStatus((prev) =>
+        prev
+          ? { ...prev, used: response.quota.used, remaining: response.quota.remaining }
+          : prev,
+      );
+    } catch {
+      if (token !== generationTokenRef.current) return;
+      // Erro de rede ou do servidor: nunca mostre detalhe técnico.
+      setError("Sistema indisponível no momento.");
+    } finally {
+      if (token === generationTokenRef.current) setIsGenerating(false);
+    }
   };
 
   return (
@@ -926,133 +957,198 @@ export const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) =
         <DialogHeader className="p-6 border-b border-white/5">
           <DialogTitle className="flex items-center gap-2 text-white">
             <Sparkles className="size-5 text-cyan-400" />
-            Assistente de prompts para banner
+            Gerador de banners
           </DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            A Manos Tech IA não gera a imagem. Ela ajuda você a preparar até 2 prompts profissionais
-            para copiar e usar no ChatGPT, Gemini ou em outra IA de geração de imagens.
+            Descreva como você quer seu banner. A gente corrige a ortografia, organiza o pedido,
+            anexa a logo da sua empresa automaticamente e gera a imagem.
           </DialogDescription>
         </DialogHeader>
 
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4 min-h-[300px]">
-          {messages.length === 0 && !result && (
-            <div className="text-center py-12 space-y-6">
-              <div className="inline-flex items-center justify-center p-4 rounded-full bg-cyan-500/10 text-cyan-400 mb-2">
-                <ImageIcon className="size-8" />
-              </div>
-              <div className="space-y-4">
-                {introCompany && (
-                  <p className="text-xs font-medium text-cyan-300/90">
-                    Criando para: {introCompany}
-                    {introSegment ? ` · ${introSegment}` : ""}
-                  </p>
-                )}
-                <p className="text-sm text-muted-foreground px-12">
-                  Diga o que você quer promover. Ex: "Quero um banner para a promoção da semana."
-                </p>
-                <Button 
-                  onClick={() => setInput("Quero criar um banner")}
-                  variant="outline"
-                  className="border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10 hover:text-cyan-300"
-                >
-                  Quero criar um banner
-                </Button>
-              </div>
+        <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-[300px]">
+          {introCompany && (
+            <p className="text-xs font-medium text-cyan-300/90">
+              Criando para: {introCompany}
+              {introSegment ? ` · ${introSegment}` : ""}
+            </p>
+          )}
+
+          {status && !status.available && (
+            <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-300">
+              Disponível apenas para os perfis Matriz e Filial.
             </div>
           )}
 
-          {messages.map((msg, i) => (
-            <div
-              key={i}
-              className={cn(
-                "flex w-max max-w-[80%] flex-col gap-2 rounded-lg px-3 py-2 text-sm",
-                msg.role === "user" ? "ml-auto bg-primary text-primary-foreground" : "bg-muted",
-              )}
-            >
-              {msg.content}
-            </div>
-          ))}
+          {status && status.available && (
+            <p className="text-[11px] text-muted-foreground">
+              {quotaExhausted
+                ? "Você já usou as 2 gerações de hoje. Volta amanhã."
+                : `Você ainda pode gerar ${status.remaining} de 2 imagens hoje.`}
+            </p>
+          )}
 
-          {isProcessing && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground animate-pulse">
-              <Sparkles className="size-3 text-cyan-400" />
-              <span>Analisando cadastro e referências...</span>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-white" htmlFor="banner-describe-input">
+              Descreva como você quer seu banner?
+            </label>
+            <textarea
+              id="banner-describe-input"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Ex.: Festival de cucas, toda quinta-feira, R$ 14,99 a unidade"
+              disabled={isGenerating}
+              rows={4}
+              className="w-full rounded-md border border-cyan-500/20 bg-background/40 px-3 py-2 text-sm text-white placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 disabled:opacity-50"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Sem preço no pedido, o banner sai sem preço. A logo da empresa vai anexada
+              automaticamente.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-white">Fotos reais (opcional, até 4)</p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              multiple
+              disabled={isGenerating || files.length >= 4}
+              onChange={(e) => {
+                handleFiles(e.target.files);
+                e.target.value = "";
+              }}
+              className="block w-full text-xs text-muted-foreground file:mr-3 file:rounded-md file:border file:border-cyan-500/30 file:bg-cyan-500/10 file:px-3 file:py-2 file:text-xs file:text-cyan-300 hover:file:bg-cyan-500/20 disabled:opacity-50"
+            />
+            {fileError && <p className="text-xs text-red-400">{fileError}</p>}
+            {files.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {files.map((file, index) => (
+                  <div key={`${file.name}-${index}`} className="relative">
+                    <img
+                      src={file.dataUrl}
+                      alt={file.name}
+                      className="size-16 rounded-md border border-white/10 object-cover"
+                    />
+                    <button
+                      type="button"
+                      aria-label={`Remover ${file.name}`}
+                      disabled={isGenerating}
+                      onClick={() => setFiles((prev) => prev.filter((_, i) => i !== index))}
+                      className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-black/80 text-white hover:bg-black"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {status && status.available && status.hasLogo && (
+            <p className="flex items-center gap-2 text-xs text-cyan-300/90">
+              <ImageIcon className="size-4" />
+              Logo da empresa anexada automaticamente
+            </p>
+          )}
+          {status && status.available && !status.hasLogo && (
+            <p className="text-xs text-muted-foreground">
+              Nenhuma logo cadastrada para esta empresa — o banner sai sem logo.
+            </p>
+          )}
+
+          <Button
+            onClick={handleGenerate}
+            disabled={
+              !description.trim() ||
+              isGenerating ||
+              quotaExhausted ||
+              (status !== null && !status.available)
+            }
+            className="w-full bg-cyan-600 hover:bg-cyan-700 text-white"
+          >
+            {isGenerating ? (
+              <>
+                <RefreshCw className="size-4 mr-2 animate-spin" />
+                Gerando imagem... {elapsed}s
+              </>
+            ) : (
+              "Gerar imagem"
+            )}
+          </Button>
+          {isGenerating && (
+            <div className="flex justify-center">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 text-[11px] text-red-300 hover:text-red-200"
+                onClick={cancelGenerate}
+              >
+                Cancelar
+              </Button>
             </div>
           )}
 
+          {notice && (
+            <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-300">
+              {notice}
+            </div>
+          )}
           {error && (
             <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-400">
               {error}
             </div>
           )}
 
-          {result && (
+          {image && (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {result.promptOptions?.map((opt, i) => (
-                  <div
-                    key={i}
-                    className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4 space-y-3"
-                  >
-                    <h5 className="font-semibold text-cyan-300 text-sm">{opt.title}</h5>
-                    <p className="text-xs text-muted-foreground line-clamp-4 leading-relaxed">
-                      {opt.prompt}
-                    </p>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="w-full text-[10px] h-8 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 border border-cyan-500/20"
-                      onClick={() => copyToClipboard(opt.prompt, i)}
-                    >
-                      {copiedIndex === i ? (
-                        <>
-                          <Check className="size-3 mr-2" />
-                          Copiado!
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="size-3 mr-2" />
-                          Copiar prompt
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                ))}
-              </div>
-
-              <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/10 p-4 flex gap-3">
-                <AlertCircle className="size-5 text-cyan-400 shrink-0 mt-0.5" />
-                <p className="text-sm text-cyan-200/90 leading-relaxed font-medium">
-                  {result.reminder || "Para maior fidelidade, envie à IA de imagens a logo original e fotos reais dos produtos, serviços ou ambiente citados no prompt."}
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="p-6 border-t border-white/5 bg-black/20">
-          {!result ? (
-            <div className="flex gap-2">
-              <Input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder={isFinalTurn ? "Responda à IA..." : "O que será o banner?"}
-                disabled={isProcessing}
-                onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                className="bg-background/40 border-cyan-500/20 focus-visible:ring-cyan-500/40"
+              <p className="text-sm font-medium text-white">Pré-visualização</p>
+              <p className="text-xs text-muted-foreground">
+                Entendemos assim: {image.summary}
+              </p>
+              <img
+                src={image.dataUrl}
+                alt="Banner gerado"
+                onLoad={(e) =>
+                  setDimensions({
+                    w: e.currentTarget.naturalWidth,
+                    h: e.currentTarget.naturalHeight,
+                  })
+                }
+                className="w-full rounded-xl border border-cyan-500/20 object-contain"
               />
-              <Button
-                disabled={!input.trim() || isProcessing}
-                onClick={() => handleSend()}
-                className="bg-cyan-600 hover:bg-cyan-700 text-white"
-              >
-                <Send className="size-4" />
-              </Button>
+              <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/10 p-4 space-y-3">
+                <p className="text-sm font-medium text-white">Ação</p>
+                <Button asChild className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">
+                  <a href={image.dataUrl} download={image.fileName}>
+                    <Download className="size-4 mr-2" />
+                    {dimensions
+                      ? `Salvar ${image.mimeType === "image/jpeg" ? "JPG" : "PNG"} • ${dimensions.w}×${dimensions.h}`
+                      : "Salvar"}
+                  </a>
+                </Button>
+                <p className="text-[11px] text-muted-foreground">
+                  {dimensions
+                    ? `Exportar como ${image.mimeType === "image/jpeg" ? "JPG" : "PNG"} • ${dimensions.w}×${dimensions.h}`
+                    : "A imagem baixa direto no seu aparelho — ela não fica salva no servidor."}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1 border-white/10"
+                    onClick={() => {
+                      setImage(null);
+                      setDimensions(null);
+                    }}
+                  >
+                    Gerar outra
+                  </Button>
+                  <Button variant="outline" className="flex-1 border-white/10" onClick={reset}>
+                    Novo pedido
+                  </Button>
+                </div>
+              </div>
             </div>
-          ) : (
-            <Button variant="outline" className="w-full border-white/10" onClick={reset}>
-              Preparar outros prompts
-            </Button>
           )}
         </div>
       </DialogContent>
@@ -1062,4 +1158,38 @@ export const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) =
 
 BannerAgentDialog.displayName = "BannerAgentDialog";
 
-
+/**
+ * Redimensiona a foto no navegador (máx. 1024 px, JPEG) antes de enviar:
+ * a referência não precisa de resolução total e o corpo da requisição
+ * fica longe do limite do serverless. Acima de ~1,2 MB de base64, tenta
+ * de novo com qualidade menor; acima de 2 MB, rejeita.
+ */
+async function resizeImageFile(file: File): Promise<string> {
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const element = new Image();
+    element.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(element);
+    };
+    element.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("image load failed"));
+    };
+    element.src = url;
+  });
+  const maxDim = 1024;
+  const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+  const width = Math.max(1, Math.round(img.naturalWidth * scale));
+  const height = Math.max(1, Math.round(img.naturalHeight * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("canvas unavailable");
+  ctx.drawImage(img, 0, 0, width, height);
+  let dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+  if (dataUrl.length > 1_200_000) dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+  if (dataUrl.length > 2_000_000) throw new Error("image too large");
+  return dataUrl;
+}

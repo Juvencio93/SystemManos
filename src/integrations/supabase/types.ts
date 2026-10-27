@@ -212,6 +212,54 @@ export type Database = {
         }
         Relationships: []
       }
+      banner_describe_attachments: {
+        Row: {
+          branch_id: string | null
+          company_id: string
+          created_at: string
+          id: string
+          public_url: string
+          storage_bucket: string
+          storage_path: string
+          user_id: string
+        }
+        Insert: {
+          branch_id?: string | null
+          company_id: string
+          created_at?: string
+          id?: string
+          public_url: string
+          storage_bucket: string
+          storage_path: string
+          user_id: string
+        }
+        Update: {
+          branch_id?: string | null
+          company_id?: string
+          created_at?: string
+          id?: string
+          public_url?: string
+          storage_bucket?: string
+          storage_path?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "banner_describe_attachments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "banner_describe_attachments_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       branches: {
         Row: {
           access_email: string | null
@@ -2720,6 +2768,15 @@ export type Database = {
       }
       increment_ai_question_usage_safe: {
         Args: { _branch_id?: string; _company_id: string; _user_id: string }
+        Returns: Json
+      }
+      record_banner_image_generation: {
+        Args: {
+          _branch_id?: string
+          _company_id: string
+          _prompt: string
+          _user_id: string
+        }
         Returns: Json
       }
       increment_ai_usage_safe: {

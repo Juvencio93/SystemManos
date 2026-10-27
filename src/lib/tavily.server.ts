@@ -1,6 +1,10 @@
 import { tavily } from "@tavily/core";
 
 export type CompanyEnvironmentProfile = {
+  /** Identificam a empresa na chave de cache: duas empresas homônimas na
+   * mesma cidade colidiam antes (nome+cidade+dia). */
+  companyId?: string;
+  branchId?: string | null;
   name: string;
   tradeName?: string | null;
   legalName?: string | null;
@@ -401,13 +405,16 @@ const researchCache = new Map<string, { expiresAt: number; result: CompanyEnviro
 const RESEARCH_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const RESEARCH_CACHE_MAX = 500;
 
-function researchCacheKey(profile: CompanyEnvironmentProfile): string {
+export function researchCacheKey(profile: CompanyEnvironmentProfile): string {
   const identity = (profile.tradeName || profile.name || profile.legalName || "")
     .trim()
     .toLowerCase();
   const loc = [profile.city, profile.state].filter(Boolean).join("/").toLowerCase();
   const day = new Date().toISOString().slice(0, 10);
-  return `${identity}::${loc}::${day}`;
+  const company = [profile.companyId ?? "", profile.branchId ?? ""]
+    .filter(Boolean)
+    .join("/");
+  return `${company}::${identity}::${loc}::${day}`;
 }
 
 export async function searchCompanyEnvironmentCached(
@@ -417,6 +424,13 @@ export async function searchCompanyEnvironmentCached(
   const cached = researchCache.get(key);
   if (cached && cached.expiresAt > Date.now()) return cached.result;
   const result = await searchCompanyEnvironment(profile);
+  // Falha não é cacheável (lote 2): antes, um FAILED/NOT_CONFIGURED ficava
+  // até 6 h no cache e todos os turnos do dia herdavam o vazio — um soluço
+  // do Tavily virava um dia sem referência visual. Só estados com
+  // resultado aproveitável entram no cache.
+  if (result.researchState === "FAILED" || result.researchState === "NOT_CONFIGURED") {
+    return result;
+  }
   researchCache.set(key, { expiresAt: Date.now() + RESEARCH_CACHE_TTL_MS, result });
   if (researchCache.size > RESEARCH_CACHE_MAX) {
     const oldest = researchCache.keys().next();

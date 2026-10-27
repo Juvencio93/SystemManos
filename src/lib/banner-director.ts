@@ -1,3 +1,11 @@
+/** LEGADO — NÃO USADO POR askBannerAgent.
+ *
+ * Este arquivo (runBannerDirector e suas regras próprias de logo/qualidade)
+ * não é importado por nenhum outro módulo: o gerador de banners em produção
+ * vive em banner-agent.functions.ts. Mantido apenas como referência; não
+ * corrija bugs aqui achando que está corrigindo o gerador — o caminho
+ * certo é banner-agent.functions.ts + banner-brief.ts.
+ */
 import { z } from "zod";
 
 const text = z.string().trim().min(1).max(16000);
