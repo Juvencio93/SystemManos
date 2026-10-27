@@ -70,7 +70,7 @@ function StyleThumb({
   return (
     <div
       ref={ref}
-      className="relative overflow-hidden bg-black/50"
+      className="relative overflow-hidden bg-transparent"
       style={{ height: THUMB_HEIGHT }}
     >
       {scale > 0 && (
