@@ -169,7 +169,7 @@ export function CampaignPortalPreview({
   return (
     <div
       className={`overflow-hidden ${theme.rootClass} ${type.fontClass} ${
-        style === "minimalista" ? "rounded-lg p-6" : style === "elegante" ? "rounded-xl p-5" : "rounded-3xl p-4"
+        style === "minimalista" ? "rounded-none p-6" : style === "elegante" ? "rounded-lg p-6" : style === "moderno" ? "rounded-[20px] p-4" : "rounded-[24px] p-4"
       }`}
       style={theme.rootStyle}
     >
