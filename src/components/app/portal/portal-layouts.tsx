@@ -31,68 +31,61 @@ export type PortalLayoutComponent = (slots: PortalLayoutSlots) => ReactNode;
 
 /** Largura máxima do container raiz por estilo. */
 export const portalLayoutMaxWidth: Record<PortalVisualStyle, string> = {
-  vibrante: "1120px",
-  minimalista: "1120px",
+  vibrante: "1180px",
+  minimalista: "1160px",
   elegante: "1180px",
-  moderno: "1160px",
+  moderno: "800px",
 };
 
 /* ------------------------------------------------------------------ */
 /* VIBRANTE — peça publicitária: herói em bloco, painel de ação forte  */
 /* ------------------------------------------------------------------ */
 function VibranteLayout({ theme, identity, banner, quickInfo, form, sponsors, footer, stacked }: PortalLayoutSlots) {
-  const { palette: pal } = theme;
   return (
-    <div className={`space-y-8 max-sm:space-y-6 ${stacked ? "" : "lg:grid lg:grid-cols-[1.12fr_.88fr] lg:items-start lg:gap-6 lg:space-y-0"}`}>
-      {/* Bloco herói: identidade e banner dentro da MESMA superfície de cor. */}
-      <div
-        className="portal-enter-banner relative overflow-hidden rounded-[2.25rem] max-sm:rounded-[1.5rem]"
+    <div
+      className={"portal-enter-banner grid w-full gap-5 " + (stacked ? "" : "lg:grid-cols-[minmax(0,1.18fr)_minmax(340px,.82fr)] lg:items-stretch")}
+    >
+      <section
+        className="relative flex min-h-[540px] flex-col justify-between overflow-hidden rounded-[28px] p-8 max-sm:min-h-0 max-sm:rounded-[22px] max-sm:p-5"
         style={{
-          background: `linear-gradient(120deg, ${pal.primary}, ${pal.accent}) padding-box`,
-          padding: "2px",
+          background:
+            "linear-gradient(135deg, color-mix(in srgb, var(--portal-primary) 46%, var(--portal-bg)) 0%, color-mix(in srgb, var(--portal-accent) 34%, var(--portal-bg)) 54%, var(--portal-bg) 100%)",
         }}
       >
         <div
-          className="relative overflow-hidden rounded-[inherit]"
-          style={{
-            background: `linear-gradient(135deg, color-mix(in srgb, ${pal.primary} 44%, ${pal.bg}) 0%, color-mix(in srgb, ${pal.accent} 32%, ${pal.bg}) 52%, ${pal.bg} 100%)`,
-          }}
-        >
-          {/* Faixas geométricas discretas derivadas da cor da campanha. */}
-          <div
-            className="pointer-events-none absolute -right-24 -top-24 size-[320px] rounded-full opacity-40 blur-[2px] max-sm:size-[200px]"
-            style={{ background: `radial-gradient(circle, ${pal.primary}66, transparent 70%)` }}
-            aria-hidden
-          />
-          <div className={`relative grid ${stacked ? "" : "lg:grid-cols-[1.15fr_1fr] lg:items-center"}`}>
-            <div className="order-2 space-y-5 p-7 max-sm:order-2 max-sm:space-y-4 max-sm:p-5 lg:order-1 lg:p-8">
-              <span
-                className="inline-flex items-center rounded-full px-4 py-1.5 text-[11px] font-black uppercase tracking-[.22em]"
-                style={{ background: `linear-gradient(100deg, ${pal.primary}, ${pal.accent})`, color: pal.buttonText }}
-              >
-                Wi-Fi grátis
-              </span>
-              {identity}
-              {quickInfo}
-            </div>
-            <div className="order-1 p-3 max-sm:order-1 max-sm:p-3 lg:order-2 lg:p-4">{banner}</div>
+          className="pointer-events-none absolute -right-20 -top-24 size-[360px] rounded-full border border-white/15 max-sm:size-[220px]"
+          aria-hidden
+        />
+        <div className="relative space-y-7">
+          {identity}
+          <div className="portal-enter-banner overflow-hidden rounded-[20px] border border-white/35 p-2 max-sm:rounded-[16px]">
+            {banner}
           </div>
         </div>
-      </div>
+        {quickInfo && (
+          <div className="relative mt-6 border-t border-white/25 pt-4">
+            {quickInfo}
+          </div>
+        )}
+      </section>
 
-      {/* Painel de ação: contraste alto, largura confortável. */}
-      <div
-        className={`portal-enter-panel relative mx-auto w-full p-6 max-sm:p-5 ${theme.cardClass} ${stacked ? "" : "lg:p-7"}`}
-        style={{ ...theme.cardStyle, borderColor: pal.border }}
+      <section
+        className={"relative self-center p-7 max-sm:p-5 " + theme.cardClass}
+        style={theme.cardStyle}
       >
-        <div className="mb-6 flex items-center gap-3 max-sm:mb-5">
-          <span className="h-2 w-10 rounded-full" style={{ background: pal.primary }} aria-hidden />
-          <p className="text-[13px] font-black uppercase tracking-[.18em]" style={{ color: pal.accentOn }}>
-            Acesso liberado em 1 minuto
+        <div className="mb-6 space-y-2">
+          <p className="text-[10px] font-black uppercase tracking-[.24em] text-[color:var(--portal-accent-on)]">
+            Conexão rápida
+          </p>
+          <h2 className="text-xl font-bold leading-tight text-[color:var(--portal-text)]">
+            Acesse o Wi-Fi
+          </h2>
+          <p className="text-sm leading-relaxed text-[color:var(--portal-muted)]">
+            Preencha seus dados e conecte-se à rede.
           </p>
         </div>
         {form}
-      </div>
+      </section>
 
       <div className="lg:col-span-2">{sponsors}</div>
       <div className="lg:col-span-2">{footer}</div>
@@ -103,47 +96,40 @@ function VibranteLayout({ theme, identity, banner, quickInfo, form, sponsors, fo
 /* ------------------------------------------------------------------ */
 /* MINIMALISTA — editorial: rail tipográfico, banner como prancha      */
 /* ------------------------------------------------------------------ */
-function MinimalistaLayout({ theme, identity, banner, quickInfo, form, sponsors, footer, stacked }: PortalLayoutSlots) {
-  const { palette: pal } = theme;
+function MinimalistaLayout({ identity, banner, quickInfo, form, sponsors, footer, stacked }: PortalLayoutSlots) {
   return (
-    <div className="portal-enter-soft space-y-8 max-sm:space-y-6">
-      {/* Cabeçalho editorial: filete + identidade agrupada, sem cartão. */}
-      <header className="space-y-5 max-sm:space-y-4">
-        <div className="flex items-center gap-4">
-          <span className="h-px flex-1" style={{ background: pal.border }} aria-hidden />
-          <span className="text-[10px] font-normal uppercase tracking-[.34em]" style={{ color: pal.accentOn }}>
-            Wi-Fi de cortesia
-          </span>
-        </div>
+    <div className="portal-enter-soft space-y-10 max-sm:space-y-7">
+      <header className="border-b border-[color:var(--portal-border)] pb-7 max-sm:pb-5">
         {identity}
       </header>
 
-      {/* Duas colunas equilibradas no desktop: peça editorial + check-in. */}
-      <div className={`grid items-start gap-8 ${stacked ? "" : "lg:grid-cols-2 lg:gap-12"}`}>
-        <div className="space-y-5 max-sm:space-y-4">
+      <main
+        className={"grid items-start gap-12 " + (stacked ? "" : "lg:grid-cols-[minmax(0,.88fr)_minmax(0,1.12fr)] lg:gap-16")}
+      >
+        <section className="space-y-6">
           {banner}
           {quickInfo && (
-            <div className="border-t pt-4" style={{ borderColor: pal.border }}>
+            <div className="flex flex-wrap gap-x-6 gap-y-2 border-t border-[color:var(--portal-border)] pt-4">
               {quickInfo}
             </div>
           )}
-        </div>
+        </section>
 
-        <div className="space-y-5 max-sm:space-y-4">
+        <section className="space-y-6 max-sm:space-y-5">
           <div className="space-y-2">
-            <p className="text-[11px] uppercase tracking-[.3em]" style={{ color: pal.accentOn }}>
-              01 — Check-in
+            <p className="text-[10px] font-medium uppercase tracking-[.32em] text-[color:var(--portal-accent-on)]">
+              Check-in / Wi-Fi
             </p>
-            <p className="text-2xl font-light leading-[1.2] text-[color:var(--portal-text)] max-sm:text-xl">
+            <h2 className="text-[26px] font-light leading-tight text-[color:var(--portal-text)] max-sm:text-[22px]">
               Preencha e conecte-se.
-            </p>
-            <p className="max-w-[46ch] text-sm font-light leading-[1.6] text-[color:var(--portal-muted)]">
-              Dados usados apenas para liberar seu acesso e melhorar seu atendimento.
+            </h2>
+            <p className="max-w-[48ch] text-sm font-light leading-[1.7] text-[color:var(--portal-muted)]">
+              Seus dados são usados para liberar o acesso e proteger a conexão.
             </p>
           </div>
           {form}
-        </div>
-      </div>
+        </section>
+      </main>
 
       {sponsors}
       {footer}
@@ -151,55 +137,47 @@ function MinimalistaLayout({ theme, identity, banner, quickInfo, form, sponsors,
   );
 }
 
-
 /* ------------------------------------------------------------------ */
 /* ELEGANTE — landing premium: duas colunas largas, linhas finas       */
 /* ------------------------------------------------------------------ */
-function EleganteLayout({ theme, identity, banner, quickInfo, form, sponsors, footer, stacked }: PortalLayoutSlots) {
-  const { palette: pal } = theme;
-  const rule = (
-    <div
-      className="h-px w-full"
-      style={{ background: `linear-gradient(90deg, transparent, ${pal.accentOn}59, transparent)` }}
-      aria-hidden
-    />
-  );
+function EleganteLayout({ identity, banner, quickInfo, form, sponsors, footer, stacked }: PortalLayoutSlots) {
   return (
-    <div className="portal-enter-soft space-y-10 max-sm:space-y-7">
-      <div className={`grid gap-12 ${stacked ? "" : "lg:grid-cols-[1.1fr_.9fr] lg:items-start lg:gap-14"}`}>
-        {/* Coluna editorial premium. */}
-        <div className="space-y-9 max-sm:space-y-6">
-          <div className="space-y-6 max-sm:space-y-4">
-            {identity}
-            {rule}
+    <div className="portal-enter-soft space-y-9 max-sm:space-y-7">
+      <header className="mx-auto max-w-3xl space-y-5 border-b border-[color:var(--portal-border)] pb-7 text-center max-sm:pb-5">
+        {identity}
+        <div className="mx-auto h-px w-24 bg-[color:var(--portal-border)]" aria-hidden />
+      </header>
+
+      <main
+        className={"grid items-start gap-14 " + (stacked ? "" : "lg:grid-cols-[minmax(0,1.12fr)_minmax(340px,.88fr)] lg:gap-16")}
+      >
+        <section className="space-y-7">
+          <div className="border border-[color:var(--portal-border)] p-2">
+            <div className="border border-[color:var(--portal-border)] p-1">
+              {banner}
+            </div>
           </div>
-          {banner && (
-            <div className="p-2" style={{ border: `1px solid ${pal.border}80` }}>
-              <div className="p-1" style={{ border: `1px solid ${pal.border}59` }}>
-                {banner}
-              </div>
+          {quickInfo && (
+            <div className="border-t border-[color:var(--portal-border)] pt-5">
+              {quickInfo}
             </div>
           )}
-          {quickInfo}
-        </div>
+        </section>
 
-        {/* Painel exclusivo de reserva de acesso. */}
-        <div
-          className={`px-9 py-10 max-sm:px-5 max-sm:py-7 ${theme.cardClass}`}
-          style={{ ...theme.cardStyle, background: "transparent", boxShadow: "none", borderColor: pal.border }}
+        <section
+          className={"space-y-6 px-8 py-3 max-sm:px-1 max-sm:py-5 " + (stacked ? "border-t border-[color:var(--portal-border)]" : "lg:border-l lg:border-[color:var(--portal-border)] lg:pl-10")}
         >
-          <p
-            className="mb-2 text-[10px] font-medium uppercase tracking-[.4em]"
-            style={{ color: pal.accentOn }}
-          >
-            Acesso exclusivo
-          </p>
-          <p className="font-elegant-title mb-7 text-[26px] font-medium leading-tight text-[color:var(--portal-text)] max-sm:mb-5 max-sm:text-[22px]">
-            Cadastro de cortesia
-          </p>
+          <div className="space-y-2">
+            <p className="text-[10px] font-medium uppercase tracking-[.38em] text-[color:var(--portal-accent-on)]">
+              Acesso de cortesia
+            </p>
+            <h2 className="font-elegant-title text-[26px] font-medium leading-tight text-[color:var(--portal-text)] max-sm:text-[23px]">
+              Conecte-se à rede.
+            </h2>
+          </div>
           {form}
-        </div>
-      </div>
+        </section>
+      </main>
 
       {sponsors}
       {footer}
@@ -210,48 +188,55 @@ function EleganteLayout({ theme, identity, banner, quickInfo, form, sponsors, fo
 /* ------------------------------------------------------------------ */
 /* MODERNO — app contemporâneo: bento de cards independentes           */
 /* ------------------------------------------------------------------ */
-function ModernoLayout({ theme, identity, banner, quickInfo, form, sponsors, footer, stacked }: PortalLayoutSlots) {
-  const { palette: pal } = theme;
+function ModernoLayout({ theme, identity, banner, quickInfo, form, sponsors, footer }: PortalLayoutSlots) {
   return (
-    <div className="portal-enter-soft space-y-4 max-sm:space-y-3">
-      {/* Barra de topo estilo app. */}
-      <div className={`px-7 py-5 max-sm:px-4 max-sm:py-4 ${theme.cardClass}`} style={theme.cardStyle}>
+    <div className="portal-enter-soft mx-auto w-full max-w-[760px] space-y-4 max-sm:space-y-3">
+      <header
+        className={"rounded-[20px] p-5 max-sm:rounded-[18px] max-sm:p-4 " + theme.cardClass}
+        style={theme.cardStyle}
+      >
         {identity}
-      </div>
+      </header>
 
-      <div className={`grid gap-4 max-sm:gap-3 ${stacked ? "" : "lg:grid-cols-12 lg:items-start"}`}>
-        <div className={`space-y-4 max-sm:space-y-3 ${stacked ? "" : "lg:col-span-7"}`}>
-          <div className={`overflow-hidden p-3 max-sm:p-2 ${theme.cardClass}`} style={theme.cardStyle}>
-            {banner}
-          </div>
-          {quickInfo && (
-            <div className={`p-4 max-sm:p-3 ${theme.cardClass}`} style={theme.cardStyle}>
-              {quickInfo}
-            </div>
-          )}
-        </div>
+      <section
+        className={"overflow-hidden rounded-[20px] p-3 max-sm:rounded-[18px] max-sm:p-2 " + theme.cardClass}
+        style={theme.cardStyle}
+      >
+        {banner}
+      </section>
 
-        <div className={`${stacked ? "" : "lg:col-span-5 lg:sticky lg:top-6"}`}>
-          <div className={`p-7 max-sm:p-4 ${theme.cardClass}`} style={theme.cardStyle}>
-            <div className="mb-5 flex items-center justify-between gap-3 max-sm:mb-4">
-              <p className={`text-[color:var(--portal-muted)] ${theme.labelClass}`}>Check-in</p>
-              <span
-                className="rounded-full px-2.5 py-1 text-[10px] font-semibold"
-                style={{ background: `${pal.primary}26`, color: pal.primaryOn }}
-              >
-                1 min
-              </span>
-            </div>
-            {form}
+      {quickInfo && (
+        <section
+          className={"rounded-[18px] p-3 max-sm:rounded-[16px] " + theme.cardClass}
+          style={theme.cardStyle}
+        >
+          {quickInfo}
+        </section>
+      )}
+
+      <section
+        className={"rounded-[20px] p-6 max-sm:rounded-[18px] max-sm:p-4 " + theme.cardClass}
+        style={theme.cardStyle}
+      >
+        <div className="mb-5 flex items-center gap-3">
+          <span className="grid size-9 place-items-center rounded-xl bg-[color:var(--portal-primary)]/15 text-[color:var(--portal-primary-on)]">
+            <span aria-hidden>⌁</span>
+          </span>
+          <div>
+            <p className="text-sm font-bold text-[color:var(--portal-text)]">Conecte-se ao Wi-Fi</p>
+            <p className="text-[11px] text-[color:var(--portal-muted)]">Leva só alguns instantes</p>
           </div>
         </div>
-      </div>
+        {form}
+      </section>
 
       {sponsors}
       {footer}
     </div>
   );
 }
+
+
 
 const layouts: Record<PortalVisualStyle, PortalLayoutComponent> = {
   vibrante: VibranteLayout,
