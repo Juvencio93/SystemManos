@@ -151,6 +151,134 @@ const FUNNEL = [
   { label: "VENDA", value: "Novas oportunidades" },
 ];
 
+function ScaledPortalFrame({
+  src,
+  title,
+  viewportWidth,
+  viewportHeight,
+  className,
+}: {
+  src: string;
+  title: string;
+  viewportWidth: number;
+  viewportHeight: number;
+  className: string;
+}) {
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  const [started, setStarted] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    const container = frameRef.current;
+    if (!container) return;
+    const updateScale = () => setScale(Math.min(container.clientWidth / viewportWidth, 1));
+    updateScale();
+    const observer = new ResizeObserver(updateScale);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [viewportWidth]);
+
+  useEffect(() => {
+    const container = frameRef.current;
+    if (!container || started) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          setStarted(true);
+          observer.disconnect();
+        }
+      },
+      // A phone viewport is taller than the browser viewport, so a higher
+      // threshold could prevent its demo from ever starting.
+      { threshold: 0 },
+    );
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [started]);
+
+  return (
+    <div ref={frameRef} className={`relative overflow-hidden bg-[#05080F] ${className}`}>
+      <iframe
+        title={title}
+        src={started ? src : src.replace("autoplay=1", "autoplay=0")}
+        loading="lazy"
+        onLoad={() => setLoaded(true)}
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+        tabIndex={-1}
+        className="absolute left-0 top-0 border-0 bg-[#05080F]"
+        style={{
+          width: viewportWidth,
+          height: viewportHeight,
+          transform: `scale(${scale})`,
+          transformOrigin: "top left",
+        }}
+        aria-hidden="true"
+      />
+      <div
+        aria-hidden="true"
+        className={`pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[#05080F] transition-opacity duration-500 ${loaded ? "opacity-0" : "opacity-100"}`}
+      >
+        <img src={logo} alt="" className="size-12 rounded-full object-contain" />
+        <p className="text-xs font-semibold tracking-wide text-slate-400">Carregando portal…</p>
+      </div>
+    </div>
+  );
+}
+
+function MobileCheckinDemo() {
+  const [replay, setReplay] = useState(0);
+
+  return (
+    <div className="mx-auto w-full max-w-[340px] px-2">
+      <div className="relative rounded-[2.7rem] border-[3px] border-slate-400/80 bg-gradient-to-br from-slate-600 via-slate-900 to-slate-500 p-[5px] shadow-[0_32px_75px_rgba(0,0,0,.58),0_0_35px_rgba(34,211,238,.04)]">
+        <span className="absolute -left-[5px] top-28 h-14 w-[3px] rounded-l bg-slate-500" aria-hidden="true" />
+        <span className="absolute -right-[5px] top-36 h-20 w-[3px] rounded-r bg-slate-500" aria-hidden="true" />
+        <div className="pointer-events-none absolute left-1/2 top-3 z-20 h-[18px] w-[82px] -translate-x-1/2 rounded-full border border-white/[.06] bg-[#03060b] shadow-md" aria-hidden="true" />
+        <ScaledPortalFrame
+          src={`/portal/demo-efraim?autoplay=1&replay=${replay}`}
+          title="Portal real da Padaria Efraim"
+          viewportWidth={390}
+          viewportHeight={844}
+          className="aspect-[390/844] rounded-[2.2rem]"
+        />
+        <div className="pointer-events-none absolute bottom-3 left-1/2 z-20 h-1 w-[90px] -translate-x-1/2 rounded-full bg-white/75 shadow-sm" aria-hidden="true" />
+      </div>
+      <button type="button" onClick={() => setReplay((value) => value + 1)} className="mt-4 w-full text-center text-xs font-semibold text-cyan-200 hover:text-white">↻ Reproduzir check-in fictício</button>
+    </div>
+  );
+}
+
+function NotebookCheckinDemo() {
+  const [replay, setReplay] = useState(0);
+  return (
+    <div className="mx-auto w-full max-w-[820px] px-2">
+      <div className="overflow-hidden rounded-t-[1.25rem] border-[4px] border-b-0 border-slate-500/90 bg-[#05080F] p-2 shadow-[0_30px_70px_rgba(0,0,0,.48),0_0_35px_rgba(34,211,238,.03)] sm:p-3">
+        <div className="mx-auto mb-2 size-1.5 rounded-full bg-slate-500" aria-hidden="true" />
+        <div className="overflow-hidden rounded-md border border-white/[.08]">
+          <div className="flex h-7 items-center gap-1.5 border-b border-white/[.08] bg-[#131920] px-2.5">
+            <span className="size-1.5 rounded-full bg-rose-400/90" />
+            <span className="size-1.5 rounded-full bg-amber-300/90" />
+            <span className="size-1.5 rounded-full bg-emerald-400/90" />
+            <span className="mx-auto w-2/5 rounded-full border border-white/[.06] bg-white/[.04] py-0.5 text-center text-[8px] text-slate-500">manostech-system.com.br</span>
+          </div>
+          <ScaledPortalFrame
+            src={`/portal/demo-barao?autoplay=1&replay=${replay}`}
+            title="Portal real do Boteco do Barão"
+            viewportWidth={1366}
+            viewportHeight={768}
+            className="aspect-video"
+          />
+        </div>
+      </div>
+      <div className="relative mx-auto h-6 w-[106%] -translate-x-[2.8%] rounded-b-[1.1rem] border-x border-b border-slate-500 bg-gradient-to-b from-slate-400 via-slate-600 to-slate-800 shadow-[0_18px_35px_rgba(0,0,0,.4)]">
+        <div className="mx-auto h-2 w-28 rounded-b-lg border-x border-b border-slate-700/70 bg-slate-500/80" />
+      </div>
+      <button type="button" onClick={() => setReplay((value) => value + 1)} className="mt-4 w-full text-center text-xs font-semibold text-emerald-200 hover:text-white">↻ Reproduzir check-in fictício</button>
+    </div>
+  );
+}
+
 function SalesHomePage() {
   const [showBackToTop, setShowBackToTop] = useState(false);
 
@@ -230,9 +358,7 @@ function SalesHomePage() {
                   Quero transformar meu Wi-Fi em vendas <ArrowRight className="size-4" />
                 </button>
                 <a
-                  href="https://manostech-system.com.br/portal/6us8mzhk8ffh"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href="#portais"
                   className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/15 px-6 font-semibold text-white transition hover:border-white/35"
                 >
                   Ver um portal de verdade <ArrowRight className="size-4" />
@@ -240,6 +366,32 @@ function SalesHomePage() {
               </div>
             </div>
           </ScrollReveal>
+        </div>
+      </section>
+
+      <section aria-label="Portais reais no ar" className="border-b border-white/[.07] bg-[#070D13]">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-center gap-3 px-5 py-6 text-center sm:px-8 lg:flex-row lg:gap-6">
+          <p className="text-xs font-bold uppercase tracking-[.2em] text-slate-400">
+            Portais reais, no ar hoje
+          </p>
+          <div className="flex flex-wrap justify-center gap-3">
+            <a
+              href="https://manostech-system.com.br/portal/6us8mzhk8ffh"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-cyan-400/30 px-4 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-400/10"
+            >
+              Padaria Efraim · celular <ArrowRight className="size-4" />
+            </a>
+            <a
+              href="https://manostech-system.com.br/portal/j788xmylocks"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-emerald-300/30 px-4 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-300/10"
+            >
+              Boteco do Barão · notebook <ArrowRight className="size-4" />
+            </a>
+          </div>
         </div>
       </section>
 
@@ -345,6 +497,75 @@ function SalesHomePage() {
                 </article>
               </ScrollReveal>
             ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="portais" className="scroll-mt-20 border-y border-white/[.07]">
+        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
+          <ScrollReveal className="mx-auto max-w-2xl text-center">
+            <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
+              Exemplos publicados
+            </p>
+            <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
+              Um portal com a identidade de cada negócio
+            </h2>
+            <p className="mt-4 leading-7 text-slate-400">
+              Acompanhe o preenchimento fictício nos portais reais da Padaria Efraim e do Boteco do
+              Barão, da oferta ao redirecionamento para o Instagram. A demonstração não envia cadastros.
+            </p>
+          </ScrollReveal>
+          <div className="mt-12 grid items-end gap-12 lg:grid-cols-[.72fr_1.28fr] lg:gap-14">
+            <ScrollReveal className="mx-auto w-full max-w-sm">
+              <div className="mb-5 flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[.17em] text-cyan-400">
+                    Modelo 01
+                  </p>
+                  <h3 className="mt-1 text-base font-semibold">Padaria Efraim · celular</h3>
+                </div>
+                <span className="rounded-full border border-cyan-400/20 bg-cyan-400/[.06] px-3 py-1 text-[9px] font-semibold text-cyan-100">
+                  Portal real
+                </span>
+              </div>
+              <MobileCheckinDemo />
+              <p className="mt-4 text-center text-sm leading-6 text-slate-400">
+                Marca e oferta da padaria aparecem junto ao acesso ao Wi-Fi.
+              </p>
+              <a
+                href="https://manostech-system.com.br/portal/6us8mzhk8ffh"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mx-auto mt-3 flex min-h-11 w-fit items-center gap-2 rounded-full border border-cyan-400/30 px-4 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-400/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400"
+              >
+                Abrir portal da Padaria Efraim <ArrowRight className="size-4" aria-hidden="true" />
+              </a>
+            </ScrollReveal>
+            <ScrollReveal className="min-w-0" delay={120}>
+              <div className="mb-5 flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[.17em] text-emerald-300">
+                    Modelo 02
+                  </p>
+                  <h3 className="mt-1 text-base font-semibold">Boteco do Barão · notebook</h3>
+                </div>
+                <span className="rounded-full border border-emerald-300/20 bg-emerald-300/[.06] px-3 py-1 text-[9px] font-semibold text-emerald-100">
+                  Portal real
+                </span>
+              </div>
+              <NotebookCheckinDemo />
+              <p className="mt-4 text-center text-sm leading-6 text-slate-400">
+                Identidade visual, banners e cadastro adaptados à tela maior.
+              </p>
+              <a
+                href="https://manostech-system.com.br/portal/j788xmylocks"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mx-auto mt-3 flex min-h-11 w-fit items-center gap-2 rounded-full border border-emerald-300/30 px-4 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-300/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
+              >
+                Abrir portal do Boteco do Barão <ArrowRight className="size-4" aria-hidden="true" />
+              </a>
+            </ScrollReveal>
           </div>
         </div>
       </section>
