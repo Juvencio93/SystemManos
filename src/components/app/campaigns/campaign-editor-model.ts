@@ -192,9 +192,13 @@ export async function uploadCampaignVideo(companyId: string, file: File) {
     );
   }
   const duration = await getVideoDurationSeconds(file);
-  if (duration > MAX_VIDEO_SECONDS) {
+  // Arredonda antes de comparar: vídeos "de 10s" costumam registrar 10,03s
+  // (quadro extra / metadados do container). Sem isso, um vídeo de 10s era
+  // recusado por uma mensagem que dizia "tem 10 segundos" — contraditória.
+  const roundedSeconds = Math.round(duration);
+  if (roundedSeconds > MAX_VIDEO_SECONDS) {
     throw new Error(
-      `O vídeo tem ${duration.toFixed(0)} segundos. O limite é de 10 segundos por vídeo.`,
+      `O vídeo tem ${roundedSeconds} segundos. O limite é de 10 segundos por vídeo.`,
     );
   }
   const uuid = crypto.randomUUID();
