@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { defaultPortalAppearance, type PortalAppearance } from "@/lib/campaign-appearance";
 import { portalTheme } from "@/lib/portal-theme";
+import { isVideoPath, videoPosterUrl } from "@/components/app/campaigns/campaign-editor-model";
 
 const intervalMs = 5500;
 
@@ -28,11 +29,14 @@ export function BannerCarousel({
     [urls.length],
   );
 
+  const currentUrl = urls[index] ?? "";
+  const currentIsVideo = isVideoPath(currentUrl);
+
   useEffect(() => {
-    if (!appearance.autoplayEnabled || urls.length < 2) return;
+    if (!appearance.autoplayEnabled || urls.length < 2 || currentIsVideo) return;
     const timer = window.setInterval(() => select(index + 1), intervalMs);
     return () => window.clearInterval(timer);
-  }, [appearance.autoplayEnabled, index, select, urls.length]);
+  }, [appearance.autoplayEnabled, currentIsVideo, index, select, urls.length]);
 
   useEffect(() => {
     if (index >= urls.length) setIndex(0);
@@ -40,9 +44,11 @@ export function BannerCarousel({
 
   useEffect(() => {
     if (urls.length < 2) return;
+    const nextUrl = urls[(index + 1) % urls.length] ?? "";
+    if (isVideoPath(nextUrl)) return;
     const nextImage = new Image();
     nextImage.decoding = "async";
-    nextImage.src = urls[(index + 1) % urls.length] ?? "";
+    nextImage.src = nextUrl;
   }, [index, urls]);
 
   if (urls.length === 0) return null;
@@ -79,7 +85,37 @@ export function BannerCarousel({
               {!loadedUrls.has(url) && (
                 <div className="absolute inset-0 animate-pulse bg-[color:var(--portal-surface-alt)]" />
               )}
-              <img
+              {isVideoPath(url) ? (
+                <video
+                  src={url}
+                  poster={videoPosterUrl(url)}
+                  muted
+                  loop
+                  autoPlay
+                  playsInline
+                  preload="metadata"
+                  ref={(el) => {
+                    if (el && el.readyState >= 2) {
+                      setLoadedUrls((current) => {
+                        if (current.has(url)) return current;
+                        const next = new Set(current);
+                        next.add(url);
+                        return next;
+                      });
+                    }
+                  }}
+                  onLoadedData={() =>
+                    setLoadedUrls((current) => {
+                      if (current.has(url)) return current;
+                      const next = new Set(current);
+                      next.add(url);
+                      return next;
+                    })
+                  }
+                  className={`h-full w-full object-cover transition-opacity duration-300 ${loadedUrls.has(url) ? "opacity-100" : "opacity-0"}`}
+                />
+              ) : (
+                <img
                 src={url}
                 alt={currentIndex === index ? alt : ""}
                 loading={currentIndex === 0 ? "eager" : "lazy"}
@@ -119,6 +155,7 @@ export function BannerCarousel({
                 }
                 className={`h-full w-full object-cover transition-opacity duration-300 ${loadedUrls.has(url) ? "opacity-100" : "opacity-0"}`}
               />
+              )}
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-black/10" />
             </div>
           ))}
@@ -150,7 +187,7 @@ export function BannerCarousel({
             <div
               key={progressKey}
               className={
-                appearance.autoplayEnabled
+                appearance.autoplayEnabled && !currentIsVideo
                   ? "h-full origin-left animate-[portal-progress_linear_forwards]"
                   : "h-full w-full"
               }

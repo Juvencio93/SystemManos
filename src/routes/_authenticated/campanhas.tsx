@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, useMemo } from "react";
 import { getBranchDisplayName, getCompanyDisplayName } from "@/lib/name-utils";
 
-import { Handshake, ImagePlus, Loader2, Monitor, Palette, Pencil, Play, Plus, Smartphone, Square, Trash2, Wifi, X } from "lucide-react";
+import { Clapperboard, ExternalLink, Handshake, ImagePlus, Loader2, Monitor, Palette, Pencil, Play, Plus, Smartphone, Square, Trash2, Wifi, X } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -48,10 +48,13 @@ import { getPublicStorageUrl } from "@/lib/storage.functions";
 import { LogoResolver } from "@/components/app/campaigns/LogoResolver";
 import {
   campaignSchema,
+  isVideoPath,
   MAX_BANNER_FILE_BYTES,
   MAX_OTHER_FILE_BYTES,
   uploadCampaignAsset,
+  uploadCampaignVideo,
   uploadSponsorAsset,
+  VIDEO_COMPRESS_URL,
   type Campaign,
   type CampaignFormState,
   type EditingCampaignState,
@@ -109,6 +112,11 @@ function CampaignsPage() {
   // New optimized state for direct uploads
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [bannerUrls, setBannerUrls] = useState<string[]>([]);
+
+  // Vídeo do portal (1 por campanha): caminho no Storage + previews local/resolvido
+  const [videoPath, setVideoPath] = useState<string | null>(null);
+  const [localVideoPreviewUrl, setLocalVideoPreviewUrl] = useState<string | null>(null);
+  const [resolvedVideoUrl, setResolvedVideoUrl] = useState<string | null>(null);
 
   // Track preview URLs created with URL.createObjectURL
   const [localPreviewUrls, setLocalPreviewUrls] = useState<string[]>([]);
@@ -310,7 +318,12 @@ function CampaignsPage() {
     : [];
 
   const previewLogoUrl = localLogoPreviewUrl || resolvedLogoUrl || undefined;
-  const previewBannerUrls = [...resolvedBannerUrls, ...localPreviewUrls];
+  const videoPreviewUrl = localVideoPreviewUrl ?? resolvedVideoUrl;
+  const previewBannerUrls = [
+    ...(videoPreviewUrl ? [videoPreviewUrl] : []),
+    ...resolvedBannerUrls,
+    ...localPreviewUrls,
+  ];
 
   const resetForm = () => {
     let defaultTarget = "";
@@ -331,6 +344,7 @@ function CampaignsPage() {
     // Revoke object URLs to avoid memory leaks
     localPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
     if (localLogoPreviewUrl) URL.revokeObjectURL(localLogoPreviewUrl);
+    if (localVideoPreviewUrl) URL.revokeObjectURL(localVideoPreviewUrl);
 
     setLogoUrl(null);
     setBannerUrls([]);
@@ -338,6 +352,9 @@ function CampaignsPage() {
     setLocalLogoPreviewUrl(null);
     setResolvedBannerUrls([]);
     setResolvedLogoUrl(null);
+    setVideoPath(null);
+    setLocalVideoPreviewUrl(null);
+    setResolvedVideoUrl(null);
     setSponsors([]);
     setRemovedSponsorIds([]);
     setUploading({ status: "idle", pendingCount: 0, totalCount: 0 });
@@ -385,6 +402,10 @@ function CampaignsPage() {
     setLocalLogoPreviewUrl(null);
     setResolvedBannerUrls([]);
     setResolvedLogoUrl(null);
+    if (localVideoPreviewUrl) URL.revokeObjectURL(localVideoPreviewUrl);
+    setVideoPath(null);
+    setLocalVideoPreviewUrl(null);
+    setResolvedVideoUrl(null);
     setSponsors([]);
     setRemovedSponsorIds([]);
     setUploading({ status: "idle", pendingCount: 0, totalCount: 0 });
@@ -425,16 +446,26 @@ function CampaignsPage() {
       }
     }
 
-    // Resolve storage paths to signed URLs
+    // Resolve storage paths to signed URLs (imagens + 1 video do portal)
     if (campaign.banner_urls && campaign.banner_urls.length > 0) {
       try {
+        const imagePaths = campaign.banner_urls.filter((path) => !isVideoPath(path));
+        const videoPaths = campaign.banner_urls.filter((path) => isVideoPath(path));
         const urls = await Promise.all(
-          campaign.banner_urls.map(async (path) => {
+          imagePaths.map(async (path) => {
             if (path.startsWith("http")) return path;
             return await getPublicStorageUrl({ data: { bucket: "campaign-assets", path } });
           }),
         );
         setResolvedBannerUrls(urls);
+        const firstVideo = videoPaths[0];
+        if (firstVideo) {
+          setVideoPath(firstVideo);
+          const videoUrl = firstVideo.startsWith("http")
+            ? firstVideo
+            : await getPublicStorageUrl({ data: { bucket: "campaign-assets", path: firstVideo } });
+          setResolvedVideoUrl(videoUrl);
+        }
       } catch (err) {
         console.error("Failed to resolve banners:", err);
         toast.error("Algumas imagens não puderam ser carregadas.");
@@ -518,7 +549,11 @@ function CampaignsPage() {
         .map(getAssetPath)
         .filter(Boolean) as string[];
       const newBannerPaths = bannerUrls.map(getAssetPath).filter(Boolean) as string[];
-      const finalBannerUrls = [...currentBannerPaths, ...newBannerPaths];
+      const currentImagePaths = currentBannerPaths.filter((path) => !isVideoPath(path));
+      const finalVideoPath = videoPath ? getAssetPath(videoPath) : null;
+      const finalBannerUrls = finalVideoPath
+        ? [finalVideoPath, ...currentImagePaths, ...newBannerPaths]
+        : [...currentImagePaths, ...newBannerPaths];
 
       const payload = {
         name: parsed.name,
@@ -1229,6 +1264,138 @@ function CampaignsPage() {
                     <p className="text-[10px] text-muted-foreground italic">
                       Máximo 15 MB por imagem. O sistema otimiza automaticamente para WebP.
                     </p>
+
+                    <div className="space-y-4 border-t pt-6">
+                      <div className="flex items-center justify-between">
+                        <Label className="flex items-center gap-2">
+                          <Clapperboard className="size-4" /> Vídeo do portal
+                        </Label>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Um vídeo curto no carrossel, no lugar de um banner. MP4, até 10
+                        segundos e até 10 MB. Toca sem som, em loop, e nunca trava o botão
+                        Conectar. Limite: 1 vídeo por campanha.
+                      </p>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        {videoPreviewUrl && (
+                          <div className="group relative aspect-[16/9] overflow-hidden rounded-lg border bg-muted">
+                            <video
+                              src={videoPreviewUrl}
+                              muted
+                              loop
+                              autoPlay
+                              playsInline
+                              preload="metadata"
+                              className="h-full w-full object-cover"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (localVideoPreviewUrl) URL.revokeObjectURL(localVideoPreviewUrl);
+                                setLocalVideoPreviewUrl(null);
+                                setResolvedVideoUrl(null);
+                                setVideoPath(null);
+                              }}
+                              className="absolute right-1 top-1 grid size-6 place-items-center rounded-full bg-destructive text-destructive-foreground opacity-0 transition-opacity group-hover:opacity-100 shadow-sm"
+                            >
+                              <X className="size-3.5" />
+                            </button>
+                          </div>
+                        )}
+
+                        {!videoPreviewUrl && (
+                          <label className="flex aspect-[16/9] cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/10 transition-colors hover:bg-muted/20">
+                            <Plus className="size-5 text-muted-foreground" />
+                            <span className="text-[10px] font-medium text-muted-foreground">
+                              Adicionar vídeo
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              MP4 · até 10s · até 10 MB
+                            </span>
+                            <input
+                              type="file"
+                              accept="video/mp4"
+                              className="hidden"
+                              disabled={uploading.status === "uploading"}
+                              onChange={async (e) => {
+                                const selectedFile = e.target.files?.[0];
+                                if (!selectedFile) return;
+
+                                const companyId = isAdm
+                                  ? form.target.startsWith("company:")
+                                    ? form.target.split(":")[1]
+                                    : access?.companyId
+                                  : access?.companyId;
+
+                                if (!companyId) {
+                                  toast.error(
+                                    "Selecione a empresa ou operação antes de enviar o vídeo.",
+                                  );
+                                  e.target.value = "";
+                                  return;
+                                }
+
+                                const localUrl = URL.createObjectURL(selectedFile);
+                                setLocalVideoPreviewUrl(localUrl);
+                                setUploading({
+                                  status: "uploading",
+                                  pendingCount: 1,
+                                  totalCount: 1,
+                                  message: "Enviando vídeo...",
+                                });
+
+                                try {
+                                  const { videoPath: uploadedPath } = await uploadCampaignVideo(
+                                    companyId,
+                                    selectedFile,
+                                  );
+                                  setVideoPath(uploadedPath);
+                                  try {
+                                    const signedUrl = await getPublicStorageUrl({
+                                      data: { bucket: "campaign-assets", path: uploadedPath },
+                                    });
+                                    setResolvedVideoUrl(signedUrl);
+                                    setLocalVideoPreviewUrl(null);
+                                    URL.revokeObjectURL(localUrl);
+                                  } catch (resolveErr) {
+                                    console.error(
+                                      "Signed URL resolution failed, keeping local preview:",
+                                      resolveErr,
+                                    );
+                                  }
+                                  toast.success("Vídeo enviado.");
+                                } catch (err: unknown) {
+                                  const message =
+                                    err instanceof Error ? err.message : "Erro desconhecido";
+                                  toast.error(`Falha no envio do vídeo: ${message}`);
+                                  setLocalVideoPreviewUrl(null);
+                                  URL.revokeObjectURL(localUrl);
+                                }
+
+                                setUploading({ status: "idle", pendingCount: 0, totalCount: 0 });
+                                e.target.value = "";
+                              }}
+                            />
+                          </label>
+                        )}
+                      </div>
+
+                      <div className="rounded-lg border p-3">
+                        <p className="text-xs text-muted-foreground">
+                          <span className="font-semibold text-foreground">
+                            Seu vídeo está maior que 10 MB?
+                          </span>{" "}
+                          Comprima gratuitamente no site que indicamos e envie de novo — o
+                          envio aqui só aceita vídeos dentro do limite.
+                        </p>
+                      </div>
+                      <Button type="button" variant="outline" size="sm" asChild>
+                        <a href={VIDEO_COMPRESS_URL} target="_blank" rel="noreferrer">
+                          Comprimir vídeo <ExternalLink className="size-3.5" />
+                        </a>
+                      </Button>
+                    </div>
                   </div>
                 </section>
 
