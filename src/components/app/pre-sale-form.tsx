@@ -161,7 +161,13 @@ export function PreSaleForm() {
 
   useEffect(() => {
     if (!open) return;
-    messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight, behavior: "smooth" });
+    // No início a conversa abre no topo para a introdução aparecer; depois
+    // que há respostas, acompanha o fim da conversa.
+    const atStart = replies.length === 0 && step === 0;
+    messagesRef.current?.scrollTo({
+      top: atStart ? 0 : messagesRef.current.scrollHeight,
+      behavior: atStart ? "auto" : "smooth",
+    });
     if (!sent && !lastStep) window.setTimeout(() => inputRef.current?.focus(), 80);
   }, [open, replies, step, sent, lastStep]);
 
@@ -300,7 +306,7 @@ export function PreSaleForm() {
           aria-label="Pré-venda Manos Tech"
           className="flex max-h-[min(740px,calc(100dvh-6rem))] w-[calc(100vw-2rem)] max-w-[420px] animate-in slide-in-from-bottom-3 fade-in flex-col overflow-hidden rounded-[1.5rem] border border-cyan-300/20 bg-[#0b1220] shadow-[0_28px_90px_rgba(0,0,0,.62)] duration-200"
         >
-          <header className="flex items-center justify-between gap-3 bg-[#0c1726] px-4 py-3.5">
+          <header className="flex items-center justify-between gap-3 bg-[#0c1726] px-4 py-3">
             <div className="flex min-w-0 items-center gap-3">
               <span className="grid size-10 shrink-0 place-items-center rounded-full border border-cyan-300/20 bg-cyan-300/10 text-cyan-200">
                 <MessageCircle className="size-5" aria-hidden="true" />
@@ -422,9 +428,9 @@ export function PreSaleForm() {
                 </>
               ) : activeScreen ? (
                 <>
-                  <div className="rounded-[1.25rem] bg-[#101a29] px-4 pb-4 pt-1 focus-within:ring-2 focus-within:ring-cyan-300/20">
+                  <div className="rounded-[1.25rem] bg-[#101a29] px-4 pb-3 pt-1 focus-within:ring-2 focus-within:ring-cyan-300/20">
                     {activeScreen.fields.map((field, fieldIndex) => (
-                      <div key={field.field} className="border-b border-white/[.06] py-3 last:border-b-0">
+                      <div key={field.field} className="border-b border-white/[.06] py-2.5 last:border-b-0">
                         <label htmlFor={`pre-sale-${field.field}`} className="mb-1 block text-[11px] font-medium text-slate-400">
                           {field.label}{field.required ? " *" : ""}
                         </label>
@@ -473,7 +479,7 @@ export function PreSaleForm() {
                         ) : null}
                       </div>
                     ))}
-                    <button type="submit" disabled={busy} className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-cyan-400 px-4 text-sm font-bold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50">
+                    <button type="submit" disabled={busy} className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-cyan-400 px-4 text-sm font-bold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50">
                       {busy ? <LoaderCircle className="size-4 animate-spin" /> : null}
                       {busy ? "Salvando…" : "Continuar"}
                     </button>
