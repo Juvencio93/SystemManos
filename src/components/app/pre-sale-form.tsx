@@ -123,8 +123,20 @@ const WHATSAPP_URL = `https://wa.me/5547997049730?text=${encodeURIComponent(
   "Olá! Quero saber como o ManosTech System pode funcionar no meu negócio.",
 )}`;
 
-const inputClass =
-  "w-full rounded-2xl border border-white/10 bg-[#070c15] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-300/10";
+const composerInputClass =
+  "w-full bg-transparent py-1 text-sm text-white outline-none placeholder:text-slate-500";
+
+// Máscara brasileira com trava: no máximo 11 dígitos (DDD + 9 dígitos).
+// Colar com 55 na frente ou com dígitos a mais não passa disso.
+function formatPhone(value: string) {
+  let digits = value.replace(/\D/g, "");
+  if (digits.length > 11 && digits.startsWith("55")) digits = digits.slice(2);
+  digits = digits.slice(0, 11);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
 
 export function PreSaleForm() {
   const savePartial = useServerFn(savePreSalePartial);
@@ -161,7 +173,13 @@ export function PreSaleForm() {
 
   useEffect(() => {
     if (!open) return;
-    messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight, behavior: "smooth" });
+    // No início a conversa abre no topo para a introdução aparecer; depois
+    // que há respostas, acompanha o fim da conversa.
+    const atStart = replies.length === 0 && step === 0;
+    messagesRef.current?.scrollTo({
+      top: atStart ? 0 : messagesRef.current.scrollHeight,
+      behavior: atStart ? "auto" : "smooth",
+    });
     if (!sent && !lastStep) window.setTimeout(() => inputRef.current?.focus(), 80);
   }, [open, replies, step, sent, lastStep]);
 
@@ -240,8 +258,8 @@ export function PreSaleForm() {
         setError("Preencha os campos obrigatórios para continuar.");
         return;
       }
-      if (field.field === "phone" && value.length < 8) {
-        setError("Informe um WhatsApp válido.");
+      if (field.field === "phone" && value.replace(/\D/g, "").length < 10) {
+        setError("Informe um WhatsApp válido com DDD.");
         return;
       }
       if ((field.field === "contactName" || field.field === "companyName") && value.length < 2) {
@@ -300,7 +318,7 @@ export function PreSaleForm() {
           aria-label="Pré-venda Manos Tech"
           className="flex max-h-[min(740px,calc(100dvh-6rem))] w-[calc(100vw-2rem)] max-w-[420px] animate-in slide-in-from-bottom-3 fade-in flex-col overflow-hidden rounded-[1.5rem] border border-cyan-300/20 bg-[#0b1220] shadow-[0_28px_90px_rgba(0,0,0,.62)] duration-200"
         >
-          <header className="flex items-center justify-between gap-3 border-b border-white/[.08] bg-[#0c1726] px-4 py-3.5">
+          <header className="flex items-center justify-between gap-3 bg-[#0c1726] px-4 py-3">
             <div className="flex min-w-0 items-center gap-3">
               <span className="grid size-10 shrink-0 place-items-center rounded-full border border-cyan-300/20 bg-cyan-300/10 text-cyan-200">
                 <MessageCircle className="size-5" aria-hidden="true" />
@@ -323,13 +341,13 @@ export function PreSaleForm() {
             </button>
           </header>
 
-          <div ref={messagesRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-[radial-gradient(ellipse_at_50%_0%,rgba(34,211,238,.05),transparent_55%)] p-4 sm:p-5">
+          <div ref={messagesRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-[radial-gradient(ellipse_at_50%_0%,rgba(34,211,238,.05),transparent_55%)] p-4 [scrollbar-width:none] sm:p-5 [&::-webkit-scrollbar]:hidden">
             <div className="flex items-end gap-2">
               <span className="mb-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-cyan-300/10 text-cyan-200">
                 <MessageCircle className="size-3.5" />
               </span>
-              <div className="max-w-[88%] rounded-2xl rounded-bl-md border border-white/[.07] bg-[#141e2d] px-3.5 py-3 text-sm leading-6 text-slate-200">
-                Oi! 👋 Quer saber como o ManosTech System pode funcionar no seu negócio? São só 3 passos rápidos — menos de 1 minuto.
+              <div className="max-w-[88%] rounded-2xl rounded-bl-md bg-[#141e2d] px-3.5 py-3 text-sm leading-6 text-slate-200">
+                Oi!👋 Quer saber como a ManosTech System pode funcionar no seu negócio?
               </div>
             </div>
 
@@ -339,7 +357,7 @@ export function PreSaleForm() {
                   <span className="mb-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-cyan-300/10 text-cyan-200">
                     <MessageCircle className="size-3.5" />
                   </span>
-                  <p className="max-w-[88%] rounded-2xl rounded-bl-md border border-white/[.07] bg-[#141e2d] px-3.5 py-2.5 text-sm leading-6 text-slate-200">
+                  <p className="max-w-[88%] rounded-2xl rounded-bl-md bg-[#141e2d] px-3.5 py-2.5 text-sm leading-6 text-slate-200">
                     {reply.question}
                   </p>
                 </div>
@@ -357,11 +375,11 @@ export function PreSaleForm() {
                   <span className="mb-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-cyan-300/10 text-cyan-200">
                     <MessageCircle className="size-3.5" />
                   </span>
-                  <p className="max-w-[88%] rounded-2xl rounded-bl-md border border-white/[.07] bg-[#141e2d] px-3.5 py-2.5 text-sm leading-6 text-slate-200">
+                  <p className="max-w-[88%] rounded-2xl rounded-bl-md bg-[#141e2d] px-3.5 py-2.5 text-sm leading-6 text-slate-200">
                     Você autoriza o uso desses dados para responder a esta solicitação e entrar em contato sobre a proposta?
                   </p>
                 </div>
-                <div className="ml-9 rounded-2xl border border-white/[.07] bg-[#101a29] p-3.5">
+                <div className="ml-9 rounded-2xl bg-[#101a29] p-3.5">
                   <label className="flex cursor-pointer items-start gap-3 text-xs leading-5 text-slate-300">
                     <input
                       type="checkbox"
@@ -401,7 +419,7 @@ export function PreSaleForm() {
           </div>
 
           {!sent ? (
-            <form onSubmit={handleReply} className="border-t border-white/[.08] bg-[#0c1421] p-3.5 sm:p-4">
+            <form onSubmit={handleReply} className="p-3.5 sm:p-4">
               {lastStep ? (
                 <>
                   <div className="flex gap-2">
@@ -422,10 +440,10 @@ export function PreSaleForm() {
                 </>
               ) : activeScreen ? (
                 <>
-                  <div className="space-y-3">
+                  <div className="rounded-[1.25rem] bg-[#101a29] px-4 pb-3 pt-1 focus-within:ring-2 focus-within:ring-cyan-300/20">
                     {activeScreen.fields.map((field, fieldIndex) => (
-                      <div key={field.field}>
-                        <label htmlFor={`pre-sale-${field.field}`} className="mb-1.5 block text-[11px] font-medium text-slate-400">
+                      <div key={field.field} className="border-b border-white/[.06] py-2.5 last:border-b-0">
+                        <label htmlFor={`pre-sale-${field.field}`} className="mb-1 block text-[11px] font-medium text-slate-400">
                           {field.label}{field.required ? " *" : ""}
                         </label>
                         {field.type === "textarea" ? (
@@ -435,7 +453,7 @@ export function PreSaleForm() {
                             name={field.field}
                             value={drafts[field.field] ?? answers[field.field] ?? ""}
                             onChange={(event) => setDrafts((current) => ({ ...current, [field.field]: event.target.value }))}
-                            className={`${inputClass} min-h-[88px] resize-y py-3 leading-5`}
+                            className={`${composerInputClass} min-h-[88px] resize-y leading-5`}
                             placeholder={field.placeholder}
                             required={field.required}
                             maxLength={field.maxLength}
@@ -448,12 +466,18 @@ export function PreSaleForm() {
                             name={field.field}
                             type={field.type}
                             value={drafts[field.field] ?? answers[field.field] ?? ""}
-                            onChange={(event) => setDrafts((current) => ({ ...current, [field.field]: event.target.value }))}
-                            className={`${inputClass} min-h-11`}
+                            onChange={(event) =>
+                              setDrafts((current) => ({
+                                ...current,
+                                [field.field]:
+                                  field.field === "phone" ? formatPhone(event.target.value) : event.target.value,
+                              }))
+                            }
+                            className={composerInputClass}
                             placeholder={field.placeholder}
                             required={field.required}
-                            minLength={field.required ? (field.field === "phone" ? 8 : 2) : undefined}
-                            maxLength={field.maxLength}
+                            minLength={field.required && field.field !== "phone" ? 2 : undefined}
+                            maxLength={field.field === "phone" ? 15 : field.maxLength}
                             autoComplete={field.autoComplete}
                           />
                         )}
@@ -473,17 +497,17 @@ export function PreSaleForm() {
                         ) : null}
                       </div>
                     ))}
+                    <button type="submit" disabled={busy} className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-cyan-400 px-4 text-sm font-bold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50">
+                      {busy ? <LoaderCircle className="size-4 animate-spin" /> : null}
+                      {busy ? "Salvando…" : "Continuar"}
+                    </button>
                   </div>
-                  <button type="submit" disabled={busy} className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-cyan-400 px-4 text-sm font-bold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50">
-                    {busy ? <LoaderCircle className="size-4 animate-spin" /> : null}
-                    {busy ? "Salvando…" : "Continuar"}
-                  </button>
-                  <div className="mt-2 flex min-h-5 items-center justify-between gap-3">
+                  <div className={`mt-2 flex min-h-5 items-center gap-3 ${step > 0 ? "justify-between" : "justify-center"}`}>
                     {step > 0 ? (
                       <button type="button" onClick={goBack} className="text-xs font-medium text-slate-400 transition hover:text-white">
                         Voltar
                       </button>
-                    ) : <span />}
+                    ) : null}
                     <span className="text-[10px] text-slate-500">Passo {step + 1} de {TOTAL_STEPS} · menos de 1 minuto</span>
                   </div>
                 </>
