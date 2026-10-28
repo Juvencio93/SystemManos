@@ -335,7 +335,7 @@ export function PreSaleForm() {
                 <MessageCircle className="size-3.5" />
               </span>
               <div className="max-w-[88%] rounded-2xl rounded-bl-md bg-[#141e2d] px-3.5 py-3 text-sm leading-6 text-slate-200">
-                Oi! 👋 Quer saber como o ManosTech System pode funcionar no seu negócio? São só 3 passos rápidos — menos de 1 minuto.
+                Oi!👋 Quer saber como a ManosTech System pode funcionar no seu negócio?
               </div>
             </div>
 
