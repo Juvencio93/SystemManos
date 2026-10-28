@@ -351,6 +351,15 @@ function PortalPage() {
       if (consent && !consent.checked) consent.click();
       await pause(800);
       if (cancelled) return;
+      // Opcional: a demonstração também mostra o clique em "quero receber
+      // ofertas" — o simulado autoriza o marketing antes de enviar.
+      const marketingConsent = document.getElementById("marketingConsent") as HTMLInputElement | null;
+      focusStep(marketingConsent);
+      await pause(700);
+      if (cancelled) return;
+      if (marketingConsent && !marketingConsent.checked) marketingConsent.click();
+      await pause(800);
+      if (cancelled) return;
       const button = document.querySelector('button[type="submit"]') as HTMLButtonElement | null;
       focusStep(button);
       await pause(800);
