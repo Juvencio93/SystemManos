@@ -127,9 +127,6 @@ export function LegalList({ items }: { items: string[] }) {
 export function LegalCompanyDetails() {
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-      <p className="font-semibold text-white">Manos Tech LTDA</p>
-      <p>CNPJ: 52.499.913/0001-06</p>
-      <p>Navegantes - SC</p>
       <p>Telefone: (47) 99704-9730</p>
       <p>
         E-mail:{" "}
@@ -137,8 +134,6 @@ export function LegalCompanyDetails() {
           manostech.suporte@gmail.com
         </a>
       </p>
-      <p>Encarregada indicada pela Manos Tech LTDA para os tratamentos sob sua responsabilidade.</p>
-      <p>Pessoa natural responsável pelo contato: Gabriel Juvencio.</p>
     </div>
   );
 }

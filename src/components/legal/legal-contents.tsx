@@ -209,9 +209,7 @@ export function PrivacyPolicyContent() {
         <p>
           O titular pode solicitar confirmação, acesso, correção, informação, anonimização,
           bloqueio, eliminação, portabilidade e revogação, quando aplicável. Solicitações podem ser
-          iniciadas pela página Direitos do Titular ou pelos canais oficiais abaixo. A Manos Tech
-          LTDA indicou a própria empresa como encarregada para os tratamentos sob sua responsabilidade,
-          com Gabriel Juvencio como pessoa natural para contato. Confirmação e acesso em formato
+          iniciadas pela página Direitos do Titular ou pelos canais oficiais abaixo. Confirmação e acesso em formato
           simplificado são providenciados imediatamente; a declaração completa de confirmação ou
           acesso é fornecida em até 15 dias, ressalvada regra específica da ANPD. Os demais pedidos
           são tratados conforme o direito exercido, a necessidade de proteger os dados e as hipóteses
@@ -273,8 +271,6 @@ export function PrivacyCenterContactContent() {
   return (
     <LegalSection title="3 Responsável pelo atendimento">
       <p>
-        A Manos Tech LTDA indicou a própria empresa como encarregada para os tratamentos sob sua
-        responsabilidade, com Gabriel Juvencio como pessoa natural responsável pelo contato.
         Quando o pedido se referir a uma campanha ou portal Wi-Fi de um estabelecimento, a Manos
         Tech poderá encaminhá-lo à empresa responsável pela finalidade do tratamento e acompanhar
         o atendimento da solicitação.
