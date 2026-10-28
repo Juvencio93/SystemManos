@@ -126,6 +126,18 @@ const WHATSAPP_URL = `https://wa.me/5547997049730?text=${encodeURIComponent(
 const composerInputClass =
   "w-full bg-transparent py-1 text-sm text-white outline-none placeholder:text-slate-500";
 
+// Máscara brasileira com trava: no máximo 11 dígitos (DDD + 9 dígitos).
+// Colar com 55 na frente ou com dígitos a mais não passa disso.
+function formatPhone(value: string) {
+  let digits = value.replace(/\D/g, "");
+  if (digits.length > 11 && digits.startsWith("55")) digits = digits.slice(2);
+  digits = digits.slice(0, 11);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
+
 export function PreSaleForm() {
   const savePartial = useServerFn(savePreSalePartial);
   const complete = useServerFn(completePreSale);
@@ -246,8 +258,8 @@ export function PreSaleForm() {
         setError("Preencha os campos obrigatórios para continuar.");
         return;
       }
-      if (field.field === "phone" && value.length < 8) {
-        setError("Informe um WhatsApp válido.");
+      if (field.field === "phone" && value.replace(/\D/g, "").length < 10) {
+        setError("Informe um WhatsApp válido com DDD.");
         return;
       }
       if ((field.field === "contactName" || field.field === "companyName") && value.length < 2) {
@@ -454,12 +466,18 @@ export function PreSaleForm() {
                             name={field.field}
                             type={field.type}
                             value={drafts[field.field] ?? answers[field.field] ?? ""}
-                            onChange={(event) => setDrafts((current) => ({ ...current, [field.field]: event.target.value }))}
+                            onChange={(event) =>
+                              setDrafts((current) => ({
+                                ...current,
+                                [field.field]:
+                                  field.field === "phone" ? formatPhone(event.target.value) : event.target.value,
+                              }))
+                            }
                             className={composerInputClass}
                             placeholder={field.placeholder}
                             required={field.required}
-                            minLength={field.required ? (field.field === "phone" ? 8 : 2) : undefined}
-                            maxLength={field.maxLength}
+                            minLength={field.required && field.field !== "phone" ? 2 : undefined}
+                            maxLength={field.field === "phone" ? 15 : field.maxLength}
                             autoComplete={field.autoComplete}
                           />
                         )}
