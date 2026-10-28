@@ -116,12 +116,14 @@ export const Route = createFileRoute("/api/internal/hotspot-command")({
             .from("hotspot_devices")
             .select(`${baseSelect},pending_router_identity`)
             .eq("router_identity", identity)
+            .neq("status", "suspended")
             .maybeSingle();
           if (!full.error) return full.data;
           const legacy = await (supabaseAdmin as any)
             .from("hotspot_devices")
             .select(baseSelect)
             .eq("router_identity", identity)
+            .neq("status", "suspended")
             .maybeSingle();
           if (legacy.error) throw legacy.error;
           return legacy.data;
@@ -134,6 +136,7 @@ export const Route = createFileRoute("/api/internal/hotspot-command")({
             .from("hotspot_devices")
             .select(`${baseSelect},pending_router_identity`)
             .eq("pending_router_identity", identity)
+            .neq("status", "suspended")
             .maybeSingle();
           if (res.error) {
             if (String(res.error.message ?? "").includes("pending_router_identity")) return null;

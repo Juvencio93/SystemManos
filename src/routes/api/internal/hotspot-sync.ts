@@ -18,6 +18,7 @@ export const Route = createFileRoute("/api/internal/hotspot-sync")({
           .from("hotspot_devices")
           .select("id,company_id,branch_id")
           .eq("router_identity", parsed.data.routerIdentity)
+          .neq("status", "suspended")
           .maybeSingle();
         if (lookupError) return new Response("Could not read device", { status: 500 });
         if (!device) return new Response("Device not found", { status: 404 });

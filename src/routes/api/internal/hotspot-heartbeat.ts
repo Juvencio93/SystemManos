@@ -39,6 +39,7 @@ export const Route = createFileRoute("/api/internal/hotspot-heartbeat")({
           .from("hotspot_devices")
           .select("*")
           .eq("router_identity", heartbeat.routerIdentity)
+          .neq("status", "suspended")
           .maybeSingle();
         if (lookupError) return new Response("Could not read device", { status: 500 });
         let current = found;
@@ -50,6 +51,7 @@ export const Route = createFileRoute("/api/internal/hotspot-heartbeat")({
             .from("hotspot_devices")
             .select("*")
             .eq("pending_router_identity", heartbeat.routerIdentity)
+            .neq("status", "suspended")
             .maybeSingle();
           if (byPending.error) {
             if (!String(byPending.error.message ?? "").includes("pending_router_identity")) {
