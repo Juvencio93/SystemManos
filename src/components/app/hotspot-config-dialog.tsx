@@ -173,6 +173,24 @@ export function HotspotConfigDialog({
     }
   }, [provisioningQuery.data]);
 
+  // Erro de validação chegava cru (JSON do zod) no toast. Traduz para pt-BR.
+  function friendlySaveError(error: unknown): string {
+    const fallback = "Não foi possível salvar a configuração.";
+    if (!(error instanceof Error)) return fallback;
+    try {
+      const issues = JSON.parse(error.message) as Array<{ path?: unknown }>;
+      if (Array.isArray(issues)) {
+        if (issues.some((issue) => Array.isArray(issue.path) && issue.path.includes("routerIdentity"))) {
+          return "Identidade inválida. Use MT- seguido de 6 a 48 letras maiúsculas, números ou hífens, sem espaço nem acento (ex.: MT-BOTECO).";
+        }
+        return "Algum campo está inválido. Confira os valores e salve de novo.";
+      }
+    } catch {
+      // Mensagem normal, não JSON: usa como está.
+    }
+    return error.message || fallback;
+  }
+
   const saveMutation = useMutation({
     mutationFn: () =>
       persistConfig({
@@ -206,10 +224,7 @@ export function HotspotConfigDialog({
       queryClient.setQueryData(queryKey, { config: result.config });
       setOpen(false);
     },
-    onError: (error) =>
-      toast.error(
-        error instanceof Error ? error.message : "Não foi possível salvar a configuração.",
-      ),
+    onError: (error) => toast.error(friendlySaveError(error)),
   });
   const actionMutation = useMutation({
     mutationFn: (action: "activate" | "cancel" | "block" | "unblock") => action === "activate"

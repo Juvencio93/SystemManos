@@ -276,7 +276,13 @@ export const saveHotspotConfig = createServerFn({ method: "POST" })
     };
     let assigned = false;
     let assignAttempted = false;
-    if (macNorm && !linkedDeviceId && existing) {
+    // A atribuição prévia só roda quando o destino JÁ é MikroTik. Salvar com
+    // MAC sobre uma linha de simulação morria na checagem de vendor do RPC
+    // antes da atualização que a tornaria MikroTik — o salvamento nunca
+    // persistia. Nesse caso a atribuição acontece depois do upsert (abaixo),
+    // quando a linha já é MikroTik.
+    const existingVendorAllowsAssign = existing?.vendor === "mikrotik_hotspot" || existing?.vendor === "mikrotik";
+    if (macNorm && !linkedDeviceId && existing && existingVendorAllowsAssign) {
       assignAttempted = true;
       assigned = (await tryAssignFromStock(existing.id)) === "assigned";
     }
@@ -286,7 +292,10 @@ export const saveHotspotConfig = createServerFn({ method: "POST" })
     // O erro abaixo fica só para quando não há o que renomear: identidade
     // desconhecida ou sem vínculo com este destino.
     let renamed = false;
-    if (data.routerIdentity && !assigned && !(macNorm && !existing)) {
+    // Com MAC e sem vínculo, o MAC manda (a identidade digitada é ignorada,
+    // como diz o comentário acima): o rename não pode travar a atribuição
+    // por MAC que acontece depois do upsert.
+    if (data.routerIdentity && !assigned && !(macNorm && !existing) && !(macNorm && !linkedDeviceId)) {
       if (linkedDevice && data.routerIdentity !== linkedDevice.router_identity) {
         const { error: renameError } = await (supabaseAdmin as any).rpc("manage_hotspot_inventory", {
           p_actor: context.userId, p_action: "rename", p_device: linkedDevice.id,
