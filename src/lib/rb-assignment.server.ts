@@ -19,7 +19,7 @@ export function assignmentCleanupScript(identity: string, version: number) {
   if (!/^MT-[A-Z0-9-]{6,48}$/.test(identity) || !Number.isSafeInteger(version) || version < 1) throw new Error("Invalid assignment");
   const ack = `https://manostech-system.com.br/api/internal/hotspot-assignment-ack?routerIdentity=${identity}&version=${version}&signature=${assignmentSignature(identity, version)}`;
   return `# Manos Tech: apply assignment ${version}
-# A limpeza NUNCA trava a confirmacao: a caixa busca este script a cada 60s
+# A limpeza NUNCA trava a confirmacao: a caixa busca este script a cada 120s
 # e so sai de transfer_pending quando o ack chega. Hotspot ausente, perfil
 # ausente, sessao que volta ou fetch que falha nao sao erro fatal: sao
 # "nada a limpar" ou "tenta no proximo ciclo" (as paginas tem retry pelo

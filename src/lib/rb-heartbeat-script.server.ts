@@ -1,7 +1,7 @@
 const baseUrl = "https://manostech-system.com.br";
 
 export function heartbeatScript(identity: string, token: string) {
-  const kitVersion = "2026.10.18.1";
+  const kitVersion = "2026.10.28.1";
   const scriptSource = `
   :local routerIdentity "${identity}"
   :local heartbeatToken "${token}"
@@ -81,10 +81,10 @@ export function heartbeatScript(identity: string, token: string) {
   /system script set [find where name="MANOS-HEARTBEAT"] policy=ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source={${scriptSource}}
 }
 :if ([:len [/system scheduler find where name="MANOS-HEARTBEAT"]] = 0) do={
-  /system scheduler add name="MANOS-HEARTBEAT" interval=60s on-event="MANOS-HEARTBEAT" policy=ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon disabled=no
+  /system scheduler add name="MANOS-HEARTBEAT" interval=120s on-event="MANOS-HEARTBEAT" policy=ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon disabled=no
 } else={
-  /system scheduler set [find where name="MANOS-HEARTBEAT"] interval=60s on-event="MANOS-HEARTBEAT" policy=ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon disabled=no
+  /system scheduler set [find where name="MANOS-HEARTBEAT"] interval=120s on-event="MANOS-HEARTBEAT" policy=ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon disabled=no
 }
-:log info "Manos Tech heartbeat configured (60s)"
+:log info "Manos Tech heartbeat configured (120s)"
 `;
 }

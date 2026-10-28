@@ -34,6 +34,17 @@ ${BLOCK_RULES.map(([comment, chain, subnet]) => `:if ([:len [/ip firewall filter
 `;
 }
 
+function schedulerIntervalCommand() {
+  return `:local hsSched [/system scheduler find where name="MANOS-HEARTBEAT"]
+:if ([:len $hsSched] > 0) do={
+  :local curInterval [/system scheduler get $hsSched interval]
+  :if ($curInterval != 2m && $curInterval != 120s) do={
+    /system scheduler set $hsSched interval=120s
+    :log info "Manos Tech: heartbeat interval adjusted to 120s"
+  }
+}
+`;
+}
 function hotspotLoginFileSyncCommand() {
   // Upgrade the on-router login page once. This keeps the credentials POST
   // same-origin with RouterOS and retries on later heartbeats if a fetch fails.
@@ -217,7 +228,7 @@ export const Route = createFileRoute("/api/internal/hotspot-command")({
         const reportedStatusMismatch = device.router_applied_status !== (blocked ? "blocked" : "unblocked");
         const firewallCheck = statusPending || confirmation || reportedStatusMismatch ? `\n${firewallStateScript()}` : "";
         return new Response(
-          `${radiusCommand}${hotspotLoginFileSyncCommand()}${statusCommand(blocked)}${firewallCheck}${confirmation}`,
+          `${schedulerIntervalCommand()}${radiusCommand}${hotspotLoginFileSyncCommand()}${statusCommand(blocked)}${firewallCheck}${confirmation}`,
           { headers },
         );
       },
