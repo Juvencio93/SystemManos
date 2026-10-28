@@ -334,7 +334,12 @@ function PortalPage() {
       await pause(1300);
       for (const [field, value] of demoFields) {
         if (cancelled) return;
-        focusStep(document.getElementById(field));
+        // Nome e E-mail já estão visíveis no topo: rolar ali esconderia o
+        // vídeo e o banner antes de dar tempo de vê-los. A rolagem da
+        // demonstração só começa no WhatsApp (e segue nos campos abaixo).
+        if (field !== "fullName" && field !== "email") {
+          focusStep(document.getElementById(field));
+        }
         await pause(600);
         for (let position = 1; position <= value.length; position += 1) {
           if (cancelled) return;
