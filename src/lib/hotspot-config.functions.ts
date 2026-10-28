@@ -260,8 +260,10 @@ export const saveHotspotConfig = createServerFn({ method: "POST" })
     // Sem MAC em estoque, o fluxo antigo continua valendo.
     const macNorm = data.vendor === "mikrotik_hotspot" ? normalizeMac(data.apMac) : null;
     let linkedDeviceId: string | null = null;
+    let linkedDevice: { id: string; router_identity: string; assignment_version: number } | null = null;
     if (existing) {
-      const { data: linked } = await (supabaseAdmin as any).from("hotspot_devices").select("id").eq("hotspot_config_id", existing.id).maybeSingle();
+      const { data: linked } = await (supabaseAdmin as any).from("hotspot_devices").select("id,router_identity,assignment_version").eq("hotspot_config_id", existing.id).maybeSingle();
+      linkedDevice = linked ?? null;
       linkedDeviceId = linked?.id ?? null;
     }
     const tryAssignFromStock = async (configId: string): Promise<"assigned" | "not-in-stock"> => {
@@ -274,16 +276,39 @@ export const saveHotspotConfig = createServerFn({ method: "POST" })
     };
     let assigned = false;
     let assignAttempted = false;
-    if (macNorm && !linkedDeviceId && existing) {
+    // A atribuição prévia só roda quando o destino JÁ é MikroTik. Salvar com
+    // MAC sobre uma linha de simulação morria na checagem de vendor do RPC
+    // antes da atualização que a tornaria MikroTik — o salvamento nunca
+    // persistia. Nesse caso a atribuição acontece depois do upsert (abaixo),
+    // quando a linha já é MikroTik.
+    const existingVendorAllowsAssign = existing?.vendor === "mikrotik_hotspot" || existing?.vendor === "mikrotik";
+    if (macNorm && !linkedDeviceId && existing && existingVendorAllowsAssign) {
       assignAttempted = true;
       assigned = (await tryAssignFromStock(existing.id)) === "assigned";
     }
 
-    if (data.routerIdentity && !assigned && !(macNorm && !existing)) {
-      const { data: physical, error: physicalError } = await (supabaseAdmin as any).from("hotspot_devices")
-        .select("hotspot_config_id").eq("router_identity", data.routerIdentity).maybeSingle();
-      if (physicalError || !physical || physical.hotspot_config_id !== existing?.id) {
-        throw new Error("Use o Estoque de RBs para cadastrar ou transferir este equipamento.");
+    // Identidade digitada diferente da vinculada: não trava mais o salvamento —
+    // agenda o rename pendente (a caixa adota o nome novo ao se conectar).
+    // O erro abaixo fica só para quando não há o que renomear: identidade
+    // desconhecida ou sem vínculo com este destino.
+    let renamed = false;
+    // Com MAC e sem vínculo, o MAC manda (a identidade digitada é ignorada,
+    // como diz o comentário acima): o rename não pode travar a atribuição
+    // por MAC que acontece depois do upsert.
+    if (data.routerIdentity && !assigned && !(macNorm && !existing) && !(macNorm && !linkedDeviceId)) {
+      if (linkedDevice && data.routerIdentity !== linkedDevice.router_identity) {
+        const { error: renameError } = await (supabaseAdmin as any).rpc("manage_hotspot_inventory", {
+          p_actor: context.userId, p_action: "rename", p_device: linkedDevice.id,
+          p_version: linkedDevice.assignment_version, p_new_identity: data.routerIdentity,
+        });
+        if (renameError) throw new Error(renameError.message);
+        renamed = true;
+      } else if (!linkedDevice) {
+        const { data: physical, error: physicalError } = await (supabaseAdmin as any).from("hotspot_devices")
+          .select("hotspot_config_id").eq("router_identity", data.routerIdentity).maybeSingle();
+        if (physicalError || !physical || physical.hotspot_config_id !== existing?.id) {
+          throw new Error("Use o Estoque de RBs para cadastrar ou transferir este equipamento.");
+        }
       }
     }
 
@@ -321,7 +346,9 @@ export const saveHotspotConfig = createServerFn({ method: "POST" })
       if (!assigned && data.routerIdentity) throw new Error("Use o Estoque de RBs para cadastrar ou transferir este equipamento.");
     }
 
-    if (data.vendor === "mikrotik_hotspot" && data.routerIdentity && !assigned) {
+    // Com rename pendente, a linha do device pertence ao RPC (reescrevê-la
+    // aqui com a identidade nova bateria no guard antes do ack).
+    if (data.vendor === "mikrotik_hotspot" && data.routerIdentity && !assigned && !renamed) {
       const devicePayload = {
         hotspot_config_id: result.data.id,
         company_id: scope.companyId,

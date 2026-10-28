@@ -108,16 +108,62 @@ export const Route = createFileRoute("/api/internal/hotspot-command")({
         if (!/^MT-[A-Z0-9-]{6,48}$/.test(identity)) return new Response("Unauthorized", { status: 401 });
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const { data: device, error } = await (supabaseAdmin as any)
-          .from("hotspot_devices")
-          .select("id,status,company_id,hotspot_config_id,assignment_version,credential_version,assignment_applied_version,verification_expires_at,router_applied_status,reboot_requested_at,router_status_requested_at,router_status_applied_at,sync_requested_at,sync_applied_at")
-          .eq("router_identity", identity)
-          .maybeSingle();
-        if (error) return new Response("Could not read device", { status: 500 });
+        const baseSelect = "id,status,company_id,hotspot_config_id,assignment_version,credential_version,assignment_applied_version,verification_expires_at,router_applied_status,reboot_requested_at,router_status_requested_at,router_status_applied_at,sync_requested_at,sync_applied_at";
+        // A coluna pending_router_identity só existe após a migration do rename.
+        // Sem ela, o lookup volta ao select antigo (o comportamento não muda).
+        const loadByIdentity = async () => {
+          const full = await (supabaseAdmin as any)
+            .from("hotspot_devices")
+            .select(`${baseSelect},pending_router_identity`)
+            .eq("router_identity", identity)
+            .neq("status", "suspended")
+            .maybeSingle();
+          if (!full.error) return full.data;
+          const legacy = await (supabaseAdmin as any)
+            .from("hotspot_devices")
+            .select(baseSelect)
+            .eq("router_identity", identity)
+            .neq("status", "suspended")
+            .maybeSingle();
+          if (legacy.error) throw legacy.error;
+          return legacy.data;
+        };
+        // Caixa já renomeada, antes do ack: busca pelo pending para ela
+        // conseguir buscar o script de novo (ex.: ack falhou na 1ª tentativa).
+        // Sem a coluna (migration pendente) não há pending: volta null.
+        const loadByPending = async () => {
+          const res = await (supabaseAdmin as any)
+            .from("hotspot_devices")
+            .select(`${baseSelect},pending_router_identity`)
+            .eq("pending_router_identity", identity)
+            .neq("status", "suspended")
+            .maybeSingle();
+          if (res.error) {
+            if (String(res.error.message ?? "").includes("pending_router_identity")) return null;
+            throw res.error;
+          }
+          return res.data;
+        };
+        let device: any;
+        try {
+          device = await loadByIdentity();
+          if (!device) device = await loadByPending();
+        } catch {
+          return new Response("Could not read device", { status: 500 });
+        }
         if (!device || !hasAssignedRouterAuth(request, identity, device)) return new Response("Unauthorized", { status: 401 });
 
         if (device.assignment_applied_version !== device.assignment_version) {
-          return new Response(statusCommand(true) + assignmentCleanupScript(identity, device.assignment_version), { headers });
+          // Rename pendente: a caixa adota o nome novo ANTES do cleanup; o resto
+          // do script (heartbeat + ack) já sai com a identidade nova.
+          const pendingIdentity = device.pending_router_identity as string | null;
+          const renamePending = Boolean(
+            pendingIdentity && /^MT-[A-Z0-9-]{6,48}$/.test(pendingIdentity),
+          );
+          const cleanup = renamePending && pendingIdentity
+            ? `/system identity set name=${pendingIdentity}\n` + assignmentCleanupScript(pendingIdentity, device.assignment_version)
+            : assignmentCleanupScript(identity, device.assignment_version);
+          return new Response(statusCommand(true) + cleanup, { headers });
         }
 
         if (device.reboot_requested_at) {

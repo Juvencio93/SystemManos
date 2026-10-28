@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { assignmentReady, inventorySection, rbStateLabels, stockCardTitle, type InventoryData, type InventoryDevice, type InventoryAction } from "@/lib/rb-inventory";
+import { assignmentReady, deriveDestinationIdentity, inventorySection, rbStateLabels, stockCardTitle, type InventoryData, type InventoryDevice, type InventoryAction } from "@/lib/rb-inventory";
 
 
 export type InventoryViewProps = {
@@ -23,6 +23,7 @@ export function RbInventoryView({ data, loading, error, refresh, action, downloa
   const [mac,setMac] = useState("");
   const [settingMac,setSettingMac] = useState<{ device: InventoryDevice; value: string } | null>(null);
   const [target,setTarget] = useState("");
+  const [newIdentity,setNewIdentity] = useState("");
   const [busy,setBusy] = useState(false);
   const [expanded,setExpanded] = useState(true);
   const [openStock,setOpenStock] = useState(true);
@@ -58,7 +59,7 @@ export function RbInventoryView({ data, loading, error, refresh, action, downloa
       {!assignmentReady(d) && <p className="mt-1 text-xs text-amber-300">{online ? "Aguardando limpeza e confirmação do equipamento." : "A mudança será aplicada quando a RB se conectar à internet."}</p>}
       {d.status==="verifying" && <p className="mt-1 text-xs text-cyan-300">A primeira conexão real de um cliente confirmará automaticamente a homologação pelo RADIUS.</p>}
       <div className="mt-4 flex flex-wrap gap-2">
-        <Button size="sm" variant="outline" disabled={busy || d.status==="transfer_pending"} onClick={()=> {setSelected(d);setTarget("");setFailure("");}}><ArrowRightLeft className="size-4" />{d.company_id ? "Transferir / devolver" : "Atribuir destino"}</Button>
+        <Button size="sm" variant="outline" disabled={busy || d.status==="transfer_pending"} onClick={()=> {setSelected(d);setTarget("");setNewIdentity("");setFailure("");}}><ArrowRightLeft className="size-4" />{d.company_id ? "Transferir / devolver" : "Atribuir destino"}</Button>
         <Button size="sm" variant="ghost" disabled={busy} onClick={()=>void run(()=>download(d.id,"setup"),"Kit inicial solicitado.")}><Download className="size-3" />Kit inicial · uma vez</Button>
         {pureStock && !d.ap_mac && <Button size="sm" variant="ghost" disabled={busy} onClick={()=> {setSettingMac({ device: d, value: "" });setFailure("");}}>Informar MAC</Button>}
         {d.status!=="operational" && d.status!=="verifying" && <Button size="sm" variant="ghost" className="text-muted-foreground" disabled={busy} onClick={()=> {setArchiving(d);setFailure("");}}><Archive className="size-3" />Arquivar cadastro</Button>}
@@ -113,13 +114,26 @@ export function RbInventoryView({ data, loading, error, refresh, action, downloa
         <label className="space-y-2 text-sm">MAC da RB<Input value={mac} maxLength={20} placeholder="Ex.: CC:2D:E0:3B:D1:EF" onChange={e=>setMac(e.target.value)} /></label>
         <p className="text-xs text-muted-foreground">Nome ou MAC: basta um dos dois. O MAC permite reconhecer a RB depois, mesmo sem nome.</p>
       </div>
-      : <label className="space-y-2 text-sm">Destino<select className="w-full rounded-lg border bg-background p-3" value={target} onChange={e=>setTarget(e.target.value)}>
+      : <><label className="space-y-2 text-sm">Destino<select className="w-full rounded-lg border bg-background p-3" value={target} onChange={e=>{ const value = e.target.value; setTarget(value);
+        const companyTarget = targets.find(t => t.id === value);
+        setNewIdentity(companyTarget ? deriveDestinationIdentity(companyTarget.label) : "");
+      }}>
         <option value="">Devolver ao estoque — sem empresa</option>
         {targets.filter(t=>t.id!==selected?.hotspot_config_id && !devices.some(d=>d.id!==selected?.id && d.hotspot_config_id===t.id)).map(t=><option key={t.id} value={t.id}>{t.label}</option>)}
         {data?.resellers?.map(r=><option key={r.id} value={`reseller:${r.id}`}>Estoque da revenda · {r.name}</option>)}
-      </select><span className="block text-xs text-muted-foreground">Destinos precisam de configuração MikroTik e não podem ter outra RB vinculada.</span></label>}
+      </select><span className="block text-xs text-muted-foreground">Destinos precisam de configuração MikroTik e não podem ter outra RB vinculada.</span></label>
+      {target && !target.startsWith("reseller:") && <label className="space-y-2 text-sm">Nova identidade (opcional)<Input value={newIdentity} maxLength={51} onChange={e=>setNewIdentity(e.target.value.toUpperCase())} placeholder="Ex.: MT-BOTECO" /><span className="block text-xs text-muted-foreground">A RB passa a se chamar assim ao confirmar a atribuição. Se vazia, usa o nome do destino.</span></label>}</>}
       {failure && <p role="alert" className="text-sm text-red-400">{failure}</p>}
-      <Button disabled={busy || (creating && !label.trim() && !mac.trim()) || (!creating && !selected?.company_id && !target)} onClick={()=>void run(()=>action(creating ? createPayload() : target.startsWith("reseller:") ? {action:"allocate",deviceId:selected!.id,expectedVersion:selected!.assignment_version,resellerId:target.slice(9)} : {action:"transfer",deviceId:selected!.id,expectedVersion:selected!.assignment_version,configId:target || null}),creating ? "RB cadastrada. Importe o kit inicial uma vez para prepará-la." : "Transferência solicitada. Aguarde a confirmação da RB.")}>{busy ? "Salvando…" : creating ? "Cadastrar RB" : target ? "Confirmar transferência" : "Devolver ao estoque"}</Button>
+      <Button disabled={busy || (creating && !label.trim() && !mac.trim()) || (!creating && !selected?.company_id && !target)} onClick={()=>{ if (!creating && target && !target.startsWith("reseller:")) {
+        const typed = newIdentity.trim().toUpperCase();
+        if (typed && !/^MT-[A-Z0-9-]{6,48}$/.test(typed)) { setFailure("Identidade inválida. Use MT- seguido de letras, números e hífens."); return; }
+      }
+      // Campo limpo = derivar de novo do destino; sem destino (devolver ou
+      // revenda) não há rename.
+      const effective = !creating && target && !target.startsWith("reseller:")
+        ? (newIdentity.trim().toUpperCase() || deriveDestinationIdentity(targets.find(t => t.id === target)?.label ?? ""))
+        : "";
+      void run(()=>action(creating ? createPayload() : target.startsWith("reseller:") ? {action:"allocate",deviceId:selected!.id,expectedVersion:selected!.assignment_version,resellerId:target.slice(9)} : {action:"transfer",deviceId:selected!.id,expectedVersion:selected!.assignment_version,configId:target || null, ...(effective ? { newIdentity: effective } : {})}),creating ? "RB cadastrada. Importe o kit inicial uma vez para prepará-la." : "Transferência solicitada. Aguarde a confirmação da RB."); }}>{busy ? "Salvando…" : creating ? "Cadastrar RB" : target ? "Confirmar transferência" : "Devolver ao estoque"}</Button>
       </DialogContent>
     </Dialog>
     <Dialog open={Boolean(archiving)} onOpenChange={open=> {if(!open && !busy) setArchiving(null);}}>
