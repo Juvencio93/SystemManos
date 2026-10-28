@@ -127,6 +127,7 @@ export function LegalList({ items }: { items: string[] }) {
 export function LegalCompanyDetails() {
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+      <p className="font-semibold text-white">Manos Tech</p>
       <p>Telefone: (47) 99704-9730</p>
       <p>
         E-mail:{" "}
