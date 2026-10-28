@@ -96,7 +96,7 @@ async function createAdminPreSaleNotifications(adminDb: any, preSale: PreSaleNot
     `WhatsApp: ${preSale.phone}`,
     `E-mail: ${preSale.email}`,
     preSale.city ? `Cidade: ${preSale.city}` : null,
-    `Necessidade: ${summary.slice(0, 900)}${summary.length > 900 ? "…" : ""}`,
+    summary ? `Necessidade: ${summary.slice(0, 900)}${summary.length > 900 ? "…" : ""}` : null,
   ].filter(Boolean).join("\n");
 
   const notifications = admins.map((admin: { user_id: string }) => ({
@@ -159,6 +159,123 @@ export const submitPreSale = createServerFn({ method: "POST" })
     if (error || !saved) {
       console.error("[PreSale] Could not persist submission:", error?.message);
       throw new Error("Não foi possível registrar sua solicitação agora. Tente novamente.");
+    }
+
+    const telegram = await createAdminPreSaleNotifications(adminDb, saved);
+    const { error: notificationError } = await adminDb
+      .from("pre_sales")
+      .update({
+        telegram_status: telegram.status,
+        telegram_error: telegram.error,
+        telegram_attempted_at: new Date().toISOString(),
+      })
+      .eq("id", saved.id);
+    if (notificationError) console.error("[PreSale] Could not record Telegram delivery:", notificationError.message);
+
+    return { success: true as const, id: saved.id };
+  });
+
+const savePreSalePartialSchema = z.object({
+  companyName: z.string().trim().min(2).max(160),
+  contactName: z.string().trim().min(2).max(120),
+  phone: z.string().trim().min(8).max(32),
+  website: z.string().max(0).optional().default(""),
+});
+
+// O contato é salvo já no primeiro passo do balão: se o visitante parar
+// no meio, a equipe já tem o WhatsApp e pode chamar de volta. Não dispara
+// aviso: o aviso (sistema + Telegram) só sai na conclusão, com consentimento.
+export const savePreSalePartial = createServerFn({ method: "POST" })
+  .validator((input: unknown) => savePreSalePartialSchema.parse(input))
+  .handler(async ({ data }) => {
+    if (data.website) throw new Error("Não foi possível registrar sua solicitação.");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const adminDb: any = supabaseAdmin;
+    const ipHash = await getRequestIpHash();
+
+    if (ipHash) {
+      const { count, error: rateError } = await adminDb
+        .from("pre_sales")
+        .select("id", { count: "exact", head: true })
+        .eq("ip_hash", ipHash)
+        .gte("created_at", new Date(Date.now() - 10 * 60 * 1000).toISOString());
+      if (rateError) throw new Error("Não foi possível validar o envio. Tente novamente em instantes.");
+      if ((count ?? 0) >= 3) throw new Error("Você já enviou solicitações recentemente. Aguarde alguns minutos.");
+    }
+
+    const { data: saved, error } = await adminDb
+      .from("pre_sales")
+      .insert({
+        company_name: data.companyName,
+        contact_name: data.contactName,
+        phone: data.phone,
+        email: "",
+        summary: "",
+        ip_hash: ipHash,
+      })
+      .select("id")
+      .single();
+
+    if (error || !saved) {
+      console.error("[PreSale] Could not persist partial submission:", error?.message);
+      throw new Error("Não foi possível registrar sua solicitação agora. Tente novamente.");
+    }
+
+    return { success: true as const, id: saved.id };
+  });
+
+const completePreSaleSchema = z.object({
+  id: z.string().uuid(),
+  email: z.union([z.string().trim().email().max(160), z.literal("")]).optional().default(""),
+  city: z.string().trim().max(100).optional().default(""),
+  summary: z.string().trim().max(3000).optional().default(""),
+  consent: z.literal(true),
+  website: z.string().max(0).optional().default(""),
+});
+
+// Conclui um lead parcial: preenche os campos do passo 2, registra o
+// consentimento e só então dispara o aviso (sistema + Telegram). O id é um
+// uuid aleatório e a conclusão só acontece uma vez: se já houver aviso
+// registrado para o lead, o envio é recusado.
+export const completePreSale = createServerFn({ method: "POST" })
+  .validator((input: unknown) => completePreSaleSchema.parse(input))
+  .handler(async ({ data }) => {
+    if (data.website) throw new Error("Não foi possível enviar sua solicitação.");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const adminDb: any = supabaseAdmin;
+
+    const { data: existing, error: fetchError } = await adminDb
+      .from("pre_sales")
+      .select("id, company_name, cnpj, contact_name, email, phone, city, summary, created_at")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (fetchError || !existing) throw new Error("Não foi possível localizar esta solicitação. Recomece o atendimento.");
+
+    const { data: notified } = await adminDb
+      .from("system_notifications")
+      .select("id")
+      .like("event_key", `pre_sale:${data.id}:%`)
+      .limit(1);
+    if (notified?.length) throw new Error("Esta solicitação já foi enviada.");
+
+    const { data: saved, error: updateError } = await adminDb
+      .from("pre_sales")
+      .update({
+        email: data.email,
+        city: normalizeOptional(data.city),
+        summary: data.summary,
+        consented_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", data.id)
+      .select("id, company_name, cnpj, contact_name, email, phone, city, summary, created_at")
+      .single();
+
+    if (updateError || !saved) {
+      console.error("[PreSale] Could not complete submission:", updateError?.message);
+      throw new Error("Não foi possível concluir o envio. Tente novamente.");
     }
 
     const telegram = await createAdminPreSaleNotifications(adminDb, saved);
