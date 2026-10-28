@@ -1,11 +1,21 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Pencil, Plus, Search, Upload } from "lucide-react";
+import { Loader2, Pencil, Plus, Search, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 
 import { PageHeader } from "@/components/app/page-header";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -35,10 +45,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useAccess } from "@/hooks/use-access";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { formatCnpj, isValidCnpj, slugify } from "@/lib/cnpj-utils";
 import { createCompanyWithAccess, lookupCnpj, updateCompany } from "@/lib/cnpj.functions";
+import { deleteCompany } from "@/lib/company-delete.functions";
 import { getCompanyDisplayName } from "@/lib/name-utils";
 
 export const Route = createFileRoute("/_authenticated/empresas/")({
@@ -166,6 +178,9 @@ function CompaniesPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [partners, setPartners] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<Tables<"companies"> | null>(null);
+  const { data: access } = useAccess();
+  const isAdm = access?.role === "adm";
   const fileRef = useRef<HTMLInputElement>(null);
   const set = (patch: Partial<FormState>) => {
     setForm((prev) => ({ ...prev, ...patch }));
@@ -470,6 +485,38 @@ function CompaniesPage() {
           ].some((key) => query.queryKey.includes(key)),
       }),
     onError: () => toast.error("Não foi possível atualizar o bloqueio."),
+  });
+
+  const deleteCompanyMutation = useMutation({
+    mutationFn: async (id: string) =>
+      deleteCompany({ data: { companyId: id } }),
+    onSuccess: (result) => {
+      setPendingDelete(null);
+      toast.success(`Empresa excluída.`);
+      if (result.warnings.length > 0) {
+        for (const warning of result.warnings) toast.warning(warning);
+      }
+      queryClient.invalidateQueries({
+        predicate: (query) =>
+          [
+            "companies",
+            "financeiro-empresas",
+            "financeiro-cobrancas",
+            "financeiro-eventos",
+            "companies-options",
+            "my-subscription-company",
+            "my-subscription-charges",
+            "my-subscription-branches",
+            "company-detail",
+          ].some((key) => query.queryKey.includes(key)),
+      });
+    },
+    onError: (error) =>
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível excluir a empresa.",
+      ),
   });
 
   return (
@@ -1117,6 +1164,17 @@ function CompaniesPage() {
                     >
                       <Pencil className="size-4" />
                     </Button>
+                    {isAdm ? (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="text-destructive"
+                        aria-label={`Excluir ${company.name}`}
+                        onClick={() => setPendingDelete(company)}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    ) : null}
                   </TableCell>
                 </TableRow>
               ))}
@@ -1134,6 +1192,51 @@ function CompaniesPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <AlertDialog
+        open={pendingDelete !== null}
+        onOpenChange={(next) => {
+          if (!next) setPendingDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir empresa</AlertDialogTitle>
+            <AlertDialogDescription>
+              Excluir{" "}
+              {pendingDelete ? getCompanyDisplayName(pendingDelete) : ""}{" "}
+              apaga tudo dela, sem volta:
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+            <li>Filiais e configurações</li>
+            <li>Campanhas, leads e conexões</li>
+            <li>Usuários e acessos</li>
+            <li>Logos e arquivos</li>
+            <li>Dados no Hermes (monitoramento, histórico e alertas)</li>
+          </ul>
+          <p className="text-sm font-medium text-destructive">
+            Esta ação não pode ser desfeita.
+          </p>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteCompanyMutation.isPending}
+              onClick={(event) => {
+                event.preventDefault();
+                if (pendingDelete) {
+                  deleteCompanyMutation.mutate(pendingDelete.id);
+                }
+              }}
+            >
+              {deleteCompanyMutation.isPending
+                ? "Excluindo..."
+                : "Excluir tudo"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
