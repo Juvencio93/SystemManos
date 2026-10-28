@@ -41,13 +41,11 @@ type ScreenField = {
 };
 
 type Screen = {
-  question: string;
   fields: ScreenField[];
 };
 
 const screens: Screen[] = [
   {
-    question: "Vamos lá: qual é o seu WhatsApp, seu nome e o nome da empresa?",
     fields: [
       {
         field: "phone",
@@ -82,7 +80,6 @@ const screens: Screen[] = [
     ],
   },
   {
-    question: "E sobre o espaço: onde fica, qual e-mail para os detalhes e o que você precisa?",
     fields: [
       {
         field: "city",
@@ -353,17 +350,6 @@ export function PreSaleForm() {
                 </div>
               </div>
             ))}
-
-            {!sent && !lastStep && activeScreen ? (
-              <div className="flex items-end gap-2">
-                <span className="mb-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-cyan-300/10 text-cyan-200">
-                  <MessageCircle className="size-3.5" />
-                </span>
-                <p className="max-w-[88%] rounded-2xl rounded-bl-md border border-white/[.07] bg-[#141e2d] px-3.5 py-2.5 text-sm leading-6 text-slate-200">
-                  {activeScreen.question}
-                </p>
-              </div>
-            ) : null}
 
             {lastStep && !sent ? (
               <div className="space-y-3">
