@@ -20,6 +20,7 @@ export function BannerCarousel({
   const [progressKey, setProgressKey] = useState(0);
   const [loadedUrls, setLoadedUrls] = useState<Set<string>>(() => new Set());
   const touchStart = useRef<number | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const select = useCallback(
     (next: number) => {
@@ -31,6 +32,18 @@ export function BannerCarousel({
 
   const currentUrl = urls[index] ?? "";
   const currentIsVideo = isVideoPath(currentUrl);
+
+  // Pausa o video ao sair dele e retoma (do inicio, se ja terminou) ao voltar.
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    if (currentIsVideo) {
+      if (el.ended) el.currentTime = 0;
+      el.play().catch(() => {});
+    } else {
+      el.pause();
+    }
+  }, [currentIsVideo, index]);
 
   useEffect(() => {
     if (!appearance.autoplayEnabled || urls.length < 2 || currentIsVideo) return;
@@ -90,11 +103,15 @@ export function BannerCarousel({
                   src={url}
                   poster={videoPosterUrl(url)}
                   muted
-                  loop
+                  loop={urls.length < 2}
                   autoPlay
                   playsInline
                   preload="metadata"
+                  onEnded={() => {
+                    if (urls.length > 1) select(index + 1);
+                  }}
                   ref={(el) => {
+                    videoRef.current = el;
                     if (el && el.readyState >= 2) {
                       setLoadedUrls((current) => {
                         if (current.has(url)) return current;
