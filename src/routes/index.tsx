@@ -279,6 +279,29 @@ function NotebookCheckinDemo() {
   );
 }
 
+function MobileBotecoDemo() {
+  const [replay, setReplay] = useState(0);
+
+  return (
+    <div className="mx-auto w-full max-w-[340px] px-2">
+      <div className="relative rounded-[2.7rem] border-[3px] border-slate-400/80 bg-gradient-to-br from-slate-600 via-slate-900 to-slate-500 p-[5px] shadow-[0_32px_75px_rgba(0,0,0,.58),0_0_35px_rgba(34,211,238,.04)]">
+        <span className="absolute -left-[5px] top-28 h-14 w-[3px] rounded-l bg-slate-500" aria-hidden="true" />
+        <span className="absolute -right-[5px] top-36 h-20 w-[3px] rounded-r bg-slate-500" aria-hidden="true" />
+        <div className="pointer-events-none absolute left-1/2 top-3 z-20 h-[18px] w-[82px] -translate-x-1/2 rounded-full border border-white/[.06] bg-[#03060b] shadow-md" aria-hidden="true" />
+        <ScaledPortalFrame
+          src={`/portal/demo-barao?autoplay=1&replay=${replay}`}
+          title="Portal real do Boteco do Barão"
+          viewportWidth={390}
+          viewportHeight={844}
+          className="aspect-[390/844] rounded-[2.2rem]"
+        />
+        <div className="pointer-events-none absolute bottom-3 left-1/2 z-20 h-1 w-[90px] -translate-x-1/2 rounded-full bg-white/75 shadow-sm" aria-hidden="true" />
+      </div>
+      <button type="button" onClick={() => setReplay((value) => value + 1)} className="mt-4 w-full text-center text-xs font-semibold text-emerald-200 hover:text-white">↻ Reproduzir check-in fictício</button>
+    </div>
+  );
+}
+
 function SalesHomePage() {
   const [showBackToTop, setShowBackToTop] = useState(false);
 
@@ -325,8 +348,8 @@ function SalesHomePage() {
 
       <section className="relative isolate">
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_20%_0%,rgba(0,194,204,.06),transparent_42%),radial-gradient(ellipse_at_95%_25%,rgba(25,98,190,.05),transparent_36%)]" />
-        <div className="mx-auto max-w-7xl px-5 pb-20 pt-16 sm:px-8 sm:pb-28 sm:pt-24">
-          <ScrollReveal>
+        <div className="mx-auto grid max-w-7xl items-center gap-12 px-5 pb-20 pt-16 sm:px-8 sm:pb-28 sm:pt-24 lg:grid-cols-[1.1fr_.9fr] lg:gap-16">
+          <ScrollReveal className="h-full">
             <div>
               <h1 className="max-w-3xl font-display text-4xl font-bold leading-[1.08] tracking-tight sm:text-5xl lg:text-6xl">
                 Seu <span className="text-cyan-400">Wi-Fi</span> agora é seu melhor{" "}
@@ -366,6 +389,10 @@ function SalesHomePage() {
               </div>
             </div>
           </ScrollReveal>
+
+          <div className="h-full">
+            <ScrollReveal className="h-full" delay={120}><MobileBotecoDemo /></ScrollReveal>
+          </div>
         </div>
       </section>
 
