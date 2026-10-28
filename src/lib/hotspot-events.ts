@@ -100,12 +100,12 @@ export function buildHotspotAlerts(devices: AlertDevice[], audits: AlertAudit[],
     for (const [kind, requestedAt, appliedAt, label] of pendingCommands) {
       const commandIsPending =
         requestedAt && (!appliedAt || new Date(appliedAt).getTime() < new Date(requestedAt).getTime());
-      if (commandIsPending && ageInMs(requestedAt, now) >= 3 * 60_000) {
+      if (commandIsPending && ageInMs(requestedAt, now) >= 4 * 60_000) {
         alerts.push({
           id: `pending:${kind}:${device.id}:${requestedAt}`,
           severity: "warning",
           title: `${label} não confirmada`,
-          description: `${identity} não confirmou o comando em até 3 minutos. Confira a conexão e o log da RB.`,
+          description: `${identity} não confirmou o comando em até 4 minutos. Confira a conexão e o log da RB.`,
           createdAt: requestedAt,
           deviceId: device.id,
           routerIdentity: identity,
