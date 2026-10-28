@@ -18,7 +18,19 @@ export type InventoryData = { devices: InventoryDevice[]; targets: InventoryTarg
 export type InventoryAction = {
   action: "create" | "transfer" | "verify" | "allocate" | "archive" | "assign_by_mac" | "set_mac";
   deviceId?: string; expectedVersion?: number; label?: string; configId?: string | null; resellerId?: string | null; mac?: string;
+  newIdentity?: string;
 };
+
+/** Deriva a identidade do destino a partir do rótulo ("Boteco do Barão · Matriz" -> "MT-BOTECO-DO-BARAO").
+    Vazio = sem rename (nome curto demais para o formato MT- ou sem destino). */
+export function deriveDestinationIdentity(label: string): string {
+  const first = label.split(" · ")[0] ?? "";
+  const stripped = first.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const compact = stripped.toUpperCase().replace(/[^A-Z0-9]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, "");
+  const base = compact.slice(0, 48).replace(/-+$/g, "");
+  if (base.length < 6) return "";
+  return `MT-${base}`;
+}
 
 /** MAC normalizado (XX:XX:XX:XX:XX:XX, maiúsculo) ou null quando ausente/inválido. */
 export function normalizeMac(value: string | null | undefined): string | null {

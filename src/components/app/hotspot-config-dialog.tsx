@@ -324,6 +324,7 @@ export function HotspotConfigDialog({
               <div className="grid gap-2">
                 <Label htmlFor={`router-identity-${targetId}`}>Identidade do equipamento</Label>
                 <Input id={`router-identity-${targetId}`} value={form.routerIdentity} onChange={(event) => set("routerIdentity", event.target.value.toUpperCase())} placeholder="Ex.: MT-EFRAIM" />
+                <p className="text-xs text-muted-foreground">Alterar a identidade agenda a troca na RB vinculada; a caixa adota o novo nome ao se conectar.</p>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor={`equipment-name-${targetId}`}>Nome do equipamento</Label>

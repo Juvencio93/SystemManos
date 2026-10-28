@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { assignmentAllowsAccess, grantMatchesAssignment, inventorySection, normalizeMac, stockCardTitle, type InventoryDevice } from "./rb-inventory";
+import { assignmentAllowsAccess, deriveDestinationIdentity, grantMatchesAssignment, inventorySection, normalizeMac, stockCardTitle, type InventoryDevice } from "./rb-inventory";
 import { assignmentCleanupScript, assignmentSignature, validAssignmentSignature } from "./rb-assignment.server";
 import { hasAssignedRouterAuth, hotspotRouterToken } from "./hotspot-router-auth";
 
@@ -68,5 +68,24 @@ describe("Estoque de RBs por MAC",()=>{
     expect(stockCardTitle({...stock, ap_mac:null})).toBe("RB sem MAC");
     expect(stockCardTitle({...d, inventory_label:"Padaria Barão"})).toBe("Padaria Barão");
     expect(stockCardTitle({...d, inventory_label:null})).toBe("MT-RB000001");
+  });
+});
+
+describe("Identidade acompanha o destino",()=>{
+  it("deriva MT- do nome do destino, sem acento e com hífens",()=>{
+    expect(deriveDestinationIdentity("Boteco do Barão · Matriz")).toBe("MT-BOTECO-DO-BARAO");
+    expect(deriveDestinationIdentity("Açaí do Guri · Matriz")).toBe("MT-ACAI-DO-GURI");
+    expect(deriveDestinationIdentity("Efraim Padaria e Confeitaria LTDA · Filial Centro")).toBe("MT-EFRAIM-PADARIA-E-CONFEITARIA-LTDA");
+    expect(deriveDestinationIdentity("Empresa · Matriz")).toBe("MT-EMPRESA");
+  });
+  it("devolve vazio quando não dá para derivar um nome válido",()=>{
+    expect(deriveDestinationIdentity("Pão · Matriz")).toBe("");
+    expect(deriveDestinationIdentity(" · Matriz")).toBe("");
+    expect(deriveDestinationIdentity("")).toBe("");
+  });
+  it("limita a identidade a 48 caracteres após o prefixo",()=>{
+    const derived = deriveDestinationIdentity("Uma Empresa Com Um Nome Extremamente Longo Para Testar O Limite · Matriz");
+    expect(derived).toMatch(/^MT-[A-Z0-9-]{6,48}$/);
+    expect(derived.length).toBeLessThanOrEqual(51);
   });
 });

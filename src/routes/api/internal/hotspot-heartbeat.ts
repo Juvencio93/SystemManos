@@ -35,12 +35,30 @@ export const Route = createFileRoute("/api/internal/hotspot-heartbeat")({
         if (!validateHeartbeat(heartbeat)) return new Response("Invalid heartbeat", { status: 400 });
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const { data: current, error: lookupError } = await (supabaseAdmin as any)
+        const { data: found, error: lookupError } = await (supabaseAdmin as any)
           .from("hotspot_devices")
           .select("*")
           .eq("router_identity", heartbeat.routerIdentity)
           .maybeSingle();
         if (lookupError) return new Response("Could not read device", { status: 500 });
+        let current = found;
+        // Caixa já renomeada, antes do ack: aceita o pending para não marcar
+        // um falso offline entre a troca do nome e a confirmação.
+        // Sem a coluna (migration pendente) não há pending: volta null.
+        if (!current) {
+          const byPending = await (supabaseAdmin as any)
+            .from("hotspot_devices")
+            .select("*")
+            .eq("pending_router_identity", heartbeat.routerIdentity)
+            .maybeSingle();
+          if (byPending.error) {
+            if (!String(byPending.error.message ?? "").includes("pending_router_identity")) {
+              return new Response("Could not read device", { status: 500 });
+            }
+          } else {
+            current = byPending.data;
+          }
+        }
         if (!current || !hasAssignedRouterAuth(request, heartbeat.routerIdentity!, current)) return new Response("Unauthorized", { status: 401 });
         const now = new Date().toISOString();
         const routerStatusPending = Boolean(current.router_status_requested_at &&

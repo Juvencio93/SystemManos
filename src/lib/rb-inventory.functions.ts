@@ -36,6 +36,7 @@ const actionSchema = z.object({ action: z.enum(["create", "transfer", "verify", 
   deviceId: z.string().uuid().optional(), expectedVersion: z.number().int().nonnegative().optional(),
   label: z.string().trim().min(1).max(80).optional(), configId: z.string().uuid().nullable().optional(),
   resellerId: z.string().uuid().nullable().optional(), mac: z.string().trim().max(20).optional(),
+  newIdentity: z.string().trim().regex(/^MT-[A-Z0-9-]{6,48}$/).optional(),
 }).superRefine((v,c) => {
   const incomplete =
     v.action === "create" ? (!v.label && !v.mac)
@@ -53,6 +54,9 @@ export const manageRbInventory = createServerFn({ method: "POST" }).middleware([
       p_version: data.expectedVersion ?? null, p_config: data.configId ?? null, p_label: data.label ?? null,
       p_identity: data.action === "create" ? `MT-${randomBytes(8).toString("hex").toUpperCase()}` : null,
       p_owner: data.resellerId ?? null, p_mac: data.mac ?? null,
+      // Só enviado quando há rename: sem ele, a chamada é idêntica à antiga
+      // e continua funcionando antes da migration do rename ser aplicada.
+      ...(data.newIdentity ? { p_new_identity: data.newIdentity } : {}),
     });
     if (error) throw new Error(error.message || "Não foi possível atualizar a RB.");
     return { id: id as string };
