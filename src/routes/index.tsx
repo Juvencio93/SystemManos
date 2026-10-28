@@ -201,7 +201,8 @@ function SalesHomePage() {
           <ScrollReveal>
             <div>
               <h1 className="max-w-3xl font-display text-4xl font-bold leading-[1.08] tracking-tight sm:text-5xl lg:text-6xl">
-                Seu Wi-Fi agora é seu melhor vendedor.
+                Seu <span className="text-cyan-400">Wi-Fi</span> agora é seu melhor{" "}
+                <span className="text-cyan-400">vendedor</span>.
               </h1>
               <p className="mt-6 max-w-2xl text-base leading-7 text-slate-300 sm:text-lg">
                 Com a <strong>ManosTech System</strong>, o Wi-Fi do seu estabelecimento deixa de
