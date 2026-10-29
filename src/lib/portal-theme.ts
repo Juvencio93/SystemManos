@@ -244,7 +244,7 @@ function buildBasePalette(style: PortalVisualStyle, primary: string, accent: str
       surface: mix(primary, "#0f0f12", 0.95),
       surfaceAlt: mix(primary, "#17171c", 0.93),
       // Fio fino: cor de destaque suavizada, com contraste mínimo para existir.
-      border: ensureContrast(mix(mostVisible(accent, primary, bg), "#0b0b0d", 0.52), bg, 2.4),
+      border: ensureContrast(mix(mostVisible(accent, primary, bg), "#0b0b0d", 0.52), bg, 3),
       text: "#f5f1e8",
       muted: "#c9c3b6",
       faint: "#8f897d",
