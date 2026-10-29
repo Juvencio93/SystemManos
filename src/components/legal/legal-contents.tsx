@@ -261,7 +261,7 @@ export function PrivacyCenterHowToContent({ children }: { children?: ReactNode }
         corrigir ou excluir dados. O pedido de interrupção de ofertas é aplicado quando os dados
         enviados correspondem ao cadastro; se não for localizado, a equipe analisará a
         solicitação. O atendimento também pode ser solicitado pelo e-mail
-        contato@manotech-system.com.br.
+        contato@manostech-system.com.br.
       </p>
     </LegalSection>
   );

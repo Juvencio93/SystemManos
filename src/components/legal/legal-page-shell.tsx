@@ -131,8 +131,8 @@ export function LegalCompanyDetails() {
       <p>Telefone: (47) 99704-9730</p>
       <p>
         E-mail:{" "}
-        <a href="mailto:contato@manotech-system.com.br" className="text-cyan-300">
-          contato@manotech-system.com.br
+        <a href="mailto:contato@manostech-system.com.br" className="text-cyan-300">
+          contato@manostech-system.com.br
         </a>
       </p>
     </div>

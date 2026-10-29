@@ -759,8 +759,8 @@ function SalesHomePage() {
             <span>© {new Date().getFullYear()} Manos Tech Solução em Marketing</span>
           </div>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-            <a className="transition hover:text-slate-300" href="mailto:contato@manotech-system.com.br">
-              contato@manotech-system.com.br
+            <a className="transition hover:text-slate-300" href="mailto:contato@manostech-system.com.br">
+              contato@manostech-system.com.br
             </a>
             <Link className="transition hover:text-slate-300" to="/auth">
               Entrar no sistema
