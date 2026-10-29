@@ -46,6 +46,7 @@ import { useAccess } from "@/hooks/use-access";
 import { supabase } from "@/integrations/supabase/client";
 import { getPublicStorageUrl } from "@/lib/storage.functions";
 import { LogoResolver } from "@/components/app/campaigns/LogoResolver";
+import { removeLogoBackground } from "@/lib/logo-background";
 import {
   campaignSchema,
   isVideoPath,
@@ -1007,11 +1008,25 @@ function CampaignsPage() {
                                   totalCount: 1,
                                 });
 
+                                // Remove o fundo chapado da logo automaticamente: a logo
+                                // passa a ter fundo transparente de verdade no portal.
+                                // Em qualquer dúvida ou erro, usa o arquivo original.
+                                let logoFile = file;
+                                try {
+                                  const processed = await removeLogoBackground(file);
+                                  if (processed.removed) {
+                                    logoFile = processed.file;
+                                    toast.success("Fundo da logo removido automaticamente.");
+                                  }
+                                } catch {
+                                  // usa o original
+                                }
+
                                 // Show local preview immediately
-                                const localUrl = URL.createObjectURL(file);
+                                const localUrl = URL.createObjectURL(logoFile);
                                 setLocalLogoPreviewUrl(localUrl);
 
-                                const path = await uploadCampaignAsset(companyId, "logo", file);
+                                const path = await uploadCampaignAsset(companyId, "logo", logoFile);
 
                                 // Resolve to signed URL after upload
                                 const signedUrl = await getPublicStorageUrl({
