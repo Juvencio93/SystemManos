@@ -59,7 +59,7 @@ def header_footer(canvas, doc):
     canvas.line(18*mm, 16*mm, 192*mm, 16*mm)
     canvas.setFont("Helvetica", 8)
     canvas.setFillColor(colors.HexColor("#64748b"))
-    canvas.drawString(18*mm, 11*mm, "Manual revisado em 17/10/2026 - RouterOS v7")
+    canvas.drawString(18*mm, 11*mm, "Manual revisado em 29/10/2026 - RouterOS v7")
     canvas.drawRightString(192*mm, 11*mm, f"Página {doc.page}")
     canvas.restoreState()
 
@@ -99,8 +99,8 @@ story = [
     P("Importação única", "h1"),
     P("Envie o arquivo MT-IDENTIDADE-setup.rsc para a raiz de Files no WinBox. No Terminal, substitua pelo nome exato exibido em Files e execute:", "body"),
     C('/import file-name="MT-IDENTIDADE-setup.rsc"'),
-    P("Aguarde o prompt retornar sem erro. O arquivo configura bridges, DHCP, HotSpot, RADIUS, regras de rede e o heartbeat de cinco segundos.", "body"),
-    P("Não importe novamente MANOS-HOTSPOT-BASE.rsc, activation.rsc ou heartbeat.rsc na mesma instalação. Também não é necessário enviar login.html ou alogin.html manualmente: a sincronização busca as páginas quando houver internet.", "warn"),
+    P("Aguarde o prompt retornar sem erro. O arquivo configura bridges, DHCP, HotSpot, RADIUS, regras de rede e o heartbeat a cada 2 minutos (120 segundos).", "body"),
+    P("Não importe novamente o kit nem os arquivos de recuperação (Ativação e Heartbeat) na mesma instalação: eles são gerados por RB no sistema, em Hotspot &gt; Monitoramento, e servem apenas para recuperar uma RB já instalada. Também não é necessário enviar login.html ou alogin.html manualmente: a sincronização busca as páginas quando houver internet.", "warn"),
     P("Se a RB não ficar Online", "h2"),
     P("Confira se ether1 recebeu internet por DHCP, se DNS e relógio estão corretos e se o scheduler MANOS-HEARTBEAT está habilitado. Para iniciar uma tentativa manual, execute:", "body"),
     C('/system script run MANOS-HEARTBEAT'),
@@ -111,7 +111,7 @@ story = [
     P("Atribuição e homologação", "h1"),
     P("No sistema, confirme que a empresa ou filial possui configuração MikroTik salva. Escolha Atribuir destino para essa RB. Se ela estiver Offline, a transferência ficará pendente até voltar a se comunicar.", "body"),
     P("O sistema revoga o vínculo anterior, aplica a nova atribuição e aguarda confirmação da RB. Quando a RB estiver em verificação, conecte um aparelho à rede de visitantes e complete um check-in real. A validação via RADIUS conclui a homologação.", "body"),
-    P("Para a próxima empresa, use Transferir / devolver. Não faça novo reset ou importação. O rótulo de estoque, como 001, e a identidade técnica permanecem os mesmos.", "ok"),
+    P("Para a próxima empresa, use Transferir / devolver. Não faça novo reset ou importação. Ao atribuir um novo destino, a RB é renomeada automaticamente para a identidade do destino (ex.: MT-NOME-DO-LOCAL); o campo Nova identidade (opcional) permite definir outro nome dentro do padrão MT-XXXXXX.", "ok"),
     P("Conferência opcional da instalação", "h2"),
     P("Se desejar conferir portas, arquivos de login, isolamento e firewall, envie MANOS-POSTFLIGHT.rsc para Files e execute após a RB sincronizar:", "body"),
     C('/import file-name=MANOS-POSTFLIGHT.rsc'),
@@ -126,18 +126,18 @@ story = [
     P("MANOS-PREFLIGHT.rsc e MANOS-SECURITY-AUDIT.rsc são diagnósticos. MANOS-ISOLATION-UPDATE.rsc, MANOS-HOTSPOT-FIREWALL-UPDATE.rsc, MANOS-WAN-FIREWALL-UPDATE.rsc e MANOS-INSTALL-HOTSPOT-PAGES.rsc são arquivos de manutenção ou recuperação. Não compõem a instalação padrão pelo kit individual.", "body"),
 
     PageBreak(),
-    P("Monitoramento Hermes (agente IA)", "h1"),
-    P("O Hermes é o agente IA da Manos Tech que monitora as RBs de forma proativa. A cada 5 minutos ele coleta CPU, memória, sessões PPPoE, interfaces, temperatura e logs, e envia alertas no Telegram. É somente leitura: nenhuma ação de escrita acontece sem a sua aprovação.", "body"),
+    P("Monitoramento ManosTech IA (agente IA)", "h1"),
+    P("A ManosTech IA é o agente IA da Manos Tech que monitora as RBs de forma proativa. A cada 5 minutos ele coleta CPU, memória, sessões PPPoE, interfaces, temperatura e logs, e envia alertas no Telegram. É somente leitura: nenhuma ação de escrita acontece sem a sua aprovação.", "body"),
     P("Instalador do agente na RB", "h2"),
-    P("Baixe o arquivo MANOS-HERMES-SETUP.rsc no sistema, em Hotspot &gt; Monitoramento Hermes. É um arquivo universal: o mesmo em todas as RBs, sem editar nada.", "body"),
+    P("Baixe o arquivo MANOS-IA-SETUP.rsc no sistema, em Hotspot &gt; Monitoramento. É um arquivo universal: o mesmo em todas as RBs, sem editar nada.", "body"),
     P("Envie o arquivo para a raiz de Files no WinBox. No Terminal, execute:", "body"),
-    C('/import file-name=MANOS-HERMES-SETUP.rsc'),
+    C('/import file-name=MANOS-IA-SETUP.rsc'),
     P("Na importação, a RB gera o próprio par de chaves WireGuard (a chave privada nunca sai da RB) e se cadastra sozinha na central. Nada é aplicado antes da sua aprovação.", "body"),
     P("Aprove o cadastro no Telegram: chega uma mensagem com os botões Aprovar e Rejeitar. Aprovada, a RB recebe o endereço do túnel e o usuário de leitura, e entra no monitoramento.", "ok"),
     P("Para conferir, execute:", "body"),
-    C('/log print where message~"HERMES"'),
+    C('/log print where message~"MANOS-IA"'),
     C('/ping 10.77.0.1 count=3'),
-    P("Pré-requisitos: RouterOS v7 e RB com saída para a internet. Importe o instalador do Hermes depois do MANOS-MANAGEMENT-HARDENING.rsc.", "warn"),
+    P("Pré-requisitos: RouterOS v7 e RB com saída para a internet. Importe o instalador da ManosTech IA depois do MANOS-MANAGEMENT-HARDENING.rsc.", "warn"),
     P("Referências oficiais", "h2"),
     P("MikroTik: Configuration Management (reset e importação) e Netinstall (reinstalação e formatação do armazenamento).", "small"),
 ]
