@@ -367,7 +367,7 @@ function LegacyNetworkMapPanel({ devices, isLoading, overlay, onClose, onMouseLe
   const now = Date.now();
   const getState = (device: any) => {
     const age = device.last_seen_at ? now - new Date(device.last_seen_at).getTime() : Infinity;
-    if (age < 180_000) return "online";
+    if (age < 300_000) return "online";
     if (age < 5 * 60_000) return "unstable";
     return "offline";
   };
