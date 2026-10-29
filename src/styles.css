@@ -327,9 +327,67 @@
 .portal-enter-panel { animation: portal-panel-arrive 700ms 100ms cubic-bezier(.22,.8,.26,1) both; }
 .portal-enter-soft { animation: portal-soft-arrive 600ms cubic-bezier(.22,.8,.26,1) both; }
 
+/* ════════════════════════════════════════════════════════════════════
+   GEOMETRIA DOS 4 ESTILOS DO PORTAL CATIVO
+   A paleta e as classes vêm de src/lib/portal-theme.ts; aqui ficam as regras
+   ESTRUTURAIS que precisam vencer os componentes base (Input/Button) e os
+   estados interativos (hover/active/focus) de cada linguagem visual.
+   ════════════════════════════════════════════════════════════════════ */
+
+.portal-theme-moderno,
 .portal-theme-minimalista { color-scheme: light; }
+.portal-theme-elegante,
+.portal-theme-vibrante { color-scheme: dark; }
+
+/* Botão principal — base comum. */
+.portal-cta { cursor: pointer; transition: transform 160ms cubic-bezier(.22,.8,.26,1), box-shadow 200ms ease, background-color 200ms ease, color 200ms ease, filter 200ms ease; }
+.portal-cta[aria-disabled="true"] { cursor: not-allowed; }
+
+/* MODERNO — toque tátil: "afunda" ao pressionar. */
+.portal-theme-moderno .portal-cta:not([aria-disabled="true"]):hover { filter: brightness(1.06); }
+.portal-theme-moderno .portal-cta:not([aria-disabled="true"]):active { transform: translateY(2px) scale(.985); filter: brightness(.96); }
+
+/* ELEGANTE — contorno que PREENCHE no hover (sem bloco pesado em repouso). */
+.portal-theme-elegante .portal-cta:not([aria-disabled="true"]):hover,
+.portal-theme-elegante .portal-cta:not([aria-disabled="true"]):focus-visible {
+  background: var(--portal-button) !important;
+  color: var(--portal-button-fill-text) !important;
+  filter: none;
+}
+
+/* MINIMALISTA — retangular, sem sombra; só escurece no hover. */
+.portal-theme-minimalista .portal-cta:not([aria-disabled="true"]):hover { filter: brightness(1.25); }
 .portal-theme-minimalista input,
 .portal-theme-minimalista button { letter-spacing: 0; }
+/* Campos só com LINHA INFERIOR: sem borda lateral/superior, caixa ou anel. */
+.portal-theme-minimalista input:not([type="checkbox"]):not([type="radio"]),
+.portal-theme-minimalista .portal-country-trigger {
+  border-width: 0 0 1px 0 !important;
+  border-radius: 0 !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+.portal-theme-minimalista input:not([type="checkbox"]):not([type="radio"]):focus,
+.portal-theme-minimalista input:not([type="checkbox"]):not([type="radio"]):focus-visible,
+.portal-theme-minimalista .portal-country-trigger:focus-visible {
+  border-bottom-width: 2px !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* ELEGANTE — campos só com fio de contorno, sem preenchimento. */
+.portal-theme-elegante input:not([type="checkbox"]):not([type="radio"]) { background-color: transparent !important; }
+
+/* VIBRANTE — pulso discreto no botão ativo (chama a atenção sem gritar). */
+@keyframes portal-cta-pulse {
+  0%, 100% { box-shadow: var(--portal-cta-shadow, 0 20px 38px -14px rgba(0,0,0,.5)), 0 0 0 0 color-mix(in srgb, var(--portal-button) 55%, transparent); }
+  60% { box-shadow: var(--portal-cta-shadow, 0 20px 38px -14px rgba(0,0,0,.5)), 0 0 0 12px color-mix(in srgb, var(--portal-button) 0%, transparent); }
+}
+.portal-theme-vibrante .portal-cta-pulse:not([aria-disabled="true"]) { animation: portal-cta-pulse 2.4s ease-out infinite; }
+.portal-theme-vibrante .portal-cta:not([aria-disabled="true"]):hover { transform: translateY(-2px) scale(1.01); animation-play-state: paused; }
+.portal-theme-vibrante .portal-cta:not([aria-disabled="true"]):active { transform: translateY(1px) scale(.99); }
 
 /* ── Isolamento total do tema administrativo dentro do portal cativo ── */
 .portal-root {
@@ -397,7 +455,9 @@
 @media (prefers-reduced-motion: reduce) {
   .portal-enter-banner,
   .portal-enter-panel,
-  .portal-enter-soft { animation: none; }
+  .portal-enter-soft,
+  .portal-theme-vibrante .portal-cta-pulse { animation: none !important; }
+  .portal-cta { transition: none; }
 }
 
 @keyframes float {

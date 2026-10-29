@@ -12,19 +12,19 @@ import { cn } from "@/lib/utils";
 const STYLE_META: Record<PortalVisualStyle, { nome: string; descricao: string }> = {
   moderno: {
     nome: "Moderno",
-    descricao: "Visual de aplicativo: barra de topo e cards independentes.",
+    descricao: "Visual de aplicativo: fundo claro, cards flutuantes com sombra e botão sólido de largura total.",
   },
   elegante: {
     nome: "Elegante",
-    descricao: "Landing premium: duas colunas, linhas finas, banner emoldurado.",
+    descricao: "Landing premium escura: contornos finos, cantos sóbrios, muito respiro e divisores discretos.",
   },
   minimalista: {
     nome: "Minimalista",
-    descricao: "Editorial clean: tipografia leve, campos só com linha inferior.",
+    descricao: "Editorial em papel branco: sem caixas, campos só com linha inferior e tipografia de alto contraste.",
   },
   vibrante: {
     nome: "Vibrante",
-    descricao: "Peça publicitária: bloco herói em gradiente, painel de ação forte.",
+    descricao: "Peça publicitária: herói em gradiente da sua cor, painel de ação branco e botão de alto impacto.",
   },
 };
 
