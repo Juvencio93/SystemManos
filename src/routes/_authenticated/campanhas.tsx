@@ -124,6 +124,10 @@ function CampaignsPage() {
 
   // Resolved signed URLs for existing storage assets
   const [resolvedBannerUrls, setResolvedBannerUrls] = useState<string[]>([]);
+  // Paths no Storage correspondentes a resolvedBannerUrls (mesma ordem).
+  // Necessário porque resolvedBannerUrls tem SÓ imagens, mas editing.bannerUrls
+  // tem imagens + vídeo — o índice de uma não vale para a outra na hora de apagar.
+  const [resolvedBannerPaths, setResolvedBannerPaths] = useState<string[]>([]);
   const [resolvedLogoUrl, setResolvedLogoUrl] = useState<string | null>(null);
 
   // Patrocinadores (somente campanhas do tipo Evento)
@@ -351,6 +355,7 @@ function CampaignsPage() {
     setLocalPreviewUrls([]);
     setLocalLogoPreviewUrl(null);
     setResolvedBannerUrls([]);
+    setResolvedBannerPaths([]);
     setResolvedLogoUrl(null);
     setVideoPath(null);
     setLocalVideoPreviewUrl(null);
@@ -401,6 +406,7 @@ function CampaignsPage() {
     setLocalPreviewUrls([]);
     setLocalLogoPreviewUrl(null);
     setResolvedBannerUrls([]);
+    setResolvedBannerPaths([]);
     setResolvedLogoUrl(null);
     if (localVideoPreviewUrl) URL.revokeObjectURL(localVideoPreviewUrl);
     setVideoPath(null);
@@ -458,6 +464,7 @@ function CampaignsPage() {
           }),
         );
         setResolvedBannerUrls(urls);
+        setResolvedBannerPaths(imagePaths);
         const firstVideo = videoPaths[0];
         if (firstVideo) {
           setVideoPath(firstVideo);
@@ -1119,12 +1126,20 @@ function CampaignsPage() {
                           <button
                             type="button"
                             onClick={() => {
+                              // Remove o path exato: o índice aqui é da lista SÓ de
+                              // imagens, mas editing.bannerUrls inclui o vídeo —
+                              // filtrar por índice apagava o item errado.
+                              const removedPath = resolvedBannerPaths[index];
                               setResolvedBannerUrls((prev) => prev.filter((_, i) => i !== index));
+                              setResolvedBannerPaths((prev) => prev.filter((_, i) => i !== index));
                               setEditing((prev) =>
                                 prev
                                   ? {
                                       ...prev,
-                                      bannerUrls: prev.bannerUrls.filter((_, i) => i !== index),
+                                      bannerUrls:
+                                        removedPath != null
+                                          ? prev.bannerUrls.filter((path) => path !== removedPath)
+                                          : prev.bannerUrls,
                                     }
                                   : null,
                               );
@@ -1138,9 +1153,12 @@ function CampaignsPage() {
 
                       {/* Loading placeholders if editing and resolved URLs are still pending */}
                       {editing &&
-                        resolvedBannerUrls.length < editing.bannerUrls.length &&
+                        resolvedBannerUrls.length <
+                          editing.bannerUrls.filter((path) => !isVideoPath(path)).length &&
                         Array.from({
-                          length: editing.bannerUrls.length - resolvedBannerUrls.length,
+                          length:
+                            editing.bannerUrls.filter((path) => !isVideoPath(path)).length -
+                            resolvedBannerUrls.length,
                         }).map((_, i) => (
                           <div
                             key={`loading-${i}`}
