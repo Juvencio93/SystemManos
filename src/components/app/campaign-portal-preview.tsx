@@ -69,8 +69,16 @@ export function CampaignPortalPreview({
       )}
       <div className="min-w-0 space-y-1">
         <p className={`text-[color:var(--portal-text)] ${titleClass}`}>{companyName}</p>
-        <p className={`flex items-center gap-1 text-[9px] text-[color:var(--portal-muted)] ${type.subtitleClass}`}>
-          <MapPin className="size-3 shrink-0" style={{ color: theme.palette.accentOn }} /> Portal cativo
+        <p
+          className={`flex items-center gap-1 text-[9px] text-[color:var(--portal-muted)] ${type.subtitleClass} ${
+            appearance.logoPosition === "right"
+              ? "justify-end"
+              : appearance.logoPosition === "left"
+                ? "justify-start"
+                : "justify-center"
+          }`}
+        >
+          <MapPin className="size-3 shrink-0" style={{ color: "var(--portal-accent-on)" }} /> Portal cativo
         </p>
         <p className={`text-[color:var(--portal-text)] ${type.bodyClass}`}>
           {callout || "Sua chamada exibida no portal aparecerá aqui."}
@@ -100,7 +108,9 @@ export function CampaignPortalPreview({
             ? "flex flex-wrap items-center gap-x-4 gap-y-1"
             : style === "vibrante"
               ? "flex flex-wrap gap-1.5"
-              : "grid gap-1.5 sm:grid-cols-3"
+              : style === "elegante"
+                ? "flex flex-wrap justify-center gap-1.5"
+                : "flex flex-wrap gap-1.5"
         }
       >
         {quickInfoItems.map((item) =>
@@ -111,10 +121,10 @@ export function CampaignPortalPreview({
           ) : (
             <span
               key={item}
-              className={`px-2 py-1 text-center text-[10px] text-[color:var(--portal-text)] ${theme.panelClass} ${
+              className={`px-2.5 py-1 text-center text-[10px] text-[color:var(--portal-text)] ${theme.chipClass} ${
                 style === "vibrante" ? "font-bold uppercase tracking-wide" : ""
               }`}
-              style={theme.panelStyle}
+              style={theme.chipStyle}
             >
               {item}
             </span>
@@ -123,11 +133,19 @@ export function CampaignPortalPreview({
       </div>
     ) : null;
 
+  const fieldPlaceholders = ["Nome completo", "E-mail", "WhatsApp"];
   const form = (
-    <div className={style === "minimalista" ? "space-y-4" : "space-y-2.5"}>
-      <div className={`h-8 ${theme.inputClass}`} style={theme.inputStyle} />
-      <div className={`h-8 ${theme.inputClass}`} style={theme.inputStyle} />
-      <div className={`h-8 ${theme.inputClass}`} style={theme.inputStyle} />
+    <div className={style === "minimalista" ? "space-y-4" : "space-y-3"}>
+      {fieldPlaceholders.map((label) => (
+        <div key={label} className="space-y-1">
+          <p className={`text-[color:var(--portal-muted)] ${theme.labelClass}`} style={{ fontSize: 8 }}>
+            {label} *
+          </p>
+          <div className={`flex items-center ${theme.fieldClass} ${theme.inputClass}`} style={{ ...theme.inputStyle, height: 30, fontSize: 10 }}>
+            <span className="text-[color:var(--portal-faint)]">{label}</span>
+          </div>
+        </div>
+      ))}
       <div
         className={
           style === "minimalista"
@@ -143,10 +161,8 @@ export function CampaignPortalPreview({
         </p>
       </div>
       <div
-        className={`flex items-center justify-center gap-1 text-[10px] ${
-          style === "vibrante" ? "h-12" : style === "minimalista" ? "h-10" : "h-9"
-        } ${theme.buttonClass}`}
-        style={theme.buttonStyle}
+        className={`flex w-full items-center justify-center gap-1.5 text-[10px] ${theme.buttonSizeClass} ${theme.buttonClass}`}
+        style={{ ...theme.buttonStyle, height: style === "vibrante" ? 44 : 38 }}
       >
         <Wifi className="size-3" /> {appearance.buttonText}
       </div>
@@ -169,7 +185,7 @@ export function CampaignPortalPreview({
   return (
     <div
       className={`overflow-hidden ${theme.rootClass} ${type.fontClass} ${
-        style === "minimalista" ? "rounded-lg p-6" : style === "elegante" ? "rounded-xl p-5" : "rounded-3xl p-4"
+        style === "minimalista" ? "rounded-none p-6" : style === "elegante" ? "rounded-md p-6" : style === "vibrante" ? "rounded-[2rem] p-4" : "rounded-3xl p-4"
       }`}
       style={theme.rootStyle}
     >

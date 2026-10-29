@@ -664,14 +664,7 @@ function PortalPage() {
           ? "max-h-[64px] max-w-[190px] lg:max-h-[76px] max-sm:max-h-[54px]"
           : "max-h-[72px] max-w-[210px] lg:max-h-[92px] max-sm:max-h-[60px]";
 
-  const fieldSizeClass =
-    style === "minimalista"
-      ? "h-12 px-0 text-[15px]"
-      : style === "elegante"
-        ? "h-12 px-4 text-[14px] tracking-wide"
-        : style === "vibrante"
-          ? "h-12 px-4 text-[15px] font-semibold"
-          : "h-11 px-4 text-sm";
+  const fieldSizeClass = theme.fieldClass;
 
   /* Posicionamento da logo/identidade — vale para todos os estilos, desktop e mobile. */
   const pos = portal.appearance.logoPosition;
@@ -695,7 +688,7 @@ function PortalPage() {
       ) : (
         <span
           className="font-display text-3xl font-black tracking-tight max-sm:text-2xl"
-          style={{ color: theme.palette.accentOn }}
+          style={{ color: "var(--portal-accent-on)" }}
         >
           {(portal.companyName || portal.name).charAt(0)}
         </span>
@@ -708,7 +701,7 @@ function PortalPage() {
         <p
           className={`flex items-center gap-1.5 text-[color:var(--portal-muted)] ${theme.typography.subtitleClass} ${inlineAlignClass}`}
         >
-          <Radar className="size-3.5" style={{ color: theme.palette.accentOn }} />
+          <Radar className="size-3.5" style={{ color: "var(--portal-accent-on)" }} />
           {portal.location || "Unidade Manos Tech"}
         </p>
         {portal.campaignDescription && (
@@ -739,10 +732,8 @@ function PortalPage() {
       <div
         className={
           style === "minimalista"
-            ? "flex flex-wrap items-center justify-center gap-x-5 gap-y-2"
-            : style === "vibrante"
-              ? "flex flex-wrap justify-center gap-2 lg:justify-start"
-              : "grid gap-2 sm:grid-cols-3"
+            ? `flex flex-wrap items-center gap-x-5 gap-y-2 ${inlineAlignClass}`
+            : `flex flex-wrap gap-2 ${style === "elegante" ? "justify-center" : inlineAlignClass}`
         }
       >
         {quickInfoItems.map((info) =>
@@ -753,10 +744,10 @@ function PortalPage() {
           ) : (
             <div
               key={info}
-              className={`${theme.panelClass} px-3 py-2 text-center text-xs text-[color:var(--portal-text)] ${
+              className={`${theme.chipClass} px-3.5 py-1.5 text-center text-xs text-[color:var(--portal-text)] ${
                 style === "vibrante" ? "font-bold uppercase tracking-wide" : ""
               }`}
-              style={theme.panelStyle}
+              style={theme.chipStyle}
             >
               {info}
             </div>
@@ -773,7 +764,7 @@ function PortalPage() {
   const footer = (
     <div className="flex flex-col items-center space-y-1 pb-8 text-center opacity-60">
       <p className="flex items-center gap-1.5 text-[9px] font-medium uppercase tracking-widest text-[color:var(--portal-faint)]">
-        <ShieldCheck className="size-3" style={{ color: theme.palette.accentOn }} />
+        <ShieldCheck className="size-3" style={{ color: "var(--portal-accent-on)" }} />
         Navegação segura e criptografada
       </p>
       <p className="text-[10px] text-[color:var(--portal-faint)]">
@@ -827,7 +818,7 @@ function PortalPage() {
       }}
     >
       {prefilled && (
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-white/25 bg-white/10 px-3.5 py-2.5 text-sm backdrop-blur">
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-[color:var(--portal-border)] bg-[color:var(--portal-surface-alt)] px-3.5 py-2.5 text-sm text-[color:var(--portal-text)]">
           <span>👋 Que bom te ver de novo! Seus dados já estão preenchidos — confira e toque em Conectar.</span>
           <button type="button" onClick={clearPrefill} className="shrink-0 font-medium underline underline-offset-2">
             Não sou eu
@@ -971,7 +962,7 @@ function PortalPage() {
                     ) : style === "elegante" ? (
                       <p
                         className="text-[10px] font-medium uppercase tracking-[0.32em]"
-                        style={{ color: theme.palette.accentOn }}
+                        style={{ color: "var(--portal-accent-on)" }}
                       >
                         Privacidade e consentimento
                       </p>
@@ -979,7 +970,7 @@ function PortalPage() {
                       <p className="text-xs font-semibold leading-snug text-[color:var(--portal-text)] sm:text-sm">
                         <span
                           className="font-bold uppercase tracking-wider"
-                          style={{ color: theme.palette.accentOn }}
+                          style={{ color: "var(--portal-accent-on)" }}
                         >
                           LGPD
                         </span>
@@ -1039,7 +1030,7 @@ function PortalPage() {
                       aria-describedby={fieldErrors.consent ? "consent-error" : undefined}
                       className="mt-1 size-4 shrink-0 rounded border-[color:var(--portal-border)] bg-[color:var(--portal-surface-alt)] transition-all focus:ring-offset-transparent"
                       style={{
-                        accentColor: theme.palette.accentOn,
+                        accentColor: "var(--portal-accent-on)",
                         ...(fieldErrors.consent
                           ? { outline: `2px solid ${PORTAL_ERROR_COLOR}`, outlineOffset: "2px" }
                           : {}),
@@ -1070,7 +1061,7 @@ function PortalPage() {
                         fieldErrors.marketingConsent ? "marketingConsent-error" : undefined
                       }
                       className="mt-1 size-4 shrink-0 rounded border-[color:var(--portal-border)] bg-[color:var(--portal-surface-alt)] transition-all focus:ring-offset-transparent"
-                      style={{ accentColor: theme.palette.accentOn }}
+                      style={{ accentColor: "var(--portal-accent-on)" }}
                     />
                     <span className={`text-[color:var(--portal-muted)] ${theme.typography.lgpdClass}`}>
                       <strong className="text-[color:var(--portal-text)]">Opcional:</strong> quero receber
@@ -1090,15 +1081,7 @@ function PortalPage() {
       <Button
         type="submit"
         size="default"
-        className={`z-10 w-full border-0 transition-all hover:brightness-[1.08] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-100 ${
-          style === "vibrante"
-            ? "h-16 text-lg max-sm:h-14 max-sm:sticky max-sm:bottom-2"
-            : style === "minimalista"
-              ? "h-14 text-[12px] max-sm:sticky max-sm:bottom-2"
-              : style === "elegante"
-                ? "h-14 text-[12px] max-sm:sticky max-sm:bottom-2"
-                : "h-12 text-sm max-sm:sticky max-sm:bottom-2"
-        } ${theme.buttonClass}`}
+        className={`z-10 w-full disabled:cursor-not-allowed disabled:opacity-100 max-sm:sticky max-sm:bottom-2 ${theme.buttonSizeClass} ${theme.buttonClass}`}
         style={!isFormValid || mutation.isPending ? theme.buttonDisabledStyle : theme.buttonStyle}
         // Não usamos `disabled` quando o formulário está inválido: o botão
         // precisa responder ao toque para revelar os erros e rolar até o
@@ -1226,7 +1209,7 @@ function PortalSuccess({
           </div>
 
           <div className="space-y-3">
-            <h1 className="font-display text-4xl font-bold tracking-tight text-white">
+            <h1 className="font-display text-4xl font-bold tracking-tight text-[color:var(--portal-text)]">
               {isDemo
                 ? "Check-in de demonstração"
                 : done.checkinBlocked
@@ -1249,7 +1232,7 @@ function PortalSuccess({
           </div>
 
           <div className="rounded-2xl border border-[color:var(--portal-border)] bg-[color:var(--portal-surface-alt)] p-5 backdrop-blur-sm">
-            <p className="text-base font-bold text-white">
+            <p className="text-base font-bold text-[color:var(--portal-text)]">
               {sameName ? portal.companyName : portal.name}
             </p>
             {!sameName && (
@@ -1305,7 +1288,7 @@ function PortalSuccess({
               <Button
                 asChild
                 variant="outline"
-                className="h-12 w-full gap-2 border-[color:var(--portal-border)] bg-white/5 text-white transition-all hover:bg-white/10"
+                className="h-12 w-full gap-2 border-[color:var(--portal-border)] bg-transparent text-[color:var(--portal-text)] transition-all hover:bg-[color:var(--portal-surface-alt)]"
               >
                 <a href={finalRedirectUrl} target="_blank" rel="noopener noreferrer">
                   {isSocial ? (

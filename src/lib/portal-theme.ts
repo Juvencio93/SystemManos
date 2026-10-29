@@ -20,9 +20,23 @@ export type PortalTheme = {
   /** Card do formulário. */
   cardClass: string;
   cardStyle: CSSProperties;
-  /** Blocos secundários (LGPD, etiquetas, quick info). */
+  /** Blocos secundários (LGPD, caixas de aviso). */
   panelClass: string;
   panelStyle: CSSProperties;
+  /** Etiquetas de informação rápida (quick info) — vivem na superfície da página/herói. */
+  chipClass: string;
+  chipStyle: CSSProperties;
+  /**
+   * Variáveis CSS que redefinem a paleta DENTRO do painel de ação. Só o estilo
+   * Vibrante usa (painel claro sobre fundo saturado); nos demais é vazio.
+   */
+  cardVars: CSSProperties;
+  /** Variáveis CSS que redefinem a paleta dentro do bloco herói (Vibrante). */
+  heroVars: CSSProperties;
+  /** Altura/padding/tamanho de fonte dos campos — igual no portal e na prévia. */
+  fieldClass: string;
+  /** Altura/tamanho de fonte do botão principal — igual no portal e na prévia. */
+  buttonSizeClass: string;
   /** Botão de conexão. */
   buttonClass: string;
   buttonStyle: CSSProperties;
@@ -94,6 +108,14 @@ export type PortalPalette = {
   focus: string;
   /** Indicadores (carrossel, barra de progresso). */
   indicator: string;
+  /** Extremos do gradiente do bloco herói (já ajustados para o texto ter contraste). */
+  heroFrom: string;
+  heroTo: string;
+  /** Cor de texto sobre o herói e a versão atenuada. */
+  heroText: string;
+  heroMuted: string;
+  /** "light" | "dark": usado em color-scheme (barras de rolagem, autofill). */
+  scheme: "light" | "dark";
 };
 
 const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(v)));
@@ -158,6 +180,11 @@ function ensureContrast(color: string, bg: string, min = 3.2) {
   return towards;
 }
 
+/** Das duas cores do lojista, a que mais se destaca sobre `bg` (evita contorno cinza quando uma é quase preta). */
+function mostVisible(a: string, b: string, bg: string) {
+  return contrast(a, bg) >= contrast(b, bg) ? a : b;
+}
+
 type BasePalette = Omit<
   PortalPalette,
   | "accentOn"
@@ -169,70 +196,134 @@ type BasePalette = Omit<
   | "buttonDisabledText"
   | "focus"
   | "indicator"
+  | "heroFrom"
+  | "heroTo"
+  | "heroText"
+  | "heroMuted"
+  | "scheme"
 >;
 
+/** Tinta escura usada como texto sobre superfícies claras. */
+const PAPER = "#ffffff";
+const SLATE_INK = "#0f172a";
+
+/**
+ * Paleta-base de cada linguagem visual. Cada estilo tem um CAMPO DE COR próprio
+ * (claro/escuro/saturado) — é isso, junto com a geometria, que faz os quatro
+ * parecerem produtos diferentes. As cores do lojista entram como um "sopro"
+ * nas camadas e como cor de ação/destaque, sempre com contraste verificado
+ * depois (ver `portalTheme`).
+ */
 function buildBasePalette(style: PortalVisualStyle, primary: string, accent: string): BasePalette {
-  if (style === "minimalista") {
-    /* Editorial escuro: mantém o respiro e evita o branco agressivo, usando a
-       paleta da campanha em camadas sutis e nas ações. */
+  if (style === "moderno") {
+    /* App claro: fundo cinza-azulado suave e cards BRANCOS flutuantes. Sombra
+       só é visível sobre fundo claro — por isso o Moderno é claro. */
     return {
       primary,
       accent,
-      bg: mix(primary, BLACK, 0.9),
-      bgAlt: mix(accent, BLACK, 0.88),
-      surface: mix(primary, BLACK, 0.78),
-      surfaceAlt: mix(accent, BLACK, 0.8),
-      border: mix(accent, WHITE, 0.28),
-      text: "#f3f4f6",
-      muted: "#b9bec7",
-      faint: "#858b96",
+      bg: mix(primary, "#f1f4f9", 0.95),
+      bgAlt: mix(primary, "#e8ecf3", 0.93),
+      surface: PAPER,
+      surfaceAlt: mix(primary, "#f4f6fa", 0.95),
+      border: mix(primary, "#d6dce7", 0.88),
+      text: SLATE_INK,
+      muted: "#475569",
+      faint: "#66738a",
     };
   }
 
   if (style === "elegante") {
-    /* Premium refinado sem trocar a identidade cromática escolhida pelo cliente. */
+    /* Boutique: tinta quase preta, NEUTRA e levemente quente (nada de
+       azul-petróleo), com linhas finas na cor de destaque. */
+    const bg = mix(primary, "#0b0b0d", 0.94);
     return {
       primary,
       accent,
-      bg: mix(primary, BLACK, 0.88),
-      bgAlt: mix(accent, BLACK, 0.9),
-      surface: mix(primary, BLACK, 0.76),
-      surfaceAlt: mix(accent, BLACK, 0.78),
-      border: mix(accent, WHITE, 0.24),
-      text: "#f5f7fa",
-      muted: "#c0c6d0",
-      faint: "#8d95a3",
+      bg,
+      bgAlt: mix(primary, "#131316", 0.93),
+      surface: mix(primary, "#0f0f12", 0.95),
+      surfaceAlt: mix(primary, "#17171c", 0.93),
+      // Fio fino: cor de destaque suavizada, com contraste mínimo para existir.
+      border: ensureContrast(mix(mostVisible(accent, primary, bg), "#0b0b0d", 0.52), bg, 3),
+      text: "#f5f1e8",
+      muted: "#c9c3b6",
+      faint: "#8f897d",
     };
   }
 
-  if (style === "moderno") {
-    /* Neutro digital com apenas um sopro da cor nas camadas. */
+  if (style === "minimalista") {
+    /* Editorial: papel branco, texto preto, o mínimo de cor. */
     return {
       primary,
       accent,
-      bg: mix(primary, "#101318", 0.93),
-      bgAlt: mix(primary, "#1a1f26", 0.9),
-      surface: mix(primary, "#161a20", 0.92),
-      surfaceAlt: mix(primary, "#20262e", 0.9),
-      border: mix(primary, "#8b939e", 0.78),
-      text: "#f6f7f9",
-      muted: "#b4bbc4",
-      faint: "#828a95",
+      bg: mix(primary, PAPER, 0.985),
+      bgAlt: mix(primary, PAPER, 0.965),
+      surface: PAPER,
+      surfaceAlt: mix(primary, PAPER, 0.965),
+      border: "#cdd2da",
+      text: "#0a0a0a",
+      muted: "#3d4450",
+      faint: "#6b7280",
     };
   }
 
-  /* Vibrante: gradiente profundo da própria cor, com contraste alto. */
+  /* Vibrante: campo profundo e saturado da própria cor; o brilho fica no herói. */
   return {
     primary,
     accent,
-    bg: mix(primary, BLACK, 0.82),
-    bgAlt: mix(primary, BLACK, 0.66),
-    surface: mix(primary, BLACK, 0.74),
-    surfaceAlt: mix(primary, BLACK, 0.62),
-    border: mix(primary, WHITE, 0.32),
+    bg: mix(primary, BLACK, 0.62),
+    bgAlt: mix(primary, BLACK, 0.5),
+    surface: mix(primary, BLACK, 0.7),
+    surfaceAlt: mix(primary, BLACK, 0.58),
+    border: mix(primary, WHITE, 0.35),
     text: WHITE,
-    muted: mix(primary, WHITE, 0.78),
-    faint: mix(primary, WHITE, 0.6),
+    muted: mix(primary, WHITE, 0.82),
+    faint: mix(primary, WHITE, 0.66),
+  };
+}
+
+/**
+ * Superfície onde o FORMULÁRIO mora. Em quase todos os estilos é a própria
+ * paleta da página; no Vibrante é um painel BRANCO de alto contraste sobre o
+ * fundo saturado (o painel de ação precisa "saltar" para converter).
+ */
+function buildFormPalette(style: PortalVisualStyle, base: BasePalette): BasePalette {
+  if (style !== "vibrante") return base;
+  return {
+    ...base,
+    bg: PAPER,
+    bgAlt: "#f2f4f8",
+    surface: PAPER,
+    surfaceAlt: "#f2f4f8",
+    border: mix(base.primary, "#c6ccd8", 0.22),
+    text: "#101114",
+    muted: "#424957",
+    faint: "#6b7280",
+  };
+}
+
+/**
+ * Ajusta o gradiente do herói para o texto ter contraste. Cores claras pedem
+ * texto escuro; cores médias/escuras pedem texto branco — e se o gradiente
+ * ainda não atinge o contraste, ele é escurecido/clareado até atingir.
+ */
+function fitHero(primary: string, accent: string) {
+  const light = (relativeLuminance(primary) + relativeLuminance(accent)) / 2 > 0.42;
+  let from = primary;
+  let to = accent;
+  const ink = light ? INK : WHITE;
+  const towards = light ? WHITE : BLACK;
+  const min = light ? 5 : 4.2;
+  for (let step = 1; step <= 14; step += 1) {
+    if (Math.min(contrast(from, ink), contrast(to, ink)) >= min) break;
+    from = mix(primary, towards, step / 14);
+    to = mix(accent, towards, step / 14);
+  }
+  return {
+    heroFrom: from,
+    heroTo: to,
+    heroText: ink,
+    heroMuted: mix(ink, mix(from, to, 0.5), 0.22),
   };
 }
 
@@ -240,24 +331,36 @@ type Recipe = {
   rootClass: string;
   cardClass: string;
   panelClass: string;
+  chipClass: string;
   buttonClass: string;
   bannerClass: string;
   sectionGapClass: string;
   inputClass: string;
   labelClass: string;
+  fieldClass: string;
+  buttonSizeClass: string;
+  scheme: "light" | "dark";
   background: (pal: BasePalette) => string;
-  cardBackground: (pal: BasePalette) => string;
-  cardBorder: (pal: BasePalette) => string;
-  cardShadow: (pal: BasePalette) => string;
-  panelBackground: (pal: BasePalette) => string;
-  panelBorder: (pal: BasePalette) => string;
+  cardBackground: (pal: BasePalette, form: BasePalette) => string;
+  cardBorder: (pal: BasePalette, form: BasePalette) => string;
+  cardShadow: (pal: BasePalette, form: BasePalette) => string;
+  panelBackground: (form: BasePalette) => string;
+  panelBorder: (form: BasePalette) => string;
+  chipBackground: (pal: BasePalette, hero: ReturnType<typeof fitHero>) => string;
+  chipBorder: (pal: BasePalette, hero: ReturnType<typeof fitHero>) => string;
   /** Cor sólida base do botão — origem do hover, do texto e do desabilitado. */
-  buttonBase: (pal: BasePalette) => string;
-  buttonBackground: (base: string, pal: BasePalette) => string;
+  buttonBase: (form: BasePalette) => string;
+  buttonBackground: (base: string, form: BasePalette) => string;
   buttonShadow: (base: string) => string;
+  /** Cor do texto do botão (padrão: branco/tinta conforme o fundo). */
+  buttonColor?: (base: string, form: BasePalette) => string;
+  /** Cor da borda do botão (padrão: transparente). */
+  buttonBorder?: (base: string) => string;
+  /** Aparência do botão desabilitado (padrão: mistura opaca da cor com o fundo). */
+  buttonDisabled?: (base: string, form: BasePalette) => CSSProperties;
   bannerBorder: (pal: BasePalette) => string;
-  inputBackground: (pal: BasePalette) => string;
-  inputBorder: (pal: BasePalette) => string;
+  inputBackground: (form: BasePalette) => string;
+  inputBorder: (form: BasePalette) => string;
 };
 
 /** Tipografia e composição — o que realmente diferencia as quatro linguagens. */
@@ -265,35 +368,35 @@ const typographies: Record<PortalVisualStyle, PortalTypography> = {
   vibrante: {
     fontClass: "font-vibrant",
     titleClass:
-      "font-vibrant text-[34px] font-black uppercase leading-[0.95] sm:text-[52px] lg:text-[64px]",
+      "font-vibrant text-[38px] font-black uppercase leading-[0.9] tracking-tight sm:text-[58px] lg:text-[72px]",
     subtitleClass: "text-[11px] font-black uppercase tracking-[0.22em]",
-    bodyClass: "text-base font-semibold leading-snug sm:text-lg",
+    bodyClass: "text-base font-bold leading-snug sm:text-lg",
     lgpdClass: "text-[11px] font-medium leading-snug",
     shellPadClass: "px-[4%] py-6 sm:px-6 sm:py-10",
     shellAlignClass: "justify-start",
   },
   minimalista: {
     fontClass: "font-minimal",
-    titleClass: "font-minimal text-[26px] font-medium leading-[1.15] sm:text-[38px]",
+    titleClass: "font-minimal text-[32px] font-medium leading-[1.05] tracking-tight sm:text-[52px]",
     subtitleClass: "text-[11px] font-normal uppercase tracking-[0.34em]",
-    bodyClass: "text-[15px] font-light leading-[1.7] sm:text-base",
-    lgpdClass: "text-[11px] font-light leading-[1.7]",
-    shellPadClass: "px-[4%] py-8 sm:px-8 sm:py-10",
+    bodyClass: "text-[16px] font-light leading-[1.65] sm:text-[17px]",
+    lgpdClass: "text-[11px] font-normal leading-[1.7]",
+    shellPadClass: "px-[5%] py-10 sm:px-10 sm:py-16",
     shellAlignClass: "justify-center",
   },
   elegante: {
     fontClass: "font-elegant-body",
-    titleClass: "font-elegant-title text-[30px] font-medium leading-tight sm:text-[44px]",
-    subtitleClass: "text-[10px] font-medium uppercase tracking-[0.4em]",
-    bodyClass: "text-[14px] font-light italic leading-[1.8] sm:text-[15px]",
-    lgpdClass: "text-[11px] font-light leading-[1.8] tracking-[0.01em]",
-    shellPadClass: "px-[4%] py-8 sm:px-10 sm:py-14",
+    titleClass: "font-elegant-title text-[32px] font-medium leading-tight tracking-[0.01em] sm:text-[48px]",
+    subtitleClass: "text-[10px] font-medium uppercase tracking-[0.42em]",
+    bodyClass: "text-[14px] font-light italic leading-[1.85] sm:text-[15px]",
+    lgpdClass: "text-[11px] font-light leading-[1.85] tracking-[0.01em]",
+    shellPadClass: "px-[5%] py-10 sm:px-12 sm:py-16",
     shellAlignClass: "justify-center",
   },
   moderno: {
     fontClass: "font-modern",
-    titleClass: "font-modern text-[24px] font-bold leading-tight sm:text-[32px]",
-    subtitleClass: "text-[11px] font-semibold tracking-[0.02em]",
+    titleClass: "font-modern text-[24px] font-bold leading-tight tracking-tight sm:text-[32px]",
+    subtitleClass: "text-[12px] font-semibold tracking-[0.01em]",
     bodyClass: "text-[14px] font-normal leading-relaxed sm:text-[15px]",
     lgpdClass: "text-[11px] font-normal leading-relaxed",
     shellPadClass: "px-[4%] py-5 sm:px-6 sm:py-8",
@@ -302,117 +405,181 @@ const typographies: Record<PortalVisualStyle, PortalTypography> = {
 };
 
 const recipes: Record<PortalVisualStyle, Recipe> = {
-  /** Camadas suaves, transparência e profundidade discreta. Cor só em ações. */
+  /**
+   * MODERNO — app-like. Cards brancos FLUTUANTES com sombra em camadas, cantos
+   * muito arredondados, campos preenchidos e botão sólido full-width com
+   * relevo tátil (realce interno + sombra colorida + "afundar" ao tocar).
+   */
   moderno: {
     rootClass: "portal-theme-moderno",
-    cardClass: "rounded-3xl border backdrop-blur-xl",
+    cardClass: "rounded-[28px] border",
     panelClass: "rounded-2xl border",
-    buttonClass: "rounded-2xl font-semibold tracking-tight",
-    bannerClass: "rounded-3xl border",
-    sectionGapClass: "space-y-6 max-sm:space-y-4",
-    inputClass: "rounded-xl border",
-    labelClass: "text-[11px] font-semibold uppercase tracking-[0.16em]",
+    chipClass: "rounded-full border",
+    buttonClass: "portal-cta rounded-[18px] font-semibold tracking-tight",
+    bannerClass: "rounded-[24px] border",
+    sectionGapClass: "space-y-5 max-sm:space-y-4",
+    inputClass: "rounded-2xl border",
+    labelClass: "text-[11px] font-semibold uppercase tracking-[0.14em]",
+    fieldClass: "h-12 px-4 text-[15px]",
+    buttonSizeClass: "h-14 text-[15px]",
+    scheme: "light",
     background: (p) =>
-      `radial-gradient(1100px 480px at 50% -20%, ${p.primary}26, transparent 70%), linear-gradient(180deg, ${p.bgAlt} 0%, ${p.bg} 78%)`,
-    cardBackground: (p) => `linear-gradient(160deg, ${p.surfaceAlt}e6 0%, ${p.surface}f2 100%)`,
-    cardBorder: (p) => `${p.border}99`,
-    cardShadow: () => `0 24px 60px -34px rgba(0,0,0,.85)`,
-    panelBackground: (p) => `${p.surfaceAlt}b3`,
-    panelBorder: (p) => `${p.border}80`,
-    buttonBase: (p) => p.primary,
-    buttonBackground: (base) => `linear-gradient(120deg, ${base}, ${mix(base, BLACK, 0.22)})`,
-    buttonShadow: (base) => `0 16px 32px -20px ${base}99`,
-    bannerBorder: (p) => `${p.border}99`,
-    inputBackground: (p) => `${p.bgAlt}e6`,
-    inputBorder: (p) => `${p.border}cc`,
+      `radial-gradient(900px 420px at 50% -12%, ${p.primary}22, transparent 70%), linear-gradient(180deg, ${p.bgAlt} 0%, ${p.bg} 60%)`,
+    cardBackground: (p) => p.surface,
+    cardBorder: (p) => p.border,
+    cardShadow: () =>
+      "0 1px 2px rgba(15,23,42,.06), 0 4px 10px -2px rgba(15,23,42,.06), 0 24px 44px -22px rgba(15,23,42,.28)",
+    panelBackground: (f) => f.surfaceAlt,
+    panelBorder: (f) => f.border,
+    chipBackground: (p) => p.surface,
+    chipBorder: (p) => p.border,
+    buttonBase: (f) => ensureContrast(f.primary, WHITE, 3.2),
+    buttonBackground: (base) => base,
+    buttonShadow: (base) =>
+      `0 14px 26px -10px ${base}b3, inset 0 1px 0 rgba(255,255,255,.28), inset 0 -2px 0 rgba(0,0,0,.14)`,
+    bannerBorder: (p) => p.border,
+    inputBackground: (f) => f.surfaceAlt,
+    inputBorder: (f) => f.border,
   },
-  /** Profundo, neutro e sofisticado: linhas finas, sombras suaves, nada de neon. */
+
+  /**
+   * ELEGANTE — landing premium. Tinta escura neutra, fios de 1px em vez de
+   * blocos, cantos quase retos, muito respiro. O botão é CONTORNO (preenche ao
+   * passar o mouse) — nada de bloco pesado.
+   */
   elegante: {
     rootClass: "portal-theme-elegante",
-    cardClass: "rounded-xl border",
-    panelClass: "rounded-lg border",
-    buttonClass: "rounded-lg font-medium uppercase tracking-[0.16em]",
-    bannerClass: "rounded-lg border",
-    sectionGapClass: "space-y-7 max-sm:space-y-5",
-    inputClass: "rounded-md border",
-    labelClass: "text-[10px] font-medium uppercase tracking-[0.24em]",
+    cardClass: "rounded-[6px] border",
+    panelClass: "rounded-[4px] border",
+    chipClass: "rounded-[3px] border",
+    buttonClass: "portal-cta rounded-[4px] border font-medium uppercase tracking-[0.24em]",
+    bannerClass: "rounded-[3px] border",
+    sectionGapClass: "space-y-10 max-sm:space-y-7",
+    inputClass: "rounded-[4px] border",
+    labelClass: "text-[10px] font-medium uppercase tracking-[0.3em]",
+    fieldClass: "h-12 px-4 text-[14px] tracking-wide",
+    buttonSizeClass: "h-14 text-[11px]",
+    scheme: "dark",
     background: (p) =>
-      `radial-gradient(760px 380px at 50% -12%, ${p.primary}26, transparent 68%), linear-gradient(168deg, ${mix(p.bg, BLACK, 0.3)} 0%, ${p.bg} 65%, ${mix(p.bg, BLACK, 0.5)} 100%)`,
-    cardBackground: (p) => `linear-gradient(168deg, ${p.surface} 0%, ${mix(p.surface, BLACK, 0.4)} 100%)`,
-    cardBorder: (p) => `${p.border}b3`,
-    cardShadow: () => `0 22px 50px -32px rgba(0,0,0,.95)`,
-    panelBackground: (p) => `${mix(p.surface, BLACK, 0.3)}d9`,
-    panelBorder: (p) => `${p.border}80`,
-    buttonBase: (p) => p.accent,
-    buttonBackground: (base) => base,
-    buttonShadow: () => `0 14px 28px -20px rgba(0,0,0,.9)`,
-    bannerBorder: (p) => `${p.border}99`,
-    inputBackground: (p) => mix(p.bg, BLACK, 0.2),
-    inputBorder: (p) => `${p.border}b3`,
+      `radial-gradient(820px 380px at 50% -14%, ${p.primary}1f, transparent 70%), linear-gradient(180deg, ${mix(p.bg, BLACK, 0.3)} 0%, ${p.bg} 62%)`,
+    cardBackground: () => "transparent",
+    cardBorder: (p) => p.border,
+    cardShadow: () => "none",
+    panelBackground: () => "transparent",
+    panelBorder: (f) => `${f.border}aa`,
+    chipBackground: () => "transparent",
+    chipBorder: (p) => `${p.border}cc`,
+    buttonBase: (f) => ensureContrast(mostVisible(f.accent, f.primary, f.bg), f.bg, 5),
+    buttonBackground: (base) => `linear-gradient(0deg, ${base}1f, ${base}0d)`,
+    buttonShadow: () => "none",
+    buttonColor: (base) => base,
+    buttonBorder: (base) => base,
+    buttonDisabled: (base, f) => ({
+      background: "transparent",
+      color: mix(base, f.bg, 0.42),
+      borderColor: mix(base, f.bg, 0.55),
+      boxShadow: "none",
+      opacity: 1,
+    }),
+    bannerBorder: (p) => p.border,
+    inputBackground: () => "transparent",
+    inputBorder: (f) => f.border,
   },
-  /** Limpo e espaçado: quase sem sombra e sem borda, destaque só nas ações. */
+
+  /**
+   * MINIMALISTA — editorial. Papel branco, ZERO caixas (card, painel e banner
+   * sem fundo, borda ou raio), campos só com linha inferior, botão retangular
+   * em "tinta". Tipografia grande e de alto contraste.
+   */
   minimalista: {
     rootClass: "portal-theme-minimalista",
     cardClass: "rounded-none border-0",
     panelClass: "rounded-none border-0",
-    buttonClass: "rounded-none font-medium uppercase tracking-[0.2em]",
+    chipClass: "rounded-none border-0",
+    buttonClass: "portal-cta rounded-none border-0 font-medium uppercase tracking-[0.22em]",
     bannerClass: "rounded-none border-0",
-    sectionGapClass: "space-y-8 max-sm:space-y-6",
-    /* Campos editoriais: apenas uma linha inferior, sem caixa. */
-    inputClass: "rounded-none border-0 border-b px-0",
+    sectionGapClass: "space-y-10 max-sm:space-y-8",
+    inputClass: "rounded-none border-0 border-b bg-transparent px-0 shadow-none",
     labelClass: "text-[10px] font-normal uppercase tracking-[0.3em]",
-    background: (p) => `linear-gradient(180deg, ${p.bg} 0%, ${p.bgAlt} 100%)`,
+    fieldClass: "h-12 px-0 text-[16px]",
+    buttonSizeClass: "h-14 text-[12px]",
+    scheme: "light",
+    background: (p) => p.bg,
     cardBackground: () => "transparent",
     cardBorder: () => "transparent",
     cardShadow: () => "none",
     panelBackground: () => "transparent",
     panelBorder: () => "transparent",
-    buttonBase: (p) => p.accent,
+    chipBackground: () => "transparent",
+    chipBorder: () => "transparent",
+    // "Tinta" com um toque da cor do lojista, sempre escura o bastante.
+    buttonBase: (f) => ensureContrast(mix(f.primary, "#0a0a0a", 0.5), WHITE, 7),
     buttonBackground: (base) => base,
     buttonShadow: () => "none",
     bannerBorder: () => "transparent",
     inputBackground: () => "transparent",
-    inputBorder: (p) => p.border,
+    inputBorder: (f) => mix(f.primary, "#17171a", 0.9),
   },
-  /** Intenso e publicitário: gradiente profundo da cor, blocos e contraste alto. */
+
+  /**
+   * VIBRANTE — peça publicitária. Herói em gradiente primária→destaque, painel
+   * de ação BRANCO (alto contraste) com borda grossa e botão gigante em
+   * gradiente, com pulso discreto para prender a atenção.
+   */
   vibrante: {
     rootClass: "portal-theme-vibrante",
-    cardClass: "rounded-[1.75rem] border-2 backdrop-blur-xl",
-    panelClass: "rounded-2xl border",
-    buttonClass: "rounded-2xl font-black uppercase tracking-wide",
-    bannerClass: "rounded-[1.5rem] border-2",
+    cardClass: "rounded-[2rem] border-[3px]",
+    panelClass: "rounded-2xl border-2",
+    chipClass: "rounded-full border-2",
+    buttonClass: "portal-cta portal-cta-pulse rounded-2xl border-0 font-black uppercase tracking-wide",
+    bannerClass: "rounded-[1.75rem] border-[3px]",
     sectionGapClass: "space-y-6 max-sm:space-y-4",
     inputClass: "rounded-xl border-2",
-    labelClass: "text-[11px] font-black uppercase tracking-[0.18em]",
+    labelClass: "text-[11px] font-black uppercase tracking-[0.16em]",
+    fieldClass: "h-[52px] px-4 text-[16px] font-semibold",
+    buttonSizeClass: "h-16 text-lg max-sm:h-14",
+    scheme: "dark",
     background: (p) =>
-      `linear-gradient(155deg, ${mix(p.primary, BLACK, 0.4)} 0%, ${mix(p.primary, BLACK, 0.72)} 52%, ${BLACK} 100%)`,
-    cardBackground: (p) => `linear-gradient(150deg, ${mix(p.primary, BLACK, 0.6)}f2 0%, ${mix(p.primary, BLACK, 0.8)}f2 100%)`,
-    cardBorder: (p) => `${mix(p.primary, WHITE, 0.24)}cc`,
-    cardShadow: (p) => `0 26px 60px -32px ${mix(p.primary, BLACK, 0.4)}`,
-    panelBackground: (p) => `${mix(p.primary, BLACK, 0.55)}e6`,
-    panelBorder: (p) => `${mix(p.primary, WHITE, 0.3)}99`,
-    buttonBase: (p) => p.primary,
-    buttonBackground: (base) => `linear-gradient(100deg, ${mix(base, WHITE, 0.12)}, ${base})`,
-    buttonShadow: (base) => `0 18px 34px -18px ${base}cc`,
-    bannerBorder: (p) => `${mix(p.primary, WHITE, 0.28)}cc`,
-    inputBackground: (p) => mix(p.primary, BLACK, 0.78),
-    inputBorder: (p) => `${mix(p.primary, WHITE, 0.26)}b3`,
+      `radial-gradient(900px 520px at 88% -8%, ${p.primary}59, transparent 62%), linear-gradient(160deg, ${mix(p.primary, BLACK, 0.48)} 0%, ${mix(p.primary, BLACK, 0.74)} 58%, ${BLACK} 100%)`,
+    cardBackground: (_p, f) => f.surface,
+    cardBorder: (p) => mix(p.primary, WHITE, 0.25),
+    cardShadow: (p) => `0 34px 70px -26px rgba(0,0,0,.7), 0 0 0 6px ${p.primary}38`,
+    panelBackground: (f) => f.surfaceAlt,
+    panelBorder: (f) => f.border,
+    chipBackground: (_p, h) => (h.heroText === WHITE ? "rgba(0,0,0,.28)" : "rgba(255,255,255,.55)"),
+    chipBorder: (_p, h) => (h.heroText === WHITE ? "rgba(255,255,255,.38)" : "rgba(0,0,0,.22)"),
+    buttonBase: (f) => ensureContrast(f.primary, WHITE, 3.2),
+    buttonBackground: (base, f) =>
+      `linear-gradient(100deg, ${base}, ${ensureContrast(f.accent, WHITE, 3.2)})`,
+    buttonShadow: (base) => `0 20px 38px -14px ${base}d9, inset 0 1px 0 rgba(255,255,255,.34)`,
+    buttonColor: (base, f) => {
+      const end = ensureContrast(f.accent, WHITE, 3.2);
+      const w = Math.min(contrast(base, WHITE), contrast(end, WHITE));
+      const k = Math.min(contrast(base, INK), contrast(end, INK));
+      return w >= k ? WHITE : INK;
+    },
+    bannerBorder: (p) => mix(p.primary, WHITE, 0.3),
+    inputBackground: (f) => f.surfaceAlt,
+    inputBorder: (f) => mix(f.primary, "#aeb6c4", 0.3),
   },
 };
 
 export function portalTheme(appearance: PortalAppearance): PortalTheme {
-  const recipe = recipes[appearance.visualStyle] ?? recipes.moderno;
-  const base = buildBasePalette(
-    appearance.visualStyle,
-    appearance.primaryColor,
-    appearance.accentColor,
-  );
+  const style = recipes[appearance.visualStyle] ? appearance.visualStyle : "moderno";
+  const recipe = recipes[style];
+  const base = buildBasePalette(style, appearance.primaryColor, appearance.accentColor);
+  const form = buildFormPalette(style, base);
+  const hero = fitHero(base.primary, base.accent);
 
-  const buttonBase = recipe.buttonBase(base);
-  const buttonText = readableOn(buttonBase);
-  const disabledBg = mix(buttonBase, base.bg, 0.34);
+  const buttonBase = recipe.buttonBase(form);
+  const buttonText = recipe.buttonColor ? recipe.buttonColor(buttonBase, form) : readableOn(buttonBase);
+  // Texto do botão quando ele PREENCHE (hover do contorno): sempre legível.
+  const buttonFillText = readableOn(buttonBase);
+  const disabledBg = mix(buttonBase, form.bg, 0.34);
   const accentOn = ensureContrast(base.accent, base.surface);
   const primaryOn = ensureContrast(base.primary, base.surface);
+  const formAccentOn = ensureContrast(base.accent, form.surface);
+  const formPrimaryOn = ensureContrast(base.primary, form.surface);
 
   const pal: PortalPalette = {
     ...base,
@@ -425,17 +592,68 @@ export function portalTheme(appearance: PortalAppearance): PortalTheme {
     buttonDisabledText: readableOn(disabledBg),
     focus: accentOn,
     indicator: primaryOn,
+    ...hero,
+    scheme: recipe.scheme,
   };
 
+  const usesPanelPalette = form !== base;
+  const cardVars = (
+    usesPanelPalette
+      ? {
+          "--portal-text": form.text,
+          "--portal-muted": form.muted,
+          "--portal-faint": form.faint,
+          "--portal-border": form.border,
+          "--portal-surface": form.surface,
+          "--portal-surface-alt": form.surfaceAlt,
+          "--portal-bg": form.bg,
+          "--portal-bg-alt": form.bgAlt,
+          "--portal-accent-on": formAccentOn,
+          "--portal-primary-on": formPrimaryOn,
+          "--portal-focus": formAccentOn,
+          "--portal-indicator": formPrimaryOn,
+          color: form.text,
+        }
+      : {}
+  ) as CSSProperties;
+
+  const heroVars = (
+    style === "vibrante"
+      ? {
+          "--portal-text": hero.heroText,
+          "--portal-muted": hero.heroMuted,
+          "--portal-faint": hero.heroMuted,
+          "--portal-border": hero.heroText,
+          "--portal-accent-on": hero.heroText,
+          "--portal-primary-on": hero.heroText,
+          color: hero.heroText,
+        }
+      : {}
+  ) as CSSProperties;
+
+  const disabledStyle: CSSProperties = recipe.buttonDisabled
+    ? recipe.buttonDisabled(buttonBase, form)
+    : {
+        background: pal.buttonDisabledBg,
+        boxShadow: "none",
+        color: pal.buttonDisabledText,
+        borderColor: "transparent",
+        /* Nunca cinza lavado: mistura opaca da cor principal com o fundo. */
+        opacity: 1,
+      };
+
   return {
-    style: appearance.visualStyle,
+    style,
     rootClass: `portal-root ${recipe.rootClass}`,
-    typography: typographies[appearance.visualStyle] ?? typographies.moderno,
+    typography: typographies[style],
     palette: pal,
+    fieldClass: recipe.fieldClass,
+    buttonSizeClass: recipe.buttonSizeClass,
 
     rootStyle: {
       background: recipe.background(base),
       color: pal.text,
+      colorScheme: recipe.scheme,
       // Sobrescreve os tokens globais do sistema dentro do portal.
       "--background": pal.bg,
       "--foreground": pal.text,
@@ -470,44 +688,47 @@ export function portalTheme(appearance: PortalAppearance): PortalTheme {
       "--portal-indicator": pal.indicator,
       "--portal-button": pal.buttonBase,
       "--portal-button-text": pal.buttonText,
+      "--portal-button-fill-text": buttonFillText,
+      // Sombra do botão exposta como variável: o pulso do Vibrante a reaproveita.
+      "--portal-cta-shadow": recipe.buttonShadow(buttonBase),
     } as CSSProperties,
     cardClass: recipe.cardClass,
     cardStyle: {
-      background: recipe.cardBackground(base),
-      borderColor: recipe.cardBorder(base),
-      boxShadow: recipe.cardShadow(base),
-      color: pal.text,
+      background: recipe.cardBackground(base, form),
+      borderColor: recipe.cardBorder(base, form),
+      boxShadow: recipe.cardShadow(base, form),
+      color: form.text,
     },
+    cardVars,
+    heroVars,
     panelClass: recipe.panelClass,
     panelStyle: {
-      backgroundColor: recipe.panelBackground(base),
-      borderColor: recipe.panelBorder(base),
+      backgroundColor: recipe.panelBackground(form),
+      borderColor: recipe.panelBorder(form),
+    },
+    chipClass: recipe.chipClass,
+    chipStyle: {
+      backgroundColor: recipe.chipBackground(base, hero),
+      borderColor: recipe.chipBorder(base, hero),
     },
     buttonClass: recipe.buttonClass,
     buttonStyle: {
-      background: recipe.buttonBackground(buttonBase, base),
+      background: recipe.buttonBackground(buttonBase, form),
       boxShadow: recipe.buttonShadow(buttonBase),
-      color: pal.buttonText,
-      borderColor: "transparent",
+      color: buttonText,
+      borderColor: recipe.buttonBorder ? recipe.buttonBorder(buttonBase) : "transparent",
       opacity: 1,
     },
-    buttonDisabledStyle: {
-      background: pal.buttonDisabledBg,
-      boxShadow: "none",
-      color: pal.buttonDisabledText,
-      borderColor: "transparent",
-      /* Nunca cinza lavado: mistura opaca da cor principal com o fundo. */
-      opacity: 1,
-    },
+    buttonDisabledStyle: disabledStyle,
     inputClass: recipe.inputClass,
     inputStyle: {
-      backgroundColor: recipe.inputBackground(base),
-      borderColor: recipe.inputBorder(base),
-      color: pal.text,
+      backgroundColor: recipe.inputBackground(form),
+      borderColor: recipe.inputBorder(form),
+      color: form.text,
     },
     labelClass: recipe.labelClass,
     bannerClass: recipe.bannerClass,
-    bannerStyle: { borderColor: recipe.bannerBorder(base), backgroundColor: pal.surfaceAlt },
+    bannerStyle: { borderColor: recipe.bannerBorder(base), backgroundColor: base.surfaceAlt },
     sectionGapClass: recipe.sectionGapClass,
   };
 }
