@@ -110,7 +110,7 @@ function HotspotPage() {
   const [heartbeatSeconds, setHeartbeatSeconds] = useState(60);
   useEffect(() => { const timer = window.setInterval(() => setHeartbeatSeconds((v) => v <= 1 ? 60 : v - 1), 1000); return () => window.clearInterval(timer); }, []);
   const isOnline = (lastSeen?: string) =>
-    Boolean(lastSeen && Date.now() - new Date(lastSeen).getTime() < 180_000);
+    Boolean(lastSeen && Date.now() - new Date(lastSeen).getTime() < 300_000);
   const hasOnlineTwin = (device: any) => Boolean(device.ap_mac && clients.some((other: any) =>
     other.id !== device.id && other.ap_mac === device.ap_mac && other.status === "operational" && isOnline(other.last_seen_at)
   ));

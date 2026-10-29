@@ -22,7 +22,7 @@ import {
  */
 
 const onlineAgora = (lastSeen?: string | null) =>
-  Boolean(lastSeen && Date.now() - new Date(lastSeen).getTime() < 180_000);
+  Boolean(lastSeen && Date.now() - new Date(lastSeen).getTime() < 300_000);
 
 export function MonitorPreviewPanel({
   devices,
