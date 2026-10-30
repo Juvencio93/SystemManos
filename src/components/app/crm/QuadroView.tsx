@@ -5,6 +5,16 @@ import { toast } from "sonner";
 import { Flame, GripVertical } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   getCrmLeads,
   updateCrmLead,
   type CrmLeadListItem,
@@ -17,6 +27,42 @@ const STAGE_LABELS: Record<CrmStage, string> = {
   convertido: "Convertido",
   nao_contatar: "Não contatar",
 };
+
+// Regras de validação do drag-and-drop (decisão do Gabriel):
+// - "Interessado" e "Sem interesse" são AUTOMÁTICAS (opt-in) — o usuário não move entre elas.
+// - "Não contatar" é LGPD: uma vez opt-out, só volta com ação explícita (confirmação).
+// - Demais movimentos: apenas os pares permitidos abaixo.
+type MoveVerdict =
+  | { kind: "ok" }
+  | { kind: "blocked-auto"; reason: string }
+  | { kind: "blocked-lgpd" };
+
+function checkMove(from: CrmStage, to: CrmStage): MoveVerdict {
+  // LGPD: opt-out não volta sem ação explícita
+  if (from === "nao_contatar") return { kind: "blocked-lgpd" };
+  // Etapas automáticas pelo opt-in
+  if (
+    (from === "interessado" && to === "sem_interesse") ||
+    (from === "sem_interesse" && to === "interessado")
+  ) {
+    return {
+      kind: "blocked-auto",
+      reason: "Etapa automática baseada no opt-in — não pode ser alterada manualmente.",
+    };
+  }
+  // Movimentos permitidos
+  if (
+    (from === "interessado" && (to === "convertido" || to === "nao_contatar")) ||
+    (from === "sem_interesse" && to === "nao_contatar") ||
+    (from === "convertido" && to === "interessado")
+  ) {
+    return { kind: "ok" };
+  }
+  return {
+    kind: "blocked-auto",
+    reason: `Não é possível mover de "${STAGE_LABELS[from]}" para "${STAGE_LABELS[to]}".`,
+  };
+}
 
 const STAGE_ORDER: CrmStage[] = ["interessado", "sem_interesse", "convertido", "nao_contatar"];
 
@@ -85,6 +131,7 @@ export function QuadroView({ term, campaignId }: { term: string; campaignId: str
   const queryClient = useQueryClient();
   const [dragOverStage, setDragOverStage] = useState<CrmStage | null>(null);
   const [movingId, setMovingId] = useState<string | null>(null);
+  const [lgpdPending, setLgpdPending] = useState<{ lead: CrmLeadListItem; to: CrmStage } | null>(null);
 
   // O quadro mostra todas as etapas (sem filtro de stage), até 100 leads,
   // respeitando busca e filtro de campanha.
@@ -104,17 +151,10 @@ export function QuadroView({ term, campaignId }: { term: string; campaignId: str
 
   const leads = data?.leads ?? [];
 
-  const handleDrop = async (e: React.DragEvent, targetStage: CrmStage) => {
-    e.preventDefault();
-    setDragOverStage(null);
-    const leadId = e.dataTransfer.getData("text/plain");
-    if (!leadId) return;
-    const lead = leads.find((l) => l.id === leadId);
-    if (!lead || lead.stage === targetStage) return;
-
-    setMovingId(leadId);
+  const doMove = async (lead: CrmLeadListItem, targetStage: CrmStage) => {
+    setMovingId(lead.id);
     try {
-      await saveLead({ data: { leadId, stage: targetStage } });
+      await saveLead({ data: { leadId: lead.id, stage: targetStage } });
       toast.success(`${lead.fullName} movido para "${STAGE_LABELS[targetStage]}"`);
       // Atualiza o quadro e a lista (mesma query key base)
       queryClient.invalidateQueries({ queryKey: ["crm-leads-quadro"] });
@@ -124,6 +164,34 @@ export function QuadroView({ term, campaignId }: { term: string; campaignId: str
     } finally {
       setMovingId(null);
     }
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetStage: CrmStage) => {
+    e.preventDefault();
+    setDragOverStage(null);
+    const leadId = e.dataTransfer.getData("text/plain");
+    if (!leadId) return;
+    const lead = leads.find((l) => l.id === leadId);
+    if (!lead || lead.stage === targetStage) return;
+
+    const verdict = checkMove(lead.stage, targetStage);
+    if (verdict.kind === "blocked-auto") {
+      toast.error(verdict.reason);
+      return;
+    }
+    if (verdict.kind === "blocked-lgpd") {
+      // LGPD: exige confirmação explícita para sair de "Não contatar"
+      setLgpdPending({ lead, to: targetStage });
+      return;
+    }
+    await doMove(lead, targetStage);
+  };
+
+  const confirmLgpdMove = async () => {
+    if (!lgpdPending) return;
+    const { lead, to } = lgpdPending;
+    setLgpdPending(null);
+    await doMove(lead, to);
   };
 
   if (isLoading) {
@@ -185,8 +253,35 @@ export function QuadroView({ term, campaignId }: { term: string; campaignId: str
         })}
       </div>
       <p className="mt-4 text-center text-xs text-muted-foreground">
-        💡 Arraste um cartão para outra coluna para mudar a etapa automaticamente.
+        💡 Arraste um cartão para outra coluna para mudar a etapa.
+        "Interessado" e "Sem interesse" são automáticas (opt-in) e não podem ser alteradas manualmente.
       </p>
+
+      <AlertDialog
+        open={lgpdPending !== null}
+        onOpenChange={(open) => {
+          if (!open) setLgpdPending(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover "Não contatar"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {lgpdPending && (
+                <>
+                  <strong>{lgpdPending.lead.fullName}</strong> pediu para não ser contatado (LGPD).
+                  Movê-lo para "{STAGE_LABELS[lgpdPending.to]}" reativa o contato com ele.
+                  Só faça isso com autorização explícita do lead.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmLgpdMove}>Tenho autorização</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
