@@ -1337,6 +1337,7 @@ export type Database = {
           email: string
           id: string
           ip: string
+          kind: string
           success: boolean
         }
         Insert: {
@@ -1344,6 +1345,7 @@ export type Database = {
           email: string
           id?: string
           ip?: string
+          kind?: string
           success?: boolean
         }
         Update: {
@@ -1351,6 +1353,7 @@ export type Database = {
           email?: string
           id?: string
           ip?: string
+          kind?: string
           success?: boolean
         }
         Relationships: []
