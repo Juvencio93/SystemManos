@@ -1096,12 +1096,14 @@ function SettingsPage() {
                 <Label>Logo {isAdm ? "Institucional" : "da Empresa"}</Label>
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
                   <div className="relative group">
-                    <div className="flex size-32 items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-primary/20 bg-muted/50 transition-colors group-hover:border-primary/40">
+                    <div className="grid size-32 place-items-center overflow-hidden rounded-2xl border bg-white shadow-sm">
                       {logoUrl ? (
                         <img
+                          loading="lazy"
+                          decoding="async"
                           src={logoUrl}
                           alt="Logo Preview"
-                          className="size-full object-contain p-2"
+                          className="h-full w-full object-contain p-2"
                         />
                       ) : (
                         <ImageIcon className="size-10 text-muted-foreground/40" />
