@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase, ensureClientSession } from "@/integrations/supabase/client";
 import { signInFn } from "@/integrations/supabase/auth-session.functions";
+import { LOGIN_RATE_LIMIT_MESSAGE } from "@/integrations/supabase/login-rate-limit";
 import manosTechLogo from "@/assets/manos-tech-logo-institutional.png";
 import sidebarLogo from "@/assets/manostech-sidebar-logo.svg";
 
@@ -90,9 +91,16 @@ function AuthPage() {
     try {
       const { session } = await signInServerFn({ data: parsed.data });
       if (session) await supabase.auth.setSession(session);
-    } catch {
+    } catch (err) {
       setLoading(false);
-      toast.error("Não foi possível entrar. Verifique e-mail e senha.");
+      // O bloqueio anti-força-bruta tem mensagem própria (neutra: não
+      // revela se o e-mail existe); demais erros mantêm a genérica.
+      const message = err instanceof Error ? err.message : "";
+      toast.error(
+        message === LOGIN_RATE_LIMIT_MESSAGE
+          ? message
+          : "Não foi possível entrar. Verifique e-mail e senha.",
+      );
       return;
     }
     setLoading(false);
