@@ -22,6 +22,7 @@ import {
   ClipboardList,
   Router,
   Package,
+  MessageCircle,
 } from "lucide-react";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -79,6 +80,13 @@ const NAV: NavItem[] = [
   { to: "/assinatura", label: "Minha Assinatura", icon: ReceiptText, roles: ["matriz"], group: "Comercial" },
   { to: "/portais", label: "Portais & QR", icon: QrCode, roles: ["adm", "revenda"], group: "Marketing" },
   { to: "/campanhas", label: "Campanhas", icon: Megaphone, roles: ["adm", "matriz", "filial", "revenda"], group: "Marketing" },
+  {
+    to: "/disparos/conexao",
+    label: "Disparos WhatsApp",
+    icon: MessageCircle,
+    roles: ["adm", "matriz", "filial"],
+    group: "Marketing",
+  },
   {
     to: "/relatorios",
     label: "Relatórios",
