@@ -361,7 +361,11 @@ export const generateBannerImage = createServerFn({ method: "POST" })
           const path = `banner-describe/${companyId}/${crypto.randomUUID()}.jpg`;
           const { error: uploadError } = await supabaseAdmin.storage
             .from("campaign-assets")
-            .upload(path, decoded.bytes, { contentType: decoded.mimeType, upsert: false });
+            .upload(path, decoded.bytes, {
+              contentType: decoded.mimeType,
+              upsert: false,
+              cacheControl: "31536000",
+            });
           if (uploadError) throw uploadError;
           const {
             data: { publicUrl },
