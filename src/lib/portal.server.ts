@@ -504,6 +504,7 @@ export async function registerLead(
 
     // Cria ou atualiza o lead da campanha vigente sem alterar o link/QR do portal.
     // O mesmo visitante pode participar de campanhas diferentes, cada uma com seu próprio funil.
+    // Funil simplificado: o opt-in É a qualificação (autorizou=interessado, não=sem_interesse).
     const { error: leadError } = await admin.from("crm_leads").upsert(
       {
         company_id: target.companyId,
@@ -514,6 +515,7 @@ export async function registerLead(
         whatsapp_opt_in: marketingConsent,
         whatsapp_opt_in_at: marketingConsent ? now : null,
         do_not_contact: !marketingConsent,
+        stage: marketingConsent ? "interessado" : "sem_interesse",
         consent_version: WIFI_CONSENT_VERSION,
         updated_at: now,
       },
