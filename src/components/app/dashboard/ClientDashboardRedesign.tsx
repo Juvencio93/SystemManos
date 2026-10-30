@@ -60,7 +60,7 @@ function HeroCards({ data, isLoading }: { data: Insights | undefined; isLoading:
     chart.length >= 8 ? (chart[chart.length - 8]?.total ?? 0) : (data?.visitantesOntem ?? 0);
 
   return (
-    <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 sm:mb-8">
       {/* Acessos hoje — tema CIANO */}
       <Card
         className="relative overflow-hidden border-cyan-400/40 bg-gradient-to-br from-cyan-400/[0.10] via-transparent to-transparent"
@@ -85,7 +85,7 @@ function HeroCards({ data, isLoading }: { data: Insights | undefined; isLoading:
           </CardTitle>
         </CardHeader>
         <CardContent className="relative">
-          <p className="font-display text-4xl font-black tracking-tighter">
+          <p className="font-display text-3xl font-black tracking-tighter sm:text-4xl">
             {v(data?.visitantesHoje, isLoading)}
           </p>
           <div className="mt-3">
@@ -121,7 +121,7 @@ function HeroCards({ data, isLoading }: { data: Insights | undefined; isLoading:
           </CardTitle>
         </CardHeader>
         <CardContent className="relative">
-          <p className="flex items-center gap-2 font-display text-4xl font-black tracking-tighter">
+          <p className="flex items-center gap-2 font-display text-3xl font-black tracking-tighter sm:text-4xl">
             {v(data?.conectadosAgora, isLoading)}
             <span className="relative flex size-2.5">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
@@ -166,7 +166,7 @@ function HeroCards({ data, isLoading }: { data: Insights | undefined; isLoading:
           </span>
         </CardHeader>
         <CardContent className="relative">
-          <p className="font-display text-5xl font-black tracking-tighter text-purple-300">
+          <p className="font-display text-4xl font-black tracking-tighter text-purple-300 sm:text-5xl">
             {v(data?.leadsEmpresa, isLoading)}
           </p>
           <p className="mt-3 text-xs font-medium leading-relaxed text-muted-foreground">
@@ -200,7 +200,7 @@ function HeroCards({ data, isLoading }: { data: Insights | undefined; isLoading:
         <CardContent className="relative">
           <div className="flex items-end justify-between gap-3">
             <div>
-              <p className="font-display text-4xl font-black tracking-tighter">
+              <p className="font-display text-3xl font-black tracking-tighter sm:text-4xl">
                 {isLoading ? "…" : (data?.horarioPico ?? "—")}
               </p>
               <p className="mt-1 text-xs font-medium text-muted-foreground">
@@ -413,7 +413,8 @@ function DevicesPanel() {
             cliente entrar.
           </p>
         ) : (
-          <table className="w-full text-sm">
+          <div className="-mx-1 overflow-x-auto px-1">
+            <table className="w-full min-w-[320px] text-sm">
             <thead>
               <tr className="border-b border-white/10 text-left text-[11px] uppercase tracking-wider text-muted-foreground">
                 <th className="pb-2 pr-2 font-semibold">Dispositivo</th>
@@ -448,6 +449,7 @@ function DevicesPanel() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
         <Link
           to="/relatorios"
@@ -474,9 +476,9 @@ function RedeResumoPanel({ data, isLoading }: { data: Insights | undefined; isLo
         <p className="text-xs text-muted-foreground">Visão rápida do seu Wi-Fi esta semana.</p>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
           <div>
-            <p className="font-display text-2xl font-black tracking-tighter">
+            <p className="font-display text-xl font-black tracking-tighter sm:text-2xl">
               {v(data?.conexoesSemana, isLoading)}
             </p>
             <p className="text-[11px] text-muted-foreground">acessos</p>
@@ -489,13 +491,13 @@ function RedeResumoPanel({ data, isLoading }: { data: Insights | undefined; isLo
             )}
           </div>
           <div>
-            <p className="font-display text-2xl font-black tracking-tighter">
+            <p className="font-display text-xl font-black tracking-tighter sm:text-2xl">
               {v(data?.conectadosAgora, isLoading)}
             </p>
             <p className="text-[11px] text-muted-foreground">conectados agora</p>
           </div>
           <div>
-            <p className="font-display text-2xl font-black tracking-tighter">
+            <p className="font-display text-xl font-black tracking-tighter sm:text-2xl">
               {isLoading ? "…" : (data?.horarioPico ?? "—")}
             </p>
             <p className="text-[11px] text-muted-foreground">pico de movimento</p>
@@ -683,10 +685,13 @@ export function ClientDashboardRedesign({
       </div>
 
       {/* Linha inferior: Dispositivos | Calor do Momento | Rede em resumo */}
-      <div className="mb-8 grid gap-4 lg:grid-cols-3">
+      {/* mobile: 1 coluna · tablet (md): 2 colunas (3º ocupa largura total) · desktop (lg): 3 colunas */}
+      <div className="mb-6 grid gap-4 sm:mb-8 md:grid-cols-2 lg:grid-cols-3">
         <DevicesPanel />
         <CalorMomentoPanel />
-        <RedeResumoPanel data={data} isLoading={isLoading} />
+        <div className="md:col-span-2 lg:col-span-1">
+          <RedeResumoPanel data={data} isLoading={isLoading} />
+        </div>
       </div>
 
       {/* Próximas ações — barra horizontal full-width no rodapé */}
