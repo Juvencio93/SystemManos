@@ -63,8 +63,7 @@ function HeroCards({ data, isLoading }: { data: Insights | undefined; isLoading:
     <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 sm:mb-8">
       {/* Acessos hoje — tema CIANO */}
       <Card
-        className="relative overflow-hidden border-cyan-400/40 bg-gradient-to-br from-cyan-400/[0.10] via-transparent to-transparent"
-        style={{ boxShadow: "0 0 24px rgba(0,192,240,0.08)" }}
+        className="relative overflow-hidden border-cyan-400/40 bg-gradient-to-br from-cyan-400/[0.10] via-transparent to-transparent shadow-[0_0_24px_rgba(0,192,240,0.08)] transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/70 hover:shadow-[0_8px_32px_rgba(0,192,240,0.25)]"
       >
         {/* sparkline decorativa de fundo */}
         <svg
@@ -105,8 +104,7 @@ function HeroCards({ data, isLoading }: { data: Insights | undefined; isLoading:
 
       {/* Conectados agora — tema VERDE */}
       <Card
-        className="relative overflow-hidden border-emerald-400/40 bg-gradient-to-br from-emerald-400/[0.10] via-transparent to-transparent"
-        style={{ boxShadow: "0 0 24px rgba(34,197,94,0.08)" }}
+        className="relative overflow-hidden border-emerald-400/40 bg-gradient-to-br from-emerald-400/[0.10] via-transparent to-transparent shadow-[0_0_24px_rgba(34,197,94,0.08)] transition-all duration-300 hover:-translate-y-1 hover:border-emerald-400/70 hover:shadow-[0_8px_32px_rgba(34,197,94,0.25)]"
       >
         {/* círculos decorativos de fundo */}
         <div className="pointer-events-none absolute -right-6 top-1/2 -translate-y-1/2 opacity-30">
@@ -150,8 +148,7 @@ function HeroCards({ data, isLoading }: { data: Insights | undefined; isLoading:
 
       {/* Sua base de clientes — tema ROXO */}
       <Card
-        className="relative overflow-hidden border-purple-400/40 bg-gradient-to-br from-purple-500/[0.14] via-purple-500/[0.05] to-transparent"
-        style={{ boxShadow: "0 0 24px rgba(168,85,247,0.10)" }}
+        className="relative overflow-hidden border-purple-400/40 bg-gradient-to-br from-purple-500/[0.14] via-purple-500/[0.05] to-transparent shadow-[0_0_24px_rgba(168,85,247,0.10)] transition-all duration-300 hover:-translate-y-1 hover:border-purple-400/70 hover:shadow-[0_8px_32px_rgba(168,85,247,0.25)]"
       >
         {/* ícone de pessoas com seta de fundo */}
         <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 opacity-25">
@@ -189,8 +186,7 @@ function HeroCards({ data, isLoading }: { data: Insights | undefined; isLoading:
 
       {/* Horário de pico — tema LARANJA */}
       <Card
-        className="relative overflow-hidden border-amber-400/40 bg-gradient-to-br from-amber-400/[0.10] via-transparent to-transparent"
-        style={{ boxShadow: "0 0 24px rgba(245,158,11,0.08)" }}
+        className="relative overflow-hidden border-amber-400/40 bg-gradient-to-br from-amber-400/[0.10] via-transparent to-transparent shadow-[0_0_24px_rgba(245,158,11,0.08)] transition-all duration-300 hover:-translate-y-1 hover:border-amber-400/70 hover:shadow-[0_8px_32px_rgba(245,158,11,0.25)]"
       >
         <CardHeader className="relative flex flex-row items-center justify-between pb-2">
           <CardTitle className="flex items-center gap-2 text-[13px] font-semibold text-muted-foreground">
@@ -260,7 +256,7 @@ function MovimentoChartNovo({ data }: { data: Insights | undefined }) {
 
   if (!data || chart.length === 0) {
     return (
-      <Card className="border-primary/20">
+      <Card className="border-primary/20 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/50 hover:shadow-[0_8px_32px_rgba(0,192,240,0.20)]">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-[15px] font-bold">
             <BarChart3 className="size-5 text-primary" /> Movimento dos últimos 14 dias
@@ -274,7 +270,7 @@ function MovimentoChartNovo({ data }: { data: Insights | undefined }) {
   }
 
   return (
-    <Card className="border-primary/20">
+    <Card className="border-primary/20 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/50 hover:shadow-[0_8px_32px_rgba(0,192,240,0.20)]">
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 pb-2">
         <CardTitle className="flex items-center gap-2 text-[15px] font-bold">
           <BarChart3 className="size-5 text-primary" /> Movimento dos últimos 14 dias
@@ -395,7 +391,7 @@ function DevicesPanel() {
     sistema === "Computador" ? "Computador" : "Celular";
 
   return (
-    <Card className="border-primary/20">
+    <Card className="border-primary/20 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/50 hover:shadow-[0_8px_32px_rgba(0,192,240,0.20)]">
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-[15px] font-bold">
           <Smartphone className="size-5 text-primary" /> Dispositivos conectados hoje
@@ -468,7 +464,7 @@ function DevicesPanel() {
 function RedeResumoPanel({ data, isLoading }: { data: Insights | undefined; isLoading: boolean }) {
   const cresceuBase = (data?.leadsNovosSemana ?? 0) > 0;
   return (
-    <Card className="border-primary/20">
+    <Card className="border-primary/20 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/50 hover:shadow-[0_8px_32px_rgba(0,192,240,0.20)]">
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-[15px] font-bold">
           <Wifi className="size-5 text-primary" /> Sua rede em resumo
@@ -535,7 +531,7 @@ function RedeResumoPanel({ data, isLoading }: { data: Insights | undefined; isLo
  */
 function ProximasAcoesBar() {
   return (
-    <Card className="border-cyan-400/30 bg-gradient-to-r from-cyan-400/[0.06] via-transparent to-transparent">
+    <Card className="border-cyan-400/30 bg-gradient-to-r from-cyan-400/[0.06] via-transparent to-transparent transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/60 hover:shadow-[0_8px_32px_rgba(0,192,240,0.20)]">
       <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
         <div className="flex min-w-[220px] items-center gap-3">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-cyan-400/15 text-cyan-400">
@@ -551,7 +547,7 @@ function ProximasAcoesBar() {
         <div className="grid flex-1 gap-3 sm:grid-cols-2">
           <Link
             to="/campanhas"
-            className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-cyan-400/40 hover:bg-cyan-400/[0.06]"
+            className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/50 hover:bg-cyan-400/[0.06] hover:shadow-[0_8px_32px_rgba(0,192,240,0.20)]"
           >
             <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-cyan-400/15 text-cyan-400">
               <Users className="size-5" />
@@ -566,7 +562,7 @@ function ProximasAcoesBar() {
           </Link>
           <Link
             to="/relatorios"
-            className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-cyan-400/40 hover:bg-cyan-400/[0.06]"
+            className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/50 hover:bg-cyan-400/[0.06] hover:shadow-[0_8px_32px_rgba(0,192,240,0.20)]"
           >
             <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-cyan-400/15 text-cyan-400">
               <FileText className="size-5" />
@@ -617,7 +613,7 @@ function CalorMomentoPanel() {
   const max = Math.max(1, ...hourly);
 
   return (
-    <Card className="border-primary/20">
+    <Card className="border-primary/20 transition-all duration-300 hover:-translate-y-1 hover:border-emerald-400/50 hover:shadow-[0_8px_32px_rgba(34,197,94,0.20)]">
       <CardHeader className="flex flex-row items-start justify-between pb-2">
         <div>
           <CardTitle className="flex items-center gap-2 text-[15px] font-bold">
