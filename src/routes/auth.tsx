@@ -8,6 +8,7 @@ import { requestPasswordReset } from "@/lib/password-reset.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import {
   supabase,
   ensureClientSession,
@@ -15,7 +16,13 @@ import {
 } from "@/integrations/supabase/client";
 import { expiryMessage } from "@/integrations/supabase/session-limits";
 import { signInFn } from "@/integrations/supabase/auth-session.functions";
+import { mfaVerifyFn } from "@/integrations/supabase/mfa.functions";
 import { LOGIN_RATE_LIMIT_MESSAGE } from "@/integrations/supabase/login-rate-limit";
+import {
+  MFA_INVALID_CODE_MESSAGE,
+  MFA_PENDING_EXPIRED_MESSAGE,
+  MFA_VERIFY_RATE_LIMIT_MESSAGE,
+} from "@/integrations/supabase/mfa";
 import manosTechLogo from "@/assets/manos-tech-logo-institutional.png";
 import sidebarLogo from "@/assets/manostech-sidebar-logo.svg";
 
@@ -55,10 +62,16 @@ function AuthPage() {
   const expired = expiredParam === "idle" || expiredParam === "max" ? expiredParam : undefined;
   const requestResetFn = useServerFn(requestPasswordReset);
   const signInServerFn = useServerFn(signInFn);
+  const mfaVerifyServerFn = useServerFn(mfaVerifyFn);
   const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  // 2FA do ADM (item 4 da auditoria): depois da senha, o login pode exigir
+  // o código do autenticador — ou o cadastro dele (primeira vez).
+  type MfaStep = { mode: "verify" } | { mode: "enroll"; qrCode: string; secret: string };
+  const [mfaStep, setMfaStep] = useState<MfaStep | null>(null);
+  const [mfaCode, setMfaCode] = useState("");
   // UX parte 6: recuperação de senha (antes não existia nenhum caminho —
   // quem esquecia a senha ficava travado fora do painel).
   const [mode, setMode] = useState<AuthMode>("login");
@@ -109,12 +122,22 @@ function AuthPage() {
     setLoading(true);
     // Login no SERVIDOR: a sessão vai para um cookie httpOnly (ver
     // auth-session.functions.ts). A resposta hidrata o client em memória.
+    // Para o ADM, a resposta pode ser a etapa do 2FA em vez da sessão.
     try {
-      const { session, sessionStartedAt } = await signInServerFn({ data: parsed.data });
-      if (session) {
-        await supabase.auth.setSession(session);
-        registerClientSessionStart(sessionStartedAt);
+      const result = await signInServerFn({ data: parsed.data });
+      if (result.kind === "session") {
+        await supabase.auth.setSession(result.session);
+        registerClientSessionStart(result.sessionStartedAt);
+        setLoading(false);
+        navigate({ to: "/dashboard", replace: true });
+        return;
       }
+      setMfaCode("");
+      setMfaStep(
+        result.kind === "mfa-verify"
+          ? { mode: "verify" }
+          : { mode: "enroll", qrCode: result.qrCode, secret: result.secret },
+      );
     } catch (err) {
       setLoading(false);
       // O bloqueio anti-força-bruta tem mensagem própria (neutra: não
@@ -124,6 +147,39 @@ function AuthPage() {
         message === LOGIN_RATE_LIMIT_MESSAGE
           ? message
           : "Não foi possível entrar. Verifique e-mail e senha.",
+      );
+      return;
+    }
+    setLoading(false);
+  }
+
+  async function handleMfaVerify(e: React.FormEvent) {
+    e.preventDefault();
+    if (!/^\d{6}$/.test(mfaCode)) {
+      toast.error("Digite o código de 6 dígitos do app autenticador.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const { session, sessionStartedAt } = await mfaVerifyServerFn({ data: { code: mfaCode } });
+      await supabase.auth.setSession(session);
+      registerClientSessionStart(sessionStartedAt);
+    } catch (err) {
+      setLoading(false);
+      const message = err instanceof Error ? err.message : "";
+      if (message === MFA_PENDING_EXPIRED_MESSAGE) {
+        // A etapa expirou (10 min): volta pro login com e-mail e senha.
+        setMfaStep(null);
+        setMfaCode("");
+      } else {
+        setMfaCode("");
+      }
+      toast.error(
+        message === MFA_PENDING_EXPIRED_MESSAGE ||
+          message === MFA_VERIFY_RATE_LIMIT_MESSAGE ||
+          message === MFA_INVALID_CODE_MESSAGE
+          ? message
+          : "Não foi possível verificar o código. Tente de novo.",
       );
       return;
     }
@@ -181,10 +237,27 @@ function AuthPage() {
       const { data: userData } = await supabase.auth.getUser();
       const recoveryEmail = userData.user?.email ?? email;
       if (recoveryEmail) {
-        const { session } = await signInServerFn({
+        const result = await signInServerFn({
           data: { email: recoveryEmail, password: newPassword },
         });
-        if (session) await supabase.auth.setSession(session);
+        if (result.kind === "session") {
+          await supabase.auth.setSession(result.session);
+          registerClientSessionStart(result.sessionStartedAt);
+          setLoading(false);
+          toast.success("Senha atualizada! Bem-vindo de volta.");
+          navigate({ to: "/dashboard", replace: true });
+          return;
+        }
+        // ADM com 2FA: segue para a etapa do código (ou do cadastro).
+        setMfaCode("");
+        setMfaStep(
+          result.kind === "mfa-verify"
+            ? { mode: "verify" }
+            : { mode: "enroll", qrCode: result.qrCode, secret: result.secret },
+        );
+        setLoading(false);
+        toast.success("Senha atualizada! Agora confirme o código do autenticador.");
+        return;
       }
     } catch {
       // Se falhar, o login manual com a nova senha resolve.
@@ -230,7 +303,64 @@ function AuthPage() {
               </p>
             </div>
 
-            {mode === "login" ? (
+            {mfaStep ? (
+              <form onSubmit={handleMfaVerify} className="space-y-5 text-left">
+                <div className="text-center">
+                  <h3 className="font-display text-base font-black tracking-tight">
+                    {mfaStep.mode === "verify"
+                      ? "Verificação em duas etapas"
+                      : "Ative a verificação em duas etapas"}
+                  </h3>
+                  <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+                    {mfaStep.mode === "verify"
+                      ? "Digite o código de 6 dígitos do seu app autenticador."
+                      : "Escaneie o código abaixo no seu app autenticador (Google Authenticator, Authy ou similar) e digite o código gerado para concluir."}
+                  </p>
+                </div>
+                {mfaStep.mode === "enroll" ? (
+                  <div className="space-y-3">
+                    <div className="mx-auto w-fit rounded-2xl bg-white p-3">
+                      <div
+                        className="[&_svg]:block [&_svg]:size-44"
+                        dangerouslySetInnerHTML={{ __html: mfaStep.qrCode }}
+                      />
+                    </div>
+                    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                      <p className="text-xs text-muted-foreground">
+                        Não consegue escanear? Digite este código no app:
+                      </p>
+                      <p className="mt-1 break-all font-mono text-sm font-bold tracking-wider text-foreground">
+                        {mfaStep.secret}
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+                <div className="flex justify-center">
+                  <InputOTP maxLength={6} value={mfaCode} onChange={setMfaCode}>
+                    <InputOTPGroup>
+                      {[0, 1, 2, 3, 4, 5].map((i) => (
+                        <InputOTPSlot key={i} index={i} />
+                      ))}
+                    </InputOTPGroup>
+                  </InputOTP>
+                </div>
+                <Button type="submit" className="w-full shadow-glow" disabled={loading || !ready}>
+                  {loading ? "Verificando..." : "Verificar código"}
+                </Button>
+                <p className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMfaStep(null);
+                      setMfaCode("");
+                    }}
+                    className="text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
+                  >
+                    Voltar ao login
+                  </button>
+                </p>
+              </form>
+            ) : mode === "login" ? (
               <form onSubmit={handleSignIn} className="space-y-5 text-left">
                 <div className="space-y-2.5">
                   <Label htmlFor="email" className="text-[11px] font-black uppercase tracking-widest opacity-60 ml-1">E-mail</Label>
