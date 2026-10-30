@@ -19,9 +19,9 @@ import {
   MonitorSmartphone,
   Plus,
   QrCode,
+  RefreshCw,
   Store,
-  Timer,
-  Users,
+  Timer,  Users,
   Wallet,
   HandCoins,
   KeyRound,
@@ -49,6 +49,7 @@ import { CampanhaDestaqueCard } from "@/components/app/campanha-destaque-card";
 import { WifiVisitantesCard } from "@/components/app/wifi-visitantes-card";
 import { HotspotNetworkMap } from "@/components/app/hotspot-network-map";
 import { DeviceCard } from "@/components/app/dashboard/DeviceCard";
+import { ClientDashboardRedesign } from "@/components/app/dashboard/ClientDashboardRedesign";
 import { PageHeader } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -952,7 +953,7 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
 }
 
 
-function DeltaChip({ atual, anterior, sufixo }: { atual: number; anterior: number; sufixo: string }) {
+export function DeltaChip({ atual, anterior, sufixo }: { atual: number; anterior: number; sufixo: string }) {
   if (anterior <= 0 && atual <= 0)
     return <span className="text-xs font-medium text-muted-foreground">sem movimento no período</span>;
   if (anterior <= 0)
@@ -1094,7 +1095,7 @@ function HeroMatriz({ data, isLoading }: { data: Insights | undefined; isLoading
   );
 }
 
-function MovimentoChart({ data, showAverage }: { data: Insights | undefined; showAverage?: boolean }) {
+export function MovimentoChart({ data, showAverage }: { data: Insights | undefined; showAverage?: boolean }) {
   const chart = data?.chart ?? [];
   const max = Math.max(1, ...chart.map((c) => c.total));
   const semMovimento = Boolean(data) && chart.length > 0 && chart.every((c) => c.total === 0);
@@ -1223,30 +1224,15 @@ function MatrizDashboard({ access }: { access: AccessInfo | null }) {
       access={access}
       title={`Olá, ${getUserGreetingName(access, "Parceiro")}`}
       subtitle="Seu negócio hoje — os números da sua rede Wi-Fi, atualizados agora."
+      headerExtra={
+        <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+          <RefreshCw className="size-3.5" /> Atualizado agora
+        </span>
+      }
     >
       {access?.companyId && <MatrizFinancialAlert />}
 
-      <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-primary">Hoje</p>
-
-      <HeroMatriz data={data} isLoading={insights.isLoading} />
-
-      <div className="mb-10">
-        <DeviceCard />
-      </div>
-
-      <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-primary">Esta semana</p>
-
-      <ResumoSemanalCard data={data} />
-
-      <div className="mb-10 space-y-6">
-        <CampanhaDestaqueCard data={data} isLoading={insights.isLoading} />
-        <WifiVisitantesCard />
-      </div>
-
-      <MovimentoChart data={data} showAverage />
-
-      <RankingUnidades data={data} />
-
+      <ClientDashboardRedesign data={data} isLoading={insights.isLoading} />
     </DashboardLayout>
   );
 }
@@ -1393,22 +1379,13 @@ function FilialDashboard({ access }: { access: AccessInfo | null }) {
       access={access}
       title={`Olá, ${getUserGreetingName(access, "Operador")}`}
       subtitle="Sua unidade hoje — e como ela está na rede."
+      headerExtra={
+        <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+          <RefreshCw className="size-3.5" /> Atualizado agora
+        </span>
+      }
     >
-      <HeroFilial data={data} isLoading={insights.isLoading} />
-
-      <div className="mb-10">
-        <DeviceCard />
-      </div>
-
-      <div className="mb-10 space-y-6">
-        <CampanhaDestaqueCard data={data} isLoading={insights.isLoading} />
-        <WifiVisitantesCard />
-      </div>
-
-      <PosicaoRedeCard data={data} />
-
-      <MovimentoChart data={data} />
-
+      <ClientDashboardRedesign data={data} isLoading={insights.isLoading} />
     </DashboardLayout>
   );
 }
@@ -1418,11 +1395,13 @@ function DashboardLayout({
   title,
   subtitle,
   children,
+  headerExtra,
 }: {
   access: AccessInfo | null;
   title: string;
   subtitle: string;
   children: ReactNode;
+  headerExtra?: ReactNode;
 }) {
   const role = access?.role as keyof typeof roleLabel | undefined;
 
@@ -1432,11 +1411,14 @@ function DashboardLayout({
         title={<span className="font-display font-black tracking-tight text-2xl leading-tight sm:text-3xl md:text-4xl lg:text-[42px]">{title}</span>}
         subtitle={<span className="text-sm sm:text-base md:text-lg opacity-80">{subtitle}</span>}
         action={
-          role ? (
-            <Badge variant="outline" className="w-fit border-primary/40 text-primary">
-              {roleLabel[role]}
-            </Badge>
-          ) : null
+          <div className="flex flex-wrap items-center gap-2">
+            {headerExtra}
+            {role ? (
+              <Badge variant="outline" className="w-fit border-primary/40 text-primary">
+                {roleLabel[role]}
+              </Badge>
+            ) : null}
+          </div>
         }
       />
 
