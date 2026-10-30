@@ -14,6 +14,15 @@ import type { Database } from "@/integrations/supabase/types";
 
 type AdminClient = (typeof import("@/integrations/supabase/client.server"))["supabaseAdmin"];
 
+/**
+ * Query builder da tabela auth.mfa_factors via service_role. O tipo
+ * Database do projeto só conhece o schema public, então o acesso passa
+ * por um client sem tipagem de schema (o service_role ignora o RLS).
+ */
+function authMfaFactors(admin: AdminClient) {
+  return (admin as unknown as SupabaseClient).schema("auth").from("mfa_factors");
+}
+
 // Senha temporária legível (sem caracteres ambíguos: 0/O, 1/l/I).
 const ALFABETO_TEMP = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
 function gerarSenhaTemporaria(): string {
@@ -121,12 +130,32 @@ export const listPasswordResetRequests = createServerFn({ method: "GET" })
     const { data, error } = await supabaseAdmin
       .from("password_reset_requests")
       .select(
-        "id, email, user_label, phone, status, requested_at, expires_at, decided_at, decided_via",
+        "id, email, user_id, user_label, phone, status, requested_at, expires_at, decided_at, decided_via",
       )
       .order("requested_at", { ascending: false })
       .limit(50);
     if (error) throw new Error(error.message);
-    return data ?? [];
+    const rows = data ?? [];
+    // Marca quem tem 2FA ativo (uma única consulta em lote): a aprovação
+    // remove a verificação junto — o aprovador decide sabendo disso.
+    const userIds = [...new Set(rows.map((r) => r.user_id).filter(Boolean))] as string[];
+    let mfaUserIds = new Set<string>();
+    if (userIds.length > 0) {
+      try {
+        const { data: factors, error: factorsError } = await authMfaFactors(supabaseAdmin)
+          .select("user_id")
+          .in("user_id", userIds)
+          .eq("status", "verified");
+        if (factorsError) throw factorsError;
+        mfaUserIds = new Set((factors ?? []).map((f: { user_id: string }) => f.user_id));
+      } catch (err) {
+        console.error("[password-reset] falha ao ler fatores 2FA (fail-open):", err);
+      }
+    }
+    return rows.map((r) => ({
+      ...r,
+      has_mfa: r.user_id ? mfaUserIds.has(r.user_id) : false,
+    }));
   });
 
 export const approvePasswordResetRequest = createServerFn({ method: "POST" })
@@ -194,13 +223,45 @@ export const approvePasswordResetRequest = createServerFn({ method: "POST" })
       })
       .eq("id", row.id);
 
+    // Anti-lockout do 2FA (item 4 da auditoria de login, 2026-10-30): se o
+    // usuário tinha verificação em duas etapas ativa, a aprovação remove
+    // os fatores — no próximo acesso ele recadastra o autenticador (o
+    // enrollment é obrigatório para ADM sem fator). A aprovação humana
+    // continua sendo a trava: sem ela, ninguém derruba o 2FA de ninguém.
+    // Fail-open com log: se a limpeza falhar, a aprovação segue valendo
+    // (só o 2FA continua ativo — dá para tentar de novo).
+    const mfaRemoved = await clearUserMfaFactors(supabaseAdmin, userId);
+
     return {
       tempPassword: temporaria,
       email: row.email,
       userLabel: row.user_label,
       phone: row.phone,
+      mfaRemoved,
     };
   });
+
+/**
+ * Remove os fatores 2FA verificados do usuário (tabela auth.mfa_factors,
+ * via service_role). Retorna true se removeu ao menos um.
+ */
+async function clearUserMfaFactors(admin: AdminClient, userId: string): Promise<boolean> {
+  try {
+    const { data: factors, error: listError } = await authMfaFactors(admin)
+      .select("id")
+      .eq("user_id", userId)
+      .eq("status", "verified");
+    if (listError) throw listError;
+    const ids = (factors ?? []).map((f: { id: string }) => f.id);
+    if (ids.length === 0) return false;
+    const { error: deleteError } = await authMfaFactors(admin).delete().in("id", ids);
+    if (deleteError) throw deleteError;
+    return true;
+  } catch (err) {
+    console.error("[password-reset] falha ao remover fatores 2FA (fail-open):", err);
+    return false;
+  }
+}
 
 export const denyPasswordResetRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
