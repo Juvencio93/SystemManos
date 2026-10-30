@@ -26,6 +26,8 @@ import {
   KeyRound,
   Copy,
   Check,
+  ShieldCheck,
+  Smartphone,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -55,6 +57,8 @@ import {
   approvePasswordResetRequest,
   denyPasswordResetRequest,
 } from "@/lib/password-reset.functions";
+import { mfaStatusFn, mfaUnenrollFn } from "@/integrations/supabase/mfa.functions";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import {
   getAsaasIntegration,
   removeAsaasIntegration,
@@ -96,6 +100,121 @@ const asaasEnvironmentNotes = {
   },
 } as const;
 
+// Verificação em duas etapas do ADM (item 4 da auditoria de login).
+// Mostra o status, permite remover o próprio fator (exigindo o código
+// atual) e explica o caminho de recuperação (redefinição de senha com
+// aprovação remove o 2FA e força o recadastro).
+function MfaSettingsSection() {
+  const statusFn = useServerFn(mfaStatusFn);
+  const unenrollFn = useServerFn(mfaUnenrollFn);
+  const queryClient = useQueryClient();
+  const [code, setCode] = useState("");
+  const [confirming, setConfirming] = useState(false);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["mfa-status"],
+    queryFn: () => statusFn(),
+  });
+
+  const unenrollMutation = useMutation({
+    mutationFn: (c: string) =>
+      unenrollFn({ data: { factorId: data!.factors[0]!.id, code: c } }),
+    onSuccess: () => {
+      setConfirming(false);
+      setCode("");
+      queryClient.invalidateQueries({ queryKey: ["mfa-status"] });
+      toast.success("Verificação removida. No próximo acesso você recadastra o autenticador.");
+    },
+    onError: (e) =>
+      toast.error(e instanceof Error ? e.message : "Não foi possível remover."),
+  });
+
+  return (
+    <div className="mt-6 border-t border-white/10 pt-6">
+      <div className="flex items-center gap-2">
+        <ShieldCheck className="size-5 text-primary" />
+        <h4 className="text-sm font-black tracking-tight">Verificação em duas etapas</h4>
+        {data?.enrolled ? (
+          <Badge variant="outline" className="border-green-500/40 bg-green-500/10 text-green-400">
+            Ativada
+          </Badge>
+        ) : null}
+      </div>
+      {isLoading ? (
+        <p className="mt-3 text-sm text-muted-foreground">Carregando…</p>
+      ) : data?.enrolled ? (
+        <div className="mt-3 space-y-3">
+          <p className="text-sm text-muted-foreground">
+            <Smartphone className="mr-1 inline size-4" />
+            Autenticador cadastrado
+            {data.factors[0]?.createdAt
+              ? ` em ${new Date(data.factors[0].createdAt).toLocaleDateString("pt-BR")}`
+              : ""}
+            . O código é pedido a cada login.
+          </p>
+          {!confirming ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="text-red-300"
+              onClick={() => setConfirming(true)}
+            >
+              <Trash2 className="size-4" /> Remover verificação
+            </Button>
+          ) : (
+            <div className="space-y-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+              <p className="text-sm text-muted-foreground">
+                Para confirmar que é você, digite o código atual do seu app autenticador:
+              </p>
+              <div className="flex justify-start">
+                <InputOTP maxLength={6} value={code} onChange={setCode}>
+                  <InputOTPGroup>
+                    {[0, 1, 2, 3, 4, 5].map((i) => (
+                      <InputOTPSlot key={i} index={i} />
+                    ))}
+                  </InputOTPGroup>
+                </InputOTP>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  disabled={unenrollMutation.isPending || !/^\d{6}$/.test(code)}
+                  onClick={() => unenrollMutation.mutate(code)}
+                >
+                  {unenrollMutation.isPending ? "Removendo…" : "Confirmar remoção"}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setConfirming(false);
+                    setCode("");
+                  }}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-muted-foreground">
+          A verificação será ativada no seu próximo acesso — o painel pede o
+          cadastro do autenticador ao entrar.
+        </p>
+      )}
+      <p className="mt-3 text-xs text-muted-foreground">
+        Perdeu o acesso ao app autenticador? Peça uma redefinição de senha: ao
+        aprovar, a verificação é removida e você recadastra no próximo acesso.
+      </p>
+    </div>
+  );
+}
+
 function PasswordResetRequestsCard() {
   const queryClient = useQueryClient();
   const listFn = useServerFn(listPasswordResetRequests);
@@ -106,6 +225,7 @@ function PasswordResetRequestsCard() {
     email: string;
     userLabel: string | null;
     phone: string | null;
+    mfaRemoved: boolean;
   } | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -155,7 +275,7 @@ function PasswordResetRequestsCard() {
   const waPhone = waDigits.length > 0 && waDigits.length <= 11 ? `55${waDigits}` : waDigits;
   const whatsappUrl = approved
     ? `https://wa.me/${waPhone}?text=${encodeURIComponent(
-        `Olá! Sua senha temporária do painel Manos Tech é: ${approved.tempPassword} (vale 1 hora). Entre em https://system-manos.vercel.app com seu e-mail e essa senha — o painel vai pedir pra você criar a senha definitiva.`,
+        `Olá! Sua senha temporária do painel Manos Tech é: ${approved.tempPassword} (vale 1 hora). Entre em https://system-manos.vercel.app com seu e-mail e essa senha — o painel vai pedir pra você criar a senha definitiva.${approved.mfaRemoved ? " Você também vai recadastrar a verificação em duas etapas no primeiro acesso." : ""}`,
       )}`
     : null;
 
@@ -168,7 +288,9 @@ function PasswordResetRequestsCard() {
         </div>
         <CardDescription>
           Pedidos de quem esqueceu a senha. Ao aprovar, o sistema gera uma senha
-          temporária (vale 1 hora) e o cliente é obrigado a trocá-la ao entrar. A ManosTech IA também avisa no Telegram.
+          temporária (vale 1 hora) e o cliente é obrigado a trocá-la ao entrar. Se
+          a pessoa tinha verificação em duas etapas, ela é removida junto (é o
+          caminho para quem perdeu o autenticador). A ManosTech IA também avisa no Telegram.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -184,6 +306,12 @@ function PasswordResetRequestsCard() {
                   Senha temporária de {approved.userLabel ?? approved.email} — envie
                   agora (vale 1 hora, e o painel obriga a troca ao entrar):
                 </p>
+                {approved.mfaRemoved ? (
+                  <p className="text-xs text-amber-200">
+                    A verificação em duas etapas dele foi removida junto — no
+                    próximo acesso ele recadastra o autenticador.
+                  </p>
+                ) : null}
                 <p className="rounded-lg bg-black/30 p-2 text-center font-mono text-lg font-bold tracking-widest text-emerald-100">
                   {approved.tempPassword}
                 </p>
@@ -226,7 +354,12 @@ function PasswordResetRequestsCard() {
                   >
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">
-                        {req.user_label ?? req.email}
+                        {req.user_label ?? req.email}{" "}
+                        {req.has_mfa ? (
+                          <Badge variant="outline" className="ml-1 border-amber-500/40 bg-amber-500/10 text-amber-300">
+                            2FA
+                          </Badge>
+                        ) : null}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {req.email} · pediu em{" "}
@@ -1325,6 +1458,7 @@ function SettingsPage() {
                 Atualizar Senha
               </Button>
             </form>
+            {isAdm ? <MfaSettingsSection /> : null}
           </CardContent>
         </Card>
 

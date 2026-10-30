@@ -17,13 +17,34 @@ const credentials = z.object({
 // a sessão para hidratar o client em memória imediatamente (sem ela, o
 // realtime/storage/chamadas diretas do navegador ficariam sem token até
 // o próximo reload).
+//
+// 2FA (item 4 da auditoria, ver ./mfa.ts): para o ADM a resposta pode ser
+// a etapa do código em vez da sessão — { kind: "mfa-verify" } (tem fator)
+// ou { kind: "mfa-enroll", qrCode, secret } (primeira vez). A sessão plena
+// só sai depois do TOTP, via mfaVerifyFn (./mfa.functions.ts).
 export const signInFn = createServerFn({ method: "POST" })
   .validator((data: unknown) => credentials.parse(data))
   .handler(async ({ data }) => {
     const { signInWithPasswordServer } = await import("./server");
-    const session = await signInWithPasswordServer(data.email, data.password);
-    // O client arma o limite máximo de sessão com este instante (ver ./client.ts).
-    return { ok: true as const, session, sessionStartedAt: Date.now() };
+    const result = await signInWithPasswordServer(data.email, data.password);
+    if (result.kind === "session") {
+      // O client arma o limite máximo de sessão com este instante (ver ./client.ts).
+      return {
+        ok: true as const,
+        kind: "session" as const,
+        session: result.session,
+        sessionStartedAt: result.sessionStartedAt,
+      };
+    }
+    if (result.kind === "mfa-verify") {
+      return { ok: true as const, kind: "mfa-verify" as const };
+    }
+    return {
+      ok: true as const,
+      kind: "mfa-enroll" as const,
+      qrCode: result.qrCode,
+      secret: result.secret,
+    };
   });
 
 // Logout: revoga os tokens no servidor e limpa o cookie httpOnly.

@@ -11,6 +11,7 @@
 
 import { createClient, type Session, type User } from "@supabase/supabase-js";
 import { deleteCookie, getCookie, getRequest, setCookie } from "@tanstack/react-start/server";
+import QRCode from "qrcode";
 import { supabaseDevFallback } from "./public-config";
 import type { Database } from "./types";
 import {
@@ -20,6 +21,14 @@ import {
   shouldBlockLogin,
 } from "./login-rate-limit";
 import { checkSessionExpiry, type SessionExpiryReason } from "./session-limits";
+import {
+  MFA_INVALID_CODE_MESSAGE,
+  MFA_PENDING_COOKIE_MAX_AGE_SECONDS,
+  MFA_PENDING_EXPIRED_MESSAGE,
+  MFA_VERIFY_RATE_LIMIT_MESSAGE,
+  decideMfaStep,
+  shouldBlockMfaVerify,
+} from "./mfa";
 
 // Nome fixo (não derivado da URL) para não quebrar entre ambientes.
 export const SESSION_COOKIE_NAME = "sb-manostech-auth-token";
@@ -309,6 +318,13 @@ export async function getServerSessionForClient(): Promise<ClientSessionResult> 
   };
 }
 
+/** Resultado do login com senha: sessão direta (não-ADM) ou a etapa
+ *  de 2FA (ADM) — ver item 4 da auditoria de login em ./mfa.ts. */
+export type SignInResult =
+  | { kind: "session"; session: Session; sessionStartedAt: number }
+  | { kind: "mfa-verify" }
+  | { kind: "mfa-enroll"; qrCode: string; secret: string };
+
 /** Login no servidor: autentica e grava o cookie httpOnly.
  *
  * Rate limiting (item 2 da auditoria de login, 2026-10-30): antes de
@@ -318,8 +334,16 @@ export async function getServerSessionForClient(): Promise<ClientSessionResult> 
  * e-mail+IP. Se o banco falhar (ex.: migration ainda não aplicada), o
  * login segue (fail-open com log) — o rate limit nativo do Supabase
  * Auth continua como rede de proteção.
+ *
+ * 2FA (item 4): para o ADM, a senha é só a primeira etapa. A sessão
+ * plena (cookie) só é emitida DEPOIS do TOTP verificado; até lá, os
+ * tokens aal1 vivem no cookie de verificação pendente (10 min), que só
+ * autoriza a checagem do código.
  */
-export async function signInWithPasswordServer(email: string, password: string): Promise<Session> {
+export async function signInWithPasswordServer(
+  email: string,
+  password: string,
+): Promise<SignInResult> {
   const normalizedEmail = email.trim().toLowerCase();
   const ip = currentClientIp();
   const { supabaseAdmin } = await import("./client.server");
@@ -336,10 +360,294 @@ export async function signInWithPasswordServer(email: string, password: string):
     // Mensagem neutra de propósito: não revela se o e-mail existe.
     throw new Error("Não foi possível entrar. Verifique e-mail e senha.");
   }
-  // Login zera a contagem dos limites: início e atividade = agora.
   const now = Date.now();
-  setSessionCookie(data.session, { sessionStartedAt: now, lastActivity: now });
-  return data.session;
+
+  // Papel do usuário (via service_role). Falha aqui = fail-closed: sem
+  // saber se é ADM, não dá para decidir a etapa do 2FA.
+  let role: AppRole | null;
+  try {
+    role = await getUserAppRole(supabaseAdmin, data.user.id);
+  } catch (err) {
+    console.error("[mfa] falha ao ler o papel do usuário; bloqueando login:", err);
+    throw new Error("Não foi possível verificar sua conta. Tente de novo em instantes.");
+  }
+
+  if (role !== "adm") {
+    // Login zera a contagem dos limites: início e atividade = agora.
+    setSessionCookie(data.session, { sessionStartedAt: now, lastActivity: now });
+    return { kind: "session", session: data.session, sessionStartedAt: now };
+  }
+
+  let factors: { id: string }[];
+  try {
+    factors = await listVerifiedTotpFactors(data.session.access_token);
+  } catch (err) {
+    console.error("[mfa] falha ao listar fatores 2FA; bloqueando login:", err);
+    throw new Error("Não foi possível verificar a segunda etapa. Tente de novo em instantes.");
+  }
+
+  if (decideMfaStep({ isAdm: true, verifiedTotpCount: factors.length }) === "verify") {
+    setMfaPendingCookie({
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
+      factor_id: factors[0]!.id,
+      email: normalizedEmail,
+      user_id: data.user.id,
+    });
+    return { kind: "mfa-verify" };
+  }
+
+  // ADM sem fator: enrollment obrigatório (é assim que o 2FA nasce para
+  // contas existentes — sem tela separada de "ativar").
+  const mfaClient = mfaUserClient(data.session.access_token);
+  try {
+    // Limpa enrollments não concluídos de tentativas anteriores.
+    const { data: all } = await mfaClient.auth.mfa.listFactors();
+    for (const f of (all?.totp ?? []).filter((x) => x.status !== "verified")) {
+      await mfaClient.auth.mfa.unenroll({ factorId: f.id }).catch(() => undefined);
+    }
+  } catch {
+    // Best-effort: não impede o enrollment novo.
+  }
+  const { data: enrolled, error: enrollError } = await mfaClient.auth.mfa.enroll({
+    factorType: "totp",
+    friendlyName: "Painel Manos Tech",
+  });
+  if (enrollError || !enrolled?.totp) {
+    console.error("[mfa] falha no enroll do TOTP:", enrollError);
+    throw new Error("Não foi possível iniciar a ativação da verificação. Tente de novo.");
+  }
+  setMfaPendingCookie({
+    access_token: data.session.access_token,
+    refresh_token: data.session.refresh_token,
+    factor_id: enrolled.id,
+    email: normalizedEmail,
+    user_id: data.user.id,
+  });
+  // O SVG de QR devolvido pelo Supabase no enroll chega ilegível no front
+  // (reportado 30/10: QR "todo errado", só o código manual funcionava).
+  // Geramos localmente com a lib `qrcode` (já dependência do projeto) a
+  // partir do URI otpauth — determinístico e testado.
+  const issuer = "Painel Manos Tech";
+  const totpUri =
+    enrolled.totp.uri ??
+    `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(normalizedEmail)}?secret=${enrolled.totp.secret}&issuer=${encodeURIComponent(issuer)}`;
+  let qrSvg: string;
+  try {
+    qrSvg = await QRCode.toString(totpUri, { type: "svg", margin: 2, width: 220 });
+  } catch (err) {
+    console.error("[mfa] falha ao gerar QR local; usando SVG do Supabase:", err);
+    qrSvg = enrolled.totp.qr_code;
+  }
+  return {
+    kind: "mfa-enroll",
+    qrCode: qrSvg,
+    secret: enrolled.totp.secret,
+  };
+}
+
+// --- 2FA / MFA (item 4 da auditoria de login, 2026-10-30) ---
+// O Supabase Auth tem MFA nativo (mfa.enroll/challenge/verify/unenroll);
+// aqui só a orquestração com os cookies httpOnly. Constantes e lógica
+// pura em ./mfa.ts.
+
+/** Cookie da verificação pendente: guarda os tokens aal1 por 10 min e só
+ *  autoriza a checagem do código TOTP — nunca uma sessão plena. */
+export const MFA_PENDING_COOKIE_NAME = "sb-manostech-mfa-pending";
+
+type MfaPendingPayload = {
+  access_token: string;
+  refresh_token: string;
+  factor_id: string;
+  email: string;
+  user_id: string;
+};
+
+function mfaPendingCookieOptions() {
+  return {
+    path: "/",
+    httpOnly: true,
+    // Secure só em produção: em dev (http://localhost) o navegador
+    // rejeita cookie com Secure.
+    secure: process.env["NODE_ENV"] === "production",
+    sameSite: "lax" as const,
+    maxAge: MFA_PENDING_COOKIE_MAX_AGE_SECONDS,
+  };
+}
+
+function setMfaPendingCookie(payload: MfaPendingPayload): void {
+  setCookie(
+    MFA_PENDING_COOKIE_NAME,
+    encodeURIComponent(JSON.stringify(payload)),
+    mfaPendingCookieOptions(),
+  );
+}
+
+function readMfaPendingCookie(): MfaPendingPayload | null {
+  let raw: string | undefined;
+  try {
+    raw = getCookie(MFA_PENDING_COOKIE_NAME);
+  } catch {
+    return null;
+  }
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(decodeURIComponent(raw)) as Partial<MfaPendingPayload>;
+    if (
+      !parsed?.access_token ||
+      !parsed?.refresh_token ||
+      !parsed?.factor_id ||
+      !parsed?.email ||
+      !parsed?.user_id
+    ) {
+      return null;
+    }
+    return {
+      access_token: parsed.access_token,
+      refresh_token: parsed.refresh_token,
+      factor_id: parsed.factor_id,
+      email: parsed.email,
+      user_id: parsed.user_id,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function clearMfaPendingCookie(): void {
+  deleteCookie(MFA_PENDING_COOKIE_NAME, { path: "/" });
+}
+
+type AppRole = "adm" | "matriz" | "filial" | "revenda";
+
+/** Papel primário do usuário (prioridade adm > matriz > revenda > filial),
+ *  lido via service_role. */
+async function getUserAppRole(
+  admin: RateLimitAdminClient,
+  userId: string,
+): Promise<AppRole | null> {
+  const { data, error } = await admin.from("user_roles").select("role").eq("user_id", userId);
+  if (error) throw error;
+  const roles = (data ?? []).map((r) => r.role);
+  for (const candidate of ["adm", "matriz", "revenda", "filial"] as const) {
+    if (roles.includes(candidate)) return candidate;
+  }
+  return null;
+}
+
+/** Client autenticado como o usuário (sessão aal1) para as operações de
+ *  MFA — nunca persiste sessão. */
+function mfaUserClient(accessToken: string) {
+  const { url, key } = supabaseEnv();
+  return createClient<Database>(url, key, {
+    global: { headers: { Authorization: `Bearer ${accessToken}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+async function listVerifiedTotpFactors(accessToken: string): Promise<{ id: string }[]> {
+  const client = mfaUserClient(accessToken);
+  const { data, error } = await client.auth.mfa.listFactors();
+  if (error) throw error;
+  return (data?.totp ?? []).filter((f) => f.status === "verified").map((f) => ({ id: f.id }));
+}
+
+/**
+ * Verifica o código TOTP da etapa pendente. Em caso de sucesso, limpa o
+ * cookie pendente e emite a sessão plena (aal2) no cookie httpOnly.
+ *
+ * Rate limiting próprio (kind = 'mfa_verify' em login_attempts): 10
+ * códigos errados/15min por e-mail+IP bloqueiam — ver ./mfa.ts.
+ */
+export async function verifyMfaCodeServer(
+  code: string,
+): Promise<{ session: Session; sessionStartedAt: number }> {
+  const pending = readMfaPendingCookie();
+  if (!pending) throw new Error(MFA_PENDING_EXPIRED_MESSAGE);
+  const ip = currentClientIp();
+  const { supabaseAdmin } = await import("./client.server");
+
+  if (await isMfaVerifyBlocked(supabaseAdmin, pending.email, ip)) {
+    throw new Error(MFA_VERIFY_RATE_LIMIT_MESSAGE);
+  }
+
+  const client = mfaUserClient(pending.access_token);
+  const { data: challenge, error: challengeError } = await client.auth.mfa.challenge({
+    factorId: pending.factor_id,
+  });
+  if (challengeError || !challenge) {
+    // Fator sumiu no meio do caminho (ex.: 2FA removido por uma
+    // redefinição de senha aprovada) — volta pro login com senha.
+    await recordMfaVerifyAttempt(supabaseAdmin, pending.email, ip, false);
+    throw new Error(MFA_PENDING_EXPIRED_MESSAGE);
+  }
+  const { data: verified, error: verifyError } = await client.auth.mfa.verify({
+    factorId: pending.factor_id,
+    challengeId: challenge.id,
+    code,
+  });
+  if (verifyError || !verified?.access_token || !verified?.refresh_token || !verified?.user) {
+    await recordMfaVerifyAttempt(supabaseAdmin, pending.email, ip, false);
+    throw new Error(MFA_INVALID_CODE_MESSAGE);
+  }
+
+  await recordMfaVerifyAttempt(supabaseAdmin, pending.email, ip, true);
+  clearMfaPendingCookie();
+  const now = Date.now();
+  const session: Session = {
+    access_token: verified.access_token,
+    refresh_token: verified.refresh_token,
+    expires_in: verified.expires_in ?? 3600,
+    token_type: "bearer",
+    user: verified.user,
+  };
+  setSessionCookie(
+    { access_token: session.access_token, refresh_token: session.refresh_token },
+    { sessionStartedAt: now, lastActivity: now },
+  );
+  return { session, sessionStartedAt: now };
+}
+
+/** Bloqueio de força bruta no código TOTP. Falha-aberto com log: nunca
+ *  trava o login por problema no banco. */
+async function isMfaVerifyBlocked(
+  admin: RateLimitAdminClient,
+  email: string,
+  ip: string,
+): Promise<boolean> {
+  try {
+    const [emailIpFailures, ipFailures] = await Promise.all([
+      countRecentFailures(admin, { email, ip, kind: "mfa_verify" }),
+      ip ? countRecentFailures(admin, { ip, kind: "mfa_verify" }) : Promise.resolve(0),
+    ]);
+    return shouldBlockMfaVerify({ emailIpFailures, ipFailures, ip });
+  } catch (err) {
+    console.error("[mfa] falha ao verificar bloqueio de código; liberando:", err);
+    return false;
+  }
+}
+
+/** Registra a tentativa de código; o sucesso zera as falhas do par. */
+async function recordMfaVerifyAttempt(
+  admin: RateLimitAdminClient,
+  email: string,
+  ip: string,
+  success: boolean,
+): Promise<void> {
+  try {
+    await admin.from("login_attempts").insert({ email, ip, success, kind: "mfa_verify" });
+    if (success) {
+      await admin
+        .from("login_attempts")
+        .delete()
+        .eq("email", email)
+        .eq("ip", ip)
+        .eq("success", false)
+        .eq("kind", "mfa_verify");
+    }
+  } catch (err) {
+    console.error("[mfa] falha ao registrar tentativa de código:", err);
+  }
 }
 
 // --- Rate limiting de login (item 2 da auditoria, 2026-10-30) ---
@@ -363,7 +671,7 @@ function rateLimitWindowStartIso(): string {
 
 async function countRecentFailures(
   admin: RateLimitAdminClient,
-  filter: { email?: string; ip?: string },
+  filter: { email?: string; ip?: string; kind?: string },
 ): Promise<number> {
   const windowStart = rateLimitWindowStartIso();
   let query = admin
@@ -371,6 +679,7 @@ async function countRecentFailures(
     .select("id", { count: "exact", head: true })
     .eq("success", false)
     .gte("created_at", windowStart);
+  if (filter.kind !== undefined) query = query.eq("kind", filter.kind);
   if (filter.email !== undefined) query = query.eq("email", filter.email);
   if (filter.ip !== undefined) query = query.eq("ip", filter.ip);
   const { count, error } = await query;
@@ -388,8 +697,8 @@ async function isLoginBlocked(
 ): Promise<boolean> {
   try {
     const [emailIpFailures, ipFailures] = await Promise.all([
-      countRecentFailures(admin, { email, ip }),
-      ip ? countRecentFailures(admin, { ip }) : Promise.resolve(0),
+      countRecentFailures(admin, { email, ip, kind: "login" }),
+      ip ? countRecentFailures(admin, { ip, kind: "login" }) : Promise.resolve(0),
     ]);
     return shouldBlockLogin({ emailIpFailures, ipFailures, ip });
   } catch (err) {
@@ -406,14 +715,15 @@ async function recordLoginAttempt(
   success: boolean,
 ): Promise<void> {
   try {
-    await admin.from("login_attempts").insert({ email, ip, success });
+    await admin.from("login_attempts").insert({ email, ip, success, kind: "login" });
     if (success) {
       await admin
         .from("login_attempts")
         .delete()
         .eq("email", email)
         .eq("ip", ip)
-        .eq("success", false);
+        .eq("success", false)
+        .eq("kind", "login");
     }
   } catch (err) {
     console.error("[login-rate-limit] falha ao registrar tentativa:", err);
