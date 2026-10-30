@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { requestPasswordReset } from "@/lib/password-reset.functions";
@@ -8,7 +8,12 @@ import { requestPasswordReset } from "@/lib/password-reset.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { supabase, ensureClientSession } from "@/integrations/supabase/client";
+import {
+  supabase,
+  ensureClientSession,
+  registerClientSessionStart,
+} from "@/integrations/supabase/client";
+import { expiryMessage } from "@/integrations/supabase/session-limits";
 import { signInFn } from "@/integrations/supabase/auth-session.functions";
 import { LOGIN_RATE_LIMIT_MESSAGE } from "@/integrations/supabase/login-rate-limit";
 import manosTechLogo from "@/assets/manos-tech-logo-institutional.png";
@@ -43,6 +48,11 @@ type AuthMode = "login" | "forgot" | "reset";
 
 function AuthPage() {
   const navigate = useNavigate();
+  // ?expired=idle|max vem do redirect de expireLocalSession (sem
+  // validateSearch na rota de propósito: não quebrar os links existentes
+  // para /auth).
+  const { expired: expiredParam } = Route.useSearch() as { expired?: unknown };
+  const expired = expiredParam === "idle" || expiredParam === "max" ? expiredParam : undefined;
   const requestResetFn = useServerFn(requestPasswordReset);
   const signInServerFn = useServerFn(signInFn);
   const [ready, setReady] = useState(false);
@@ -54,6 +64,17 @@ function AuthPage() {
   const [mode, setMode] = useState<AuthMode>("login");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  // Sessão expirada pelos limites (redirect de expireLocalSession): mensagem
+  // amigável uma única vez; depois limpa o parâmetro da URL.
+  const expiredShown = useRef(false);
+  useEffect(() => {
+    if (expired && !expiredShown.current) {
+      expiredShown.current = true;
+      toast.info(expiryMessage(expired));
+      navigate({ to: "/auth", search: {}, replace: true });
+    }
+  }, [expired, navigate]);
 
   useEffect(() => {
     // Até a hidratação concluir, o clique em "Entrar" viraria um submit nativo
@@ -89,8 +110,11 @@ function AuthPage() {
     // Login no SERVIDOR: a sessão vai para um cookie httpOnly (ver
     // auth-session.functions.ts). A resposta hidrata o client em memória.
     try {
-      const { session } = await signInServerFn({ data: parsed.data });
-      if (session) await supabase.auth.setSession(session);
+      const { session, sessionStartedAt } = await signInServerFn({ data: parsed.data });
+      if (session) {
+        await supabase.auth.setSession(session);
+        registerClientSessionStart(sessionStartedAt);
+      }
     } catch (err) {
       setLoading(false);
       // O bloqueio anti-força-bruta tem mensagem própria (neutra: não

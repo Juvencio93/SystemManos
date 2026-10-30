@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { supabaseDevFallback } from "@/integrations/supabase/public-config";
 import { SESSION_COOKIE_NAME } from "@/integrations/supabase/server";
+import { checkSessionExpiry } from "@/integrations/supabase/session-limits";
 import type { Database } from "@/integrations/supabase/types";
 
 async function userIdFromJwt(jwt: string): Promise<string | null> {
@@ -27,8 +28,16 @@ function cookieAccessToken(request: Request): string | null {
   const match = header.match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE_NAME}=([^;]+)`));
   if (!match?.[1]) return null;
   try {
-    const parsed = JSON.parse(decodeURIComponent(match[1])) as { access_token?: string };
-    return parsed?.access_token ?? null;
+    const parsed = JSON.parse(decodeURIComponent(match[1])) as {
+      access_token?: string;
+      session_started_at?: number;
+      last_activity?: number;
+    };
+    if (!parsed?.access_token) return null;
+    // Limites de duração também valem aqui: sessão expirada não autentica
+    // as rotas /api/internal (sem deslize — esta via não renova atividade).
+    if (checkSessionExpiry(parsed) !== null) return null;
+    return parsed.access_token;
   } catch {
     return null;
   }

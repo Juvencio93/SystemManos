@@ -3,6 +3,12 @@ import { createClient } from "@supabase/supabase-js";
 import { supabaseDevFallback } from "./public-config";
 import type { Database } from "./types";
 import { brokeredPreviewStorage, isPreviewAuthFallback } from "./previewAuthStorage";
+import {
+  IDLE_TIMEOUT_MS,
+  MAX_SESSION_MS,
+  sessionExpiryReasonFromMessage,
+  type SessionExpiryReason,
+} from "./session-limits";
 
 function isNewSupabaseApiKey(value: string): boolean {
   return value.startsWith("sb_publishable_") || value.startsWith("sb_secret_");
@@ -125,7 +131,14 @@ function wireRefreshSync(): void {
             },
           }),
         )
-        .catch(() => {
+        .catch((err) => {
+          // O servidor recusou o espelho porque a sessão expirou pelos
+          // limites de duração: desloga localmente com mensagem amigável.
+          const reason = sessionExpiryReasonFromMessage(err instanceof Error ? err.message : "");
+          if (reason) {
+            void expireLocalSession(reason);
+            return;
+          }
           // Falhou: o próximo acesso ao servidor renova o cookie sozinho.
         });
       return;
@@ -141,6 +154,121 @@ function wireRefreshSync(): void {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Limites de duração da sessão — espelho client-side (item 3 da auditoria).
+//
+// O servidor é a autoridade (ver ./server.ts), mas o navegador mantém a
+// sessão em memória com auto-refresh independente do cookie: sem o
+// espelho, o painel seguiria utilizável após a expiração do cookie. Por
+// isso o client também encerra a sessão:
+// - idle: sem interação (pointer/keydown/touch) por IDLE_TIMEOUT_MINUTES
+//   → logout completo no servidor + redirect com mensagem amigável;
+// - máxima: timer a partir de sessionStartedAt (login ou hidratação).
+// No modo fallback de preview não há rastreio no servidor — os watchers
+// ficam desligados.
+// ---------------------------------------------------------------------------
+
+let _sessionStartedAt: number | null = null;
+let _idleWatcherArmed = false;
+let _maxTimer: ReturnType<typeof setTimeout> | undefined;
+let _lastInteraction = 0;
+let _expireInFlight = false;
+
+function clearWatchers(): void {
+  _idleWatcherArmed = false;
+  _sessionStartedAt = null;
+  if (_maxTimer) {
+    clearTimeout(_maxTimer);
+    _maxTimer = undefined;
+  }
+}
+
+/** Chamado após login bem-sucedido (ver src/routes/auth.tsx). */
+export function registerClientSessionStart(sessionStartedAt: number): void {
+  _sessionStartedAt = sessionStartedAt;
+  armIdleWatcher();
+  armMaxSessionWatcher();
+}
+
+/** Chamado no logout manual para não vazar timers da sessão anterior. */
+export function resetClientSessionWatchers(): void {
+  clearWatchers();
+}
+
+function armIdleWatcher(): void {
+  if (_idleWatcherArmed || isPreviewAuthFallback() || typeof window === "undefined") return;
+  _idleWatcherArmed = true;
+  _lastInteraction = Date.now();
+  const bump = () => {
+    _lastInteraction = Date.now();
+  };
+  window.addEventListener("pointerdown", bump, { passive: true });
+  window.addEventListener("keydown", bump);
+  window.addEventListener("touchstart", bump, { passive: true });
+  // Checagem a cada minuto: sem interação por mais que o limite, a sessão
+  // morre de verdade (logout no servidor revoga os tokens e limpa o
+  // cookie) e o usuário cai no /auth com mensagem amigável.
+  window.setInterval(() => {
+    void (async () => {
+      if (Date.now() - _lastInteraction <= IDLE_TIMEOUT_MS) return;
+      try {
+        const { signOutFn } = await import("./auth-session.functions");
+        await signOutFn();
+      } catch {
+        // Segue para limpar o client de qualquer forma.
+      }
+      await expireLocalSession("idle");
+    })();
+  }, 60_000);
+}
+
+function armMaxSessionWatcher(): void {
+  if (isPreviewAuthFallback() || typeof window === "undefined") return;
+  if (_maxTimer) clearTimeout(_maxTimer);
+  if (!_sessionStartedAt) return;
+  const delay = _sessionStartedAt + MAX_SESSION_MS - Date.now();
+  _maxTimer = setTimeout(
+    () =>
+      void (async () => {
+        try {
+          const { signOutFn } = await import("./auth-session.functions");
+          await signOutFn();
+        } catch {
+          // Segue para limpar o client de qualquer forma.
+        }
+        await expireLocalSession("max");
+      })(),
+    Math.max(delay, 0),
+  );
+}
+
+/**
+ * Encerra a sessão no navegador após expiração (decretada pelo servidor
+ * ou pelos watchers): limpa a memória, desarma os timers e redireciona ao
+ * /auth com o motivo — a tela de login exibe a mensagem amigável.
+ */
+export async function expireLocalSession(reason: SessionExpiryReason): Promise<void> {
+  if (_expireInFlight || typeof window === "undefined") return;
+  _expireInFlight = true;
+  try {
+    clearWatchers();
+    _hydrated = false;
+    try {
+      await supabase.auth.signOut({ scope: "local" });
+    } catch {
+      // Sem sessão em memória — segue para o redirect.
+    }
+    if (!window.location.pathname.startsWith("/auth")) {
+      window.location.href = `/auth?expired=${reason}`;
+    }
+  } finally {
+    // Evita reentrância (o SIGNED_OUT acima pode re-disparar hidratação).
+    setTimeout(() => {
+      _expireInFlight = false;
+    }, 5000);
+  }
+}
+
 /**
  * Hidrata o client em memória a partir do cookie httpOnly (via servidor).
  * Idempotente — pode ser chamada à vontade. No modo fallback de preview
@@ -153,12 +281,25 @@ export async function ensureClientSession(): Promise<void> {
   if (_hydrated || isPreviewAuthFallback()) return;
   try {
     const { data: current } = await supabase.auth.getSession();
+    let hasSession = !!current.session;
     if (!current.session) {
       const { fetchSessionFn } = await import("./auth-session.functions");
-      const { session } = await fetchSessionFn();
-      if (session) {
-        await supabase.auth.setSession(session);
+      const result = await fetchSessionFn();
+      if (result.expired) {
+        // Sessão morreu pelos limites no servidor: desloga localmente e
+        // redireciona com mensagem amigável.
+        await expireLocalSession(result.expired);
+        return;
       }
+      if (result.session) {
+        await supabase.auth.setSession(result.session);
+        _sessionStartedAt = result.sessionStartedAt;
+        hasSession = true;
+      }
+    }
+    if (hasSession) {
+      armIdleWatcher();
+      armMaxSessionWatcher();
     }
     // Só marca depois de concluir sem erro de rede — se a chamada ao
     // servidor falhar, a próxima chamada tenta de novo.

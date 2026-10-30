@@ -19,6 +19,7 @@ import {
   extractClientIp,
   shouldBlockLogin,
 } from "./login-rate-limit";
+import { checkSessionExpiry, type SessionExpiryReason } from "./session-limits";
 
 // Nome fixo (não derivado da URL) para não quebrar entre ambientes.
 export const SESSION_COOKIE_NAME = "sb-manostech-auth-token";
@@ -30,6 +31,12 @@ type StoredSession = {
   access_token: string;
   refresh_token: string;
   expires_at?: number;
+  // Limites de sessão (item 3 da auditoria de login, 2026-10-30 — ver
+  // ./session-limits.ts). Epoch em ms.
+  /** Fixado no login; refresh NÃO estende. */
+  session_started_at?: number;
+  /** Desliza a cada requisição autenticada resolvida no servidor. */
+  last_activity?: number;
 };
 
 function supabaseEnv(): { url: string; key: string } {
@@ -63,15 +70,25 @@ function anonClient() {
   });
 }
 
-export function setSessionCookie(session: {
-  access_token: string;
-  refresh_token: string;
-  expires_at?: number | undefined;
-}): void {
+export function setSessionCookie(
+  session: {
+    access_token: string;
+    refresh_token: string;
+    expires_at?: number | undefined;
+  },
+  opts?: { sessionStartedAt?: number; lastActivity?: number },
+): void {
+  const now = Date.now();
+  // Sem opts explícitos, carrega os timestamps do cookie atual: o refresh
+  // (manual ou espelhado) preserva session_started_at e só desliza
+  // last_activity. O login passa os dois explícitos (zera a contagem).
+  const prev = readStoredSession();
   const payload: StoredSession = {
     access_token: session.access_token,
     refresh_token: session.refresh_token,
     ...(typeof session.expires_at === "number" ? { expires_at: session.expires_at } : {}),
+    session_started_at: opts?.sessionStartedAt ?? prev?.session_started_at ?? now,
+    last_activity: opts?.lastActivity ?? now,
   };
   setCookie(SESSION_COOKIE_NAME, encodeURIComponent(JSON.stringify(payload)), cookieOptions());
 }
@@ -95,6 +112,10 @@ function readStoredSession(): StoredSession | null {
       access_token: parsed.access_token,
       refresh_token: parsed.refresh_token,
       ...(typeof parsed.expires_at === "number" ? { expires_at: parsed.expires_at } : {}),
+      ...(typeof parsed.session_started_at === "number"
+        ? { session_started_at: parsed.session_started_at }
+        : {}),
+      ...(typeof parsed.last_activity === "number" ? { last_activity: parsed.last_activity } : {}),
     };
   } catch {
     return null;
@@ -109,24 +130,62 @@ export type ServerSession = {
   tokens: StoredSession;
 };
 
+type ResolveOutcome =
+  | { status: "ok"; session: ServerSession; sessionStartedAt: number }
+  | { status: "expired"; reason: SessionExpiryReason }
+  | { status: "none" };
+
 /**
- * Lê a sessão do cookie httpOnly, valida o access token e, se expirado,
- * renova com o refresh token (regravando o cookie). Retorna null quando
- * não há sessão válida — o cookie é limpo nesse caso.
+ * Revoga a sessão expirada no Supabase (só esta sessão — scope local) e
+ * limpa o cookie. Best-effort: o cookie é limpo de qualquer forma, o que
+ * já impede qualquer uso futuro da sessão.
  */
-async function resolveSession(): Promise<ServerSession | null> {
+async function revokeExpiredSession(stored: StoredSession): Promise<void> {
+  try {
+    const { supabaseAdmin } = await import("./client.server");
+    await supabaseAdmin.auth.admin.signOut(stored.access_token, "local");
+  } catch (err) {
+    console.error("[session-limits] falha ao revogar sessão expirada:", err);
+  } finally {
+    clearSessionCookie();
+  }
+}
+
+/**
+ * Lê a sessão do cookie httpOnly, aplica os limites de duração (idle +
+ * máxima — ver ./session-limits.ts), valida o access token e, se expirado,
+ * renova com o refresh token (regravando o cookie).
+ *
+ * Sessão expirada pelos limites NÃO valida nem renova: é revogada e o
+ * cookie é limpo. Cada resolução bem-sucedida desliza `last_activity`
+ * (é assim que "requisição autenticada" conta como atividade).
+ */
+async function resolveSession(): Promise<ResolveOutcome> {
   const stored = readStoredSession();
-  if (!stored) return null;
+  if (!stored) return { status: "none" };
+
+  const expired = checkSessionExpiry(stored);
+  if (expired) {
+    await revokeExpiredSession(stored);
+    return { status: "expired", reason: expired };
+  }
+
   const client = anonClient();
+  const sessionStartedAt = stored.session_started_at ?? Date.now();
 
   const { data: claimsData, error: claimsError } = await client.auth.getClaims(stored.access_token);
   const sub = (claimsData?.claims as { sub?: string } | undefined)?.sub;
   if (!claimsError && sub && claimsData?.claims) {
+    touchSession(stored);
     return {
-      accessToken: stored.access_token,
-      userId: sub,
-      claims: claimsData.claims as Record<string, unknown>,
-      tokens: stored,
+      status: "ok",
+      session: {
+        accessToken: stored.access_token,
+        userId: sub,
+        claims: claimsData.claims as Record<string, unknown>,
+        tokens: stored,
+      },
+      sessionStartedAt,
     };
   }
 
@@ -137,8 +196,9 @@ async function resolveSession(): Promise<ServerSession | null> {
     });
     if (error || !data.session) {
       clearSessionCookie();
-      return null;
+      return { status: "none" };
     }
+    // Preserva session_started_at; desliza last_activity.
     setSessionCookie(data.session);
     const { data: refreshedClaims, error: refreshedError } = await client.auth.getClaims(
       data.session.access_token,
@@ -146,31 +206,51 @@ async function resolveSession(): Promise<ServerSession | null> {
     const refreshedSub = (refreshedClaims?.claims as { sub?: string } | undefined)?.sub;
     if (refreshedError || !refreshedSub || !refreshedClaims?.claims) {
       clearSessionCookie();
-      return null;
+      return { status: "none" };
     }
     return {
-      accessToken: data.session.access_token,
-      userId: refreshedSub,
-      claims: refreshedClaims.claims as Record<string, unknown>,
-      tokens: {
-        access_token: data.session.access_token,
-        refresh_token: data.session.refresh_token,
-        ...(typeof data.session.expires_at === "number"
-          ? { expires_at: data.session.expires_at }
-          : {}),
+      status: "ok",
+      session: {
+        accessToken: data.session.access_token,
+        userId: refreshedSub,
+        claims: refreshedClaims.claims as Record<string, unknown>,
+        tokens: {
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+          ...(typeof data.session.expires_at === "number"
+            ? { expires_at: data.session.expires_at }
+            : {}),
+        },
       },
+      sessionStartedAt,
     };
   } catch {
     clearSessionCookie();
-    return null;
+    return { status: "none" };
   }
+}
+
+/** Desliza `last_activity` regravando o cookie (mantém tokens e início). */
+function touchSession(stored: StoredSession): void {
+  setSessionCookie(stored);
 }
 
 export async function getServerSession(): Promise<Omit<ServerSession, "tokens"> | null> {
   const resolved = await resolveSession();
-  if (!resolved) return null;
-  const { tokens: _tokens, ...rest } = resolved;
+  if (resolved.status !== "ok") return null;
+  const { tokens: _tokens, ...rest } = resolved.session;
   return rest;
+}
+
+/**
+ * Motivo de expiração do cookie atual, se houver — sem validar tokens nem
+ * tocar timestamps. Usado pelo espelho de refresh para não estender uma
+ * sessão já expirada.
+ */
+export function getStoredSessionExpiry(): SessionExpiryReason | null {
+  const stored = readStoredSession();
+  if (!stored) return null;
+  return checkSessionExpiry(stored);
 }
 
 /** Valida um access token contra o Supabase (usado pelo espelho de refresh). */
@@ -184,25 +264,48 @@ export async function validateAccessToken(accessToken: string): Promise<User | n
   }
 }
 
+export type ClientSessionResult = {
+  /** Sessão para a MEMÓRIA da aba (null quando não há sessão válida). */
+  session: Session | null;
+  /** Motivo da expiração, quando a sessão morreu pelos limites de duração. */
+  expired: SessionExpiryReason | null;
+  /** Início da sessão (ms) — o client arma o limite máximo com ele. */
+  sessionStartedAt: number | null;
+};
+
 /**
  * Sessão completa para hidratar o client do navegador em memória
  * (primeiro acesso / reload). Os tokens voltam para a MEMÓRIA da aba —
  * nunca para localStorage/cookie legível por JS.
+ *
+ * Quando a sessão morreu pelos limites de duração, `expired` informa o
+ * motivo para o client deslogar localmente e redirecionar com mensagem
+ * amigável (ver ./client.ts).
  */
-export async function getServerSessionForClient(): Promise<Session | null> {
+export async function getServerSessionForClient(): Promise<ClientSessionResult> {
   const resolved = await resolveSession();
-  if (!resolved) return null;
-  const user = await validateAccessToken(resolved.accessToken);
-  if (!user) return null;
+  if (resolved.status !== "ok") {
+    return {
+      session: null,
+      expired: resolved.status === "expired" ? resolved.reason : null,
+      sessionStartedAt: null,
+    };
+  }
+  const user = await validateAccessToken(resolved.session.accessToken);
+  if (!user) return { session: null, expired: null, sessionStartedAt: null };
   return {
-    access_token: resolved.tokens.access_token,
-    refresh_token: resolved.tokens.refresh_token,
-    expires_in: 3600,
-    ...(typeof resolved.tokens.expires_at === "number"
-      ? { expires_at: resolved.tokens.expires_at }
-      : {}),
-    token_type: "bearer",
-    user,
+    session: {
+      access_token: resolved.session.accessToken,
+      refresh_token: resolved.session.tokens.refresh_token,
+      expires_in: 3600,
+      ...(typeof resolved.session.tokens.expires_at === "number"
+        ? { expires_at: resolved.session.tokens.expires_at }
+        : {}),
+      token_type: "bearer",
+      user,
+    },
+    expired: null,
+    sessionStartedAt: resolved.sessionStartedAt,
   };
 }
 
@@ -233,7 +336,9 @@ export async function signInWithPasswordServer(email: string, password: string):
     // Mensagem neutra de propósito: não revela se o e-mail existe.
     throw new Error("Não foi possível entrar. Verifique e-mail e senha.");
   }
-  setSessionCookie(data.session);
+  // Login zera a contagem dos limites: início e atividade = agora.
+  const now = Date.now();
+  setSessionCookie(data.session, { sessionStartedAt: now, lastActivity: now });
   return data.session;
 }
 
