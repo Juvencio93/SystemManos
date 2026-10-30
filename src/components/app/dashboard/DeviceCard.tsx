@@ -65,6 +65,10 @@ const DEMO = {
     { modelo: "Pixel 8", total: 2 },
   ],
   modelosIos: [{ modelo: "iPhone", total: 8 }],
+  modelosComputador: [
+    { modelo: "Windows", total: 4 },
+    { modelo: "macOS", total: 1 },
+  ],
 };
 
 export function DeviceCard() {
@@ -172,8 +176,11 @@ export function DeviceCard() {
             {(() => {
               const temAndroid = (dados?.modelosAndroid ?? []).length > 0;
               const temIos = (dados?.modelosIos ?? []).length > 0;
-              if (!temAndroid && !temIos) return null;
-              const colunas = temAndroid && temIos ? "sm:grid-cols-2" : "sm:grid-cols-1";
+              const temComputador = (dados?.modelosComputador ?? []).length > 0;
+              const ativas = [temAndroid, temIos, temComputador].filter(Boolean).length;
+              if (ativas === 0) return null;
+              const colunas =
+                ativas === 3 ? "sm:grid-cols-3" : ativas === 2 ? "sm:grid-cols-2" : "sm:grid-cols-1";
               return (
                 <div className={`grid gap-6 ${colunas}`}>
                   {temAndroid ? (
@@ -190,6 +197,14 @@ export function DeviceCard() {
                       modelos={dados?.modelosIos ?? []}
                       total={dados?.ios ?? 0}
                       dotClass="bg-yellow-400"
+                    />
+                  ) : null}
+                  {temComputador ? (
+                    <ListaModelos
+                      titulo="Computador"
+                      modelos={dados?.modelosComputador ?? []}
+                      total={dados?.computador ?? 0}
+                      dotClass="bg-blue-500"
                     />
                   ) : null}
                 </div>
