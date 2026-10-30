@@ -18,6 +18,7 @@ export interface DispositivosHoje {
   ios: number;
   modelosAndroid: DeviceModel[];
   modelosIos: DeviceModel[];
+  modelosComputador: DeviceModel[];
 }
 
 /**
@@ -34,7 +35,10 @@ function extractModel(
   const ua = userAgent ?? "";
   const dt = (deviceType ?? "").toLowerCase();
   if (bucket === "ios") {
-    if (/ipad/i.test(ua) || dt.includes("ipad")) return "iPad";
+    const dtOrig = (deviceType ?? "").trim();
+    // Se o device_type traz o modelo específico (ex: "iPhone 11"), usa ele
+    if (dtOrig && /iphone/i.test(dtOrig) && !/^(iphone|ipad)$/i.test(dtOrig)) return dtOrig;
+    if (/ipad/i.test(ua) || /ipad/i.test(dtOrig)) return "iPad";
     return "iPhone";
   }
   if (bucket === "android") {
@@ -44,6 +48,14 @@ function extractModel(
     const dtModel = (deviceType ?? "").trim();
     if (dtModel && !/^(android|mobile|phone|celular)$/i.test(dtModel)) return dtModel;
     return null;
+  }
+  if (bucket === "desktop") {
+    if (/windows/i.test(ua)) return "Windows";
+    if (/macintosh|mac os/i.test(ua)) return "macOS";
+    if (/linux/i.test(ua)) return "Linux";
+    const dt = (deviceType ?? "").trim();
+    if (dt) return dt;
+    return "Computador";
   }
   return null;
 }
@@ -65,6 +77,7 @@ const vazio = (periodDate: string): DispositivosHoje => ({
   ios: 0,
   modelosAndroid: [],
   modelosIos: [],
+  modelosComputador: [],
 });
 
 /**
@@ -141,6 +154,7 @@ export const getDispositivosHoje = createServerFn({ method: "GET" })
     let ios = 0;
     const modelosAndroid = new Map<string, number>();
     const modelosIos = new Map<string, number>();
+    const modelosComputador = new Map<string, number>();
 
     for (const row of rows) {
       const bucket = classifyDevice(row.device_type, row.user_agent);
@@ -153,6 +167,8 @@ export const getDispositivosHoje = createServerFn({ method: "GET" })
         mapa.set(modelo, (mapa.get(modelo) ?? 0) + 1);
       } else if (bucket === "desktop") {
         computador += 1;
+        const modelo = extractModel(bucket, row.device_type, row.user_agent) ?? "Computador";
+        modelosComputador.set(modelo, (modelosComputador.get(modelo) ?? 0) + 1);
       } else {
         outros += 1;
       }
@@ -168,5 +184,6 @@ export const getDispositivosHoje = createServerFn({ method: "GET" })
       ios,
       modelosAndroid: topModelos(modelosAndroid),
       modelosIos: topModelos(modelosIos),
+      modelosComputador: topModelos(modelosComputador),
     };
   });

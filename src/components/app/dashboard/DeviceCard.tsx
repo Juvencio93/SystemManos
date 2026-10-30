@@ -28,7 +28,7 @@ function ListaModelos({
       ) : (
         <ul className="space-y-1.5">
           {modelos.map((m) => (
-            <li key={m.modelo} className="flex items-center justify-between gap-2 text-sm">
+            <li key={m.modelo} className="flex items-center justify-start gap-2 text-sm">
               <span className="truncate font-medium">{m.modelo}</span>
               <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
                 {m.total}
@@ -65,6 +65,10 @@ const DEMO = {
     { modelo: "Pixel 8", total: 2 },
   ],
   modelosIos: [{ modelo: "iPhone", total: 8 }],
+  modelosComputador: [
+    { modelo: "Windows", total: 4 },
+    { modelo: "macOS", total: 1 },
+  ],
 };
 
 export function DeviceCard() {
@@ -169,20 +173,47 @@ export function DeviceCard() {
               </div>
             </div>
 
-            <div className="grid gap-6 sm:grid-cols-2">
-              <ListaModelos
-                titulo="Android"
-                modelos={dados?.modelosAndroid ?? []}
-                total={dados?.android ?? 0}
-                dotClass="bg-green-400"
-              />
-              <ListaModelos
-                titulo="iOS"
-                modelos={dados?.modelosIos ?? []}
-                total={dados?.ios ?? 0}
-                dotClass="bg-yellow-400"
-              />
-            </div>
+            {(() => {
+              const temAndroid = (dados?.modelosAndroid ?? []).length > 0;
+              const temIos = (dados?.modelosIos ?? []).length > 0;
+              const temComputador = (dados?.modelosComputador ?? []).length > 0;
+              const ativas = [temAndroid, temIos, temComputador].filter(Boolean).length;
+              if (ativas === 0) return null;
+              return (
+                <div className="flex flex-wrap justify-center gap-6">
+                  {temAndroid ? (
+                    <div className="w-full max-w-[280px] sm:w-auto sm:min-w-[200px] sm:flex-1">
+                      <ListaModelos
+                        titulo="Android"
+                        modelos={dados?.modelosAndroid ?? []}
+                        total={dados?.android ?? 0}
+                        dotClass="bg-green-400"
+                      />
+                    </div>
+                  ) : null}
+                  {temIos ? (
+                    <div className="w-full max-w-[280px] sm:w-auto sm:min-w-[200px] sm:flex-1">
+                      <ListaModelos
+                        titulo="iOS"
+                        modelos={dados?.modelosIos ?? []}
+                        total={dados?.ios ?? 0}
+                        dotClass="bg-yellow-400"
+                      />
+                    </div>
+                  ) : null}
+                  {temComputador ? (
+                    <div className="w-full max-w-[280px] sm:w-auto sm:min-w-[200px] sm:flex-1">
+                      <ListaModelos
+                        titulo="Computador"
+                        modelos={dados?.modelosComputador ?? []}
+                        total={dados?.computador ?? 0}
+                        dotClass="bg-blue-500"
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })()}
           </>
         )}
       </CardContent>
