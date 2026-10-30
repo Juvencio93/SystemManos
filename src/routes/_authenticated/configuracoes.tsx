@@ -34,6 +34,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { LogoContainer } from "@/components/ui/logo-container";
 import {
   Card,
   CardContent,
@@ -1095,12 +1096,14 @@ function SettingsPage() {
                 <Label>Logo {isAdm ? "Institucional" : "da Empresa"}</Label>
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
                   <div className="relative group">
-                    <div className="flex size-32 items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-primary/20 bg-muted/50 transition-colors group-hover:border-primary/40">
+                    <div className="grid size-32 place-items-center overflow-hidden rounded-2xl border bg-white shadow-sm">
                       {logoUrl ? (
                         <img
+                          loading="lazy"
+                          decoding="async"
                           src={logoUrl}
                           alt="Logo Preview"
-                          className="size-full object-contain p-2"
+                          className="h-full w-full object-contain p-2"
                         />
                       ) : (
                         <ImageIcon className="size-10 text-muted-foreground/40" />
@@ -1485,7 +1488,7 @@ function SettingsPage() {
                 Fundo Escuro (Padrão App)
               </p>
               <div className="flex size-48 items-center justify-center rounded-xl bg-slate-900 p-4 shadow-sm">
-                <img src={logoUrl} alt="Logo Dark" className="size-full object-contain" />
+                <LogoContainer src={logoUrl} alt="Logo Dark" className="size-40" imgClassName="max-h-full max-w-full" />
               </div>
             </div>
           </div>
