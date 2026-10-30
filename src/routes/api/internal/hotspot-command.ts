@@ -1,5 +1,6 @@
 import { assignmentCleanupScript } from "@/lib/rb-assignment.server";
 import { assignmentAllowsAccess } from "@/lib/rb-inventory";
+import { macBypassCommand } from "@/lib/mac-bypass-script.server";
 import { createFileRoute } from "@tanstack/react-router";
 import { createHash } from "node:crypto";
 import { hasAssignedRouterAuth, hotspotSyncAckSignature } from "@/lib/hotspot-router-auth";
@@ -227,8 +228,29 @@ export const Route = createFileRoute("/api/internal/hotspot-command")({
           : "";
         const reportedStatusMismatch = device.router_applied_status !== (blocked ? "blocked" : "unblocked");
         const firewallCheck = statusPending || confirmation || reportedStatusMismatch ? `\n${firewallStateScript()}` : "";
+        // Dispositivos liberados (MAC bypass): a RB sincroniza os ip-bindings.
+        // Vale para a empresa toda (branch_id null) ou para a filial da RB.
+        let macBypass = "";
+        try {
+          const { data: config } = await (supabaseAdmin as any)
+            .from("hotspot_configs")
+            .select("branch_id")
+            .eq("id", device.hotspot_config_id)
+            .maybeSingle();
+          const branchId = (config as { branch_id?: string | null } | null)?.branch_id ?? null;
+          const { data: macRows } = await (supabaseAdmin as any)
+            .from("hotspot_mac_bypass")
+            .select("mac_address, branch_id")
+            .eq("company_id", device.company_id);
+          const macs = ((macRows ?? []) as { mac_address: string; branch_id: string | null }[])
+            .filter((r) => r.branch_id === null || r.branch_id === branchId)
+            .map((r) => r.mac_address);
+          macBypass = `\n${macBypassCommand(macs)}`;
+        } catch {
+          macBypass = "";
+        }
         return new Response(
-          `${schedulerIntervalCommand()}${radiusCommand}${hotspotLoginFileSyncCommand()}${statusCommand(blocked)}${firewallCheck}${confirmation}`,
+          `${schedulerIntervalCommand()}${radiusCommand}${hotspotLoginFileSyncCommand()}${statusCommand(blocked)}${firewallCheck}${confirmation}${macBypass}`,
           { headers },
         );
       },
