@@ -179,33 +179,37 @@ export function DeviceCard() {
               const temComputador = (dados?.modelosComputador ?? []).length > 0;
               const ativas = [temAndroid, temIos, temComputador].filter(Boolean).length;
               if (ativas === 0) return null;
-              const colunas =
-                ativas === 3 ? "sm:grid-cols-3" : ativas === 2 ? "sm:grid-cols-2" : "sm:grid-cols-1";
               return (
-                <div className={`grid gap-6 ${colunas}`}>
+                <div className="flex flex-wrap gap-6">
                   {temAndroid ? (
-                    <ListaModelos
-                      titulo="Android"
-                      modelos={dados?.modelosAndroid ?? []}
-                      total={dados?.android ?? 0}
-                      dotClass="bg-green-400"
-                    />
+                    <div className="min-w-[160px] flex-1">
+                      <ListaModelos
+                        titulo="Android"
+                        modelos={dados?.modelosAndroid ?? []}
+                        total={dados?.android ?? 0}
+                        dotClass="bg-green-400"
+                      />
+                    </div>
                   ) : null}
                   {temIos ? (
-                    <ListaModelos
-                      titulo="iOS"
-                      modelos={dados?.modelosIos ?? []}
-                      total={dados?.ios ?? 0}
-                      dotClass="bg-yellow-400"
-                    />
+                    <div className="min-w-[160px] flex-1">
+                      <ListaModelos
+                        titulo="iOS"
+                        modelos={dados?.modelosIos ?? []}
+                        total={dados?.ios ?? 0}
+                        dotClass="bg-yellow-400"
+                      />
+                    </div>
                   ) : null}
                   {temComputador ? (
-                    <ListaModelos
-                      titulo="Computador"
-                      modelos={dados?.modelosComputador ?? []}
-                      total={dados?.computador ?? 0}
-                      dotClass="bg-blue-500"
-                    />
+                    <div className="min-w-[160px] flex-1">
+                      <ListaModelos
+                        titulo="Computador"
+                        modelos={dados?.modelosComputador ?? []}
+                        total={dados?.computador ?? 0}
+                        dotClass="bg-blue-500"
+                      />
+                    </div>
                   ) : null}
                 </div>
               );
