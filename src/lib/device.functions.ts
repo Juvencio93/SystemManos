@@ -187,3 +187,72 @@ export const getDispositivosHoje = createServerFn({ method: "GET" })
       modelosComputador: topModelos(modelosComputador),
     };
   });
+
+export interface ConectadosAgoraDevices {
+  celular: number;
+  computador: number;
+}
+
+/**
+ * Breakdown dos conectados AGORA (últimos 15 min, mesma janela do
+ * `conectadosAgora` do insights) por tipo de aparelho — celular vs computador.
+ * Escopo por papel, igual ao getDispositivosHoje.
+ */
+export const getConectadosAgoraDevices = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<ConectadosAgoraDevices> => {
+    const { role, companyId, branchId } = (await resolveContext(
+      context.supabase,
+      context.userId,
+    )) as { role: string | null; companyId: string | null; branchId: string | null };
+
+    if (role !== "adm" && role !== "matriz" && role !== "filial" && role !== "revenda") {
+      return { celular: 0, computador: 0 };
+    }
+
+    let resellerCompanyIds: string[] = [];
+    let resellerBranchIds: string[] = [];
+    if (role === "revenda") {
+      const { data: roleRow } = await context.supabase
+        .from("user_roles")
+        .select("reseller_id")
+        .eq("user_id", context.userId)
+        .maybeSingle();
+      const resellerId = (roleRow as { reseller_id: string | null } | null)?.reseller_id;
+      if (!resellerId) return { celular: 0, computador: 0 };
+      const [{ data: companies }, { data: branches }] = await Promise.all([
+        context.supabase.from("companies").select("id").eq("reseller_id", resellerId),
+        context.supabase.from("branches").select("id").eq("reseller_id", resellerId),
+      ]);
+      resellerCompanyIds = ((companies ?? []) as { id: string }[]).map((row) => row.id);
+      resellerBranchIds = ((branches ?? []) as { id: string }[]).map((row) => row.id);
+      if (!resellerCompanyIds.length && !resellerBranchIds.length) return { celular: 0, computador: 0 };
+    }
+
+    const since = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    type Row = { device_type: string | null; user_agent: string | null };
+    let query = context.supabase
+      .from("connections")
+      .select("device_type,user_agent")
+      .gte("created_at", since);
+    if (role === "matriz" && companyId) query = query.eq("company_id", companyId);
+    else if (role === "filial" && branchId) query = query.eq("branch_id", branchId);
+    else if (role === "revenda") {
+      const filtros = [
+        ...(resellerCompanyIds.length ? [`company_id.in.(${resellerCompanyIds.join(",")})`] : []),
+        ...(resellerBranchIds.length ? [`branch_id.in.(${resellerBranchIds.join(",")})`] : []),
+      ];
+      query = query.or(filtros.join(","));
+    }
+    const { data, error } = await query.limit(2000);
+    if (error) throw error;
+
+    let celular = 0;
+    let computador = 0;
+    for (const row of (data ?? []) as Row[]) {
+      const bucket = classifyDevice(row.device_type, row.user_agent);
+      if (bucket === "android" || bucket === "ios") celular += 1;
+      else if (bucket === "desktop") computador += 1;
+    }
+    return { celular, computador };
+  });
