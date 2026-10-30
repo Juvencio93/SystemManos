@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import {
   List,
-  Kanban,
+  LayoutGrid,
   BarChart3,
   Download,
   Send,
@@ -31,6 +31,7 @@ import {
   type CrmStage,
 } from "@/lib/crm.functions";
 import { useAccess } from "@/hooks/use-access";
+import { QuadroView } from "./QuadroView";
 
 const STAGE_LABELS: Record<CrmStage, string> = {
   interessado: "Interessado",
@@ -108,7 +109,7 @@ export function CrmRedesign() {
   const fetchCampaigns = useServerFn(getCrmCampaigns);
   const saveLead = useServerFn(updateCrmLead);
 
-  const [view, setView] = useState<"lista" | "kanban" | "analytics">("lista");
+  const [view, setView] = useState<"lista" | "quadro" | "analytics">("lista");
   const [term, setTerm] = useState("");
   const [stage, setStage] = useState<CrmStage | "all">("all");
   const [campaignId, setCampaignId] = useState("all");
@@ -166,7 +167,7 @@ export function CrmRedesign() {
         </div>
         <div className="flex flex-wrap gap-2">
           <div className="flex rounded-lg border border-white/10 bg-white/[0.03] p-1">
-            {(["lista", "kanban", "analytics"] as const).map((v) => (
+            {(["lista", "quadro", "analytics"] as const).map((v) => (
               <Button
                 key={v}
                 variant="ghost"
@@ -175,9 +176,9 @@ export function CrmRedesign() {
                 className={view === v ? "bg-cyan-500/20 text-cyan-300" : "text-muted-foreground"}
               >
                 {v === "lista" && <List className="mr-1 size-4" />}
-                {v === "kanban" && <Kanban className="mr-1 size-4" />}
+                {v === "quadro" && <LayoutGrid className="mr-1 size-4" />}
                 {v === "analytics" && <BarChart3 className="mr-1 size-4" />}
-                {v === "lista" ? "Lista" : v === "kanban" ? "Kanban" : "Analytics"}
+                {v === "lista" ? "Lista" : v === "quadro" ? "Quadro" : "Analytics"}
               </Button>
             ))}
           </div>
@@ -316,13 +317,28 @@ export function CrmRedesign() {
         <CardHeader>
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex rounded-lg border border-white/10 bg-white/[0.03] p-1">
-              <Button variant="ghost" size="sm" className="bg-cyan-500/20 text-cyan-300">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setView("lista")}
+                className={view === "lista" ? "bg-cyan-500/20 text-cyan-300" : "text-muted-foreground"}
+              >
                 📋 Lista de Leads
               </Button>
-              <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setView("kanban")}>
-                🗂️ Kanban
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setView("quadro")}
+                className={view === "quadro" ? "bg-cyan-500/20 text-cyan-300" : "text-muted-foreground"}
+              >
+                🗂️ Quadro
               </Button>
-              <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setView("analytics")}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setView("analytics")}
+                className={view === "analytics" ? "bg-cyan-500/20 text-cyan-300" : "text-muted-foreground"}
+              >
                 📊 Analytics
               </Button>
             </div>
@@ -337,15 +353,17 @@ export function CrmRedesign() {
                 className="pl-9"
               />
             </div>
-            <Select value={stage} onValueChange={(v) => { setStage(v as CrmStage | "all"); setPage(1); }}>
-              <SelectTrigger className="w-[180px]"><SelectValue placeholder="Todas as etapas" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as etapas</SelectItem>
-                {STAGE_ORDER.map((s) => (
-                  <SelectItem key={s} value={s}>{STAGE_LABELS[s]}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {view !== "quadro" && (
+              <Select value={stage} onValueChange={(v) => { setStage(v as CrmStage | "all"); setPage(1); }}>
+                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Todas as etapas" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as etapas</SelectItem>
+                  {STAGE_ORDER.map((s) => (
+                    <SelectItem key={s} value={s}>{STAGE_LABELS[s]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <Select value={campaignId} onValueChange={(v) => { setCampaignId(v); setPage(1); }}>
               <SelectTrigger className="w-[180px]"><SelectValue placeholder="Todas as campanhas" /></SelectTrigger>
               <SelectContent>
@@ -358,6 +376,10 @@ export function CrmRedesign() {
           </div>
         </CardHeader>
         <CardContent>
+          {view === "quadro" ? (
+            <QuadroView term={term} campaignId={campaignId} />
+          ) : (
+          <>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[800px] border-collapse text-sm">
               <thead>
@@ -436,6 +458,8 @@ export function CrmRedesign() {
               </Button>
             </div>
           </div>
+          </>
+          )}
         </CardContent>
       </Card>
     </div>
