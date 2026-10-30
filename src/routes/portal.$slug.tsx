@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { LogoContainer } from "@/components/ui/logo-container";
 import {
   Select,
   SelectContent,
@@ -680,11 +681,19 @@ function PortalPage() {
     >
 
       {portal.logoUrl ? (
-        <img
-          src={portal.logoUrl}
-          alt={`Logo ${portal.companyName}`}
-          className={`h-auto w-auto bg-transparent object-contain ${logoMaxClass}`}
-        />
+        style === "elegante" ? (
+          <LogoContainer
+            src={portal.logoUrl}
+            alt={`Logo ${portal.companyName}`}
+            imgClassName={logoMaxClass}
+          />
+        ) : (
+          <img
+            src={portal.logoUrl}
+            alt={`Logo ${portal.companyName}`}
+            className={`h-auto w-auto bg-transparent object-contain ${logoMaxClass}`}
+          />
+        )
       ) : (
         <span
           className="font-display text-3xl font-black tracking-tight max-sm:text-2xl"

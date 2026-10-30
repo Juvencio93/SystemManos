@@ -34,6 +34,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { LogoContainer } from "@/components/ui/logo-container";
 import {
   Card,
   CardContent,
@@ -1485,7 +1486,7 @@ function SettingsPage() {
                 Fundo Escuro (Padrão App)
               </p>
               <div className="flex size-48 items-center justify-center rounded-xl bg-slate-900 p-4 shadow-sm">
-                <img src={logoUrl} alt="Logo Dark" className="size-full object-contain" />
+                <LogoContainer src={logoUrl} alt="Logo Dark" className="size-40" imgClassName="max-h-full max-w-full" />
               </div>
             </div>
           </div>
