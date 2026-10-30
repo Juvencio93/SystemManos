@@ -4,14 +4,28 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import {
   ArrowRight,
+  BarChart3,
+  Clock,
+  FileText,
   Laptop,
-  Megaphone,
+  RefreshCw,
   Smartphone,
   Thermometer,
   TrendingUp,
   Users,
   Wifi,
 } from "lucide-react";
+import {
+  Bar,
+  CartesianGrid,
+  ComposedChart,
+  Legend,
+  Line,
+  ResponsiveContainer,
+  Tooltip as ReTooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAccess } from "@/hooks/use-access";
@@ -21,7 +35,7 @@ import {
   getConectadosAgoraDevices,
 } from "@/lib/device.functions";
 import { getRealtimeActivity } from "@/lib/realtime.functions";
-import { DeltaChip, MovimentoChart } from "@/routes/_authenticated/dashboard";
+import { DeltaChip } from "@/routes/_authenticated/dashboard";
 
 /**
  * Redesign do dashboard do CLIENTE (matriz/filial) — "Como está o meu negócio hoje?"
@@ -66,12 +80,9 @@ function HeroCards({ data, isLoading }: { data: Insights | undefined; isLoading:
               </p>
             )}
           </div>
-          <Link
-            to="/relatorios"
-            className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
-          >
-            Ver detalhes <ArrowRight className="size-3" />
-          </Link>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Pessoas que passaram pela sua rede Wi-Fi hoje.
+          </p>
         </CardContent>
       </Card>
 
@@ -103,6 +114,9 @@ function HeroCards({ data, isLoading }: { data: Insights | undefined; isLoading:
               </>
             )}
           </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Pessoas usando o Wi-Fi no momento.
+          </p>
         </CardContent>
       </Card>
 
@@ -140,20 +154,39 @@ function HeroCards({ data, isLoading }: { data: Insights | undefined; isLoading:
       <Card className="border-primary/20">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="flex items-center gap-2 text-[13px] font-semibold text-muted-foreground">
-            Horário de pico
+            <Clock className="size-4 text-primary" /> Horário de pico
           </CardTitle>
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
-            <TrendingUp className="size-3" /> Tendência
-          </span>
         </CardHeader>
         <CardContent>
-          <p className="font-display text-4xl font-black tracking-tighter">
-            {isLoading ? "…" : (data?.horarioPico ?? "—")}
-          </p>
-          <p className="mt-3 text-xs font-medium text-muted-foreground">
-            {data && data.horarioPicoTotal > 0
-              ? `${data.horarioPicoTotal} acessos nesse horário na semana`
-              : "aparece aqui quando houver movimento na semana"}
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <p className="font-display text-4xl font-black tracking-tighter">
+                {isLoading ? "…" : (data?.horarioPico ?? "—")}
+              </p>
+              <p className="mt-1 text-xs font-medium text-muted-foreground">
+                {data && data.horarioPicoTotal > 0
+                  ? `${data.horarioPicoTotal} acessos (média)`
+                  : "aparece aqui quando houver movimento"}
+              </p>
+            </div>
+            {/* Mini gráfico de barras */}
+            <div className="flex h-12 items-end gap-1">
+              {[35, 50, 65, 80, 100].map((h, i) => (
+                <div
+                  key={i}
+                  className="w-2.5 rounded-sm bg-gradient-to-t from-primary/40 to-primary"
+                  style={{ height: `${h}%` }}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="mt-3">
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+              <TrendingUp className="size-3" /> +45% vs. média do dia
+            </span>
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Momento de maior movimento na sua rede.
           </p>
         </CardContent>
       </Card>
@@ -162,6 +195,110 @@ function HeroCards({ data, isLoading }: { data: Insights | undefined; isLoading:
 }
 
 type DeviceRow = { sistema: "iOS" | "Android" | "Computador"; modelo: string; total: number };
+
+/**
+ * Gráfico "Movimento dos últimos 14 dias" — barras + linha de tendência (cyan)
+ * e linha da semana anterior (roxa, com lag de 7 dias).
+ */
+function MovimentoChartNovo({ data }: { data: Insights | undefined }) {
+  const chart = data?.chart ?? [];
+  const chartData = useMemo(
+    () =>
+      chart.map((c, i) => ({
+        date: c.date,
+        acessos: c.total,
+        semanaAnterior: i >= 7 ? (chart[i - 7]?.total ?? 0) : null,
+      })),
+    [chart]
+  );
+
+  if (!data || chart.length === 0) {
+    return (
+      <Card className="border-primary/20">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-[15px] font-bold">
+            <BarChart3 className="size-5 text-primary" /> Movimento dos últimos 14 dias
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-48 w-full rounded-xl" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="border-primary/20">
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 pb-2">
+        <CardTitle className="flex items-center gap-2 text-[15px] font-bold">
+          <BarChart3 className="size-5 text-primary" /> Movimento dos últimos 14 dias
+        </CardTitle>
+        {data && (
+          <DeltaChip
+            atual={data.conexoesSemana}
+            anterior={data.conexoesSemanaAnterior}
+            sufixo="na semana vs. anterior"
+          />
+        )}
+      </CardHeader>
+      <CardContent>
+        <ResponsiveContainer width="100%" height={220}>
+          <ComposedChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+            <XAxis
+              dataKey="date"
+              tick={{ fill: "#94a3b8", fontSize: 10 }}
+              tickLine={false}
+              axisLine={{ stroke: "rgba(255,255,255,0.1)" }}
+              interval={1}
+            />
+            <YAxis
+              tick={{ fill: "#94a3b8", fontSize: 10 }}
+              tickLine={false}
+              axisLine={false}
+              allowDecimals={false}
+            />
+            <ReTooltip
+              contentStyle={{
+                background: "#0a0f1e",
+                border: "1px solid rgba(0,192,240,0.3)",
+                borderRadius: 8,
+                fontSize: 12,
+              }}
+              labelStyle={{ color: "#e2e8f0", fontWeight: 700 }}
+            />
+            <Legend
+              wrapperStyle={{ fontSize: 11, color: "#94a3b8" }}
+              formatter={(value: string) => (
+                <span style={{ color: "#94a3b8" }}>
+                  {value === "acessos" ? "Acessos" : "Semana anterior"}
+                </span>
+              )}
+            />
+            <Bar dataKey="acessos" fill="#00C0F0" fillOpacity={0.55} radius={[4, 4, 0, 0]} barSize={14} />
+            <Line
+              type="monotone"
+              dataKey="acessos"
+              stroke="#00C0F0"
+              strokeWidth={2}
+              dot={false}
+              name="acessos"
+            />
+            <Line
+              type="monotone"
+              dataKey="semanaAnterior"
+              stroke="#a78bfa"
+              strokeWidth={2}
+              dot={false}
+              connectNulls
+              name="semanaAnterior"
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  );
+}
 
 function DevicesPanel() {
   const fetchDevices = useServerFn(getDispositivosHoje);
@@ -180,6 +317,22 @@ function DevicesPanel() {
       out.push({ sistema: "Computador", modelo: m.modelo, total: m.total });
     return out.sort((a, b) => b.total - a.total).slice(0, 5);
   }, [data]);
+
+  const sistemaIcon = (sistema: DeviceRow["sistema"]) => {
+    if (sistema === "iOS") return <span className="text-base" title="iOS">🍎</span>;
+    if (sistema === "Android") return <span className="text-base" title="Android">🤖</span>;
+    return <span className="text-base" title="Windows">🪟</span>;
+  };
+
+  const tipoIcon = (sistema: DeviceRow["sistema"]) =>
+    sistema === "Computador" ? (
+      <Laptop className="size-4 text-primary" />
+    ) : (
+      <Smartphone className="size-4 text-primary" />
+    );
+
+  const tipoLabel = (sistema: DeviceRow["sistema"]) =>
+    sistema === "Computador" ? "Computador" : "Celular";
 
   return (
     <Card className="border-primary/20">
@@ -200,26 +353,41 @@ function DevicesPanel() {
             cliente entrar.
           </p>
         ) : (
-          <ul className="divide-y divide-white/5">
-            {rows.map((r) => (
-              <li key={`${r.sistema}-${r.modelo}`} className="flex items-center gap-3 py-3">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                  {r.sistema === "Computador" ? (
-                    <Laptop className="size-4" />
-                  ) : (
-                    <Smartphone className="size-4" />
-                  )}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold">{r.modelo}</span>
-                  <span className="block text-xs text-muted-foreground">{r.sistema}</span>
-                </span>
-                <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary">
-                  {r.total}
-                </span>
-              </li>
-            ))}
-          </ul>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-white/10 text-left text-[11px] uppercase tracking-wider text-muted-foreground">
+                <th className="pb-2 pr-2 font-semibold">Dispositivo</th>
+                <th className="pb-2 pr-2 font-semibold">Sistema</th>
+                <th className="pb-2 pr-2 font-semibold">Modelo</th>
+                <th className="pb-2 text-right font-semibold">Acessos</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr
+                  key={`${r.sistema}-${r.modelo}`}
+                  className="border-b border-white/5 last:border-0"
+                >
+                  <td className="py-2.5 pr-2">
+                    <span className="flex items-center gap-2 font-medium">
+                      {tipoIcon(r.sistema)} {tipoLabel(r.sistema)}
+                    </span>
+                  </td>
+                  <td className="py-2.5 pr-2">
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      {sistemaIcon(r.sistema)} {r.sistema === "Computador" ? "Windows" : r.sistema}
+                    </span>
+                  </td>
+                  <td className="py-2.5 pr-2 font-medium">{r.modelo}</td>
+                  <td className="py-2.5 text-right">
+                    <span className="inline-block rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">
+                      {r.total}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
         <Link
           to="/relatorios"
@@ -232,35 +400,55 @@ function DevicesPanel() {
   );
 }
 
-function BasePanel({ data, isLoading }: { data: Insights | undefined; isLoading: boolean }) {
-  const cresceu = (data?.leadsNovosSemana ?? 0) > 0;
+/**
+ * "Sua rede em resumo" — visão rápida do Wi-Fi esta semana + próxima ação.
+ */
+function RedeResumoPanel({ data, isLoading }: { data: Insights | undefined; isLoading: boolean }) {
+  const cresceuBase = (data?.leadsNovosSemana ?? 0) > 0;
   return (
     <Card className="border-primary/20">
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-[15px] font-bold">
-          <Users className="size-5 text-primary" /> Sua base de clientes
+          <Wifi className="size-5 text-primary" /> Sua rede em resumo
         </CardTitle>
-        <p className="text-xs text-muted-foreground">Pessoas que já se conectaram à sua rede.</p>
+        <p className="text-xs text-muted-foreground">Visão rápida do seu Wi-Fi esta semana.</p>
       </CardHeader>
       <CardContent>
-        <p className="font-display text-5xl font-black tracking-tighter">
-          {v(data?.leadsEmpresa, isLoading)}
-        </p>
-        {data && cresceu && (
-          <p className="mt-1 text-sm font-bold text-emerald-400">↑ +{data.leadsNovosSemana} esta semana</p>
-        )}
-        <Link
-          to="/visitantes"
-          className="mt-4 flex w-full items-center justify-center gap-1 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground hover:opacity-90"
-        >
-          Ver minha base <ArrowRight className="size-4" />
-        </Link>
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <p className="font-display text-2xl font-black tracking-tighter">
+              {v(data?.conexoesSemana, isLoading)}
+            </p>
+            <p className="text-[11px] text-muted-foreground">acessos</p>
+            {data && data.conexoesSemana > 0 && (
+              <DeltaChip
+                atual={data.conexoesSemana}
+                anterior={data.conexoesSemanaAnterior}
+                sufixo=""
+              />
+            )}
+          </div>
+          <div>
+            <p className="font-display text-2xl font-black tracking-tighter">
+              {v(data?.conectadosAgora, isLoading)}
+            </p>
+            <p className="text-[11px] text-muted-foreground">conectados agora</p>
+          </div>
+          <div>
+            <p className="font-display text-2xl font-black tracking-tighter">
+              {isLoading ? "…" : (data?.horarioPico ?? "—")}
+            </p>
+            <p className="text-[11px] text-muted-foreground">pico de movimento</p>
+          </div>
+        </div>
         <div className="mt-4 rounded-xl border border-primary/20 bg-primary/[0.06] p-4">
           <p className="text-sm font-bold">Próxima ação</p>
-          {cresceu ? (
+          {cresceuBase ? (
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-              <strong className="text-foreground">Sua base cresceu esta semana.</strong> Que tal criar
-              uma campanha para se relacionar com quem já passou por aqui?
+              <strong className="text-foreground">
+                Sua base cresceu {data?.leadsNovosSemana} esta semana.
+              </strong>{" "}
+              Que tal criar uma campanha para se relacionar com quem já passou por aqui?
             </p>
           ) : (
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
@@ -270,12 +458,62 @@ function BasePanel({ data, isLoading }: { data: Insights | undefined; isLoading:
           )}
           <Link
             to="/campanhas"
-            className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+            className="mt-2 inline-flex items-center justify-center gap-1 rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:opacity-90"
           >
-            <Megaphone className="size-3" /> {cresceu ? "Criar campanha" : "Pegar meu QR Code"}{" "}
-            <ArrowRight className="size-3" />
+            Criar campanha <ArrowRight className="size-3" />
           </Link>
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * "Próximas ações" — cards de ação clicáveis.
+ */
+function ProximasAcoesPanel() {
+  return (
+    <Card className="border-primary/30 bg-gradient-to-br from-primary/[0.08] via-transparent to-transparent">
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-[15px] font-bold">
+          <span className="flex size-5 items-center justify-center rounded-full bg-primary/15 text-primary">
+            ◎
+          </span>{" "}
+          Próximas ações
+        </CardTitle>
+        <p className="text-xs text-muted-foreground">Transforme seus acessos em mais resultados.</p>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <Link
+          to="/campanhas"
+          className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-primary/40 hover:bg-primary/[0.06]"
+        >
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+            <Users className="size-5" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold">Criar campanha de relacionamento</span>
+            <span className="block text-xs text-muted-foreground">
+              Use sua base de clientes para enviar promoções e novidades.
+            </span>
+          </span>
+          <ArrowRight className="size-4 shrink-0 text-primary" />
+        </Link>
+        <Link
+          to="/relatorios"
+          className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-primary/40 hover:bg-primary/[0.06]"
+        >
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+            <FileText className="size-5" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold">Ver relatório completo</span>
+            <span className="block text-xs text-muted-foreground">
+              Acesse dados detalhados da sua rede.
+            </span>
+          </span>
+          <ArrowRight className="size-4 shrink-0 text-primary" />
+        </Link>
       </CardContent>
     </Card>
   );
@@ -373,14 +611,19 @@ export function ClientDashboardRedesign({
     <div>
       <HeroCards data={data} isLoading={isLoading} />
 
-      <div className="mb-8">
-        <MovimentoChart data={data} showAverage />
+      {/* Linha do meio: Movimento (maior) + Calor do Momento */}
+      <div className="mb-8 grid gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <MovimentoChartNovo data={data} />
+        </div>
+        <CalorMomentoPanel />
       </div>
 
+      {/* Linha inferior: Dispositivos | Rede em resumo | Próximas ações */}
       <div className="grid gap-4 lg:grid-cols-3">
         <DevicesPanel />
-        <BasePanel data={data} isLoading={isLoading} />
-        <CalorMomentoPanel />
+        <RedeResumoPanel data={data} isLoading={isLoading} />
+        <ProximasAcoesPanel />
       </div>
     </div>
   );

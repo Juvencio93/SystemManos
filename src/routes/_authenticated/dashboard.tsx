@@ -19,9 +19,9 @@ import {
   MonitorSmartphone,
   Plus,
   QrCode,
+  RefreshCw,
   Store,
-  Timer,
-  Users,
+  Timer,  Users,
   Wallet,
   HandCoins,
   KeyRound,
@@ -1224,6 +1224,11 @@ function MatrizDashboard({ access }: { access: AccessInfo | null }) {
       access={access}
       title={`Olá, ${getUserGreetingName(access, "Parceiro")}`}
       subtitle="Seu negócio hoje — os números da sua rede Wi-Fi, atualizados agora."
+      headerExtra={
+        <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+          <RefreshCw className="size-3.5" /> Atualizado agora
+        </span>
+      }
     >
       {access?.companyId && <MatrizFinancialAlert />}
 
@@ -1374,6 +1379,11 @@ function FilialDashboard({ access }: { access: AccessInfo | null }) {
       access={access}
       title={`Olá, ${getUserGreetingName(access, "Operador")}`}
       subtitle="Sua unidade hoje — e como ela está na rede."
+      headerExtra={
+        <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+          <RefreshCw className="size-3.5" /> Atualizado agora
+        </span>
+      }
     >
       <ClientDashboardRedesign data={data} isLoading={insights.isLoading} />
     </DashboardLayout>
@@ -1385,11 +1395,13 @@ function DashboardLayout({
   title,
   subtitle,
   children,
+  headerExtra,
 }: {
   access: AccessInfo | null;
   title: string;
   subtitle: string;
   children: ReactNode;
+  headerExtra?: ReactNode;
 }) {
   const role = access?.role as keyof typeof roleLabel | undefined;
 
@@ -1399,11 +1411,14 @@ function DashboardLayout({
         title={<span className="font-display font-black tracking-tight text-2xl leading-tight sm:text-3xl md:text-4xl lg:text-[42px]">{title}</span>}
         subtitle={<span className="text-sm sm:text-base md:text-lg opacity-80">{subtitle}</span>}
         action={
-          role ? (
-            <Badge variant="outline" className="w-fit border-primary/40 text-primary">
-              {roleLabel[role]}
-            </Badge>
-          ) : null
+          <div className="flex flex-wrap items-center gap-2">
+            {headerExtra}
+            {role ? (
+              <Badge variant="outline" className="w-fit border-primary/40 text-primary">
+                {roleLabel[role]}
+              </Badge>
+            ) : null}
+          </div>
         }
       />
 
