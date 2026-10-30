@@ -20,6 +20,7 @@ import { Route as AuthenticatedCampanhasRouteImport } from './routes/_authentica
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedCreditosRouteImport } from './routes/_authenticated/creditos'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedDisparosRouteRouteImport } from './routes/_authenticated/disparos/route'
 import { Route as AuthenticatedEstoqueRbsRouteImport } from './routes/_authenticated/estoque-rbs'
 import { Route as AuthenticatedEventosRouteImport } from './routes/_authenticated/eventos'
 import { Route as AuthenticatedFiliaisRouteImport } from './routes/_authenticated/filiais'
@@ -36,6 +37,11 @@ import { Route as AuthenticatedRevendasRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedSolicitacoesPrivacidadeRouteImport } from './routes/_authenticated/solicitacoes-privacidade'
 import { Route as AuthenticatedVisitantesRouteImport } from './routes/_authenticated/visitantes'
 import { Route as PortalSlugRouteImport } from './routes/portal.$slug'
+import { Route as AuthenticatedDisparosConexaoRouteImport } from './routes/_authenticated/disparos/conexao'
+import { Route as AuthenticatedDisparosConfigRouteImport } from './routes/_authenticated/disparos/config'
+import { Route as AuthenticatedDisparosHistoricoRouteImport } from './routes/_authenticated/disparos/historico'
+import { Route as AuthenticatedDisparosNovoRouteImport } from './routes/_authenticated/disparos/novo'
+import { Route as AuthenticatedDisparosTemplatesRouteImport } from './routes/_authenticated/disparos/templates'
 import { Route as AuthenticatedEmpresasIndexRouteImport } from './routes/_authenticated/empresas.index'
 import { Route as AuthenticatedEmpresasCompanyIdRouteImport } from './routes/_authenticated/empresas.$companyId'
 import { Route as AuthenticatedFinanceiroIndexRouteImport } from './routes/_authenticated/financeiro/index'
@@ -124,6 +130,12 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedDisparosRouteRoute =
+  AuthenticatedDisparosRouteRouteImport.update({
+    id: '/disparos',
+    path: '/disparos',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedEstoqueRbsRoute = AuthenticatedEstoqueRbsRouteImport.update({
   id: '/estoque-rbs',
   path: '/estoque-rbs',
@@ -209,6 +221,36 @@ const PortalSlugRoute = PortalSlugRouteImport.update({
   path: '/portal/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedDisparosConexaoRoute =
+  AuthenticatedDisparosConexaoRouteImport.update({
+    id: '/conexao',
+    path: '/conexao',
+    getParentRoute: () => AuthenticatedDisparosRouteRoute,
+  } as any)
+const AuthenticatedDisparosConfigRoute =
+  AuthenticatedDisparosConfigRouteImport.update({
+    id: '/config',
+    path: '/config',
+    getParentRoute: () => AuthenticatedDisparosRouteRoute,
+  } as any)
+const AuthenticatedDisparosHistoricoRoute =
+  AuthenticatedDisparosHistoricoRouteImport.update({
+    id: '/historico',
+    path: '/historico',
+    getParentRoute: () => AuthenticatedDisparosRouteRoute,
+  } as any)
+const AuthenticatedDisparosNovoRoute =
+  AuthenticatedDisparosNovoRouteImport.update({
+    id: '/novo',
+    path: '/novo',
+    getParentRoute: () => AuthenticatedDisparosRouteRoute,
+  } as any)
+const AuthenticatedDisparosTemplatesRoute =
+  AuthenticatedDisparosTemplatesRouteImport.update({
+    id: '/templates',
+    path: '/templates',
+    getParentRoute: () => AuthenticatedDisparosRouteRoute,
+  } as any)
 const AuthenticatedEmpresasIndexRoute =
   AuthenticatedEmpresasIndexRouteImport.update({
     id: '/empresas/',
@@ -399,6 +441,7 @@ export interface FileRoutesByFullPath {
   '/direitos-do-titular': typeof DireitosDoTitularRoute
   '/politica-de-privacidade': typeof PoliticaDePrivacidadeRoute
   '/termos-de-uso': typeof TermosDeUsoRoute
+  '/disparos': typeof AuthenticatedDisparosRouteRouteWithChildren
   '/financeiro': typeof AuthenticatedFinanceiroRouteRouteWithChildren
   '/assinatura': typeof AuthenticatedAssinaturaRoute
   '/campanhas': typeof AuthenticatedCampanhasRoute
@@ -420,6 +463,11 @@ export interface FileRoutesByFullPath {
   '/solicitacoes-privacidade': typeof AuthenticatedSolicitacoesPrivacidadeRoute
   '/visitantes': typeof AuthenticatedVisitantesRoute
   '/portal/$slug': typeof PortalSlugRoute
+  '/disparos/conexao': typeof AuthenticatedDisparosConexaoRoute
+  '/disparos/config': typeof AuthenticatedDisparosConfigRoute
+  '/disparos/historico': typeof AuthenticatedDisparosHistoricoRoute
+  '/disparos/novo': typeof AuthenticatedDisparosNovoRoute
+  '/disparos/templates': typeof AuthenticatedDisparosTemplatesRoute
   '/empresas/$companyId': typeof AuthenticatedEmpresasCompanyIdRoute
   '/financeiro/a-receber': typeof AuthenticatedFinanceiroAReceberRoute
   '/financeiro/despesas': typeof AuthenticatedFinanceiroDespesasRoute
@@ -459,6 +507,7 @@ export interface FileRoutesByTo {
   '/direitos-do-titular': typeof DireitosDoTitularRoute
   '/politica-de-privacidade': typeof PoliticaDePrivacidadeRoute
   '/termos-de-uso': typeof TermosDeUsoRoute
+  '/disparos': typeof AuthenticatedDisparosRouteRouteWithChildren
   '/assinatura': typeof AuthenticatedAssinaturaRoute
   '/campanhas': typeof AuthenticatedCampanhasRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
@@ -479,6 +528,11 @@ export interface FileRoutesByTo {
   '/solicitacoes-privacidade': typeof AuthenticatedSolicitacoesPrivacidadeRoute
   '/visitantes': typeof AuthenticatedVisitantesRoute
   '/portal/$slug': typeof PortalSlugRoute
+  '/disparos/conexao': typeof AuthenticatedDisparosConexaoRoute
+  '/disparos/config': typeof AuthenticatedDisparosConfigRoute
+  '/disparos/historico': typeof AuthenticatedDisparosHistoricoRoute
+  '/disparos/novo': typeof AuthenticatedDisparosNovoRoute
+  '/disparos/templates': typeof AuthenticatedDisparosTemplatesRoute
   '/empresas/$companyId': typeof AuthenticatedEmpresasCompanyIdRoute
   '/financeiro/a-receber': typeof AuthenticatedFinanceiroAReceberRoute
   '/financeiro/despesas': typeof AuthenticatedFinanceiroDespesasRoute
@@ -520,6 +574,7 @@ export interface FileRoutesById {
   '/direitos-do-titular': typeof DireitosDoTitularRoute
   '/politica-de-privacidade': typeof PoliticaDePrivacidadeRoute
   '/termos-de-uso': typeof TermosDeUsoRoute
+  '/_authenticated/disparos': typeof AuthenticatedDisparosRouteRouteWithChildren
   '/_authenticated/financeiro': typeof AuthenticatedFinanceiroRouteRouteWithChildren
   '/_authenticated/assinatura': typeof AuthenticatedAssinaturaRoute
   '/_authenticated/campanhas': typeof AuthenticatedCampanhasRoute
@@ -541,6 +596,11 @@ export interface FileRoutesById {
   '/_authenticated/solicitacoes-privacidade': typeof AuthenticatedSolicitacoesPrivacidadeRoute
   '/_authenticated/visitantes': typeof AuthenticatedVisitantesRoute
   '/portal/$slug': typeof PortalSlugRoute
+  '/_authenticated/disparos/conexao': typeof AuthenticatedDisparosConexaoRoute
+  '/_authenticated/disparos/config': typeof AuthenticatedDisparosConfigRoute
+  '/_authenticated/disparos/historico': typeof AuthenticatedDisparosHistoricoRoute
+  '/_authenticated/disparos/novo': typeof AuthenticatedDisparosNovoRoute
+  '/_authenticated/disparos/templates': typeof AuthenticatedDisparosTemplatesRoute
   '/_authenticated/empresas/$companyId': typeof AuthenticatedEmpresasCompanyIdRoute
   '/_authenticated/financeiro/a-receber': typeof AuthenticatedFinanceiroAReceberRoute
   '/_authenticated/financeiro/despesas': typeof AuthenticatedFinanceiroDespesasRoute
@@ -582,6 +642,7 @@ export interface FileRouteTypes {
     | '/direitos-do-titular'
     | '/politica-de-privacidade'
     | '/termos-de-uso'
+    | '/disparos'
     | '/financeiro'
     | '/assinatura'
     | '/campanhas'
@@ -603,6 +664,11 @@ export interface FileRouteTypes {
     | '/solicitacoes-privacidade'
     | '/visitantes'
     | '/portal/$slug'
+    | '/disparos/conexao'
+    | '/disparos/config'
+    | '/disparos/historico'
+    | '/disparos/novo'
+    | '/disparos/templates'
     | '/empresas/$companyId'
     | '/financeiro/a-receber'
     | '/financeiro/despesas'
@@ -642,6 +708,7 @@ export interface FileRouteTypes {
     | '/direitos-do-titular'
     | '/politica-de-privacidade'
     | '/termos-de-uso'
+    | '/disparos'
     | '/assinatura'
     | '/campanhas'
     | '/configuracoes'
@@ -662,6 +729,11 @@ export interface FileRouteTypes {
     | '/solicitacoes-privacidade'
     | '/visitantes'
     | '/portal/$slug'
+    | '/disparos/conexao'
+    | '/disparos/config'
+    | '/disparos/historico'
+    | '/disparos/novo'
+    | '/disparos/templates'
     | '/empresas/$companyId'
     | '/financeiro/a-receber'
     | '/financeiro/despesas'
@@ -702,6 +774,7 @@ export interface FileRouteTypes {
     | '/direitos-do-titular'
     | '/politica-de-privacidade'
     | '/termos-de-uso'
+    | '/_authenticated/disparos'
     | '/_authenticated/financeiro'
     | '/_authenticated/assinatura'
     | '/_authenticated/campanhas'
@@ -723,6 +796,11 @@ export interface FileRouteTypes {
     | '/_authenticated/solicitacoes-privacidade'
     | '/_authenticated/visitantes'
     | '/portal/$slug'
+    | '/_authenticated/disparos/conexao'
+    | '/_authenticated/disparos/config'
+    | '/_authenticated/disparos/historico'
+    | '/_authenticated/disparos/novo'
+    | '/_authenticated/disparos/templates'
     | '/_authenticated/empresas/$companyId'
     | '/_authenticated/financeiro/a-receber'
     | '/_authenticated/financeiro/despesas'
@@ -869,6 +947,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/disparos': {
+      id: '/_authenticated/disparos'
+      path: '/disparos'
+      fullPath: '/disparos'
+      preLoaderRoute: typeof AuthenticatedDisparosRouteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/estoque-rbs': {
       id: '/_authenticated/estoque-rbs'
       path: '/estoque-rbs'
@@ -980,6 +1065,41 @@ declare module '@tanstack/react-router' {
       fullPath: '/portal/$slug'
       preLoaderRoute: typeof PortalSlugRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/disparos/conexao': {
+      id: '/_authenticated/disparos/conexao'
+      path: '/conexao'
+      fullPath: '/disparos/conexao'
+      preLoaderRoute: typeof AuthenticatedDisparosConexaoRouteImport
+      parentRoute: typeof AuthenticatedDisparosRouteRoute
+    }
+    '/_authenticated/disparos/config': {
+      id: '/_authenticated/disparos/config'
+      path: '/config'
+      fullPath: '/disparos/config'
+      preLoaderRoute: typeof AuthenticatedDisparosConfigRouteImport
+      parentRoute: typeof AuthenticatedDisparosRouteRoute
+    }
+    '/_authenticated/disparos/historico': {
+      id: '/_authenticated/disparos/historico'
+      path: '/historico'
+      fullPath: '/disparos/historico'
+      preLoaderRoute: typeof AuthenticatedDisparosHistoricoRouteImport
+      parentRoute: typeof AuthenticatedDisparosRouteRoute
+    }
+    '/_authenticated/disparos/novo': {
+      id: '/_authenticated/disparos/novo'
+      path: '/novo'
+      fullPath: '/disparos/novo'
+      preLoaderRoute: typeof AuthenticatedDisparosNovoRouteImport
+      parentRoute: typeof AuthenticatedDisparosRouteRoute
+    }
+    '/_authenticated/disparos/templates': {
+      id: '/_authenticated/disparos/templates'
+      path: '/templates'
+      fullPath: '/disparos/templates'
+      preLoaderRoute: typeof AuthenticatedDisparosTemplatesRouteImport
+      parentRoute: typeof AuthenticatedDisparosRouteRoute
     }
     '/_authenticated/empresas/': {
       id: '/_authenticated/empresas/'
@@ -1208,6 +1328,28 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedDisparosRouteRouteChildren {
+  AuthenticatedDisparosConexaoRoute: typeof AuthenticatedDisparosConexaoRoute
+  AuthenticatedDisparosConfigRoute: typeof AuthenticatedDisparosConfigRoute
+  AuthenticatedDisparosHistoricoRoute: typeof AuthenticatedDisparosHistoricoRoute
+  AuthenticatedDisparosNovoRoute: typeof AuthenticatedDisparosNovoRoute
+  AuthenticatedDisparosTemplatesRoute: typeof AuthenticatedDisparosTemplatesRoute
+}
+
+const AuthenticatedDisparosRouteRouteChildren: AuthenticatedDisparosRouteRouteChildren =
+  {
+    AuthenticatedDisparosConexaoRoute: AuthenticatedDisparosConexaoRoute,
+    AuthenticatedDisparosConfigRoute: AuthenticatedDisparosConfigRoute,
+    AuthenticatedDisparosHistoricoRoute: AuthenticatedDisparosHistoricoRoute,
+    AuthenticatedDisparosNovoRoute: AuthenticatedDisparosNovoRoute,
+    AuthenticatedDisparosTemplatesRoute: AuthenticatedDisparosTemplatesRoute,
+  }
+
+const AuthenticatedDisparosRouteRouteWithChildren =
+  AuthenticatedDisparosRouteRoute._addFileChildren(
+    AuthenticatedDisparosRouteRouteChildren,
+  )
+
 interface AuthenticatedFinanceiroRouteRouteChildren {
   AuthenticatedFinanceiroAReceberRoute: typeof AuthenticatedFinanceiroAReceberRoute
   AuthenticatedFinanceiroDespesasRoute: typeof AuthenticatedFinanceiroDespesasRoute
@@ -1235,6 +1377,7 @@ const AuthenticatedFinanceiroRouteRouteWithChildren =
   )
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedDisparosRouteRoute: typeof AuthenticatedDisparosRouteRouteWithChildren
   AuthenticatedFinanceiroRouteRoute: typeof AuthenticatedFinanceiroRouteRouteWithChildren
   AuthenticatedAssinaturaRoute: typeof AuthenticatedAssinaturaRoute
   AuthenticatedCampanhasRoute: typeof AuthenticatedCampanhasRoute
@@ -1261,6 +1404,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedDisparosRouteRoute: AuthenticatedDisparosRouteRouteWithChildren,
   AuthenticatedFinanceiroRouteRoute:
     AuthenticatedFinanceiroRouteRouteWithChildren,
   AuthenticatedAssinaturaRoute: AuthenticatedAssinaturaRoute,
