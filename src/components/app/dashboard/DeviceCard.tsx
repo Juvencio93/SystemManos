@@ -28,7 +28,7 @@ function ListaModelos({
       ) : (
         <ul className="space-y-1.5">
           {modelos.map((m) => (
-            <li key={m.modelo} className="flex items-center justify-between gap-2 text-sm">
+            <li key={m.modelo} className="flex items-center justify-start gap-2 text-sm">
               <span className="truncate font-medium">{m.modelo}</span>
               <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
                 {m.total}
