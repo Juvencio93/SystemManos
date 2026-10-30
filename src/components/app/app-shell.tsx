@@ -36,7 +36,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { roleLabel, useAccess, type AppRole } from "@/hooks/use-access";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, resetClientSessionWatchers } from "@/integrations/supabase/client";
 import { signOutFn } from "@/integrations/supabase/auth-session.functions";
 import { getUnreadPreSalesCount } from "@/lib/pre-sales.functions";
 
@@ -240,6 +240,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       // Segue para limpar o client de qualquer forma.
     }
     await supabase.auth.signOut();
+    // Desarma os watchers de idle/duração da sessão anterior.
+    resetClientSessionWatchers();
     navigate({ to: "/auth", replace: true });
   }
 
