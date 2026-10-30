@@ -169,20 +169,32 @@ export function DeviceCard() {
               </div>
             </div>
 
-            <div className="grid gap-6 sm:grid-cols-2">
-              <ListaModelos
-                titulo="Android"
-                modelos={dados?.modelosAndroid ?? []}
-                total={dados?.android ?? 0}
-                dotClass="bg-green-400"
-              />
-              <ListaModelos
-                titulo="iOS"
-                modelos={dados?.modelosIos ?? []}
-                total={dados?.ios ?? 0}
-                dotClass="bg-yellow-400"
-              />
-            </div>
+            {(() => {
+              const temAndroid = (dados?.modelosAndroid ?? []).length > 0;
+              const temIos = (dados?.modelosIos ?? []).length > 0;
+              if (!temAndroid && !temIos) return null;
+              const colunas = temAndroid && temIos ? "sm:grid-cols-2" : "sm:grid-cols-1";
+              return (
+                <div className={`grid gap-6 ${colunas}`}>
+                  {temAndroid ? (
+                    <ListaModelos
+                      titulo="Android"
+                      modelos={dados?.modelosAndroid ?? []}
+                      total={dados?.android ?? 0}
+                      dotClass="bg-green-400"
+                    />
+                  ) : null}
+                  {temIos ? (
+                    <ListaModelos
+                      titulo="iOS"
+                      modelos={dados?.modelosIos ?? []}
+                      total={dados?.ios ?? 0}
+                      dotClass="bg-yellow-400"
+                    />
+                  ) : null}
+                </div>
+              );
+            })()}
           </>
         )}
       </CardContent>
