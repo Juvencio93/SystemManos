@@ -291,7 +291,7 @@ function ChatPanel({ onClose, setIsOpen, activeConversationId, setActiveConversa
         enabled: !!access?.userId && !!access?.role,
         // Realtime atualiza mensagens/conversas imediatamente; este polling
         // é apenas uma salvaguarda leve para eventos perdidos.
-        refetchInterval: 30000,
+        refetchInterval: 60000,
         refetchIntervalInBackground: false,
     });
 
@@ -376,7 +376,7 @@ function ChatPanel({ onClose, setIsOpen, activeConversationId, setActiveConversa
       queryKey: ["chat-presence-status", trackedPresenceProfileIds],
       queryFn: async () => getPresenceStatus({ data: { profileIds: trackedPresenceProfileIds } }),
       enabled: trackedPresenceProfileIds.length > 0,
-      refetchInterval: 30000,
+      refetchInterval: 60000,
       refetchIntervalInBackground: false,
     });
 

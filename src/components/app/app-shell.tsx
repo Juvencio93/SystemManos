@@ -112,7 +112,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     queryKey: ["pre-sales-unread-count"],
     queryFn: () => fetchPreSalesCount(),
     enabled: access?.role === "adm",
-    refetchInterval: 60_000,
+    refetchInterval: 180_000,
+    refetchIntervalInBackground: false,
     retry: false,
   });
   const previousPreSalesCount = useRef<number | null>(null);
