@@ -49,6 +49,7 @@ import { CampanhaDestaqueCard } from "@/components/app/campanha-destaque-card";
 import { WifiVisitantesCard } from "@/components/app/wifi-visitantes-card";
 import { HotspotNetworkMap } from "@/components/app/hotspot-network-map";
 import { DeviceCard } from "@/components/app/dashboard/DeviceCard";
+import { AdmDashboardRedesign } from "@/components/app/dashboard/AdmDashboardRedesign";
 import { ClientDashboardRedesign } from "@/components/app/dashboard/ClientDashboardRedesign";
 import { PageHeader } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -488,7 +489,7 @@ function HeroAdm({
   );
 }
 
-function PrecisaDeVoceCard() {
+export function PrecisaDeVoceCard() {
   const buscarSenhas = useServerFn(listPasswordResetRequests);
   const buscarFin = useServerFn(getFinanceiroStats);
   const buscarAnalise = useServerFn(getLatestOperationalAnalysis);
@@ -663,7 +664,7 @@ const ROTULO_SEVERIDADE: Record<string, string> = {
   baixa: "baixa",
 };
 
-function ProblemasRedeResumo() {
+export function ProblemasRedeResumo() {
   const [aberto, setAberto] = useState(false);
   // "Limpar notificações" = marcar como visto NESTE navegador
   // (localStorage). O histórico no Hermes NÃO é apagado — a ficha da
@@ -915,39 +916,25 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
       access={access}
       title={`Olá, ${getUserGreetingName(access, "Administrador")}`}
       subtitle="Gerenciamento global da plataforma Manos Tech."
+      headerExtra={
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/10 px-2.5 py-1 text-xs font-bold text-emerald-300">
+          <span className="relative flex size-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex size-2 rounded-full bg-emerald-400" />
+          </span>
+          Rede ao vivo
+        </span>
+      }
     >
-      <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-primary">A rede agora</p>
-
-      <HeroAdm data={data} isLoading={insights.isLoading} conectados={connectedClients} />
-
-      <div className="mb-10">
-        <DeviceCard />
-      </div>
-      <PrecisaDeVoceCard />
-
-      <div className="mb-10">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h3 className="text-sm font-semibold">Radar da rede</h3>
-          <Link to="/monitoramento" className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
-            Abrir Monitoramento <ArrowRight className="size-3" />
-          </Link>
-        </div>
-        <HotspotNetworkMap
-          devices={radarDevices}
-          refreshSeconds={60}
-          isLoading={hotspotDevices.isLoading}
-          compact
-          onBlock={handleRadarBlock}
-          onReboot={handleRadarReboot}
-        />
-      </div>
-
-      <ProblemasRedeResumo />
-
-      <MovimentoChart data={data} showAverage />
-
-      <RankingUnidades data={data} limit={8} titulo="Empresas da rede — últimos 7 dias" entidade="empresa" />
-
+      <AdmDashboardRedesign
+        data={data}
+        isLoading={insights.isLoading}
+        conectados={connectedClients}
+        radarDevices={radarDevices}
+        radarLoading={hotspotDevices.isLoading}
+        onRadarBlock={handleRadarBlock}
+        onRadarReboot={handleRadarReboot}
+      />
     </DashboardLayout>
   );
 }
@@ -1159,7 +1146,7 @@ export function MovimentoChart({ data, showAverage }: { data: Insights | undefin
   );
 }
 
-function RankingUnidades({ data, limit, titulo, entidade }: { data: Insights | undefined; limit?: number; titulo?: string; entidade?: "unidade" | "empresa" }) {
+export function RankingUnidades({ data, limit, titulo, entidade }: { data: Insights | undefined; limit?: number; titulo?: string; entidade?: "unidade" | "empresa" }) {
   const ent = entidade ?? "unidade";
   const ranking = data?.rankingUnidades ?? [];
   const exibidas = limit

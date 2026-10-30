@@ -236,7 +236,7 @@ type DeviceRow = { sistema: "iOS" | "Android" | "Computador"; modelo: string; to
  * Gráfico "Movimento dos últimos 14 dias" — barras + linha de tendência (cyan)
  * e linha da semana anterior (roxa, com lag de 7 dias).
  */
-function MovimentoChartNovo({ data }: { data: Insights | undefined }) {
+export function MovimentoChartNovo({ data }: { data: Insights | undefined }) {
   const chart = data?.chart ?? [];
   const chartData = useMemo(() => {
     const base = chart.map((c, i) => ({
