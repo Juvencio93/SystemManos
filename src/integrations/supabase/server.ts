@@ -11,6 +11,7 @@
 
 import { createClient, type Session, type User } from "@supabase/supabase-js";
 import { deleteCookie, getCookie, getRequest, setCookie } from "@tanstack/react-start/server";
+import QRCode from "qrcode";
 import { supabaseDevFallback } from "./public-config";
 import type { Database } from "./types";
 import {
@@ -423,9 +424,24 @@ export async function signInWithPasswordServer(
     email: normalizedEmail,
     user_id: data.user.id,
   });
+  // O SVG de QR devolvido pelo Supabase no enroll chega ilegível no front
+  // (reportado 30/10: QR "todo errado", só o código manual funcionava).
+  // Geramos localmente com a lib `qrcode` (já dependência do projeto) a
+  // partir do URI otpauth — determinístico e testado.
+  const issuer = "Painel Manos Tech";
+  const totpUri =
+    enrolled.totp.uri ??
+    `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(normalizedEmail)}?secret=${enrolled.totp.secret}&issuer=${encodeURIComponent(issuer)}`;
+  let qrSvg: string;
+  try {
+    qrSvg = await QRCode.toString(totpUri, { type: "svg", margin: 2, width: 220 });
+  } catch (err) {
+    console.error("[mfa] falha ao gerar QR local; usando SVG do Supabase:", err);
+    qrSvg = enrolled.totp.qr_code;
+  }
   return {
     kind: "mfa-enroll",
-    qrCode: enrolled.totp.qr_code,
+    qrCode: qrSvg,
     secret: enrolled.totp.secret,
   };
 }
