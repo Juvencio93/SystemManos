@@ -35,7 +35,10 @@ function extractModel(
   const ua = userAgent ?? "";
   const dt = (deviceType ?? "").toLowerCase();
   if (bucket === "ios") {
-    if (/ipad/i.test(ua) || dt.includes("ipad")) return "iPad";
+    const dtOrig = (deviceType ?? "").trim();
+    // Se o device_type traz o modelo específico (ex: "iPhone 11"), usa ele
+    if (dtOrig && /iphone/i.test(dtOrig) && !/^(iphone|ipad)$/i.test(dtOrig)) return dtOrig;
+    if (/ipad/i.test(ua) || /ipad/i.test(dtOrig)) return "iPad";
     return "iPhone";
   }
   if (bucket === "android") {
