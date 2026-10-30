@@ -32,6 +32,7 @@ import {
 } from "@/lib/crm.functions";
 import { useAccess } from "@/hooks/use-access";
 import { QuadroView } from "./QuadroView";
+import { AnalyticsView } from "./AnalyticsView";
 
 const STAGE_LABELS: Record<CrmStage, string> = {
   interessado: "Interessado",
@@ -378,6 +379,8 @@ export function CrmRedesign() {
         <CardContent>
           {view === "quadro" ? (
             <QuadroView term={term} campaignId={campaignId} />
+          ) : view === "analytics" ? (
+            <AnalyticsView campaignId={campaignId} />
           ) : (
           <>
           <div className="overflow-x-auto">

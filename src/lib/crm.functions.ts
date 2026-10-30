@@ -357,6 +357,148 @@ export const getCrmLeads = createServerFn({ method: "GET" })
     };
   });
 
+export type CrmAnalyticsData = {
+  total: number;
+  stageCounts: Record<CrmStage, number>;
+  /** % de visitantes que autorizaram o contato (interessado / total) */
+  optInRate: number;
+  /** % de interessados que viraram cliente (convertido / interessado) */
+  conversionRate: number;
+  /** dias em média de Interessado → Convertido (null se nenhum convertido) */
+  avgDaysToConvert: number | null;
+  /** novos leads por dia, últimos 30 dias (data no fuso de São Paulo) */
+  evolution30: { date: string; total: number }[];
+  /** novos leads por dia, 30 dias anteriores (para comparação) */
+  evolutionPrev30: { date: string; total: number }[];
+  totalPrev30: number;
+  /** leads por campanha */
+  byCampaign: { name: string; total: number }[];
+  /** leads por origem (Matriz / Filial / Evento) */
+  bySource: { source: string; total: number }[];
+};
+
+export const getCrmAnalytics = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) =>
+    z.object({
+      campaignId: z.string().uuid().nullable().optional(),
+      companyId: z.string().uuid().nullable().optional(),
+    }).parse(input),
+  )
+  .handler(async ({ data: filters, context }): Promise<CrmAnalyticsData> => {
+    const scope = await resolveCrmScope(context.supabase, context.userId);
+
+    let query = context.supabase
+      .from("crm_leads")
+      .select(
+        "id, stage, created_at, converted_at, campaign_id, campaigns(name), branches:branches!crm_leads_source_branch_id_fkey(name, trade_name), events:events!crm_leads_source_event_id_fkey(name)",
+      )
+      .order("created_at", { ascending: false })
+      .limit(5000);
+
+    if (scope.role !== "adm" && scope.companyId) query = query.eq("company_id", scope.companyId);
+    if (scope.role === "filial" && scope.branchId) {
+      query = query.eq("source_branch_id", scope.branchId);
+    }
+    if (filters.campaignId) query = query.eq("campaign_id", filters.campaignId);
+    if (filters.companyId) query = query.eq("company_id", filters.companyId);
+
+    const { data, error } = await query;
+    if (error) throw error;
+    const rows = data ?? [];
+
+    const stageCounts = CRM_STAGES.reduce<Record<CrmStage, number>>((acc, stage) => {
+      acc[stage] = rows.filter((row) => row.stage === stage).length;
+      return acc;
+    }, {} as Record<CrmStage, number>);
+    const total = rows.length;
+
+    const optInRate = total > 0 ? (stageCounts.interessado / total) * 100 : 0;
+    const conversionRate =
+      stageCounts.interessado > 0 ? (stageCounts.convertido / stageCounts.interessado) * 100 : 0;
+
+    // Tempo médio até conversão: converted_at - created_at (em dias)
+    const conversionDiffs = rows
+      .filter((row) => row.stage === "convertido" && row.converted_at && row.created_at)
+      .map(
+        (row) =>
+          (new Date(row.converted_at as string).getTime() -
+            new Date(row.created_at as string).getTime()) /
+          (24 * 60 * 60 * 1000),
+      )
+      .filter((d) => d >= 0);
+    const avgDaysToConvert =
+      conversionDiffs.length > 0
+        ? conversionDiffs.reduce((a, b) => a + b, 0) / conversionDiffs.length
+        : null;
+
+    // Evolução: últimos 30 dias vs 30 dias anteriores (fuso de São Paulo)
+    const spDay = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" });
+    const now = new Date();
+    const days30: string[] = [];
+    for (let i = 29; i >= 0; i--) {
+      days30.push(spDay.format(new Date(now.getTime() - i * 24 * 60 * 60 * 1000)));
+    }
+    const daysPrev30: string[] = [];
+    for (let i = 59; i >= 30; i--) {
+      daysPrev30.push(spDay.format(new Date(now.getTime() - i * 24 * 60 * 60 * 1000)));
+    }
+    const totals30 = new Map<string, number>();
+    const totalsPrev30 = new Map<string, number>();
+    for (const row of rows) {
+      const day = spDay.format(new Date(row.created_at as string));
+      if (days30.includes(day)) totals30.set(day, (totals30.get(day) ?? 0) + 1);
+      else if (daysPrev30.includes(day)) totalsPrev30.set(day, (totalsPrev30.get(day) ?? 0) + 1);
+    }
+    const evolution30 = days30.map((day) => ({
+      date: `${day.slice(8, 10)}/${day.slice(5, 7)}`,
+      total: totals30.get(day) ?? 0,
+    }));
+    const evolutionPrev30 = daysPrev30.map((day) => ({
+      date: `${day.slice(8, 10)}/${day.slice(5, 7)}`,
+      total: totalsPrev30.get(day) ?? 0,
+    }));
+    const totalPrev30 = [...totalsPrev30.values()].reduce((a, b) => a + b, 0);
+
+    // Por campanha
+    const campaignTotals = new Map<string, number>();
+    for (const row of rows) {
+      const campaign = row.campaigns as { name: string } | null;
+      const name = campaign?.name?.trim() || "Sem campanha";
+      campaignTotals.set(name, (campaignTotals.get(name) ?? 0) + 1);
+    }
+    const byCampaign = [...campaignTotals.entries()]
+      .map(([name, campTotal]) => ({ name, total: campTotal }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 8);
+
+    // Por origem (Matriz / Filial / Evento)
+    const sourceTotals = new Map<string, number>();
+    for (const row of rows) {
+      const branch = row.branches as { name: string; trade_name: string | null } | null;
+      const event = row.events as { name: string } | null;
+      const source = event ? "Evento" : branch ? "Filial" : "Matriz";
+      sourceTotals.set(source, (sourceTotals.get(source) ?? 0) + 1);
+    }
+    const bySource = [...sourceTotals.entries()]
+      .map(([source, sourceTotal]) => ({ source, total: sourceTotal }))
+      .sort((a, b) => b.total - a.total);
+
+    return {
+      total,
+      stageCounts,
+      optInRate: Math.round(optInRate * 10) / 10,
+      conversionRate: Math.round(conversionRate * 10) / 10,
+      avgDaysToConvert:
+        avgDaysToConvert !== null ? Math.round(avgDaysToConvert * 10) / 10 : null,
+      evolution30,
+      evolutionPrev30,
+      totalPrev30,
+      byCampaign,
+      bySource,
+    };
+  });
+
 export const updateCrmLead = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: unknown) =>
