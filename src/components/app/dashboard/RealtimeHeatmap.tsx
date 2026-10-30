@@ -58,7 +58,8 @@ export function RealtimeHeatmap() {
     queryKey: ["realtime-activity", access?.userId, access?.companyId, access?.branchId],
     queryFn: () => fetchActivity({}),
     enabled: canFetchActivity && Boolean(access?.userId),
-    refetchInterval: 30000,
+    refetchInterval: 60000,
+    refetchIntervalInBackground: false,
     staleTime: 25000,
   });
 

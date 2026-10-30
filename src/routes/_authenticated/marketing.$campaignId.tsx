@@ -66,7 +66,8 @@ function MarketingDashboard() {
 
   const query = useQuery({
     queryKey: ["marketing", campaignId],
-    refetchInterval: 60_000,
+    refetchInterval: 180_000,
+    refetchIntervalInBackground: false,
     queryFn: async () => {
       const [campaign, connections] = await Promise.all([
         supabase

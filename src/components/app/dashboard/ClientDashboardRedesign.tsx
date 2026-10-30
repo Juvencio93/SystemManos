@@ -50,7 +50,8 @@ function HeroCards({ data, isLoading }: { data: Insights | undefined; isLoading:
   const { data: agoraDevices } = useQuery({
     queryKey: ["conectados-agora-devices"],
     queryFn: () => fetchAgoroDevices(),
-    refetchInterval: 60_000,
+    refetchInterval: 180_000,
+    refetchIntervalInBackground: false,
   });
 
   // "vs. mesmo dia da semana passada": chart tem 14 dias, o último é hoje.
@@ -361,7 +362,8 @@ function DevicesPanel() {
   const { data, isLoading } = useQuery({
     queryKey: ["dispositivos-hoje"],
     queryFn: () => fetchDevices(),
-    refetchInterval: 60_000,
+    refetchInterval: 180_000,
+    refetchIntervalInBackground: false,
   });
 
   const rows: DeviceRow[] = useMemo(() => {
@@ -598,7 +600,8 @@ function CalorMomentoPanel() {
     queryKey: ["realtime-activity", access?.userId, access?.companyId, access?.branchId],
     queryFn: () => fetchActivity({}),
     enabled: Boolean(access?.userId),
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
     staleTime: 25_000,
   });
 
