@@ -8,7 +8,8 @@ import { requestPasswordReset } from "@/lib/password-reset.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, ensureClientSession } from "@/integrations/supabase/client";
+import { signInFn } from "@/integrations/supabase/auth-session.functions";
 import manosTechLogo from "@/assets/manos-tech-logo-institutional.png";
 import sidebarLogo from "@/assets/manostech-sidebar-logo.svg";
 
@@ -42,6 +43,7 @@ type AuthMode = "login" | "forgot" | "reset";
 function AuthPage() {
   const navigate = useNavigate();
   const requestResetFn = useServerFn(requestPasswordReset);
+  const signInServerFn = useServerFn(signInFn);
   const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
@@ -64,8 +66,13 @@ function AuthPage() {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY") setMode("reset");
     });
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session && !recoveryLink) navigate({ to: "/dashboard", replace: true });
+    // Hidrata o client em memória a partir do cookie httpOnly antes de
+    // decidir o redirect — sem isso, um reload em /auth com cookie válido
+    // não redirecionaria ao dashboard.
+    void ensureClientSession().then(() => {
+      supabase.auth.getSession().then(({ data }) => {
+        if (data.session && !recoveryLink) navigate({ to: "/dashboard", replace: true });
+      });
     });
     return () => sub.subscription.unsubscribe();
   }, [navigate]);
@@ -78,12 +85,17 @@ function AuthPage() {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword(parsed.data);
-    setLoading(false);
-    if (error) {
+    // Login no SERVIDOR: a sessão vai para um cookie httpOnly (ver
+    // auth-session.functions.ts). A resposta hidrata o client em memória.
+    try {
+      const { session } = await signInServerFn({ data: parsed.data });
+      if (session) await supabase.auth.setSession(session);
+    } catch {
+      setLoading(false);
       toast.error("Não foi possível entrar. Verifique e-mail e senha.");
       return;
     }
+    setLoading(false);
     navigate({ to: "/dashboard", replace: true });
   }
 
@@ -125,11 +137,27 @@ function AuthPage() {
     }
     setLoading(true);
     const { error } = await supabase.auth.updateUser({ password: newPassword });
-    setLoading(false);
     if (error) {
+      setLoading(false);
       toast.error("Não foi possível salvar a nova senha. Abra o link do e-mail de novo.");
       return;
     }
+    // A troca via link de recuperação autenticou só o client em memória;
+    // estabelece a sessão no servidor (cookie httpOnly) com a nova senha.
+    // Sem isso, o dashboard carregaria sem sessão nas server functions.
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const recoveryEmail = userData.user?.email ?? email;
+      if (recoveryEmail) {
+        const { session } = await signInServerFn({
+          data: { email: recoveryEmail, password: newPassword },
+        });
+        if (session) await supabase.auth.setSession(session);
+      }
+    } catch {
+      // Se falhar, o login manual com a nova senha resolve.
+    }
+    setLoading(false);
     toast.success("Senha atualizada! Bem-vindo de volta.");
     navigate({ to: "/dashboard", replace: true });
   }

@@ -10,7 +10,7 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import { Toaster } from "@/components/ui/sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, ensureClientSession } from "@/integrations/supabase/client";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -169,6 +169,9 @@ function RootComponent() {
   const router = useRouter();
 
   useEffect(() => {
+    // Hidrata a sessão em memória a partir do cookie httpOnly (e limpa
+    // tokens legados do localStorage). Idempotente.
+    void ensureClientSession();
     const { data } = supabase.auth.onAuthStateChange((event) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       router.invalidate();

@@ -25,8 +25,8 @@ export function RealtimeHeatmap() {
   const [hasSession, setHasSession] = useState(false);
 
   // Server functions protected by requireSupabaseAuth must not run during
-  // hydration. Wait until the browser session is available so the global
-  // auth middleware can add the bearer token to the request.
+  // hydration. Wait until the browser session is available (hydrated from
+  // the httpOnly cookie) before calling them.
   useEffect(() => {
     let mounted = true;
 

@@ -37,6 +37,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { roleLabel, useAccess, type AppRole } from "@/hooks/use-access";
 import { supabase } from "@/integrations/supabase/client";
+import { signOutFn } from "@/integrations/supabase/auth-session.functions";
 import { getUnreadPreSalesCount } from "@/lib/pre-sales.functions";
 
 type NavItem = {
@@ -106,6 +107,7 @@ const NAV: NavItem[] = [
 export function AppShell({ children }: { children: ReactNode }) {
   const { data: access, isLoading: accessLoading } = useAccess();
   const fetchPreSalesCount = useServerFn(getUnreadPreSalesCount);
+  const signOutServerFn = useServerFn(signOutFn);
   const preSalesCount = useQuery({
     queryKey: ["pre-sales-unread-count"],
     queryFn: () => fetchPreSalesCount(),
@@ -230,6 +232,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   async function handleSignOut() {
     await queryClient.cancelQueries();
     queryClient.clear();
+    // Limpa a sessão no servidor (revoga os tokens + apaga o cookie
+    // httpOnly) e depois no client em memória.
+    try {
+      await signOutServerFn();
+    } catch {
+      // Segue para limpar o client de qualquer forma.
+    }
     await supabase.auth.signOut();
     navigate({ to: "/auth", replace: true });
   }

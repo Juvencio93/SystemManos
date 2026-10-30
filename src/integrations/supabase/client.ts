@@ -2,7 +2,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { supabaseDevFallback } from "./public-config";
 import type { Database } from "./types";
-import { brokeredPreviewStorage } from "./previewAuthStorage";
+import { brokeredPreviewStorage, isPreviewAuthFallback } from "./previewAuthStorage";
 
 function isNewSupabaseApiKey(value: string): boolean {
   return value.startsWith("sb_publishable_") || value.startsWith("sb_secret_");
@@ -38,9 +38,7 @@ function createSupabaseClient() {
   // Vite dev server is running; production builds without envs fail loudly.
   const fallback = supabaseDevFallback();
   const SUPABASE_URL =
-    import.meta.env["VITE_SUPABASE_URL"] ||
-    process.env["SUPABASE_URL"] ||
-    fallback?.url;
+    import.meta.env["VITE_SUPABASE_URL"] || process.env["SUPABASE_URL"] || fallback?.url;
   const SUPABASE_PUBLISHABLE_KEY =
     import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
     process.env["SUPABASE_PUBLISHABLE_KEY"] ||
@@ -78,3 +76,102 @@ export const supabase = new Proxy({} as ReturnType<typeof createSupabaseClient>,
     return Reflect.get(_supabase, prop, receiver);
   },
 });
+
+// ---------------------------------------------------------------------------
+// Espelho da sessão em memória (migração localStorage → cookie httpOnly).
+//
+// O servidor é o dono da sessão (cookie httpOnly — ver ./server.ts). O
+// navegador mantém um espelho APENAS em memória para as chamadas diretas
+// (realtime, storage, supabase.from). Nada sensível toca localStorage ou
+// cookie legível por JS.
+// ---------------------------------------------------------------------------
+
+let _hydrated = false;
+let _refreshSyncWired = false;
+
+// Chaves legadas do supabase-js (qualquer project ref).
+const LEGACY_TOKEN_KEY = /^sb-.*-auth-token$/;
+
+// Remove sessões antigas do localStorage no primeiro acesso pós-deploy,
+// evitando "sessão dupla" (cookie novo + token velho no disco).
+function clearLegacyLocalStorage(): void {
+  if (isPreviewAuthFallback()) return; // nesse modo o localStorage é o oficial
+  try {
+    const doomed: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && LEGACY_TOKEN_KEY.test(key)) doomed.push(key);
+    }
+    doomed.forEach((key) => localStorage.removeItem(key));
+  } catch {
+    // Storage indisponível — segue sem limpar.
+  }
+}
+
+function wireRefreshSync(): void {
+  if (_refreshSyncWired || isPreviewAuthFallback()) return;
+  _refreshSyncWired = true;
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (event === "TOKEN_REFRESHED" && session) {
+      // O client renovou sozinho: espelha no cookie httpOnly (o servidor
+      // valida os tokens antes de gravar).
+      void import("./auth-session.functions")
+        .then(({ syncRefreshedSessionFn }) =>
+          syncRefreshedSessionFn({
+            data: {
+              access_token: session.access_token,
+              refresh_token: session.refresh_token,
+              ...(typeof session.expires_at === "number" ? { expires_at: session.expires_at } : {}),
+            },
+          }),
+        )
+        .catch(() => {
+          // Falhou: o próximo acesso ao servidor renova o cookie sozinho.
+        });
+      return;
+    }
+    if (event === "SIGNED_OUT" && _hydrated) {
+      // Pode ser race de refresh multi-aba (outra aba renovou e o cookie
+      // já tem um par mais novo) ou logout real. Tenta re-hidratar uma
+      // vez: se o cookie ainda for válido, era race — restaura a sessão
+      // sem deslogar o usuário.
+      _hydrated = false;
+      void ensureClientSession();
+    }
+  });
+}
+
+/**
+ * Hidrata o client em memória a partir do cookie httpOnly (via servidor).
+ * Idempotente — pode ser chamada à vontade. No modo fallback de preview
+ * não faz nada (o localStorage já é a fonte).
+ */
+export async function ensureClientSession(): Promise<void> {
+  if (typeof window === "undefined") return;
+  clearLegacyLocalStorage();
+  wireRefreshSync();
+  if (_hydrated || isPreviewAuthFallback()) return;
+  try {
+    const { data: current } = await supabase.auth.getSession();
+    if (!current.session) {
+      const { fetchSessionFn } = await import("./auth-session.functions");
+      const { session } = await fetchSessionFn();
+      if (session) {
+        await supabase.auth.setSession(session);
+      }
+    }
+    // Só marca depois de concluir sem erro de rede — se a chamada ao
+    // servidor falhar, a próxima chamada tenta de novo.
+    _hydrated = true;
+  } catch {
+    // Sem sessão — segue deslogado; as telas lidam com isso.
+  }
+}
+
+// Dispara a hidratação o quanto antes no navegador para encurtar a janela
+// em que chamadas diretas (realtime/storage) ainda não têm token em
+// memória. Os efeitos das rotas chamam ensureClientSession() de novo por
+// garantia (é idempotente).
+if (typeof window !== "undefined" && !isPreviewAuthFallback()) {
+  void ensureClientSession();
+}
