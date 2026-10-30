@@ -3,7 +3,6 @@ import { ImageIcon, MapPin, Wifi } from "lucide-react";
 import { BannerCarousel } from "@/components/app/banner-carousel";
 import { SponsorsCarousel } from "@/components/app/sponsors-carousel";
 import { portalLayoutFor } from "@/components/app/portal/portal-layouts";
-import { LogoContainer } from "@/components/ui/logo-container";
 import type { PortalSponsor } from "@/lib/campaign-sponsors";
 import { type PortalAppearance } from "@/lib/campaign-appearance";
 import { portalTheme } from "@/lib/portal-theme";
@@ -60,19 +59,11 @@ export function CampaignPortalPreview({
     >
 
       {logoUrl ? (
-        style === "elegante" ? (
-          <LogoContainer
-            src={logoUrl}
-            alt="Logo da campanha"
-            imgClassName="max-h-14"
-          />
-        ) : (
-          <img
-            src={logoUrl}
-            alt="Logo da campanha"
-            className={`h-auto w-auto bg-transparent object-contain ${style === "vibrante" ? "max-h-16" : "max-h-12"}`}
-          />
-        )
+        <img
+          src={logoUrl}
+          alt="Logo da campanha"
+          className={`h-auto w-auto bg-transparent object-contain ${style === "vibrante" ? "max-h-16" : style === "elegante" ? "max-h-14" : "max-h-12"}`}
+        />
       ) : (
         <ImageIcon className="size-6 text-[color:var(--portal-muted)]" />
       )}
