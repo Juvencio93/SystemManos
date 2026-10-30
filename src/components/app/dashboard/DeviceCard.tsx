@@ -180,9 +180,9 @@ export function DeviceCard() {
               const ativas = [temAndroid, temIos, temComputador].filter(Boolean).length;
               if (ativas === 0) return null;
               return (
-                <div className="flex flex-wrap gap-6">
+                <div className="flex flex-wrap justify-center gap-6">
                   {temAndroid ? (
-                    <div className="min-w-[160px] flex-1">
+                    <div className="w-full max-w-[280px] sm:w-auto sm:min-w-[200px] sm:flex-1">
                       <ListaModelos
                         titulo="Android"
                         modelos={dados?.modelosAndroid ?? []}
@@ -192,7 +192,7 @@ export function DeviceCard() {
                     </div>
                   ) : null}
                   {temIos ? (
-                    <div className="min-w-[160px] flex-1">
+                    <div className="w-full max-w-[280px] sm:w-auto sm:min-w-[200px] sm:flex-1">
                       <ListaModelos
                         titulo="iOS"
                         modelos={dados?.modelosIos ?? []}
@@ -202,7 +202,7 @@ export function DeviceCard() {
                     </div>
                   ) : null}
                   {temComputador ? (
-                    <div className="min-w-[160px] flex-1">
+                    <div className="w-full max-w-[280px] sm:w-auto sm:min-w-[200px] sm:flex-1">
                       <ListaModelos
                         titulo="Computador"
                         modelos={dados?.modelosComputador ?? []}
