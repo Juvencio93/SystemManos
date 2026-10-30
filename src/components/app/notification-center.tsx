@@ -124,7 +124,11 @@ export function NotificationCenter({ userId, role }: { userId: string; role: App
         category: "hotspot",
         href: notificationHref("hotspot", role),
       }));
-      return [...savedAlerts, ...scopedOperationalAlerts].sort(
+      // Alertas técnicos das RBs são informação operacional interna: só adm e revenda os veem.
+      // matriz/filial (clientes) recebem apenas os system_notifications endereçados a eles.
+      const visibleOperationalAlerts =
+        role === "adm" || role === "revenda" ? scopedOperationalAlerts : [];
+      return [...savedAlerts, ...visibleOperationalAlerts].sort(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       );
     },
