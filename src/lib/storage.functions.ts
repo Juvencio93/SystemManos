@@ -150,8 +150,11 @@ export const getAttachmentSignedUrl = createServerFn({ method: "GET" })
   });
 
 /**
- * Generic function for public URLs (kept for backward compatibility where safe)
- * @deprecated Use specific signed URL functions for private buckets
+ * URL pública estável para assets de campanha (bucket campaign-assets é
+ * público por design — o portal cativo serve direto). Diferente da URL
+ * assinada, o endereço não muda a cada chamada, então o Cache-Control
+ * de 1 ano gravado no objeto funciona e o navegador/CDN segura o arquivo.
+ * O gate de permissão (canSignCampaignAsset) continua na frente.
  */
 export const getPublicStorageUrl = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -160,7 +163,6 @@ export const getPublicStorageUrl = createServerFn({ method: "GET" })
       .object({
         bucket: z.literal("campaign-assets"),
         path: z.string().trim().min(1).max(500),
-        expiresIn: z.number().int().min(60).max(3_600).optional(),
       })
       .parse(data),
   )
@@ -169,11 +171,10 @@ export const getPublicStorageUrl = createServerFn({ method: "GET" })
     if (!(await canSignCampaignAsset(context.supabase, context.userId, data.path))) {
       throw new Error("Você não tem permissão para acessar este arquivo.");
     }
-    const { data: signedData, error } = await supabaseAdmin.storage
-      .from(data.bucket)
-      .createSignedUrl(data.path, data.expiresIn || 3_600);
-    if (error || !signedData?.signedUrl) throw new Error("Não foi possível gerar o acesso temporário ao arquivo.");
-    return signedData.signedUrl;
+    const {
+      data: { publicUrl },
+    } = supabaseAdmin.storage.from(data.bucket).getPublicUrl(data.path);
+    return publicUrl;
   });
 
 export const finalizeLogoUpload = createServerFn({ method: "POST" })
