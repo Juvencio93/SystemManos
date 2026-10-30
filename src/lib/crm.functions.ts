@@ -3,13 +3,9 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export const CRM_STAGES = [
-  "novo",
-  "contato_iniciado",
-  "respondeu",
   "interessado",
-  "convertido",
-  "nao_respondeu",
   "sem_interesse",
+  "convertido",
   "nao_contatar",
 ] as const;
 
