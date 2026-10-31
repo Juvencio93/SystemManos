@@ -1,10 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowRight, ArrowUp } from "lucide-react";
+import { ArrowRight, ArrowUp, Gauge, RotateCcw, Timer } from "lucide-react";
 import logo from "@/assets/manos-tech-logo-institutional.png";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { openPreSaleChat, PreSaleForm } from "@/components/app/pre-sale-form";
 import { DashboardDemo } from "@/components/app/dashboard-demo";
+import { WifiVisitantesDemo } from "@/components/app/wifi-visitantes-demo";
 
 const SOCIAL_IMAGE_URL = new URL(logo, "https://manostech-system.com.br").toString();
 
@@ -461,6 +462,60 @@ function SalesHomePage() {
           <p className="mt-6 text-center text-xs italic text-slate-500">
             Demonstração com dados de exemplo.
           </p>
+        </div>
+      </section>
+
+      <section id="controle" className="scroll-mt-20">
+        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
+          <ScrollReveal>
+            <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
+              Controle
+            </p>
+            <h2 className="mt-3 max-w-3xl font-display text-3xl font-bold tracking-tight sm:text-4xl">
+              Você controla o Wi-Fi dos seus visitantes.
+            </h2>
+            <p className="mt-6 max-w-2xl text-base leading-7 text-slate-300">
+              No seu painel, você define as regras do Wi-Fi para visitantes — sem
+              precisar chamar ninguém.
+            </p>
+          </ScrollReveal>
+          <div className="mt-10 grid gap-4 sm:grid-cols-3">
+            <ScrollReveal className="h-full">
+              <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 sm:p-6">
+                <Gauge className="size-7 text-cyan-400" aria-hidden="true" />
+                <h3 className="mt-3 font-semibold">Velocidade por visitante</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-400">
+                  Defina a velocidade de download e upload que cada visitante usa —
+                  o suficiente para navegar bem, sem sobrecarregar a sua internet.
+                </p>
+              </article>
+            </ScrollReveal>
+            <ScrollReveal className="h-full" delay={90}>
+              <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 sm:p-6">
+                <Timer className="size-7 text-cyan-400" aria-hidden="true" />
+                <h3 className="mt-3 font-semibold">Tempo de conexão</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-400">
+                  Escolha quanto tempo dura cada check-in e quanto tempo parado
+                  encerra a sessão automaticamente.
+                </p>
+              </article>
+            </ScrollReveal>
+            <ScrollReveal className="h-full" delay={180}>
+              <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 sm:p-6">
+                <RotateCcw className="size-7 text-cyan-400" aria-hidden="true" />
+                <h3 className="mt-3 font-semibold">Limite de reconexões</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-400">
+                  Defina quantas vezes o mesmo aparelho pode se conectar e por
+                  quanto tempo ele fica bloqueado depois do limite.
+                </p>
+              </article>
+            </ScrollReveal>
+          </div>
+          <div className="mt-4">
+            <ScrollReveal>
+              <WifiVisitantesDemo />
+            </ScrollReveal>
+          </div>
         </div>
       </section>
 
