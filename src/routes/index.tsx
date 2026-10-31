@@ -4,6 +4,7 @@ import { ArrowRight, ArrowUp } from "lucide-react";
 import logo from "@/assets/manos-tech-logo-institutional.png";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { openPreSaleChat, PreSaleForm } from "@/components/app/pre-sale-form";
+import { DashboardDemo } from "@/components/app/dashboard-demo";
 
 const SOCIAL_IMAGE_URL = new URL(logo, "https://manostech-system.com.br").toString();
 
@@ -144,11 +145,27 @@ const STEPS = [
   },
 ];
 
-const FUNNEL = [
-  { label: "ACESSO", value: "Wi-Fi" },
-  { label: "CONTATO", value: "Base própria" },
-  { label: "RELACIONAMENTO", value: "Campanhas" },
-  { label: "VENDA", value: "Novas oportunidades" },
+const PARA_QUEM_E = [
+  {
+    icon: "🥐",
+    title: "Padarias e cafeterias",
+    body: "Divulgue produtos e novidades no momento da conexão.",
+  },
+  {
+    icon: "🍻",
+    title: "Restaurantes e bares",
+    body: "Apresente campanhas e eventos para quem já frequenta.",
+  },
+  {
+    icon: "🛍️",
+    title: "Lojas",
+    body: "Transforme a conexão em mais um ponto de contato com seu cliente.",
+  },
+  {
+    icon: "🏢",
+    title: "Outros estabelecimentos",
+    body: "Personalize o portal de acordo com a sua marca.",
+  },
 ];
 
 function ScaledPortalFrame({
@@ -226,29 +243,6 @@ function ScaledPortalFrame({
   );
 }
 
-function MobileCheckinDemo() {
-  const [replay, setReplay] = useState(0);
-
-  return (
-    <div className="mx-auto w-full max-w-[340px] px-2">
-      <div className="relative rounded-[2.7rem] border-[3px] border-slate-400/80 bg-gradient-to-br from-slate-600 via-slate-900 to-slate-500 p-[5px] shadow-[0_32px_75px_rgba(0,0,0,.58),0_0_35px_rgba(34,211,238,.04)]">
-        <span className="absolute -left-[5px] top-28 h-14 w-[3px] rounded-l bg-slate-500" aria-hidden="true" />
-        <span className="absolute -right-[5px] top-36 h-20 w-[3px] rounded-r bg-slate-500" aria-hidden="true" />
-        <div className="pointer-events-none absolute left-1/2 top-3 z-20 h-[18px] w-[82px] -translate-x-1/2 rounded-full border border-white/[.06] bg-[#03060b] shadow-md" aria-hidden="true" />
-        <ScaledPortalFrame
-          src={`/portal/demo-efraim?autoplay=1&replay=${replay}`}
-          title="Portal real da Padaria Efraim"
-          viewportWidth={390}
-          viewportHeight={844}
-          className="aspect-[390/844] rounded-[2.2rem]"
-        />
-        <div className="pointer-events-none absolute bottom-3 left-1/2 z-20 h-1 w-[90px] -translate-x-1/2 rounded-full bg-white/75 shadow-sm" aria-hidden="true" />
-      </div>
-      <button type="button" onClick={() => setReplay((value) => value + 1)} className="mt-4 w-full text-center text-xs font-semibold text-cyan-200 hover:text-white">↻ Reproduzir check-in fictício</button>
-    </div>
-  );
-}
-
 function NotebookCheckinDemo() {
   const [replay, setReplay] = useState(0);
   return (
@@ -263,8 +257,8 @@ function NotebookCheckinDemo() {
             <span className="mx-auto w-2/5 rounded-full border border-white/[.06] bg-white/[.04] py-0.5 text-center text-[8px] text-slate-500">manostech-system.com.br</span>
           </div>
           <ScaledPortalFrame
-            src={`/portal/demo-barao?autoplay=1&replay=${replay}`}
-            title="Portal real do Boteco do Barão"
+            src={`/portal/demo-efraim?autoplay=1&replay=${replay}`}
+            title="Portal real da Padaria Efraim"
             viewportWidth={1366}
             viewportHeight={768}
             className="aspect-video"
@@ -396,28 +390,48 @@ function SalesHomePage() {
         </div>
       </section>
 
-      <section aria-label="Portais reais no ar" className="border-b border-white/[.07] bg-[#070D13]">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-center gap-3 px-5 py-6 text-center sm:px-8 lg:flex-row lg:gap-6">
-          <p className="text-xs font-bold uppercase tracking-[.2em] text-slate-400">
-            Portais reais, no ar hoje
-          </p>
-          <div className="flex flex-wrap justify-center gap-3">
-            <a
-              href="https://manostech-system.com.br/portal/6us8mzhk8ffh"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-cyan-400/30 px-4 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-400/10"
-            >
-              Padaria Efraim · celular <ArrowRight className="size-4" />
-            </a>
-            <a
-              href="https://manostech-system.com.br/portal/j788xmylocks"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-emerald-300/30 px-4 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-300/10"
-            >
-              Boteco do Barão · notebook <ArrowRight className="size-4" />
-            </a>
+      <section id="portais" className="scroll-mt-20 border-y border-white/[.07] bg-[#070D13]">
+        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
+          <ScrollReveal>
+            <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
+              Portal real
+            </p>
+            <h2 className="mt-3 max-w-3xl font-display text-3xl font-bold tracking-tight sm:text-4xl">
+              Veja o que seu cliente encontra ao se conectar.
+            </h2>
+            <p className="mt-4 max-w-2xl leading-7 text-slate-400">
+              Portal real. Não uma imagem de demonstração.
+            </p>
+          </ScrollReveal>
+          <div className="mt-12 grid items-center gap-12 lg:grid-cols-2 lg:gap-14">
+            <ScrollReveal className="min-w-0">
+              <NotebookCheckinDemo />
+            </ScrollReveal>
+            <ScrollReveal delay={120}>
+              <h3 className="text-xl font-bold">Portal personalizado para cada negócio.</h3>
+              <p className="mt-3 leading-7 text-slate-400">
+                Seu cliente acessa o Wi-Fi e encontra uma experiência criada para a sua marca.
+              </p>
+              <h3 className="mt-8 text-xl font-bold">Sua marca em movimento.</h3>
+              <p className="mt-3 leading-7 text-slate-400">
+                Vídeo de até 10 segundos com reprodução automática dentro do portal — antes da
+                navegação começar.
+              </p>
+              <p className="mt-6 inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/[.06] px-4 py-1.5 text-xs font-bold uppercase tracking-[.15em] text-cyan-200">
+                <span className="size-1.5 rounded-full bg-emerald-400" aria-hidden="true" />
+                Vídeo automático · até 10s
+              </p>
+              <div className="mt-6">
+                <a
+                  href="https://manostech-system.com.br/portal/j788xmylocks"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-cyan-400 px-6 font-bold text-slate-950 transition hover:bg-cyan-300"
+                >
+                  Abrir portal real <ArrowRight className="size-4" aria-hidden="true" />
+                </a>
+              </div>
+            </ScrollReveal>
           </div>
         </div>
       </section>
@@ -425,80 +439,28 @@ function SalesHomePage() {
       <section className="border-y border-white/[.07] bg-[#070D13]">
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
           <ScrollReveal>
-            <h2 className="max-w-3xl font-display text-3xl font-bold tracking-tight sm:text-4xl">
-              Seu Wi-Fi pode fazer muito mais do que entregar internet.
-            </h2>
-            <p className="mt-8 text-xl font-bold leading-8 sm:text-2xl">
-              Transforme acessos em contatos.
-              <br />
-              Contatos em relacionamento.
-              <br />
-              Relacionamento em novas vendas.
-            </p>
-            <p className="mt-8 max-w-2xl text-base leading-7 text-slate-300">
-              A ManosTech transforma o Wi-Fi do seu estabelecimento em um ponto de contato com
-              seus clientes.
-            </p>
-            <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300">
-              Enquanto eles navegam, você constrói uma base própria para conhecer melhor seu
-              público e criar novas oportunidades de relacionamento.
-            </p>
-          </ScrollReveal>
-        </div>
-      </section>
-
-      <section>
-        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
-          <ScrollReveal>
-            <h2 className="max-w-3xl font-display text-3xl font-bold tracking-tight sm:text-4xl">
-              Pare de deixar seus clientes saírem sem deixar uma conexão com o seu negócio.
+            <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">Painel</p>
+            <h2 className="mt-3 max-w-3xl font-display text-3xl font-bold tracking-tight sm:text-4xl">
+              E você acompanha tudo pelo seu painel.
             </h2>
             <p className="mt-6 max-w-2xl text-base leading-7 text-slate-300">
-              A <strong>ManosTech System</strong> transforma o Wi-Fi do seu estabelecimento em
-              uma ferramenta para conhecer melhor quem visita seu negócio, construir uma base de
-              contatos e criar oportunidades para trazer seus clientes de volta.
+              Com a ManosTech, as conexões do seu Wi-Fi deixam de ser apenas acessos à
+              internet.
+            </p>
+            <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300">
+              Você passa a ter informações que ajudam a entender melhor o relacionamento dos
+              clientes com o seu estabelecimento.
             </p>
             <p className="mt-8 max-w-2xl text-lg font-bold leading-7 sm:text-xl">
-              Você já oferece o Wi-Fi. Agora ele pode trabalhar pelo seu negócio.
+              Menos achismo. Mais informação para tomar decisões.
             </p>
           </ScrollReveal>
-        </div>
-      </section>
-
-      <section className="border-y border-white/[.07] bg-[#070D13]">
-        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
-          <ScrollReveal>
-            <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
-              O que acontece com o cliente depois que ele usa seu Wi-Fi?
-            </h2>
-            <div className="mt-10 grid gap-4 lg:grid-cols-2">
-              <article className="rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 sm:p-6">
-                <p className="text-xs font-bold uppercase tracking-[.18em] text-cyan-400">Hoje</p>
-                <p className="mt-4 text-lg font-bold leading-7">
-                  Cliente entra → usa o Wi-Fi → vai embora.
-                </p>
-                <p className="mt-3 text-sm leading-6 text-slate-400">
-                  Você não sabe necessariamente quem esteve ali, não mantém um relacionamento e
-                  precisa começar a próxima campanha praticamente do zero.
-                </p>
-              </article>
-              <article className="rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 sm:p-6">
-                <p className="text-xs font-bold uppercase tracking-[.18em] text-cyan-400">
-                  Com a ManosTech
-                </p>
-                <p className="mt-4 text-lg font-bold leading-7">
-                  Cliente entra → conecta → você constrói um contato → pode se relacionar depois.
-                </p>
-                <p className="mt-3 text-sm leading-6 text-slate-400">
-                  O Wi-Fi deixa de ser apenas um serviço e passa a fazer parte da estratégia
-                  comercial do seu negócio.
-                </p>
-              </article>
-            </div>
-            <p className="mt-10 text-lg font-bold leading-7 sm:text-xl">
-              Menos divulgação no escuro. Mais relacionamento com quem já conhece sua marca.
-            </p>
-          </ScrollReveal>
+          <div className="mt-12">
+            <DashboardDemo />
+          </div>
+          <p className="mt-6 text-center text-xs italic text-slate-500">
+            Demonstração com dados de exemplo.
+          </p>
         </div>
       </section>
 
@@ -528,92 +490,29 @@ function SalesHomePage() {
         </div>
       </section>
 
-      <section id="portais" className="scroll-mt-20 border-y border-white/[.07]">
-        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
-          <ScrollReveal className="mx-auto max-w-2xl text-center">
-            <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
-              Exemplos publicados
-            </p>
-            <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
-              Um portal com a identidade de cada negócio
-            </h2>
-            <p className="mt-4 leading-7 text-slate-400">
-              Acompanhe o preenchimento fictício nos portais reais da Padaria Efraim e do Boteco do
-              Barão, da oferta ao redirecionamento para o Instagram. A demonstração não envia cadastros.
-            </p>
-          </ScrollReveal>
-          <div className="mt-12 grid items-end gap-12 lg:grid-cols-[.72fr_1.28fr] lg:gap-14">
-            <ScrollReveal className="mx-auto w-full max-w-sm">
-              <div className="mb-5 flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[.17em] text-cyan-400">
-                    Modelo 01
-                  </p>
-                  <h3 className="mt-1 text-base font-semibold">Padaria Efraim · celular</h3>
-                </div>
-                <span className="rounded-full border border-cyan-400/20 bg-cyan-400/[.06] px-3 py-1 text-[9px] font-semibold text-cyan-100">
-                  Portal real
-                </span>
-              </div>
-              <MobileCheckinDemo />
-              <p className="mt-4 text-center text-sm leading-6 text-slate-400">
-                Marca e oferta da padaria aparecem junto ao acesso ao Wi-Fi.
-              </p>
-              <a
-                href="https://manostech-system.com.br/portal/6us8mzhk8ffh"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mx-auto mt-3 flex min-h-11 w-fit items-center gap-2 rounded-full border border-cyan-400/30 px-4 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-400/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400"
-              >
-                Abrir portal da Padaria Efraim <ArrowRight className="size-4" aria-hidden="true" />
-              </a>
-            </ScrollReveal>
-            <ScrollReveal className="min-w-0" delay={120}>
-              <div className="mb-5 flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[.17em] text-emerald-300">
-                    Modelo 02
-                  </p>
-                  <h3 className="mt-1 text-base font-semibold">Boteco do Barão · notebook</h3>
-                </div>
-                <span className="rounded-full border border-emerald-300/20 bg-emerald-300/[.06] px-3 py-1 text-[9px] font-semibold text-emerald-100">
-                  Portal real
-                </span>
-              </div>
-              <NotebookCheckinDemo />
-              <p className="mt-4 text-center text-sm leading-6 text-slate-400">
-                Identidade visual, banners e cadastro adaptados à tela maior.
-              </p>
-              <a
-                href="https://manostech-system.com.br/portal/j788xmylocks"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mx-auto mt-3 flex min-h-11 w-fit items-center gap-2 rounded-full border border-emerald-300/30 px-4 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-300/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
-              >
-                Abrir portal do Boteco do Barão <ArrowRight className="size-4" aria-hidden="true" />
-              </a>
-            </ScrollReveal>
-          </div>
-        </div>
-      </section>
-
       <section className="border-y border-white/[.07] bg-[#070D13]">
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
           <ScrollReveal>
-            <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
-              Pare de tomar decisões no escuro.
+            <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
+              Para quem é
+            </p>
+            <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
+              Para diferentes tipos de negócio
             </h2>
-            <p className="mt-6 max-w-2xl text-base leading-7 text-slate-300">
-              Com a ManosTech, as conexões do seu Wi-Fi deixam de ser apenas acessos à internet.
-            </p>
-            <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300">
-              Você passa a ter informações que ajudam a entender melhor o relacionamento dos
-              clientes com o seu estabelecimento e a criar ações mais direcionadas.
-            </p>
-            <p className="mt-8 max-w-2xl text-lg font-bold leading-7 sm:text-xl">
-              Menos achismo. Mais informação para tomar decisões.
-            </p>
           </ScrollReveal>
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {PARA_QUEM_E.map(({ icon, title, body }, index) => (
+              <ScrollReveal key={title} className="h-full" delay={(index % 4) * 80}>
+                <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 sm:p-6">
+                  <p className="text-3xl" aria-hidden="true">
+                    {icon}
+                  </p>
+                  <h3 className="mt-3 font-semibold">{title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-400">{body}</p>
+                </article>
+              </ScrollReveal>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -622,10 +521,10 @@ function SalesHomePage() {
           <ScrollReveal>
             <div className="max-w-3xl">
               <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
-                Dúvidas frequentes
+                Perguntas frequentes
               </p>
               <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
-                Perguntas de quem está conhecendo agora
+                Dúvidas comuns
               </h2>
             </div>
             <Accordion type="single" collapsible className="mt-10">
@@ -658,54 +557,7 @@ function SalesHomePage() {
         </div>
       </section>
 
-      <section className="border-y border-white/[.07] bg-[#070D13]">
-        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
-          <ScrollReveal>
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch">
-              {FUNNEL.map((step, index) => (
-                <div key={step.label} className="flex flex-1 flex-col gap-3 lg:flex-row lg:items-center">
-                  {index > 0 ? (
-                    <ArrowRight
-                      className="mx-auto size-5 shrink-0 rotate-90 text-cyan-400 lg:rotate-0"
-                      aria-hidden="true"
-                    />
-                  ) : null}
-                  <div className="flex-1 rounded-2xl border border-cyan-400/25 bg-cyan-400/[.05] p-6 text-center">
-                    <p className="text-xs font-bold uppercase tracking-[.18em] text-cyan-400">
-                      {step.label}
-                    </p>
-                    <p className="mt-2 text-sm text-slate-300">{step.value}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </ScrollReveal>
-        </div>
-      </section>
 
-      <section>
-        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
-          <ScrollReveal>
-            <p className="max-w-2xl text-base leading-7 text-slate-300">
-              Os concorrentes falam muito sobre:{" "}
-              <strong>“Olha quantos recursos temos.”</strong>
-            </p>
-            <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300">
-              A ManosTech fala:{" "}
-              <strong>
-                “Olha o que acontece com seu negócio quando você começa a conhecer quem passa
-                por ele.”
-              </strong>
-            </p>
-            <div className="mt-10 rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 sm:p-6">
-              <p className="text-lg font-bold leading-7 sm:text-xl">
-                “Caramba. Eu já tenho gente entrando na minha loja todos os dias. Por que estou
-                deixando essas pessoas irem embora sem construir nenhum relacionamento?”
-              </p>
-            </div>
-          </ScrollReveal>
-        </div>
-      </section>
 
       <section className="border-t border-white/[.07] bg-[#070D13]">
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
