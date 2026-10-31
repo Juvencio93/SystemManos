@@ -257,8 +257,8 @@ function NotebookCheckinDemo() {
             <span className="mx-auto w-2/5 rounded-full border border-white/[.06] bg-white/[.04] py-0.5 text-center text-[8px] text-slate-500">manostech-system.com.br</span>
           </div>
           <ScaledPortalFrame
-            src={`/portal/demo-barao?autoplay=1&replay=${replay}`}
-            title="Portal real do Boteco do Barão"
+            src={`/portal/demo-efraim?autoplay=1&replay=${replay}`}
+            title="Portal real da Padaria Efraim"
             viewportWidth={1366}
             viewportHeight={768}
             className="aspect-video"
