@@ -1220,6 +1220,10 @@ function MatrizDashboard({ access }: { access: AccessInfo | null }) {
       {access?.companyId && <MatrizFinancialAlert />}
 
       <ClientDashboardRedesign data={data} isLoading={insights.isLoading} />
+
+      <div className="mt-6">
+        <WifiVisitantesCard />
+      </div>
     </DashboardLayout>
   );
 }
@@ -1373,6 +1377,10 @@ function FilialDashboard({ access }: { access: AccessInfo | null }) {
       }
     >
       <ClientDashboardRedesign data={data} isLoading={insights.isLoading} />
+
+      <div className="mt-6">
+        <WifiVisitantesCard />
+      </div>
     </DashboardLayout>
   );
 }
