@@ -22,6 +22,17 @@ export interface DispositivosHoje {
 }
 
 /**
+ * Códigos internos de modelo mapeados para o nome comercial amigável exibido
+ * no dashboard. O user agent traz o código interno no token antes de "Build/"
+ * (ex.: Xiaomi/Redmi/POCO) — sem o mapa, o dashboard mostra "24090RA29G" em
+ * vez de "Redmi Note 14 Pro 5G". Mapa extensível: adicionar novos códigos aqui.
+ */
+const MODEL_FRIENDLY_NAMES: Record<string, string> = {
+  // 24090RA29G — Redmi Note 14 Pro 5G (também vendido como POCO X7)
+  "24090RA29G": "Redmi Note 14 Pro 5G",
+};
+
+/**
  * Extrai o modelo do aparelho a partir do user agent capturado no portal.
  * Android: o token antes de "Build/" (ex.: "SM-S918B", "Pixel 8 Pro").
  * iOS: o user agent nunca traz o modelo — só "iPhone" ou "iPad".
@@ -43,8 +54,9 @@ function extractModel(
   }
   if (bucket === "android") {
     const build = ua.match(/;\s*([^;()]+?)\s+Build\//i);
-    const modelo = build?.[1];
-    if (modelo) return modelo.trim();
+    const modelo = build?.[1]?.trim();
+    // Código interno (ex.: Xiaomi) → nome comercial amigável
+    if (modelo) return MODEL_FRIENDLY_NAMES[modelo] ?? modelo;
     const dtModel = (deviceType ?? "").trim();
     if (dtModel && !/^(android|mobile|phone|celular)$/i.test(dtModel)) return dtModel;
     return null;
