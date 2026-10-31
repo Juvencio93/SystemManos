@@ -5,6 +5,7 @@ import logo from "@/assets/manos-tech-logo-institutional.png";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { openPreSaleChat, PreSaleForm } from "@/components/app/pre-sale-form";
 import { DashboardDemo } from "@/components/app/dashboard-demo";
+import { WifiVisitantesDemo } from "@/components/app/wifi-visitantes-demo";
 
 const SOCIAL_IMAGE_URL = new URL(logo, "https://manostech-system.com.br").toString();
 
@@ -508,6 +509,11 @@ function SalesHomePage() {
                   quanto tempo ele fica bloqueado depois do limite.
                 </p>
               </article>
+            </ScrollReveal>
+          </div>
+          <div className="mt-4">
+            <ScrollReveal>
+              <WifiVisitantesDemo />
             </ScrollReveal>
           </div>
         </div>
