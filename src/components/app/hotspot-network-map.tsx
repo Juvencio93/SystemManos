@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Building2, ExternalLink, LocateFixed, MapPin, Wifi, X } from "lucide-react";
 
 import {
   HotspotGeographicMap,
   type GeographicDevice,
 } from "@/components/app/hotspot-geographic-map";
-import { RbHermesPanel } from "@/components/app/rb-hermes-panel";
+const RbHermesPanel = lazy(() =>
+  import("@/components/app/rb-hermes-panel").then((m) => ({ default: m.RbHermesPanel }))
+);
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -197,7 +199,9 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
               {/* O corpo do painel é o gráfico do Hermes (cartões + séries).
                   A grade antiga de IP/TX/RX saiu — IP e RouterOS viraram
                   uma linha só no cabeçalho. */}
-              <RbHermesPanel identity={selected.router_identity} />
+              <Suspense fallback={<div className="p-8 text-center text-sm text-muted-foreground">Carregando gráficos…</div>}>
+                <RbHermesPanel identity={selected.router_identity} />
+              </Suspense>
             </div>
   ) : null;
 
