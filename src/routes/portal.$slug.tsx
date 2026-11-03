@@ -291,7 +291,6 @@ function PortalPage() {
   const [countryKey, setCountryKey] = useState(`${defaultCountry.code}|${defaultCountry.name}`);
   const [form, setForm] = useState({
     fullName: "",
-    email: "",
     phone: "",
     city: "",
     consent: false,
@@ -301,7 +300,6 @@ function PortalPage() {
   // tocado (blur) ou quando houve uma tentativa de envio com o form inválido.
   const [touched, setTouched] = useState({
     fullName: false,
-    email: false,
     phone: false,
     city: false,
     consent: false,
@@ -320,7 +318,6 @@ function PortalPage() {
     let cancelled = false;
     const demoFields = [
       ["fullName", "Cliente Demonstração"],
-      ["email", "cliente@exemplo.com"],
       ["phone", "(47) 99999-0000"],
       ["city", slug === "demo-efraim" ? "Joinville" : "Camboriú"],
     ] as const;
@@ -334,10 +331,10 @@ function PortalPage() {
       await pause(1300);
       for (const [field, value] of demoFields) {
         if (cancelled) return;
-        // Nome e E-mail já estão visíveis no topo: rolar ali esconderia o
+        // Nome já está visível no topo: rolar ali esconderia o
         // vídeo e o banner antes de dar tempo de vê-los. A rolagem da
         // demonstração só começa no WhatsApp (e segue nos campos abaixo).
-        if (field !== "fullName" && field !== "email") {
+        if (field !== "fullName") {
           focusStep(document.getElementById(field));
         }
         await pause(600);
@@ -401,7 +398,6 @@ function PortalPage() {
         prefillKey,
         JSON.stringify({
           fullName: form.fullName,
-          email: form.email,
           phone: form.phone,
           city: form.city,
           countryCode: selectedCountry.code,
@@ -417,7 +413,7 @@ function PortalPage() {
     } catch {
       // Sem armazenamento: só limpa o formulário.
     }
-    setForm({ fullName: "", email: "", phone: "", city: "", consent: false, marketingConsent: false });
+    setForm({ fullName: "", phone: "", city: "", consent: false, marketingConsent: false });
     setPrefilled(false);
   };
 
@@ -430,18 +426,16 @@ function PortalPage() {
       if (!raw) return;
       const saved = JSON.parse(raw) as {
         fullName?: string;
-        email?: string;
         phone?: string;
         city?: string;
         countryCode?: string;
       };
-      if (!saved.fullName && !saved.email && !saved.phone) return;
+      if (!saved.fullName && !saved.phone) return;
       setForm((current) =>
-        current.fullName || current.email || current.phone
+        current.fullName || current.phone
           ? current
           : {
               fullName: saved.fullName ?? "",
-              email: saved.email ?? "",
               phone: saved.phone ?? "",
               city: saved.city ?? "",
               consent: false,
@@ -494,13 +488,13 @@ function PortalPage() {
         ? digits.slice(ddiDigits.length)
         : digits;
 
-      const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim());
       const isNameValid = form.fullName.trim().length >= 3;
+      const isCityValid = form.city.trim().length >= 2;
       const isPhoneValid =
         cleanPhoneDigits.length >= 8 &&
         cleanPhoneDigits.length <= 15 &&
         !/^0+$/.test(cleanPhoneDigits);
-      if (!isNameValid || !isEmailValid || !isPhoneValid || !form.consent) {
+      if (!isNameValid || !isCityValid || !isPhoneValid || !form.consent) {
         throw new Error("Por favor, preencha todos os campos corretamente");
       }
 
@@ -509,7 +503,6 @@ function PortalPage() {
           slug,
           fullName: form.fullName.trim(),
           phone: cleanPhoneDigits,
-          email: form.email.trim(),
           city: form.city.trim(),
           countryCode: selectedCountry.code,
           consent: true,
@@ -559,8 +552,8 @@ function PortalPage() {
   });
 
   const fieldValidity = useMemo(() => {
-    const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim());
     const isNameValid = form.fullName.trim().length >= 3;
+    const isCityValid = form.city.trim().length >= 2;
 
     const digits = form.phone.replace(/\D/g, "");
     const ddiDigits = selectedCountry.code.replace(/\D/g, "");
@@ -572,11 +565,8 @@ function PortalPage() {
 
     return {
       fullName: isNameValid,
-      email: isEmailValid,
       phone: isPhoneValid,
-      // Cidade é opcional (UX parte 2): nunca bloqueia o envio nem gera
-      // erro — o campo continua no formulário, só não é mais exigido.
-      city: true,
+      city: isCityValid,
       consent: form.consent,
       // Consentimento de marketing é opcional: nunca bloqueia o envio nem
       // gera erro — o mecanismo de erro cobre os dois consentimentos, mas só
@@ -587,8 +577,8 @@ function PortalPage() {
 
   const isFormValid =
     fieldValidity.fullName &&
-    fieldValidity.email &&
     fieldValidity.phone &&
+    fieldValidity.city &&
     fieldValidity.consent &&
     !mutation.isPending;
 
@@ -601,20 +591,17 @@ function PortalPage() {
           ? "Nome muito curto — digite seu nome completo"
           : "Digite seu nome completo"
         : null,
-    email:
-      !fieldValidity.email && (touched.email || submitAttempted)
-        ? form.email.trim()
-          ? "E-mail inválido — confira o endereço digitado"
-          : "Digite seu e-mail"
-        : null,
+
     phone:
       !fieldValidity.phone && (touched.phone || submitAttempted)
         ? form.phone.replace(/\D/g, "")
           ? "WhatsApp incompleto — confira o número"
           : "Digite seu WhatsApp"
         : null,
-    // Cidade opcional não tem estado inválido: sem erro por campo.
-    city: null,
+    city:
+      !fieldValidity.city && (touched.city || submitAttempted)
+        ? "Digite sua cidade"
+        : null,
     consent:
       !fieldValidity.consent && (touched.consent || submitAttempted)
         ? "Marque para continuar"
@@ -790,8 +777,8 @@ function PortalPage() {
           const firstInvalid = (
             [
               ["fullName", fieldValidity.fullName],
-              ["email", fieldValidity.email],
               ["phone", fieldValidity.phone],
+              ["city", fieldValidity.city],
               ["consent", fieldValidity.consent],
             ] as const
           ).find(([, valid]) => !valid)?.[0];
@@ -843,25 +830,6 @@ function PortalPage() {
                       style={inputStyleWithError(Boolean(fieldErrors.fullName))}
                     />
                     <FieldError id="fullName-error" message={fieldErrors.fullName} />
-                  </div>
-
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <FieldLabel htmlFor="email" className={theme.labelClass}>E-mail *</FieldLabel>
-                    <Input
-                      id="email"
-                      type="email"
-                      required
-                      autoComplete="email"
-                      value={form.email}
-                      onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                      onBlur={() => markTouched("email")}
-                      aria-invalid={fieldErrors.email ? true : undefined}
-                      aria-describedby={fieldErrors.email ? "email-error" : undefined}
-                      placeholder="email@exemplo.com"
-                      className={`${fieldSizeClass} transition-all placeholder:text-[color:var(--portal-faint)] ${theme.inputClass}`}
-                      style={inputStyleWithError(Boolean(fieldErrors.email))}
-                    />
-                    <FieldError id="email-error" message={fieldErrors.email} />
                   </div>
 
                   <div className="space-y-1.5 sm:col-span-2">
@@ -931,15 +899,20 @@ function PortalPage() {
                   </div>
 
                   <div className="space-y-1.5 sm:col-span-2">
-                    <FieldLabel htmlFor="city" className={theme.labelClass}>Cidade (opcional)</FieldLabel>
+                    <FieldLabel htmlFor="city" className={theme.labelClass}>Cidade *</FieldLabel>
                     <Input
                       id="city"
+                      required
                       value={form.city}
                       onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+                      onBlur={() => markTouched("city")}
+                      aria-invalid={fieldErrors.city ? true : undefined}
+                      aria-describedby={fieldErrors.city ? "city-error" : undefined}
                       placeholder="Sua cidade atual"
                       className={`${fieldSizeClass} transition-all placeholder:text-[color:var(--portal-faint)] ${theme.inputClass}`}
-                      style={theme.inputStyle}
+                      style={inputStyleWithError(Boolean(fieldErrors.city))}
                     />
+                    <FieldError id="city-error" message={fieldErrors.city} />
                   </div>
                 </div>
 

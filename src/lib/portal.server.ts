@@ -12,7 +12,9 @@ export const WIFI_CONSENT_VERSION = "wifi-privacy-v2-2026-10-07";
 export const portalLeadSchema = z.object({
   slug: z.string().trim().min(1).max(120),
   fullName: z.string().trim().min(3, "Informe seu nome completo").max(120),
-  email: z.string().trim().min(1, "Informe seu e-mail").email("E-mail inválido").max(180),
+  // E-mail removido do check-in (fricção sem uso no marketing, que é via
+  // WhatsApp). Mantido opcional no schema para compatibilidade.
+  email: z.string().trim().max(180).optional().default(""),
   countryCode: z
     .string()
     .trim()
@@ -25,10 +27,9 @@ export const portalLeadSchema = z.object({
     .max(20)
     .refine((val) => /^\d+$/.test(val), "Informe apenas números no WhatsApp")
     .refine((val) => !/^0+$/.test(val), "WhatsApp inválido"),
-  // Cidade é opcional (UX parte 2): aceita ausente ou vazia; quando
-  // informada, vale o limite de tamanho. O registerLead grava null no
-  // lugar de string vazia.
-  city: z.string().trim().max(120).optional().default(""),
+  // Cidade é obrigatória: dado útil pro lojista (de onde vem o movimento),
+  // atrito baixo para o visitante.
+  city: z.string().trim().min(2, "Informe sua cidade").max(120),
   consent: z.boolean().refine((val) => val === true, "E necessário aceitar a política LGPD"),
   marketingConsent: z.boolean().default(false),
   deviceType: z.string().trim().max(40).optional(),
@@ -368,10 +369,10 @@ export async function registerLead(
   target: PortalTarget,
   input: {
     fullName: string;
-    email: string;
+    email?: string;
     countryCode: string;
     phone: string;
-    city: string; // Opcional: "" quando o visitante não informa
+    city: string; // Obrigatória no check-in
     consent: boolean;
     marketingConsent: boolean;
     consentSource: "wifi_portal" | "privacy_center";
@@ -388,12 +389,11 @@ export async function registerLead(
     hotspotLinkOrig?: string | undefined;
   },
 ) {
-  const validation = await validateContact(input.email, toE164(input.countryCode, input.phone));
-  if (validation.status === "invalid") throw new Error("Verifique o e-mail digitado e o número de celular digitado.");
+  const validation = await validateContact(input.email || undefined, toE164(input.countryCode, input.phone));
+  if (validation.status === "invalid") throw new Error("Verifique o número de celular digitado.");
 
   const phoneE164 = toE164(input.countryCode, input.phone);
-  // Cidade opcional: sem preenchimento, grava null (coluna é nullable).
-  const city = input.city.trim() || null;
+  const city = input.city.trim();
   const now = new Date().toISOString();
   const marketingConsent = input.marketingConsent;
   const periodDate = periodDateFor(target.dailyResetTime);
@@ -420,7 +420,7 @@ export async function registerLead(
         .from("visitors")
         .update({
           full_name: input.fullName,
-          email: input.email,
+          email: input.email?.trim() || null,
           city,
           last_seen_at: now,
           connections_count: globalConnectionsCount,
@@ -443,7 +443,7 @@ export async function registerLead(
         .insert({
           company_id: target.companyId,
           full_name: input.fullName,
-          email: input.email,
+          email: input.email?.trim() || null,
           phone_e164: phoneE164,
           country_code: input.countryCode,
           city,

@@ -124,9 +124,9 @@ export const submitPortalLead = createServerFn({ method: "POST" })
       throw new Error("Muitas tentativas de acesso. Aguarde um minuto e tente novamente.");
     }
 
-    const contactValidation = await validateContact(data.email, toE164(data.countryCode, data.phone));
+    const contactValidation = await validateContact(data.email || undefined, toE164(data.countryCode, data.phone));
     if (contactValidation.status === "invalid") {
-      throw new Error("Verifique o e-mail digitado e o número de celular digitado.");
+      throw new Error("Verifique o número de celular digitado.");
     }
     let hotspotAccess: HotspotLogin | null = null;
     let isPendingHotspotAuthorization = false;
