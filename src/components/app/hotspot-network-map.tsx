@@ -92,10 +92,20 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
     return () => window.clearInterval(interval);
   }, [refreshSeconds]);
 
+  // O tick de 1s (heartbeat) não pode recriar o objeto do modal a cada
+  // segundo: isso remontava os gráficos e causava a "piscada". Só troca o
+  // objeto quando algum campo realmente mudou.
   useEffect(() => {
     if (!selectedId) return;
     const updated = devices.find((device) => device.id === selectedId);
-    if (updated) setSelected({ ...updated, state: stateOf(updated) });
+    if (!updated) return;
+    const next = { ...updated, state: stateOf(updated) };
+    setSelected((prev) => {
+      if (!prev) return next;
+      const keys = Object.keys(next) as (keyof typeof next)[];
+      const changed = keys.some((k) => next[k] !== prev[k]);
+      return changed ? next : prev;
+    });
   }, [devices, seconds, selectedId]);
 
   // Esc fecha o painel da RB (o clique fora fecha no layout do radar).
