@@ -420,7 +420,7 @@ export async function registerLead(
         .from("visitors")
         .update({
           full_name: input.fullName,
-          email: input.email,
+          email: input.email?.trim() || null,
           city,
           last_seen_at: now,
           connections_count: globalConnectionsCount,
@@ -443,7 +443,7 @@ export async function registerLead(
         .insert({
           company_id: target.companyId,
           full_name: input.fullName,
-          email: input.email,
+          email: input.email?.trim() || null,
           phone_e164: phoneE164,
           country_code: input.countryCode,
           city,
