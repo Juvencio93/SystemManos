@@ -223,7 +223,10 @@ function ScaledPortalFrame({
         loading="lazy"
         onLoad={() => setLoaded(true)}
         allow="autoplay; encrypted-media; picture-in-picture"
-        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+        // Sem allow-same-origin cruzado o Storage/CDN servindo o .mp4 do
+        // banner pode ser recusado por CORS/mídia dentro do frame. Os dois
+        // tokens juntos mantêm o documento na origem e permitem o vídeo.
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation"
         tabIndex={-1}
         className="absolute left-0 top-0 border-0 bg-[#05080F]"
         style={{

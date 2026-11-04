@@ -39,10 +39,15 @@ export function BannerCarousel({
     if (!el) return;
     if (currentIsVideo) {
       if (el.ended) el.currentTime = 0;
-      el.play().catch(() => {});
-    } else {
-      el.pause();
+      // Dentro do mockup da pagina inicial o portal roda num iframe: a
+      // play() pode ser recusada enquanto o documento nao estiver ativo.
+      // Tentamos de novo quando o elemento sinaliza que ja pode tocar.
+      const attempt = () => el.play().catch(() => {});
+      attempt();
+      el.addEventListener("canplay", attempt);
+      return () => el.removeEventListener("canplay", attempt);
     }
+    el.pause();
   }, [currentIsVideo, index]);
 
   useEffect(() => {
@@ -106,6 +111,11 @@ export function BannerCarousel({
                   loop={urls.length < 2}
                   autoPlay
                   playsInline
+                  // Necessario para o autoplay dentro do iframe do mockup e
+                  // para o video nao ser barrado por atributos ausentes.
+                  controls={false}
+                  disablePictureInPicture
+                  disableRemotePlayback
                   preload="auto"
                   onEnded={() => {
                     if (urls.length > 1) select(index + 1);
