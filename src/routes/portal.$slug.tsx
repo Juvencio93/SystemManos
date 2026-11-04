@@ -332,11 +332,38 @@ function PortalPage() {
       ["city", slug === "demo-efraim" ? "Joinville" : "Camboriú"],
     ] as const;
     const pause = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
-    const focusStep = (element: HTMLElement | null) => {
-      if (!element) return;
-      const offset = element.getBoundingClientRect().top - window.innerHeight * 0.48;
-      window.scrollTo({ top: window.scrollY + offset, behavior: "smooth" });
-    };
+    // Rolagem ANCORADA no conteúdo: só avança quando o elemento fica
+    // visível de verdade na tela (em vez de chutar um tempo fixo, que
+    // quebra o ritmo toda vez que o formulário muda de tamanho).
+    const scrollToVisible = (element: HTMLElement | null): Promise<void> =>
+      new Promise((resolve) => {
+        if (!element) {
+          resolve();
+          return;
+        }
+        const rect = element.getBoundingClientRect();
+        if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
+          resolve();
+          return;
+        }
+        let done = false;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          observer.disconnect();
+          resolve();
+        };
+        const observer = new IntersectionObserver(
+          (entries) => {
+            if (entries.some((entry) => entry.isIntersecting)) finish();
+          },
+          { threshold: 0.5 },
+        );
+        observer.observe(element);
+        element.scrollIntoView({ behavior: "smooth", block: "center" });
+        // Rede de segurança: a demo nunca trava se o observer não disparar
+        window.setTimeout(finish, 2500);
+      });
     const run = async () => {
       await pause(1300);
       for (const [field, value] of demoFields) {
@@ -345,9 +372,10 @@ function PortalPage() {
         // vídeo e o banner antes de dar tempo de vê-los. A rolagem da
         // demonstração só começa no WhatsApp (e segue nos campos abaixo).
         if (field !== "fullName") {
-          focusStep(document.getElementById(field));
+          await scrollToVisible(document.getElementById(field));
+          if (cancelled) return;
+          await pause(350);
         }
-        await pause(600);
         for (let position = 1; position <= value.length; position += 1) {
           if (cancelled) return;
           setForm((current) => ({ ...current, [field]: value.slice(0, position) }));
@@ -357,24 +385,25 @@ function PortalPage() {
       }
       if (cancelled) return;
       const consent = document.getElementById("consent") as HTMLInputElement | null;
-      focusStep(consent);
-      await pause(700);
+      await scrollToVisible(consent);
       if (cancelled) return;
+      await pause(350);
       if (consent && !consent.checked) consent.click();
       await pause(800);
       if (cancelled) return;
       // Opcional: a demonstração também mostra o clique em "quero receber
       // ofertas" — o simulado autoriza o marketing antes de enviar.
       const marketingConsent = document.getElementById("marketingConsent") as HTMLInputElement | null;
-      focusStep(marketingConsent);
-      await pause(700);
+      await scrollToVisible(marketingConsent);
       if (cancelled) return;
+      await pause(350);
       if (marketingConsent && !marketingConsent.checked) marketingConsent.click();
       await pause(800);
       if (cancelled) return;
       const button = document.querySelector('button[type="submit"]') as HTMLButtonElement | null;
-      focusStep(button);
-      await pause(800);
+      await scrollToVisible(button);
+      if (cancelled) return;
+      await pause(400);
       if (cancelled || !button || button.disabled) return;
       button.animate(
         [{ filter: "brightness(1)" }, { filter: "brightness(1.5)", transform: "scale(1.025)" }, { filter: "brightness(1)" }],
