@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { AlertTriangle, Building2, ExternalLink, LocateFixed, MapPin, Wifi, X } from "lucide-react";
 
 import {
@@ -79,6 +80,75 @@ function googleMapsUrl(device: Device) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query || device.router_identity)}`;
 }
 
+// Modal da RB via PORTAL no body + trava do scroll do fundo.
+// Sem isso, o fixed quebra se algum ancestral tiver transform/filter,
+// e a página de trás rola junto com o modal (o "tremido" fantasma).
+function DeviceModal({
+  label,
+  onClose,
+  children,
+}: {
+  label: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  // Trava o scroll do fundo enquanto o modal está aberto
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    const prevOverscroll = document.body.style.overscrollBehavior;
+    document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.style.overscrollBehavior = prevOverscroll;
+    };
+  }, []);
+
+  // Esc fecha
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[800] overflow-y-auto bg-black/60 backdrop-blur-[2px] overscroll-contain"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={label}
+    >
+      <div className="flex min-h-full items-center justify-center p-3 sm:p-6">
+        <div
+          className="w-full max-w-4xl max-h-[90vh] overflow-y-auto overscroll-contain rounded-xl"
+          onClick={(event) => event.stopPropagation()}
+        >
+          {children}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// Relógio do heartbeat ISOLADO: tem seu próprio timer de 1s para não
+// forçar re-render do mapa, da lista e do modal a cada segundo.
+function HeartbeatCountdown({ refreshSeconds }: { refreshSeconds: number }) {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    const interval = window.setInterval(() => setSeconds((value) => (value + 1) % refreshSeconds), 1_000);
+    return () => window.clearInterval(interval);
+  }, [refreshSeconds]);
+  return (
+    <span>
+      Heartbeat em {seconds}s · mapa operacional atualizado a cada {refreshSeconds}s
+    </span>
+  );
+}
+
 export function HotspotNetworkMap({ devices, isLoading = false, compact = false, onBlock, onReboot, refreshSeconds = 60 }: Props) {
   const [selected, setSelected] = useState<Device | null>(null);
   const [recenterSignal, setRecenterSignal] = useState(0);
@@ -88,15 +158,10 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
   const selectedId = selected?.id;
 
   useEffect(() => {
-    const interval = window.setInterval(() => setSeconds((value) => (value + 1) % refreshSeconds), 1_000);
-    return () => window.clearInterval(interval);
-  }, [refreshSeconds]);
-
-  useEffect(() => {
     if (!selectedId) return;
     const updated = devices.find((device) => device.id === selectedId);
     if (updated) setSelected({ ...updated, state: stateOf(updated) });
-  }, [devices, seconds, selectedId]);
+  }, [devices, selectedId]);
 
   // Esc fecha o painel da RB (o clique fora fecha no layout do radar).
   useEffect(() => {
@@ -110,7 +175,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
 
   const mappedDevices = useMemo(
     () => devices.map((device) => ({ ...device, state: stateOf(device) })),
-    [devices, seconds],
+    [devices],
   );
   const visible = mappedDevices.filter((device) => {
     const matchesFilter = filter === "all" || device.state === filter;
@@ -265,7 +330,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
                 <Wifi className="size-4 text-primary" /> Mapa da rede
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Heartbeat em {seconds}s · mapa operacional atualizado a cada {refreshSeconds}s
+                <HeartbeatCountdown refreshSeconds={refreshSeconds} />
               </p>
             </div>
             <input
@@ -323,22 +388,12 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
         </div>
 
         {selected ? (
-          <div
-            className="fixed inset-0 z-[800] overflow-y-auto bg-black/60 backdrop-blur-[2px]"
-            onClick={() => setSelected(null)}
-            role="dialog"
-            aria-modal="true"
-            aria-label={`Painel da RB ${selected.router_identity}`}
+          <DeviceModal
+            label={`Painel da RB ${selected.router_identity}`}
+            onClose={() => setSelected(null)}
           >
-            <div className="flex min-h-full items-center justify-center p-3 sm:p-6">
-              <div
-                className="w-full max-w-4xl"
-                onClick={(event) => event.stopPropagation()}
-              >
-                {selectedPanel}
-              </div>
-            </div>
-          </div>
+            {selectedPanel}
+          </DeviceModal>
         ) : null}
       </div>
     );
@@ -354,7 +409,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
                 <Wifi className="size-5 text-primary" /> Mapa da rede
               </CardTitle>
               <p className="mt-1 text-xs text-muted-foreground">
-                Heartbeat em {seconds}s · mapa operacional atualizado a cada {refreshSeconds}s
+                <HeartbeatCountdown refreshSeconds={refreshSeconds} />
               </p>
             </div>
             <Button
@@ -444,7 +499,14 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
             <p className="py-5 text-center text-sm text-muted-foreground">Nenhuma RB encontrada.</p>
           ) : null}
 
-          {selected ? <div className="mt-4">{selectedPanel}</div> : null}
+          {selected ? (
+            <DeviceModal
+              label={`Painel da RB ${selected.router_identity}`}
+              onClose={() => setSelected(null)}
+            >
+              {selectedPanel}
+            </DeviceModal>
+          ) : null}
         </CardContent>
       </Card>
     </div>
