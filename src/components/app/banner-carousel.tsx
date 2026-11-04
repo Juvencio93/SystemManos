@@ -106,7 +106,7 @@ export function BannerCarousel({
                   loop={urls.length < 2}
                   autoPlay
                   playsInline
-                  preload="metadata"
+                  preload="auto"
                   onEnded={() => {
                     if (urls.length > 1) select(index + 1);
                   }}
@@ -122,6 +122,14 @@ export function BannerCarousel({
                     }
                   }}
                   onLoadedData={() =>
+                    setLoadedUrls((current) => {
+                      if (current.has(url)) return current;
+                      const next = new Set(current);
+                      next.add(url);
+                      return next;
+                    })
+                  }
+                  onError={() =>
                     setLoadedUrls((current) => {
                       if (current.has(url)) return current;
                       const next = new Set(current);

@@ -222,6 +222,7 @@ function ScaledPortalFrame({
         src={started ? src : src.replace("autoplay=1", "autoplay=0")}
         loading="lazy"
         onLoad={() => setLoaded(true)}
+        allow="autoplay; encrypted-media; picture-in-picture"
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
         tabIndex={-1}
         className="absolute left-0 top-0 border-0 bg-[#05080F]"
