@@ -5,7 +5,9 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { requestPasswordReset } from "@/lib/password-reset.functions";
 
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
@@ -67,6 +69,13 @@ function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return window.localStorage.getItem("manos:remember-me") !== "0";
+  });
+  // Erro de credenciais exibido inline (fixo, não some sozinho).
+  const [loginError, setLoginError] = useState<string | null>(null);
   // 2FA do ADM (item 4 da auditoria): depois da senha, o login pode exigir
   // o código do autenticador — ou o cadastro dele (primeira vez).
   type MfaStep = { mode: "verify" } | { mode: "enroll"; qrCode: string; secret: string };
@@ -114,9 +123,10 @@ function AuthPage() {
 
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();
+    setLoginError(null);
     const parsed = credentials.safeParse({ email, password });
     if (!parsed.success) {
-      toast.error(parsed.error.issues[0]?.message ?? "Dados inválidos");
+      setLoginError(parsed.error.issues[0]?.message ?? "Dados inválidos");
       return;
     }
     setLoading(true);
@@ -126,9 +136,15 @@ function AuthPage() {
     try {
       const result = await signInServerFn({ data: parsed.data });
       if (result.kind === "session") {
+        try {
+          window.localStorage.setItem("manos:remember-me", rememberMe ? "1" : "0");
+        } catch {
+          // Sem armazenamento: a preferência só vale para esta sessão.
+        }
         await supabase.auth.setSession(result.session);
         registerClientSessionStart(result.sessionStartedAt);
         setLoading(false);
+        setLoginError(null);
         navigate({ to: "/dashboard", replace: true });
         return;
       }
@@ -141,13 +157,14 @@ function AuthPage() {
     } catch (err) {
       setLoading(false);
       // O bloqueio anti-força-bruta tem mensagem própria (neutra: não
-      // revela se o e-mail existe); demais erros mantêm a genérica.
+      // revela se o e-mail existe) e continua no toast; erro de
+      // credenciais vai para o aviso inline fixo acima do formulário.
       const message = err instanceof Error ? err.message : "";
-      toast.error(
-        message === LOGIN_RATE_LIMIT_MESSAGE
-          ? message
-          : "Não foi possível entrar. Verifique e-mail e senha.",
-      );
+      if (message === LOGIN_RATE_LIMIT_MESSAGE) {
+        toast.error(message);
+      } else {
+        setLoginError("E-mail ou senha incorretos. Tente novamente.");
+      }
       return;
     }
     setLoading(false);
@@ -291,8 +308,8 @@ function AuthPage() {
           <p className="relative text-xs text-muted-foreground">Manos Tech Solução em Marketing</p>
         </div>
 
-        <div className="flex items-center justify-center p-6">
-          <div className="w-full max-w-sm glass-panel rounded-3xl p-8 text-center border-primary/20">
+        <div className="flex items-center justify-center p-0 sm:p-6">
+          <div className="w-full max-w-sm glass-panel min-h-screen rounded-none border-primary/20 p-8 text-center shadow-none sm:min-h-0 sm:rounded-3xl sm:shadow-[0_20px_60px_rgba(0,0,0,0.5),0_0_40px_rgba(0,255,255,0.05)]">
             <div className="mb-8 flex flex-col items-center">
               <img src={manosTechLogo} alt="Manos Tech Logo" className="h-32 w-auto mb-6 drop-shadow-glow" />
               <h2 className="text-lg font-display font-black text-foreground mb-3 tracking-tight">
@@ -362,38 +379,72 @@ function AuthPage() {
               </form>
             ) : mode === "login" ? (
               <form onSubmit={handleSignIn} className="space-y-5 text-left">
+                {loginError ? (
+                  <div
+                    role="alert"
+                    className="animate-in fade-in slide-in-from-top-2 duration-300 rounded-xl border border-red-500/30 bg-red-950/50 px-4 py-3 text-center text-sm text-red-300"
+                  >
+                    {loginError}
+                  </div>
+                ) : null}
                 <div className="space-y-2.5">
                   <Label htmlFor="email" className="text-[11px] font-black uppercase tracking-widest opacity-60 ml-1">E-mail</Label>
                   <Input
                     id="email"
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => { setEmail(e.target.value); setLoginError(null); }}
                     required
+                    className="transition-all duration-300 focus-visible:border-cyan-400/70 focus-visible:ring-2 focus-visible:ring-cyan-400/30"
                   />
                 </div>
                 <div className="space-y-2.5">
                   <Label htmlFor="password" className="text-[11px] font-black uppercase tracking-widest opacity-60 ml-1">Senha</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => { setPassword(e.target.value); setLoginError(null); }}
+                      required
+                      className="pr-11 transition-all duration-300 focus-visible:border-cyan-400/70 focus-visible:ring-2 focus-visible:ring-cyan-400/30"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-cyan-400"
+                    >
+                      {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                    </button>
+                  </div>
                 </div>
-                <Button type="submit" className="w-full shadow-glow" disabled={loading || !ready}>
-                  {ready ? (loading ? "Entrando..." : "Entrar") : "Carregando..."}
-                </Button>
-                <p className="text-center">
+                <div className="flex items-center justify-between">
+                  <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+                    <Checkbox
+                      checked={rememberMe}
+                      onCheckedChange={(v) => setRememberMe(v === true)}
+                      aria-label="Lembrar de mim"
+                    />
+                    Lembrar de mim
+                  </label>
                   <button
                     type="button"
                     onClick={() => setMode("forgot")}
-                    className="text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
+                    className="text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-cyan-400 hover:underline"
                   >
                     Esqueci minha senha
                   </button>
-                </p>
+                </div>
+                <Button type="submit" className="w-full shadow-glow" disabled={loading || !ready}>
+                  {loading ? (
+                    <Loader2 className="size-4 animate-spin" aria-label="Entrando..." />
+                  ) : ready ? (
+                    "Entrar"
+                  ) : (
+                    "Carregando..."
+                  )}
+                </Button>
               </form>
             ) : mode === "forgot" ? (
               <form onSubmit={handleForgot} className="space-y-5 text-left">
@@ -459,13 +510,13 @@ function AuthPage() {
               aria-label="Informações legais"
               className="mt-7 flex flex-wrap justify-center gap-x-4 gap-y-2 border-t border-white/10 pt-5 text-xs text-muted-foreground"
             >
-              <Link to="/termos-de-uso" className="transition-colors hover:text-primary">
+              <Link to="/termos-de-uso" className="transition-colors hover:text-cyan-400">
                 Termos de Uso
               </Link>
-              <Link to="/politica-de-privacidade" className="transition-colors hover:text-primary">
+              <Link to="/politica-de-privacidade" className="transition-colors hover:text-cyan-400">
                 Política de Privacidade
               </Link>
-              <Link to="/direitos-do-titular" className="transition-colors hover:text-primary">
+              <Link to="/direitos-do-titular" className="transition-colors hover:text-cyan-400">
                 Direitos do Titular
               </Link>
             </nav>
