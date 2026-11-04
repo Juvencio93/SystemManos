@@ -48,10 +48,20 @@ import { LEGAL_DOCUMENTS } from "@/lib/legal-document-versions";
 
 
 export const Route = createFileRoute("/portal/$slug")({
-  loader: ({ params }) =>
-    getPortal({
-      data: { slug: getMarketingPortalSourceSlug(params.slug) ?? params.slug },
-    }),
+  // O portal é público e não pode derrubar a página com 500 quando a leitura
+  // de configuração falha (Supabase indisponível, variáveis ausentes ou
+  // campanha inconsistente). Em qualquer falha devolvemos null, que a rota já
+  // trata com a tela "Portal indisponível" — sem vazar detalhe para o visitante.
+  loader: async ({ params }) => {
+    try {
+      return await getPortal({
+        data: { slug: getMarketingPortalSourceSlug(params.slug) ?? params.slug },
+      });
+    } catch (error) {
+      console.error("[portal] Falha ao carregar portal:", params.slug, error);
+      return null;
+    }
+  },
   head: ({ loaderData }) => {
     const title = loaderData
       ? `${loaderData.companyName} | Wi-Fi Grátis`
