@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { AlertTriangle, Building2, ExternalLink, LocateFixed, MapPin, Wifi, X } from "lucide-react";
 
 import {
@@ -77,6 +78,60 @@ function googleMapsUrl(device: Device) {
       ? `${latitude},${longitude}`
       : locationLabel(device);
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query || device.router_identity)}`;
+}
+
+// Modal da RB via PORTAL no body + trava do scroll do fundo.
+// Sem isso, o fixed quebra se algum ancestral tiver transform/filter,
+// e a página de trás rola junto com o modal (o "tremido" fantasma).
+function DeviceModal({
+  label,
+  onClose,
+  children,
+}: {
+  label: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  // Trava o scroll do fundo enquanto o modal está aberto
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    const prevOverscroll = document.body.style.overscrollBehavior;
+    document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.style.overscrollBehavior = prevOverscroll;
+    };
+  }, []);
+
+  // Esc fecha
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[800] overflow-y-auto bg-black/60 backdrop-blur-[2px] overscroll-contain"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={label}
+    >
+      <div className="flex min-h-full items-center justify-center p-3 sm:p-6">
+        <div
+          className="w-full max-w-4xl max-h-[90vh] overflow-y-auto overscroll-contain rounded-xl"
+          onClick={(event) => event.stopPropagation()}
+        >
+          {children}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
 }
 
 // Relógio do heartbeat ISOLADO: tem seu próprio timer de 1s para não
@@ -333,22 +388,12 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
         </div>
 
         {selected ? (
-          <div
-            className="fixed inset-0 z-[800] overflow-y-auto bg-black/60 backdrop-blur-[2px]"
-            onClick={() => setSelected(null)}
-            role="dialog"
-            aria-modal="true"
-            aria-label={`Painel da RB ${selected.router_identity}`}
+          <DeviceModal
+            label={`Painel da RB ${selected.router_identity}`}
+            onClose={() => setSelected(null)}
           >
-            <div className="flex min-h-full items-center justify-center p-3 sm:p-6">
-              <div
-                className="w-full max-w-4xl"
-                onClick={(event) => event.stopPropagation()}
-              >
-                {selectedPanel}
-              </div>
-            </div>
-          </div>
+            {selectedPanel}
+          </DeviceModal>
         ) : null}
       </div>
     );
@@ -454,7 +499,14 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
             <p className="py-5 text-center text-sm text-muted-foreground">Nenhuma RB encontrada.</p>
           ) : null}
 
-          {selected ? <div className="mt-4">{selectedPanel}</div> : null}
+          {selected ? (
+            <DeviceModal
+              label={`Painel da RB ${selected.router_identity}`}
+              onClose={() => setSelected(null)}
+            >
+              {selectedPanel}
+            </DeviceModal>
+          ) : null}
         </CardContent>
       </Card>
     </div>
