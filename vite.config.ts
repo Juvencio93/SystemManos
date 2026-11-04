@@ -73,7 +73,7 @@ export default defineConfig({
     tailwindcss(),
     ...react().map((plugin) => ({ ...plugin, enforce: "post" as const })),
     viteTsconfigPaths(),
-    tanstackStart(),
+    tanstackStart({ spa: { enabled: true } }),
     nitro(),
     staticEntry(),
   ],
