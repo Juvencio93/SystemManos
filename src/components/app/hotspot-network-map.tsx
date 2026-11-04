@@ -79,6 +79,21 @@ function googleMapsUrl(device: Device) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query || device.router_identity)}`;
 }
 
+// Relógio do heartbeat ISOLADO: tem seu próprio timer de 1s para não
+// forçar re-render do mapa, da lista e do modal a cada segundo.
+function HeartbeatCountdown({ refreshSeconds }: { refreshSeconds: number }) {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    const interval = window.setInterval(() => setSeconds((value) => (value + 1) % refreshSeconds), 1_000);
+    return () => window.clearInterval(interval);
+  }, [refreshSeconds]);
+  return (
+    <span>
+      Heartbeat em {seconds}s · mapa operacional atualizado a cada {refreshSeconds}s
+    </span>
+  );
+}
+
 export function HotspotNetworkMap({ devices, isLoading = false, compact = false, onBlock, onReboot, refreshSeconds = 60 }: Props) {
   const [selected, setSelected] = useState<Device | null>(null);
   const [recenterSignal, setRecenterSignal] = useState(0);
@@ -88,15 +103,10 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
   const selectedId = selected?.id;
 
   useEffect(() => {
-    const interval = window.setInterval(() => setSeconds((value) => (value + 1) % refreshSeconds), 1_000);
-    return () => window.clearInterval(interval);
-  }, [refreshSeconds]);
-
-  useEffect(() => {
     if (!selectedId) return;
     const updated = devices.find((device) => device.id === selectedId);
     if (updated) setSelected({ ...updated, state: stateOf(updated) });
-  }, [devices, seconds, selectedId]);
+  }, [devices, selectedId]);
 
   // Esc fecha o painel da RB (o clique fora fecha no layout do radar).
   useEffect(() => {
@@ -110,7 +120,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
 
   const mappedDevices = useMemo(
     () => devices.map((device) => ({ ...device, state: stateOf(device) })),
-    [devices, seconds],
+    [devices],
   );
   const visible = mappedDevices.filter((device) => {
     const matchesFilter = filter === "all" || device.state === filter;
@@ -265,7 +275,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
                 <Wifi className="size-4 text-primary" /> Mapa da rede
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Heartbeat em {seconds}s · mapa operacional atualizado a cada {refreshSeconds}s
+                <HeartbeatCountdown refreshSeconds={refreshSeconds} />
               </p>
             </div>
             <input
@@ -354,7 +364,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
                 <Wifi className="size-5 text-primary" /> Mapa da rede
               </CardTitle>
               <p className="mt-1 text-xs text-muted-foreground">
-                Heartbeat em {seconds}s · mapa operacional atualizado a cada {refreshSeconds}s
+                <HeartbeatCountdown refreshSeconds={refreshSeconds} />
               </p>
             </div>
             <Button
