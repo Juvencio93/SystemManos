@@ -27,17 +27,6 @@ export const Route = createFileRoute("/_authenticated/hotspot")({
   component: HotspotPage,
 });
 
-// Contador do heartbeat ISOLADO: tem seu próprio timer de 1s para não
-// forçar re-render da página inteira (e do modal de gráficos) a cada segundo.
-function HeartbeatLabel() {
-  const [heartbeatSeconds, setHeartbeatSeconds] = useState(60);
-  useEffect(() => {
-    const timer = window.setInterval(() => setHeartbeatSeconds((v) => (v <= 1 ? 60 : v - 1)), 1000);
-    return () => window.clearInterval(timer);
-  }, []);
-  return <HeartbeatLabel />;
-}
-
 function HotspotPage() {
   const { data: access } = useAccess();
   const canManageHotspot = access?.role === "adm" || access?.role === "revenda";
@@ -119,6 +108,8 @@ function HotspotPage() {
     }
   }, [expandedSection, policiesExpanded, uiRestored]);
   const [mapZoom, setMapZoom] = useState(1);
+  const [heartbeatSeconds, setHeartbeatSeconds] = useState(60);
+  useEffect(() => { const timer = window.setInterval(() => setHeartbeatSeconds((v) => v <= 1 ? 60 : v - 1), 1000); return () => window.clearInterval(timer); }, []);
   const isOnline = (lastSeen?: string) =>
     Boolean(lastSeen && Date.now() - new Date(lastSeen).getTime() < 300_000);
   const hasOnlineTwin = (device: any) => Boolean(device.ap_mac && clients.some((other: any) =>
@@ -233,7 +224,7 @@ function HotspotPage() {
       <Card className="hidden overflow-hidden border-primary/20 bg-[#071017]">
         <CardHeader className="gap-3 border-b border-white/5">
           <div><CardTitle className="flex items-center gap-2"><Router className="size-5 text-primary" /> Mapa da rede</CardTitle><p className="mt-1 text-xs text-muted-foreground">Visão operacional das RBs cadastradas</p></div>
-          <div className="flex flex-wrap items-center gap-2"><Input className="min-w-[220px] flex-1" placeholder="Buscar RB ou MAC" value={search} onChange={(e) => setSearch(e.target.value)} /><Button size="sm" variant="outline" onClick={() => setMapZoom(1)}>Centralizar</Button><Button size="sm" variant="outline" onClick={() => setMapZoom((v) => Math.min(1.4, v + .1))}>Zoom +</Button><HeartbeatLabel /></div>
+          <div className="flex flex-wrap items-center gap-2"><Input className="min-w-[220px] flex-1" placeholder="Buscar RB ou MAC" value={search} onChange={(e) => setSearch(e.target.value)} /><Button size="sm" variant="outline" onClick={() => setMapZoom(1)}>Centralizar</Button><Button size="sm" variant="outline" onClick={() => setMapZoom((v) => Math.min(1.4, v + .1))}>Zoom +</Button><span className="text-xs text-muted-foreground">Heartbeat em {heartbeatSeconds}s</span></div>
           <div className="flex flex-wrap gap-3 text-[11px] text-muted-foreground"><span className="flex items-center gap-1"><i className="size-2 rounded-full bg-emerald-400" />Online {clients.filter((c) => isOnline(c.last_seen_at)).length}</span><span className="flex items-center gap-1"><i className="size-2 rounded-full bg-amber-300" />Instável</span><span className="flex items-center gap-1"><i className="size-2 rounded-full bg-red-400" />Offline {offlineCount}</span></div>
         </CardHeader>
         <CardContent className="p-0"><div className="relative min-h-[min(58vh,520px)] overflow-hidden bg-[radial-gradient(circle_at_center,#12303a_0,transparent_58%),linear-gradient(135deg,#071017,#0b1820)]"><div className="absolute left-3 top-1/2 z-20 flex -translate-y-1/2 flex-col gap-2 rounded-xl border border-white/10 bg-slate-950/90 p-3 text-xs"><span>Latência: —</span><span>Perda: —</span><span className="text-emerald-300">Online: {clients.filter((c) => isOnline(c.last_seen_at)).length}</span><span className="text-red-300">Offline: {offlineCount}</span></div><div style={{ transform: `scale(${mapZoom})`, transformOrigin: "center" }}>
