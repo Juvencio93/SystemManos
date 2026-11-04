@@ -36,7 +36,7 @@ export function BannerCarousel({
   // Pausa o video ao sair dele e retoma (do inicio, se ja terminou) ao voltar.
   useEffect(() => {
     const el = videoRef.current;
-    if (!el) return;
+    if (!el) return undefined;
     if (currentIsVideo) {
       if (el.ended) el.currentTime = 0;
       // Dentro do mockup da pagina inicial o portal roda num iframe: a
@@ -48,6 +48,7 @@ export function BannerCarousel({
       return () => el.removeEventListener("canplay", attempt);
     }
     el.pause();
+    return undefined;
   }, [currentIsVideo, index]);
 
   useEffect(() => {
