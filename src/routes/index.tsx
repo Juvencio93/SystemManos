@@ -1,16 +1,72 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowRight, ArrowUp, Gauge, RotateCcw, Timer } from "lucide-react";
 import logo from "@/assets/manos-tech-logo-institutional.png";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { openPreSaleChat, PreSaleForm } from "@/components/app/pre-sale-form";
 import { DashboardDemo } from "@/components/app/dashboard-demo";
 import { WifiVisitantesDemo } from "@/components/app/wifi-visitantes-demo";
-import { ScrollReveal } from "@/components/app/marketing/scroll-reveal";
-import { MarketingShowcase } from "@/components/app/marketing/marketing-showcase";
-import { CampaignVideoCard } from "@/components/app/marketing/campaign-video-card";
 
 const SOCIAL_IMAGE_URL = new URL(logo, "https://manostech-system.com.br").toString();
+
+function ScrollReveal({
+  children,
+  className = "",
+  delay = 0,
+}: {
+  children: ReactNode;
+  className?: string;
+  delay?: number;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(true);
+  const [reducedMotion, setReducedMotion] = useState(false);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+
+    const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const updateMotionPreference = () => setReducedMotion(motionPreference.matches);
+    updateMotionPreference();
+    motionPreference.addEventListener("change", updateMotionPreference);
+
+    let frame = 0;
+    const updateVisibility = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        const bounds = node.getBoundingClientRect();
+        const readingBandTop = window.innerHeight * 0.16;
+        const readingBandBottom = window.innerHeight * 0.84;
+        setVisible(bounds.bottom > readingBandTop && bounds.top < readingBandBottom);
+      });
+    };
+
+    updateVisibility();
+    // Capture scroll events from the document and nested scroll containers too.
+    document.addEventListener("scroll", updateVisibility, { passive: true, capture: true });
+    window.addEventListener("resize", updateVisibility);
+    return () => {
+      document.removeEventListener("scroll", updateVisibility, true);
+      window.removeEventListener("resize", updateVisibility);
+      motionPreference.removeEventListener("change", updateMotionPreference);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      className={`${reducedMotion ? "transition-none" : "transition-[opacity,transform] duration-500 ease-out"} ${
+        visible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
+      } ${className}`}
+      style={{ transitionDelay: visible ? `${delay}ms` : "0ms" }}
+    >
+      {children}
+    </div>
+  );
+}
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -286,40 +342,28 @@ function SalesHomePage() {
       </header>
 
       <section className="relative isolate">
-        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_20%_0%,rgba(0,194,204,.13),transparent_48%),radial-gradient(ellipse_at_95%_25%,rgba(25,98,190,.11),transparent_42%)]" />
-        <div className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(to_right,rgba(255,255,255,.035)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,.035)_1px,transparent_1px)] bg-[size:64px_64px] [mask-image:radial-gradient(ellipse_at_50%_0%,black,transparent_70%)]" />
-        <div className="mx-auto grid max-w-7xl items-center gap-14 px-5 pb-20 pt-16 sm:px-8 sm:pb-28 sm:pt-24 lg:grid-cols-[1.1fr_.9fr] lg:gap-16">
-          <div className="h-full">
-            <ScrollReveal direction="left" duration={800}>
-              <span className="inline-flex items-center gap-2 rounded-full border border-cyan-400/25 bg-cyan-400/[.07] px-4 py-1.5 text-[11px] font-bold uppercase tracking-[.18em] text-cyan-200">
-                <span className="size-1.5 rounded-full bg-emerald-400 motion-safe:animate-pulse" aria-hidden="true" />
-                Wi-Fi que gera relacionamento e vendas
-              </span>
-              <h1 className="mt-6 max-w-3xl text-balance font-display text-4xl font-bold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl">
-                Seu{" "}
-                <span className="bg-gradient-to-r from-cyan-300 via-cyan-400 to-sky-500 bg-clip-text text-transparent">
-                  Wi-Fi
-                </span>{" "}
-                agora é seu melhor{" "}
-                <span className="bg-gradient-to-r from-cyan-300 via-cyan-400 to-sky-500 bg-clip-text text-transparent">
-                  vendedor
-                </span>
-                .
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_20%_0%,rgba(0,194,204,.06),transparent_42%),radial-gradient(ellipse_at_95%_25%,rgba(25,98,190,.05),transparent_36%)]" />
+        <div className="mx-auto grid max-w-7xl items-center gap-12 px-5 pb-20 pt-16 sm:px-8 sm:pb-28 sm:pt-24 lg:grid-cols-[1.1fr_.9fr] lg:gap-16">
+          <ScrollReveal className="h-full">
+            <div>
+              <h1 className="max-w-3xl font-display text-4xl font-bold leading-[1.08] tracking-tight sm:text-5xl lg:text-6xl">
+                Seu <span className="text-cyan-400">Wi-Fi</span> agora é seu melhor{" "}
+                <span className="text-cyan-400">vendedor</span>.
               </h1>
-              <p className="mt-6 max-w-2xl text-pretty text-base leading-7 text-slate-300 sm:text-lg">
-                Com a <strong className="text-white">ManosTech System</strong>, o Wi-Fi do seu
-                estabelecimento deixa de ser apenas um serviço gratuito e passa a ser uma{" "}
-                <strong className="text-white">ferramenta de relacionamento e vendas</strong>.
+              <p className="mt-6 max-w-2xl text-base leading-7 text-slate-300 sm:text-lg">
+                Com a <strong>ManosTech System</strong>, o Wi-Fi do seu estabelecimento deixa de
+                ser apenas um serviço gratuito e passa a ser uma{" "}
+                <strong>ferramenta de relacionamento e vendas</strong>.
               </p>
-              <p className="mt-4 max-w-2xl text-pretty text-base leading-7 text-slate-300 sm:text-lg">
+              <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300 sm:text-lg">
                 Conheça melhor quem visita seu negócio, transforme acessos em oportunidades e use
                 essas informações para{" "}
-                <strong className="text-white">
+                <strong>
                   criar campanhas, fortalecer o relacionamento e trazer seus clientes de volta
                 </strong>
                 .
               </p>
-              <p className="mt-8 max-w-2xl border-l-2 border-l-cyan-400/70 pl-4 text-lg font-bold leading-7 text-white sm:text-xl">
+              <p className="mt-8 max-w-2xl text-lg font-bold leading-7 sm:text-xl">
                 Mais do que oferecer Wi-Fi. Transforme cada acesso em uma nova oportunidade de
                 venda.
               </p>
@@ -327,42 +371,33 @@ function SalesHomePage() {
                 <button
                   type="button"
                   onClick={openPreSaleChat}
-                  className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-cyan-400 px-6 font-bold text-slate-950 shadow-[0_16px_40px_-18px_rgba(34,211,238,.85)] transition duration-300 hover:-translate-y-0.5 hover:bg-cyan-300 hover:shadow-[0_22px_50px_-18px_rgba(34,211,238,1)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-cyan-400 px-6 font-bold text-slate-950 transition hover:bg-cyan-400"
                 >
-                  Quero transformar meu Wi-Fi em vendas
-                  <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1 motion-reduce:group-hover:translate-x-0" />
+                  Quero transformar meu Wi-Fi em vendas <ArrowRight className="size-4" />
                 </button>
                 <a
                   href="#portais"
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/15 px-6 font-semibold text-white transition hover:border-white/35 hover:bg-white/[.04]"
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/15 px-6 font-semibold text-white transition hover:border-white/35"
                 >
                   Ver um portal de verdade <ArrowRight className="size-4" />
                 </a>
               </div>
-            </ScrollReveal>
-          </div>
+            </div>
+          </ScrollReveal>
 
           <div className="h-full">
-            <ScrollReveal className="h-full" delay={140} direction="right" duration={900}>{" "}
-              <div className="relative">
-                <div
-                  aria-hidden="true"
-                  className="pointer-events-none absolute left-1/2 top-1/2 -z-10 size-[420px] max-w-[110%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-500/20 blur-[110px]"
-                />
-                <MobileBotecoDemo />
-              </div>
-            </ScrollReveal>
+            <ScrollReveal className="h-full" delay={120}><MobileBotecoDemo /></ScrollReveal>
           </div>
         </div>
       </section>
 
       <section id="portais" className="scroll-mt-20 border-y border-white/[.07] bg-[#070D13]">
-        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-24">
+        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
           <ScrollReveal>
             <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
               Portal real
             </p>
-            <h2 className="mt-3 max-w-3xl text-balance font-display text-3xl font-bold tracking-tight sm:text-4xl">
+            <h2 className="mt-3 max-w-3xl font-display text-3xl font-bold tracking-tight sm:text-4xl">
               Veja o que seu cliente encontra ao se conectar.
             </h2>
             <p className="mt-4 max-w-2xl leading-7 text-slate-400">
@@ -370,10 +405,10 @@ function SalesHomePage() {
             </p>
           </ScrollReveal>
           <div className="mt-12 grid items-center gap-12 lg:grid-cols-2 lg:gap-14">
-            <ScrollReveal className="min-w-0" direction="left">
+            <ScrollReveal className="min-w-0">
               <NotebookCheckinDemo />
             </ScrollReveal>
-            <ScrollReveal delay={120} direction="right">
+            <ScrollReveal delay={120}>
               <h3 className="text-xl font-bold">Portal personalizado para cada negócio.</h3>
               <p className="mt-3 leading-7 text-slate-400">
                 Seu cliente acessa o Wi-Fi e encontra uma experiência criada para a sua marca.
@@ -402,11 +437,11 @@ function SalesHomePage() {
         </div>
       </section>
 
-      <section id="painel" className="scroll-mt-20 border-y border-white/[.07] bg-[#070D13]">
-        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-24">
+      <section className="border-y border-white/[.07] bg-[#070D13]">
+        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
           <ScrollReveal>
             <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">Painel</p>
-            <h2 className="mt-3 max-w-3xl text-balance font-display text-3xl font-bold tracking-tight sm:text-4xl">
+            <h2 className="mt-3 max-w-3xl font-display text-3xl font-bold tracking-tight sm:text-4xl">
               E você acompanha tudo pelo seu painel.
             </h2>
             <p className="mt-6 max-w-2xl text-base leading-7 text-slate-300">
@@ -421,10 +456,8 @@ function SalesHomePage() {
               Menos achismo. Mais informação para tomar decisões.
             </p>
           </ScrollReveal>
-          <div className="mt-12 rounded-3xl border border-white/[.08] bg-[#0B1118]/70 p-2 shadow-[0_40px_100px_-60px_rgba(0,194,204,.5)] sm:p-3">
-            <ScrollReveal direction="zoom" duration={800}>
-              <DashboardDemo />
-            </ScrollReveal>
+          <div className="mt-12">
+            <DashboardDemo />
           </div>
           <p className="mt-6 text-center text-xs italic text-slate-500">
             Demonstração com dados de exemplo.
@@ -432,46 +465,13 @@ function SalesHomePage() {
         </div>
       </section>
 
-      <section className="border-y border-white/[.07] bg-[#070D13]">
-        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-24">
-          <div className="grid items-center gap-10 lg:grid-cols-[.95fr_1.05fr] lg:gap-14">
-            <ScrollReveal direction="left">
-              <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">Na prática</p>
-              <h2 className="mt-3 max-w-xl text-balance font-display text-3xl font-bold tracking-tight sm:text-4xl">
-                Crie uma campanha em poucos minutos.
-              </h2>
-              <p className="mt-4 max-w-xl leading-7 text-slate-400">
-                Escolha o estilo, ajuste as cores da sua marca e publique para quem já passou pelo
-                seu estabelecimento.
-              </p>
-            </ScrollReveal>
-            <ScrollReveal direction="right" delay={120} duration={900}>
-              <CampaignVideoCard />
-            </ScrollReveal>
-          </div>
-          <div className="mt-14">
-            <ScrollReveal>
-              <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
-                Do portal à campanha
-              </p>
-              <h2 className="mt-3 max-w-3xl text-balance font-display text-3xl font-bold tracking-tight sm:text-4xl">
-                Sua marca do primeiro acesso ao retorno.
-              </h2>
-            </ScrollReveal>
-            <div className="mt-10">
-              <MarketingShowcase />
-            </div>
-          </div>
-        </div>
-      </section>
-
       <section id="controle" className="scroll-mt-20">
-        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-24">
+        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
           <ScrollReveal>
             <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
               Controle
             </p>
-            <h2 className="mt-3 max-w-3xl text-balance font-display text-3xl font-bold tracking-tight sm:text-4xl">
+            <h2 className="mt-3 max-w-3xl font-display text-3xl font-bold tracking-tight sm:text-4xl">
               Você controla o Wi-Fi dos seus visitantes.
             </h2>
             <p className="mt-6 max-w-2xl text-base leading-7 text-slate-300">
@@ -481,11 +481,9 @@ function SalesHomePage() {
           </ScrollReveal>
           <div className="mt-10 grid gap-4 sm:grid-cols-3">
             <ScrollReveal className="h-full">
-              <article className="group h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 hover:shadow-[0_24px_60px_-30px_rgba(34,211,238,.35)] sm:p-6">
-                <span className="grid size-11 place-items-center rounded-xl border border-cyan-400/20 bg-cyan-400/[.08] transition-colors duration-300 group-hover:bg-cyan-400/[.14]">
-                  <Gauge className="size-5 text-cyan-300" aria-hidden="true" />
-                </span>
-                <h3 className="mt-4 font-semibold">Velocidade por visitante</h3>
+              <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 sm:p-6">
+                <Gauge className="size-7 text-cyan-400" aria-hidden="true" />
+                <h3 className="mt-3 font-semibold">Velocidade por visitante</h3>
                 <p className="mt-2 text-sm leading-6 text-slate-400">
                   Defina a velocidade de download e upload que cada visitante usa —
                   o suficiente para navegar bem, sem sobrecarregar a sua internet.
@@ -493,11 +491,9 @@ function SalesHomePage() {
               </article>
             </ScrollReveal>
             <ScrollReveal className="h-full" delay={90}>
-              <article className="group h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 hover:shadow-[0_24px_60px_-30px_rgba(34,211,238,.35)] sm:p-6">
-                <span className="grid size-11 place-items-center rounded-xl border border-cyan-400/20 bg-cyan-400/[.08] transition-colors duration-300 group-hover:bg-cyan-400/[.14]">
-                  <Timer className="size-5 text-cyan-300" aria-hidden="true" />
-                </span>
-                <h3 className="mt-4 font-semibold">Tempo de conexão</h3>
+              <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 sm:p-6">
+                <Timer className="size-7 text-cyan-400" aria-hidden="true" />
+                <h3 className="mt-3 font-semibold">Tempo de conexão</h3>
                 <p className="mt-2 text-sm leading-6 text-slate-400">
                   Escolha quanto tempo dura cada check-in e quanto tempo parado
                   encerra a sessão automaticamente.
@@ -505,11 +501,9 @@ function SalesHomePage() {
               </article>
             </ScrollReveal>
             <ScrollReveal className="h-full" delay={180}>
-              <article className="group h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 hover:shadow-[0_24px_60px_-30px_rgba(34,211,238,.35)] sm:p-6">
-                <span className="grid size-11 place-items-center rounded-xl border border-cyan-400/20 bg-cyan-400/[.08] transition-colors duration-300 group-hover:bg-cyan-400/[.14]">
-                  <RotateCcw className="size-5 text-cyan-300" aria-hidden="true" />
-                </span>
-                <h3 className="mt-4 font-semibold">Limite de reconexões</h3>
+              <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 sm:p-6">
+                <RotateCcw className="size-7 text-cyan-400" aria-hidden="true" />
+                <h3 className="mt-3 font-semibold">Limite de reconexões</h3>
                 <p className="mt-2 text-sm leading-6 text-slate-400">
                   Defina quantas vezes o mesmo aparelho pode se conectar e por
                   quanto tempo ele fica bloqueado depois do limite.
@@ -525,36 +519,25 @@ function SalesHomePage() {
         </div>
       </section>
 
-      <section id="como-funciona" className="scroll-mt-20 border-t border-white/[.07] bg-[#070D13]">
-        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-24">
+      <section id="como-funciona" className="scroll-mt-20">
+        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
           <ScrollReveal>
             <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
               O que acontece?
             </p>
-            <h2 className="mt-3 text-balance font-display text-3xl font-bold tracking-tight sm:text-4xl">
+            <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
               Como a ManosTech funciona?
             </h2>
           </ScrollReveal>
           <div className="mt-10 grid gap-4 sm:grid-cols-2">
             {STEPS.map(({ num, title, body }, index) => (
-              <ScrollReveal
-                key={title}
-                className="h-full"
-                delay={(index % 2) * 90}
-                direction={index % 2 === 0 ? "left" : "right"}
-              >
-                <article className="group relative h-full overflow-hidden rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-colors duration-300 hover:border-cyan-400/30 sm:p-6">
-                  <span
-                    aria-hidden="true"
-                    className="pointer-events-none absolute -right-6 -top-8 font-display text-[7rem] font-bold leading-none text-white/[.03] transition-colors duration-500 group-hover:text-cyan-400/10"
-                  >
-                    {num}
-                  </span>
-                  <p className="text-[11px] font-bold uppercase tracking-[.15em] text-cyan-300/80">
+              <ScrollReveal key={title} className="h-full" delay={(index % 2) * 90}>
+                <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 sm:p-6">
+                  <p className="text-[11px] font-bold uppercase tracking-[.15em] text-slate-500">
                     {num}
                   </p>
-                  <h3 className="relative mt-1 text-lg font-semibold">{title}</h3>
-                  <p className="relative mt-2 text-sm leading-6 text-slate-400">{body}</p>
+                  <h3 className="mt-1 font-semibold">{title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-400">{body}</p>
                 </article>
               </ScrollReveal>
             ))}
@@ -563,12 +546,12 @@ function SalesHomePage() {
       </section>
 
       <section className="border-y border-white/[.07] bg-[#070D13]">
-        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-24">
+        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
           <ScrollReveal>
             <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
               Para quem é
             </p>
-            <h2 className="mt-3 text-balance font-display text-3xl font-bold tracking-tight sm:text-4xl">
+            <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
               Para diferentes tipos de negócio
             </h2>
           </ScrollReveal>
@@ -576,7 +559,7 @@ function SalesHomePage() {
             {PARA_QUEM_E.map(({ icon, title, body }, index) => (
               <ScrollReveal key={title} className="h-full" delay={(index % 4) * 80}>
                 <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 sm:p-6">
-                  <p className="grid size-11 place-items-center rounded-xl border border-white/[.06] bg-white/[.04] text-2xl" aria-hidden="true">
+                  <p className="text-3xl" aria-hidden="true">
                     {icon}
                   </p>
                   <h3 className="mt-3 font-semibold">{title}</h3>
@@ -589,13 +572,13 @@ function SalesHomePage() {
       </section>
 
       <section id="duvidas" className="scroll-mt-20">
-        <div className="mx-auto max-w-4xl px-5 py-16 sm:px-8 sm:py-24">
+        <div className="mx-auto max-w-4xl px-5 py-16 sm:px-8 sm:py-20">
           <ScrollReveal>
             <div className="max-w-3xl">
               <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
                 Perguntas frequentes
               </p>
-              <h2 className="mt-3 text-balance font-display text-3xl font-bold tracking-tight sm:text-4xl">
+              <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
                 Dúvidas comuns
               </h2>
             </div>
@@ -631,34 +614,27 @@ function SalesHomePage() {
 
 
 
-      <section className="relative isolate overflow-hidden border-t border-white/[.07] bg-[#070D13]">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_50%_120%,rgba(0,194,204,.18),transparent_60%)]"
-        />
-        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-24">
-          <ScrollReveal direction="zoom" duration={800}>
-            <div className="rounded-3xl border border-white/[.08] bg-[linear-gradient(160deg,rgba(11,17,24,.95),rgba(5,8,15,.95))] p-6 shadow-[0_40px_100px_-60px_rgba(0,194,204,.6)] sm:p-10 lg:p-12">
-              <h2 className="max-w-3xl text-balance font-display text-3xl font-bold tracking-tight sm:text-4xl">
-                Seu cliente já está entrando pela porta.
-              </h2>
-              <p className="mt-3 max-w-3xl text-xl font-bold leading-8 sm:text-2xl">
-                Agora faça o Wi-Fi trabalhar para trazer esse cliente de volta.
-              </p>
-              <p className="mt-6 max-w-2xl text-base leading-7 text-slate-300">
-                Transforme o Wi-Fi do seu estabelecimento em uma ferramenta de relacionamento,
-                inteligência e vendas.
-              </p>
-              <div className="mt-8">
-                <button
-                  type="button"
-                  onClick={openPreSaleChat}
-                  className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-cyan-400 px-6 font-bold text-slate-950 shadow-[0_16px_40px_-18px_rgba(34,211,238,.85)] transition duration-300 hover:-translate-y-0.5 hover:bg-cyan-300 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
-                >
-                  Quero transformar meu Wi-Fi em vendas
-                  <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1 motion-reduce:group-hover:translate-x-0" />
-                </button>
-              </div>
+      <section className="border-t border-white/[.07] bg-[#070D13]">
+        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
+          <ScrollReveal>
+            <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
+              Seu cliente já está entrando pela porta.
+            </h2>
+            <p className="mt-3 text-xl font-bold leading-8 sm:text-2xl">
+              Agora faça o Wi-Fi trabalhar para trazer esse cliente de volta.
+            </p>
+            <p className="mt-6 max-w-2xl text-base leading-7 text-slate-300">
+              Transforme o Wi-Fi do seu estabelecimento em uma ferramenta de relacionamento,
+              inteligência e vendas.
+            </p>
+            <div className="mt-8">
+              <button
+                type="button"
+                onClick={openPreSaleChat}
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-cyan-400 px-6 font-bold text-slate-950 transition hover:bg-cyan-400"
+              >
+                Quero transformar meu Wi-Fi em vendas <ArrowRight className="size-4" />
+              </button>
             </div>
           </ScrollReveal>
         </div>
@@ -683,21 +659,19 @@ function SalesHomePage() {
 
       <PreSaleForm />
 
-      <ScrollReveal as="div">
-        <footer className="border-t border-white/[.06] bg-[#05080F]">
-          <div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-10 text-xs text-slate-500 sm:px-8 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-3">
-              <img src={logo} alt="" className="size-8 rounded-full object-contain" />
-              <span>© {new Date().getFullYear()} Manos Tech Solução em Marketing</span>
-            </div>
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-              <a className="transition hover:text-slate-300" href="mailto:contato@manostech-system.com.br">
-                contato@manostech-system.com.br
-              </a>
-              <Link className="transition hover:text-slate-300" to="/auth">
-                Entrar no sistema
-              </Link>
-            </div>
+      <ScrollReveal>
+        <footer className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-8 text-xs text-slate-500 sm:px-8 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-3">
+            <img src={logo} alt="" className="size-8 rounded-full object-contain" />
+            <span>© {new Date().getFullYear()} Manos Tech Solução em Marketing</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            <a className="transition hover:text-slate-300" href="mailto:contato@manostech-system.com.br">
+              contato@manostech-system.com.br
+            </a>
+            <Link className="transition hover:text-slate-300" to="/auth">
+              Entrar no sistema
+            </Link>
           </div>
         </footer>
       </ScrollReveal>
