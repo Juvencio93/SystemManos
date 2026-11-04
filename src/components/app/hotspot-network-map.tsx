@@ -465,7 +465,24 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
             <p className="py-5 text-center text-sm text-muted-foreground">Nenhuma RB encontrada.</p>
           ) : null}
 
-          {selected ? <div className="mt-4">{selectedPanel}</div> : null}
+          {selected ? (
+            <div
+              className="fixed inset-0 z-[800] overflow-y-auto bg-black/60 backdrop-blur-[2px]"
+              onClick={() => setSelected(null)}
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Painel da RB ${selected.router_identity}`}
+            >
+              <div className="flex min-h-full items-center justify-center p-3 sm:p-6">
+                <div
+                  className="w-full max-w-4xl"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {selectedPanel}
+                </div>
+              </div>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
     </div>
