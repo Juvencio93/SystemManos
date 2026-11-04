@@ -25,7 +25,6 @@ import {
   MFA_PENDING_EXPIRED_MESSAGE,
   MFA_VERIFY_RATE_LIMIT_MESSAGE,
 } from "@/integrations/supabase/mfa";
-import manosTechLogo from "@/assets/manos-tech-logo-institutional.png";
 import sidebarLogo from "@/assets/manostech-sidebar-logo.svg";
 
 export const Route = createFileRoute("/auth")({
@@ -288,14 +287,6 @@ function AuthPage() {
     <Suspense>
       <div className="grid min-h-screen lg:grid-cols-2">
         <div className="relative hidden flex-col justify-between overflow-hidden p-12 lg:flex">
-          <Link to="/" className="relative flex items-center gap-2">
-            <img
-              src={sidebarLogo}
-              alt="Logo Manos Tech"
-              className="size-11 shrink-0 rounded-full object-contain"
-            />
-            <span className="font-display text-2xl font-black tracking-tight">Manos Tech</span>
-          </Link>
           <div className="relative max-w-md">
             <h2 className="text-4xl font-display font-black leading-tight tracking-tighter">
               O Wi-Fi como <span className="text-gradient">máquina de captação</span>
@@ -311,7 +302,7 @@ function AuthPage() {
         <div className="flex items-center justify-center p-0 sm:p-6">
           <div className="w-full max-w-sm glass-panel min-h-screen rounded-none border-primary/20 p-8 text-center shadow-none sm:min-h-0 sm:rounded-3xl sm:shadow-[0_20px_60px_rgba(0,0,0,0.5),0_0_40px_rgba(0,255,255,0.05)]">
             <div className="mb-8 flex flex-col items-center">
-              <img src={manosTechLogo} alt="Manos Tech Logo" className="h-32 w-auto mb-6 drop-shadow-glow" />
+              <img src={sidebarLogo} alt="Manos Tech" className="h-14 w-auto mb-6" />
               <h2 className="text-lg font-display font-black text-foreground mb-3 tracking-tight">
                 A inteligência por trás do seu Wi-Fi corporativo
               </h2>
