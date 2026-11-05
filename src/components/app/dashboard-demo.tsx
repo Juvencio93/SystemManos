@@ -19,20 +19,32 @@ import type { RealtimeActivityResponse } from "@/lib/realtime.functions";
  * Regra editorial: nenhum número aqui representa medição real.
  *
  * Simulação "live demo" — SÓ existe aqui, na landing. É uma simulação por
- * ESTADO: a cada 7,5s produzimos NOVOS objetos de dados (Insights +
- * DispositivosHoje + ConectadosAgoraDevices) e os entregamos ao dashboard,
- * que re-renderiza sozinho. Nenhuma prop nova no componente compartilhado,
- * nenhuma manipulação de DOM, nenhuma verificação interna: a simulação apenas
- * produz seus próprios dados e os exibe — como um SaaS em operação.
+ * ESTADO: produzimos NOVOS objetos de dados (Insights + DispositivosHoje +
+ * ConectadosAgoraDevices) e os entregamos ao dashboard, que re-renderiza
+ * sozinho. Nenhuma prop nova no componente compartilhado, nenhuma
+ * manipulação de DOM, nenhuma verificação interna: a simulação apenas produz
+ * seus próprios dados e os exibe — como um SaaS em operação.
  *
  * Regras da simulação:
- * - Só começa quando o painel entra na tela (IntersectionObserver com
- *   threshold baixo + checagem imediata com getBoundingClientRect).
- * - Um único setInterval de 7,5s; cleanup no unmount.
+ * - Tudo começa ZERADO. Quando o painel entra na tela (IntersectionObserver
+ *   com threshold baixo + checagem imediata com getBoundingClientRect), os
+ *   números contam de 0 até os valores-base (~1,5s, ease-out, leve stagger
+ *   entre os cards) e as linhas da tabela entram uma a uma.
+ * - Depois do count-up, um único setInterval de 7,5s mantém a simulação ao
+ *   vivo; cleanup no unmount.
  * - ZERO .focus(), ZERO scrollIntoView(), ZERO comando de rolagem.
- * - Respeita prefers-reduced-motion (sem timers; ficam os valores iniciais).
+ * - Respeita prefers-reduced-motion (sem animação; ficam os valores finais).
+ * - CACHE LOCAL: o estado é salvo em localStorage a cada tick (chave
+ *   "manos:live-demo", com o dia). Ao carregar, se houver cache válido DO
+ *   MESMO DIA, a simulação retoma de onde parou — sem recomeçar do zero e
+ *   sem count-up. Cache de outro dia é descartado. Tudo roda 100% no
+ *   navegador: zero carga no servidor. Falha de localStorage nunca quebra
+ *   a página (try/catch em volta de tudo).
  * - CALIBRAGEM (operação real, não números explodindo):
- *   - "Acessos hoje" e "Base de clientes": +1 por tick (acumulado do dia).
+ *   - "Acessos hoje" e "Base de clientes": +1 por tick, com TRAVA SUAVE em
+ *     base+40 (param em 87 e 358). A última barra do gráfico é o "Acessos
+ *     hoje" e acompanha o card. "Sua base cresceu N esta semana" deriva da
+ *     base: 11 + (base − 318).
  *   - "Conectados agora": OSCILA entre 11 e 15 (±1 aleatório por tick) —
  *     gente entra e sai; os sub-contadores "N celulares / N computadores"
  *     acompanham o tipo do dispositivo da vez e a soma é sempre coerente.
@@ -45,8 +57,9 @@ import type { RealtimeActivityResponse } from "@/lib/realtime.functions";
  */
 
 function buildMockChart(): { date: string; total: number }[] {
-  // 14 dias de exemplo — valores modestos e fictícios.
-  const totals = [22, 28, 25, 31, 29, 35, 41, 33, 38, 44, 40, 47, 43, 47];
+  // 14 dias de exemplo — valores modestos e fictícios. A última barra é o
+  // dia de hoje e vale o mesmo que "Acessos hoje" (BASE_ACESSOS).
+  const totals = [22, 28, 25, 31, 29, 35, 41, 33, 38, 44, 40, 47, 43, BASE_ACESSOS];
   return totals.map((total, i) => {
     const d = new Date();
     d.setDate(d.getDate() - (totals.length - 1 - i));
@@ -54,31 +67,47 @@ function buildMockChart(): { date: string; total: number }[] {
   });
 }
 
+// Valores-base da demonstração — alvos do count-up e ponto de partida da
+// simulação ao vivo. Fonte única de verdade: os mocks abaixo usam estas
+// constantes, então o count-up nunca diverge dos dados exibidos.
+const BASE_ACESSOS = 47;
+const BASE_CONECTADOS = 12;
+const BASE_CELULARES = 9;
+const BASE_COMPUTADORES = 3;
+const BASE_CLIENTES = 318;
+const BASE_NOVOS = 11;
+const BASE_SEMANA = 280;
+const BASE_ANDROID = 20;
+const BASE_IOS = 18;
+const BASE_DESKTOP = 9;
+
+const baseChart = buildMockChart();
+
 const mockInsights: Insights = {
   role: "matriz",
   showFinance: false,
   periodDate: new Date().toISOString().slice(0, 10),
-  leadsBase: 318,
-  visitantesHoje: 47,
+  leadsBase: BASE_CLIENTES,
+  visitantesHoje: BASE_ACESSOS,
   visitantesOntem: 42,
-  conectadosAgora: 12,
+  conectadosAgora: BASE_CONECTADOS,
   totalConexoes: 1240,
-  conexoesSemana: 280,
+  conexoesSemana: BASE_SEMANA,
   conexoesSemanaAnterior: 251,
   recorrentesSemana: 96,
-  leadsEmpresa: 318,
-  leadsNovosSemana: 11,
+  leadsEmpresa: BASE_CLIENTES,
+  leadsNovosSemana: BASE_NOVOS,
   rankingUnidades: [],
   topCampanhaSemana: null,
-  melhorDiaSemana: { rotulo: "Sábado", total: 47 },
+  melhorDiaSemana: { rotulo: "Sábado", total: BASE_ACESSOS },
   posicaoRede: null,
   horarioPico: "19h",
   horarioPicoTotal: 32,
-  devices: { android: 20, ios: 18, desktop: 9, outros: 0 },
+  devices: { android: BASE_ANDROID, ios: BASE_IOS, desktop: BASE_DESKTOP, outros: 0 },
   campanhasHoje: [],
   campanhaAtiva: null,
   topCampanha: null,
-  chart: buildMockChart(),
+  chart: baseChart,
   finance: null,
   empresasTotal: 1,
   filiaisTotal: 1,
@@ -88,7 +117,7 @@ const mockInsights: Insights = {
 
 const mockDispositivosHoje: DispositivosHoje = {
   periodDate: new Date().toISOString().slice(0, 10),
-  total: 47,
+  total: BASE_ACESSOS,
   celular: 38,
   computador: 9,
   outros: 0,
@@ -106,7 +135,10 @@ const mockDispositivosHoje: DispositivosHoje = {
   modelosComputador: [{ modelo: "Dell Inspiron", total: 6 }],
 };
 
-const mockConectadosAgora: ConectadosAgoraDevices = { celular: 9, computador: 3 };
+const mockConectadosAgora: ConectadosAgoraDevices = {
+  celular: BASE_CELULARES,
+  computador: BASE_COMPUTADORES,
+};
 
 function buildMockActivity(): RealtimeActivityResponse {
   // Distribuição de exemplo ao longo do dia, com pico às 19h.
@@ -225,11 +257,12 @@ function nextLiveDevices(prev: DispositivosHoje, pick: LiveModel): DispositivosH
   const isIos = pick.sistema === "iOS";
   return {
     ...prev,
-    total: prev.total + 1,
-    celular: prev.celular + (isPc ? 0 : 1),
-    computador: prev.computador + (isPc ? 1 : 0),
-    android: prev.android + (isPc || isIos ? 0 : 1),
-    ios: prev.ios + (isIos ? 1 : 0),
+    // Contadores do dia, com a mesma trava suave (base+40) dos cards.
+    total: Math.min(prev.total + 1, CAP_DEV_TOTAL),
+    celular: Math.min(prev.celular + (isPc ? 0 : 1), CAP_DEV_CELULAR),
+    computador: Math.min(prev.computador + (isPc ? 1 : 0), CAP_DEV_COMPUTADOR),
+    android: Math.min(prev.android + (isPc || isIos ? 0 : 1), CAP_DEV_ANDROID),
+    ios: Math.min(prev.ios + (isIos ? 1 : 0), CAP_DEV_IOS),
     modelosIos: toList("iOS"),
     modelosAndroid: toList("Android"),
     modelosComputador: toList("Computador"),
@@ -246,9 +279,154 @@ const LIVE_DEMO_CSS = `
 @keyframes live-demo-row-in { from { opacity: 0; } to { opacity: 1; } }
 `;
 
+/* ============ Count-up do zero + cache local (localStorage) ============ */
+
+// Tudo começa ZERADO: quando o usuário rola até o painel, os números contam
+// de 0 até os valores-base (~1,5s, ease-out, leve stagger entre os cards) e
+// as linhas da tabela entram uma a uma. Depois do count-up, a simulação ao
+// vivo continua (oscilação 11–15, +1/7,5s, envelhecimento de linhas).
+//
+// Cache no aparelho do usuário: o estado da simulação é salvo em
+// localStorage a cada tick (nunca a cada frame do count-up) e, ao carregar a
+// página, se houver cache válido DO MESMO DIA, a simulação retoma de onde
+// parou — sem recomeçar do zero e sem count-up. Cache de outro dia é
+// descartado. Tudo roda 100% no navegador: zero carga no servidor.
+// Qualquer falha de localStorage (ex.: modo privado) é engolida — a página
+// nunca quebra por causa do cache.
+const CACHE_KEY = "manos:live-demo";
+const COUNTUP_MS = 1500;
+
+// Travas suaves: os acumulados param em base+40 e nunca explodem.
+const CAP_ACESSOS = BASE_ACESSOS + 40; // 87
+const CAP_BASE = BASE_CLIENTES + 40; // 358
+const CAP_SEMANA = BASE_SEMANA + 40; // 320
+const CAP_DEV_TOTAL = BASE_ACESSOS + 40;
+const CAP_DEV_CELULAR = mockDispositivosHoje.celular + 40;
+const CAP_DEV_COMPUTADOR = mockDispositivosHoje.computador + 40;
+const CAP_DEV_ANDROID = BASE_ANDROID + 40;
+const CAP_DEV_IOS = BASE_IOS + 40;
+
+// Estado zerado (o que o usuário vê antes de rolar até o painel).
+const zeroChart = baseChart.map((d, i, arr) =>
+  i === arr.length - 1 ? { ...d, total: 0 } : d,
+);
+const zeroInsights: Insights = {
+  ...mockInsights,
+  visitantesHoje: 0,
+  conectadosAgora: 0,
+  leadsBase: 0,
+  leadsEmpresa: 0,
+  leadsNovosSemana: 0,
+  totalConexoes: 0,
+  conexoesSemana: 0,
+  recorrentesSemana: 0,
+  melhorDiaSemana: { rotulo: "Sábado", total: 0 },
+  horarioPicoTotal: 0,
+  devices: { android: 0, ios: 0, desktop: 0, outros: 0 },
+  chart: zeroChart,
+};
+const zeroDispositivosHoje: DispositivosHoje = {
+  ...mockDispositivosHoje,
+  total: 0,
+  celular: 0,
+  computador: 0,
+  outros: 0,
+  android: 0,
+  ios: 0,
+  modelosAndroid: [],
+  modelosIos: [],
+  modelosComputador: [],
+};
+const zeroConectadosAgora: ConectadosAgoraDevices = { celular: 0, computador: 0 };
+
+// Linhas iniciais da tabela, reveladas uma a uma durante o count-up.
+const INITIAL_MODELS: readonly { modelo: string; sistema: LiveSistema; total: number }[] = [
+  { modelo: "iPhone 13", sistema: "iOS", total: 14 },
+  { modelo: "Galaxy A54", sistema: "Android", total: 11 },
+  { modelo: "Moto G84", sistema: "Android", total: 8 },
+  { modelo: "Dell Inspiron", sistema: "Computador", total: 6 },
+  { modelo: "iPhone 11", sistema: "iOS", total: 4 },
+];
+const REVEAL_MS = [300, 550, 800, 1050, 1300];
+
+type LiveDemoCache = {
+  day: string;
+  visitantesHoje: number;
+  leadsBase: number;
+  conexoesSemana: number;
+  chartLastTotal: number;
+  conectadosAgora: number;
+  celulares: number;
+  computadores: number;
+  devices: DispositivosHoje;
+};
+
+function todayKey(): string {
+  const d = new Date();
+  const m = `${d.getMonth() + 1}`.padStart(2, "0");
+  const day = `${d.getDate()}`.padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+function readCache(): LiveDemoCache | null {
+  try {
+    const raw = window.localStorage.getItem(CACHE_KEY);
+    if (raw === null) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null) return null;
+    const c = parsed as Partial<LiveDemoCache>;
+    if (c.day !== todayKey()) return null;
+    if (
+      typeof c.visitantesHoje !== "number" ||
+      typeof c.leadsBase !== "number" ||
+      typeof c.conexoesSemana !== "number" ||
+      typeof c.chartLastTotal !== "number" ||
+      typeof c.conectadosAgora !== "number" ||
+      typeof c.celulares !== "number" ||
+      typeof c.computadores !== "number" ||
+      typeof c.devices !== "object" ||
+      c.devices === null ||
+      !Array.isArray(c.devices.modelosAndroid) ||
+      !Array.isArray(c.devices.modelosIos) ||
+      !Array.isArray(c.devices.modelosComputador)
+    ) {
+      return null;
+    }
+    return c as LiveDemoCache;
+  } catch {
+    return null;
+  }
+}
+
+function writeCache(
+  ins: Insights,
+  dev: DispositivosHoje,
+  ag: ConectadosAgoraDevices,
+): void {
+  try {
+    const payload: LiveDemoCache = {
+      day: todayKey(),
+      visitantesHoje: ins.visitantesHoje,
+      leadsBase: ins.leadsBase,
+      conexoesSemana: ins.conexoesSemana,
+      chartLastTotal: ins.chart[ins.chart.length - 1]?.total ?? ins.visitantesHoje,
+      conectadosAgora: ins.conectadosAgora,
+      celulares: ag.celular,
+      computadores: ag.computador,
+      devices: dev,
+    };
+    window.localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
+  } catch {
+    // localStorage indisponível — a simulação continua sem cache.
+  }
+}
+
 export function DashboardDemo() {
   const panelRef = useRef<HTMLDivElement | null>(null);
-  const [liveInsights, setLiveInsights] = useState<Insights>(mockInsights);
+  // Tudo começa ZERADO (SSR/pré-render seguro: nenhum acesso a window aqui).
+  // O cache do dia (se houver) é restaurado no effect; sem cache, o count-up
+  // anima de 0 até os valores-base quando o painel entra na tela.
+  const [liveInsights, setLiveInsights] = useState<Insights>(zeroInsights);
   const [queryClient] = useState(() => {
     const qc = new QueryClient({
       defaultOptions: {
@@ -262,9 +440,10 @@ export function DashboardDemo() {
         },
       },
     });
-    // Pré-carrega as consultas internas do ClientDashboardRedesign.
-    qc.setQueryData(["conectados-agora-devices"], mockConectadosAgora);
-    qc.setQueryData(["dispositivos-hoje"], mockDispositivosHoje);
+    // Pré-carrega as consultas internas do ClientDashboardRedesign — zeradas
+    // até o count-up (ou até o cache do dia ser restaurado no effect).
+    qc.setQueryData(["conectados-agora-devices"], zeroConectadosAgora);
+    qc.setQueryData(["dispositivos-hoje"], zeroDispositivosHoje);
     // useAccess() retorna null na landing pública → chave com undefineds.
     qc.setQueryData(
       ["realtime-activity", undefined, undefined, undefined],
@@ -275,8 +454,9 @@ export function DashboardDemo() {
 
   // Fonte da verdade da simulação: refs. Se algum refetch (180s) reescrever
   // o cache das queries, o próximo tick repõe o estado ao vivo a partir daqui.
-  const liveDevicesRef = useRef<DispositivosHoje>(mockDispositivosHoje);
-  const liveAgoraRef = useRef<ConectadosAgoraDevices>(mockConectadosAgora);
+  const liveDevicesRef = useRef<DispositivosHoje>(zeroDispositivosHoje);
+  const liveAgoraRef = useRef<ConectadosAgoraDevices>(zeroConectadosAgora);
+  const liveInsightsRef = useRef<Insights>(zeroInsights);
   const lastModelIdxRef = useRef(-1);
 
   // Trava de altura do painel (anti-pulo de rolagem): a altura mínima do
@@ -305,11 +485,63 @@ export function DashboardDemo() {
   useEffect(() => {
     const el = panelRef.current;
     if (el === null) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     let intervalId: number | undefined;
     let observer: IntersectionObserver | undefined;
+    let rafId: number | undefined;
     let started = false;
+
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    // Valores finais direto, sem animação (fim do count-up e reduced-motion).
+    const applyBase = () => {
+      liveInsightsRef.current = mockInsights;
+      setLiveInsights(mockInsights);
+      liveDevicesRef.current = mockDispositivosHoje;
+      queryClient.setQueryData(["dispositivos-hoje"], mockDispositivosHoje);
+      liveAgoraRef.current = mockConectadosAgora;
+      queryClient.setQueryData(["conectados-agora-devices"], mockConectadosAgora);
+    };
+
+    // Retoma o cache do mesmo dia (se houver): valores do dia, sem count-up.
+    // "leadsNovosSemana" deriva da base (11 + base − 318).
+    const applyRestored = (c: LiveDemoCache) => {
+      const acessos = Math.min(c.visitantesHoje, CAP_ACESSOS);
+      const base = Math.min(c.leadsBase, CAP_BASE);
+      const semana = Math.min(c.conexoesSemana, CAP_SEMANA);
+      const chartLast = Math.min(c.chartLastTotal, CAP_ACESSOS);
+      const conectados = Math.min(
+        CONECTADOS_MAX,
+        Math.max(CONECTADOS_MIN, c.conectadosAgora),
+      );
+      const next: Insights = {
+        ...mockInsights,
+        visitantesHoje: acessos,
+        leadsBase: base,
+        leadsEmpresa: base,
+        leadsNovosSemana: BASE_NOVOS + (base - BASE_CLIENTES),
+        conexoesSemana: semana,
+        conectadosAgora: conectados,
+        chart: baseChart.map((d, i, arr) =>
+          i === arr.length - 1 ? { ...d, total: chartLast } : d,
+        ),
+      };
+      liveInsightsRef.current = next;
+      setLiveInsights(next);
+      liveDevicesRef.current = c.devices;
+      queryClient.setQueryData(["dispositivos-hoje"], c.devices);
+      liveAgoraRef.current = { celular: c.celulares, computador: c.computadores };
+      queryClient.setQueryData(["conectados-agora-devices"], liveAgoraRef.current);
+    };
+
+    // Cache do dia (se houver) — lido uma vez na montagem. Sem cache (ou
+    // cache de outro dia): fica zerado até o count-up.
+    const cached = readCache();
+    if (cached !== null) {
+      applyRestored(cached);
+    } else if (reduced) {
+      applyBase();
+    }
 
     const tick = () => {
       // Sorteia o próximo modelo sem repetir o último.
@@ -333,16 +565,28 @@ export function DashboardDemo() {
       );
       const effDelta = nextConectados - agoraTotal;
 
-      // Cards principais: "Acessos hoje" e "Base de clientes" +1 (acumulado
-      // do dia — isso é realista); "Conectados agora" oscila.
-      setLiveInsights((prev) => ({
+      // Cards principais — com TRAVA SUAVE (base+40): os acumulados param
+      // em 87 (acessos) e 358 (base) e nunca explodem. A última barra do
+      // gráfico é o "Acessos hoje" e acompanha o card. "Sua base cresceu N
+      // esta semana" deriva da base: 11 + (base − 318).
+      const prev = liveInsightsRef.current;
+      const nextAcessos = Math.min(prev.visitantesHoje + 1, CAP_ACESSOS);
+      const nextBase = Math.min(prev.leadsBase + 1, CAP_BASE);
+      const nextSemana = Math.min(prev.conexoesSemana + 1, CAP_SEMANA);
+      const next: Insights = {
         ...prev,
-        visitantesHoje: prev.visitantesHoje + 1,
-        leadsBase: prev.leadsBase + 1,
-        leadsEmpresa: prev.leadsEmpresa + 1,
+        visitantesHoje: nextAcessos,
+        leadsBase: nextBase,
+        leadsEmpresa: nextBase,
+        leadsNovosSemana: BASE_NOVOS + (nextBase - BASE_CLIENTES),
+        conexoesSemana: nextSemana,
         conectadosAgora: nextConectados,
-        conexoesSemana: prev.conexoesSemana + 1,
-      }));
+        chart: prev.chart.map((d, i, arr) =>
+          i === arr.length - 1 ? { ...d, total: nextAcessos } : d,
+        ),
+      };
+      liveInsightsRef.current = next;
+      setLiveInsights(next);
 
       // Tabela de dispositivos: linha nova no topo + contadores.
       liveDevicesRef.current = nextLiveDevices(liveDevicesRef.current, pick);
@@ -364,13 +608,119 @@ export function DashboardDemo() {
       }
       liveAgoraRef.current = { celular, computador };
       queryClient.setQueryData(["conectados-agora-devices"], liveAgoraRef.current);
+
+      // Persiste o estado no aparelho do usuário (cache do dia).
+      writeCache(liveInsightsRef.current, liveDevicesRef.current, liveAgoraRef.current);
+    };
+
+    // Count-up de 0 até os valores-base (~1,5s, ease-out, leve stagger entre
+    // os grupos: acessos → conectados → base → semana). A tabela revela as
+    // linhas iniciais uma a uma; os contadores acompanham o progresso.
+    const runCountUp = (onDone: () => void) => {
+      const t0 = performance.now();
+      const easeOut = (p: number) => 1 - Math.pow(1 - p, 3);
+      const prog = (now: number, delay: number) => {
+        const p = (now - t0 - delay) / (COUNTUP_MS - delay);
+        return easeOut(Math.min(1, Math.max(0, p)));
+      };
+      const frame = (now: number) => {
+        const elapsed = now - t0;
+        if (elapsed >= COUNTUP_MS) {
+          applyBase();
+          writeCache(
+            liveInsightsRef.current,
+            liveDevicesRef.current,
+            liveAgoraRef.current,
+          );
+          onDone();
+          return;
+        }
+        const pA = prog(now, 0);
+        const pC = prog(now, 150);
+        const pB = prog(now, 300);
+        const pS = prog(now, 450);
+        const acessos = Math.round(BASE_ACESSOS * pA);
+        const conectados = Math.round(BASE_CONECTADOS * pC);
+        const base = Math.round(BASE_CLIENTES * pB);
+        const semana = Math.round(BASE_SEMANA * pS);
+        const next: Insights = {
+          ...mockInsights,
+          visitantesHoje: acessos,
+          conectadosAgora: conectados,
+          leadsBase: base,
+          leadsEmpresa: base,
+          leadsNovosSemana: Math.round(BASE_NOVOS * pB),
+          conexoesSemana: semana,
+          totalConexoes: Math.round(1240 * pS),
+          recorrentesSemana: Math.round(96 * pS),
+          melhorDiaSemana: { rotulo: "Sábado", total: Math.round(BASE_ACESSOS * pS) },
+          horarioPicoTotal: Math.round(32 * pS),
+          devices: {
+            android: Math.round(BASE_ANDROID * pS),
+            ios: Math.round(BASE_IOS * pS),
+            desktop: Math.round(BASE_DESKTOP * pS),
+            outros: 0,
+          },
+          chart: baseChart.map((d, i, arr) =>
+            i === arr.length - 1 ? { ...d, total: acessos } : d,
+          ),
+        };
+        liveInsightsRef.current = next;
+        setLiveInsights(next);
+
+        // Tabela: linhas entram uma a uma (fade-in do CSS); os contadores
+        // acompanham o progresso do count-up.
+        const revealed = INITIAL_MODELS.slice(
+          0,
+          REVEAL_MS.filter((t) => elapsed >= t).length,
+        );
+        const dev: DispositivosHoje = {
+          ...mockDispositivosHoje,
+          total: Math.round(BASE_ACESSOS * pA),
+          celular: Math.round(38 * pA),
+          computador: Math.round(9 * pA),
+          android: Math.round(BASE_ANDROID * pA),
+          ios: Math.round(BASE_IOS * pA),
+          modelosIos: revealed
+            .filter((m) => m.sistema === "iOS")
+            .map(({ modelo, total: t }) => ({ modelo, total: t })),
+          modelosAndroid: revealed
+            .filter((m) => m.sistema === "Android")
+            .map(({ modelo, total: t }) => ({ modelo, total: t })),
+          modelosComputador: revealed
+            .filter((m) => m.sistema === "Computador")
+            .map(({ modelo, total: t }) => ({ modelo, total: t })),
+        };
+        liveDevicesRef.current = dev;
+        queryClient.setQueryData(["dispositivos-hoje"], dev);
+
+        const ag: ConectadosAgoraDevices = {
+          celular: Math.round(BASE_CELULARES * pC),
+          computador: Math.round(BASE_COMPUTADORES * pC),
+        };
+        liveAgoraRef.current = ag;
+        queryClient.setQueryData(["conectados-agora-devices"], ag);
+
+        rafId = requestAnimationFrame(frame);
+      };
+      rafId = requestAnimationFrame(frame);
+    };
+
+    const startLive = () => {
+      if (intervalId !== undefined) return;
+      intervalId = window.setInterval(tick, INTERVAL_MS);
     };
 
     const start = () => {
       if (started) return;
       started = true;
       observer?.disconnect();
-      intervalId = window.setInterval(tick, INTERVAL_MS);
+      if (reduced) return; // valores finais já aplicados, sem timers
+      if (cached !== null) {
+        startLive();
+        return;
+      }
+      runCountUp(() => startLive());
     };
 
     // Checagem imediata: painel já visível na montagem → começa direto.
@@ -392,6 +742,7 @@ export function DashboardDemo() {
     return () => {
       observer?.disconnect();
       if (intervalId !== undefined) window.clearInterval(intervalId);
+      if (rafId !== undefined) cancelAnimationFrame(rafId);
     };
   }, [queryClient]);
 
