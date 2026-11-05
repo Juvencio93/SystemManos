@@ -486,6 +486,17 @@
   }
 }
 
+/* Demonstração do portal na landing (autoplay=1): esconde a barra de
+   rolagem do documento — só o visual some, a rolagem continua. */
+html.demo-no-scrollbar,
+html.demo-no-scrollbar body {
+  scrollbar-width: none;
+}
+html.demo-no-scrollbar::-webkit-scrollbar,
+html.demo-no-scrollbar body::-webkit-scrollbar {
+  display: none;
+}
+
 @keyframes attention-shake {
   0%, 100% { transform: translateX(0); }
   15% { transform: translateX(-8px); }

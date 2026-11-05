@@ -336,6 +336,19 @@ function PortalPage() {
     window.scrollTo({ top: targetY, behavior: "smooth" });
   };
 
+  // Demonstração (autoplay=1): o portal vive num iframe na landing e a
+  // barra de rolagem lateral do documento aparece dentro do celular — feio.
+  // Esconde SÓ a barra (classe no <html> + regra no styles.css); a rolagem
+  // programática da demonstração (window.scrollTo) continua funcionando.
+  // No portal real (sem autoplay=1) nada muda.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("autoplay") !== "1") return;
+    document.documentElement.classList.add("demo-no-scrollbar");
+    return () => {
+      document.documentElement.classList.remove("demo-no-scrollbar");
+    };
+  }, []);
+
   useEffect(() => {
     if (slug !== "demo-efraim" && slug !== "demo-barao") return;
     if (new URLSearchParams(window.location.search).get("autoplay") !== "1") return;

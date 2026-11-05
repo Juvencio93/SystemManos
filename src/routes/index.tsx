@@ -212,16 +212,24 @@ function ScaledPortalFrame({
   viewportWidth,
   viewportHeight,
   className,
+  eager = false,
+  warmupMargin = "0px",
 }: {
   src: string;
   title: string;
   viewportWidth: number;
   viewportHeight: number;
   className: string;
+  // Hero (acima da dobra): nasce iniciado e carrega direto com
+  // autoplay=1 — um único carregamento, sem a troca de src.
+  eager?: boolean;
+  // Notebook (abaixo da dobra): margem para o started virar antes de
+  // chegar na tela, de modo que a troca p/ autoplay=1 já esteja pronta.
+  warmupMargin?: string;
 }) {
   const frameRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
-  const [started, setStarted] = useState(false);
+  const [started, setStarted] = useState(eager);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -246,18 +254,20 @@ function ScaledPortalFrame({
       },
       // A phone viewport is taller than the browser viewport, so a higher
       // threshold could prevent its demo from ever starting.
-      { threshold: 0 },
+      { threshold: 0, rootMargin: warmupMargin },
     );
     observer.observe(container);
     return () => observer.disconnect();
-  }, [started]);
+  }, [started, warmupMargin]);
 
   return (
     <div ref={frameRef} className={`relative overflow-hidden bg-[#05080F] ${className}`}>
       <iframe
         title={title}
         src={started ? src : src.replace("autoplay=1", "autoplay=0")}
-        loading="lazy"
+        // Sem loading="lazy": o portal (autoplay=0) carrega junto com a
+        // landing e aquece o cache do navegador (app, imagens do banner);
+        // na chegada, a troca p/ autoplay=1 reusa o que já está em cache.
         onLoad={() => setLoaded(true)}
         allow="autoplay; encrypted-media; picture-in-picture"
         // Sem allow-same-origin cruzado o Storage/CDN servindo o .mp4 do
@@ -289,14 +299,11 @@ function NotebookCheckinDemo() {
   const [replay, setReplay] = useState(0);
   return (
     <div className="mx-auto w-full max-w-[820px] px-2">
-      <div className="overflow-hidden rounded-t-[1.25rem] border-[4px] border-b-0 border-slate-500/90 bg-[#05080F] p-2 shadow-[0_30px_70px_rgba(0,0,0,.48),0_0_35px_rgba(34,211,238,.03)] sm:p-3">
-        <div className="mx-auto mb-2 size-1.5 rounded-full bg-slate-500" aria-hidden="true" />
-        <div className="overflow-hidden rounded-md border border-white/[.08]">
-          <div className="flex h-7 items-center gap-1.5 border-b border-white/[.08] bg-[#131920] px-2.5">
-            <span className="size-1.5 rounded-full bg-rose-400/90" />
-            <span className="size-1.5 rounded-full bg-amber-300/90" />
-            <span className="size-1.5 rounded-full bg-emerald-400/90" />
-            <span className="mx-auto w-2/5 rounded-full border border-white/[.06] bg-white/[.04] py-0.5 text-center text-[8px] text-slate-500">manostech-system.com.br</span>
+      <div className="overflow-hidden rounded-t-[1rem] border border-b-0 border-white/10 bg-[#14171b] p-1.5 shadow-[0_24px_55px_rgba(0,0,0,.45)] sm:p-2">
+        <div className="mx-auto mb-1.5 size-1 rounded-full bg-white/20" aria-hidden="true" />
+        <div className="overflow-hidden rounded-[0.4rem] border border-white/[.06]">
+          <div className="flex h-8 items-center justify-center border-b border-white/[.06] bg-[#0f1114] px-2.5">
+            <span className="text-[9px] tracking-wide text-slate-500">manostech-system.com.br</span>
           </div>
           <ScaledPortalFrame
             src={`/portal/demo-efraim?autoplay=1&replay=${replay}`}
@@ -304,11 +311,12 @@ function NotebookCheckinDemo() {
             viewportWidth={1366}
             viewportHeight={768}
             className="aspect-video"
+            warmupMargin="600px 0px"
           />
         </div>
       </div>
-      <div className="relative mx-auto h-6 w-[106%] -translate-x-[2.8%] rounded-b-[1.1rem] border-x border-b border-slate-500 bg-gradient-to-b from-slate-400 via-slate-600 to-slate-800 shadow-[0_18px_35px_rgba(0,0,0,.4)]">
-        <div className="mx-auto h-2 w-28 rounded-b-lg border-x border-b border-slate-700/70 bg-slate-500/80" />
+      <div className="relative mx-auto h-3 w-[104%] -translate-x-[2%] rounded-b-[0.7rem] border-x border-b border-white/[0.08] bg-[#23262b] shadow-[0_14px_28px_rgba(0,0,0,.35)]">
+        <div className="mx-auto h-1.5 w-24 rounded-b-md bg-[#101214]" />
       </div>
       <button type="button" onClick={() => setReplay((value) => value + 1)} className="mt-4 w-full text-center text-xs font-semibold text-emerald-200 hover:text-white">↻ Reproduzir check-in fictício</button>
     </div>
@@ -341,18 +349,21 @@ function MobileBotecoDemo({ loop = false }: { loop?: boolean }) {
 
   return (
     <div ref={containerRef} className="mx-auto w-full max-w-[340px] px-2">
-      <div className="relative rounded-[2.7rem] border-[3px] border-slate-400/80 bg-gradient-to-br from-slate-600 via-slate-900 to-slate-500 p-[5px] shadow-[0_32px_75px_rgba(0,0,0,.58),0_0_35px_rgba(34,211,238,.04)]">
-        <span className="absolute -left-[5px] top-28 h-14 w-[3px] rounded-l bg-slate-500" aria-hidden="true" />
-        <span className="absolute -right-[5px] top-36 h-20 w-[3px] rounded-r bg-slate-500" aria-hidden="true" />
-        <div className="pointer-events-none absolute left-1/2 top-3 z-20 h-[18px] w-[82px] -translate-x-1/2 rounded-full border border-white/[.06] bg-[#03060b] shadow-md" aria-hidden="true" />
+      <div className="relative rounded-[2.9rem] border border-[#3a3d42] bg-[#17181a] p-[3px] shadow-[0_20px_50px_rgba(0,0,0,.5)] ring-1 ring-white/[0.06]">
+        <span className="absolute -left-[2px] top-28 h-14 w-[3px] rounded-l bg-[#2a2d31]" aria-hidden="true" />
+        <span className="absolute -right-[2px] top-36 h-20 w-[3px] rounded-r bg-[#2a2d31]" aria-hidden="true" />
+        <div className="pointer-events-none absolute left-1/2 top-2.5 z-20 flex h-[16px] w-[68px] -translate-x-1/2 items-center justify-end rounded-full bg-black pr-2" aria-hidden="true">
+          <span className="size-[6px] rounded-full bg-[#16202b] ring-1 ring-white/10" aria-hidden="true" />
+        </div>
         <ScaledPortalFrame
           src={`/portal/demo-barao?autoplay=1&replay=${replay}`}
           title="Portal real do Boteco do Barão"
           viewportWidth={390}
           viewportHeight={844}
-          className="aspect-[390/844] rounded-[2.2rem]"
+          className="aspect-[390/844] rounded-[2.6rem]"
+          eager
         />
-        <div className="pointer-events-none absolute bottom-3 left-1/2 z-20 h-1 w-[90px] -translate-x-1/2 rounded-full bg-white/75 shadow-sm" aria-hidden="true" />
+        <div className="pointer-events-none absolute bottom-2.5 left-1/2 z-20 h-1 w-[80px] -translate-x-1/2 rounded-full bg-white/60" aria-hidden="true" />
       </div>
       {!loop ? (
         <button type="button" onClick={() => setReplay((value) => value + 1)} className="mt-4 w-full text-center text-xs font-semibold text-emerald-200 hover:text-white">↻ Reproduzir check-in fictício</button>
