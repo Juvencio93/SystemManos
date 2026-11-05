@@ -229,15 +229,15 @@ function PortalPosterBarao() {
       {/* Identidade: inicial da marca, nome, localização e chamada. */}
       <div className="rounded-[28px] border border-[#d6dce7] bg-white p-5" style={{ boxShadow: cardShadow }}>
         <div className="flex flex-col items-center gap-2 text-center">
-          <span className="font-display text-[30px] font-black leading-none tracking-tight" style={{ color: "#0d9488" }}>
+          <span className="font-display text-[30px] font-black leading-none tracking-tight" style={{ color: "#000000" }}>
             B
           </span>
           <h1 className="text-[24px] font-bold leading-tight tracking-tight text-[#0f172a]">Boteco do Barão</h1>
           <p className="flex items-center gap-1.5 text-[12px] font-semibold text-[#64748b]">
-            <span className="size-1.5 rounded-full" style={{ background: "#0d9488" }} aria-hidden />
+            <span className="size-1.5 rounded-full" style={{ background: "#000000" }} aria-hidden />
             Camboriú - SC
           </p>
-          <p className="text-[14px] leading-relaxed text-[#0f172a]">Sejam bem-vindos</p>
+          <p className="text-[14px] leading-relaxed text-[#0f172a]">Sejam bem-vindos.</p>
         </div>
       </div>
 
@@ -261,7 +261,7 @@ function PortalPosterBarao() {
           </div>
           <span
             className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-semibold"
-            style={{ background: "#0891b21a", color: "#0891b2" }}
+            style={{ background: "#0000001a", color: "#000000" }}
           >
             <span className="size-1.5 rounded-full bg-current" aria-hidden />1 min
           </span>
@@ -293,7 +293,7 @@ function PortalPosterBarao() {
         </div>
         <div className="mt-4 space-y-1 rounded-2xl border border-[#d6dce7] bg-[#f4f6fa] p-3">
           <p className="text-xs font-semibold leading-snug text-[#0f172a]">
-            <span className="font-bold uppercase tracking-wider" style={{ color: "#0891b2" }}>LGPD</span>
+            <span className="font-bold uppercase tracking-wider" style={{ color: "#000000" }}>LGPD</span>
             {" — Lei Geral de Proteção de Dados"}
           </p>
           <p className="text-[11px] leading-relaxed text-[#64748b]">
@@ -304,8 +304,8 @@ function PortalPosterBarao() {
         <div
           className="mt-4 flex h-14 items-center justify-center rounded-[18px] text-[15px] font-semibold text-white"
           style={{
-            background: "#0891b2",
-            boxShadow: "0 14px 26px -10px #0891b2b3, inset 0 1px 0 rgba(255,255,255,.28), inset 0 -2px 0 rgba(0,0,0,.14)",
+            background: "#000000",
+            boxShadow: "0 14px 26px -10px #000000b3, inset 0 1px 0 rgba(255,255,255,.28), inset 0 -2px 0 rgba(0,0,0,.14)",
           }}
         >
           Conectar ao Wi-Fi grátis
@@ -344,7 +344,7 @@ function PortalPosterEfraim() {
       <header className="w-full max-w-[1120px] space-y-5 text-center">
         <PosterOrnament />
         <div className="space-y-2">
-          <span className="font-display text-[30px] font-black leading-none" style={{ color: "#14b8a6" }}>
+          <span className="font-display text-[30px] font-black leading-none" style={{ color: "#fff70f" }}>
             E
           </span>
           <h1
@@ -354,7 +354,7 @@ function PortalPosterEfraim() {
             EFRAIM PADARIA E CONFEITARIA LTDA
           </h1>
           <p className="flex items-center justify-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.42em] text-[#a1a1aa]">
-            <span className="size-1.5 rounded-full" style={{ background: "#14b8a6" }} aria-hidden />
+            <span className="size-1.5 rounded-full" style={{ background: "#fff70f" }} aria-hidden />
             Joinville - SC
           </p>
         </div>
@@ -385,7 +385,7 @@ function PortalPosterEfraim() {
         <div className="rounded-[8px] p-2" style={{ border: "1px solid #3f3f46aa" }}>
           <div className="px-9 py-7">
             <div className="mb-6 space-y-3 text-center">
-              <p className="text-[10px] font-medium uppercase tracking-[0.42em]" style={{ color: "#14b8a6" }}>
+              <p className="text-[10px] font-medium uppercase tracking-[0.42em]" style={{ color: "#fff70f" }}>
                 Acesso exclusivo
               </p>
               <p
@@ -417,7 +417,7 @@ function PortalPosterEfraim() {
               </div>
             </div>
             <div className="mt-5 space-y-2 px-1 py-2 text-center">
-              <p className="text-[10px] font-medium uppercase tracking-[0.32em]" style={{ color: "#14b8a6" }}>
+              <p className="text-[10px] font-medium uppercase tracking-[0.32em]" style={{ color: "#fff70f" }}>
                 Privacidade e consentimento
               </p>
               <p className="text-[11px] font-light leading-[1.85] tracking-[0.01em] text-[#a1a1aa]">
@@ -427,12 +427,12 @@ function PortalPosterEfraim() {
             <div
               className="mt-5 flex h-14 items-center justify-center rounded-[4px] border text-[11px] font-medium uppercase tracking-[0.24em]"
               style={{
-                borderColor: "#14b8a6",
-                color: "#14b8a6",
-                background: "linear-gradient(0deg, #14b8a61f, #14b8a60d)",
+                borderColor: "#fff70f",
+                color: "#fff70f",
+                background: "linear-gradient(0deg, #fff70f1f, #fff70f0d)",
               }}
             >
-              Conectar ao Wi-Fi grátis
+              Conectar
             </div>
           </div>
         </div>

@@ -74,6 +74,10 @@ export default defineConfig({
     ...react().map((plugin) => ({ ...plugin, enforce: "post" as const })),
     viteTsconfigPaths(),
     tanstackStart({ spa: { enabled: true } }),
+    // O pré-render das rotas demo é feito pelo pré-render do Start, que
+    // descobre páginas pelos links da landing (ver os links ocultos no
+    // rodapé de src/routes/index.tsx). routeRules com prerender aqui NÃO
+    // funcionam: esta instância do Nitro responde 404 para rotas do Start.
     nitro(),
     staticEntry(),
   ],

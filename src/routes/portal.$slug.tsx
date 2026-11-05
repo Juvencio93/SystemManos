@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useMemo, useState, useEffect } from "react";
 import {
   CheckCircle2,
@@ -35,7 +35,7 @@ import { getPortal, submitPortalLead } from "@/lib/portal.functions";
 import { defaultPortalAppearance, type PortalAppearance, type PortalVisualStyle } from "@/lib/campaign-appearance";
 import { portalTheme } from "@/lib/portal-theme";
 import { portalLayoutFor, portalLayoutMaxWidth } from "@/components/app/portal/portal-layouts";
-import { getMarketingPortalSourceSlug } from "@/lib/marketing-portal-demo";
+import { getMarketingPortalSourceSlug, getStaticMarketingPortal } from "@/lib/marketing-portal-demo";
 import {
   PrivacyCenterContactContent,
   PrivacyCenterHowToContent,
@@ -53,6 +53,12 @@ export const Route = createFileRoute("/portal/$slug")({
   // campanha inconsistente). Em qualquer falha devolvemos null, que a rota já
   // trata com a tela "Portal indisponível" — sem vazar detalhe para o visitante.
   loader: async ({ params }) => {
+    // Demonstração (demo-barao / demo-efraim): dados ESTÁTICOS, sem tocar no
+    // Supabase. A página é pré-renderizada no build e cacheada no navegador
+    // — zero query por visitante, mesmo com o aquecimento dos mockups na
+    // landing e ao voltar o foco para a aba.
+    const staticDemo = getStaticMarketingPortal(params.slug);
+    if (staticDemo) return staticDemo;
     try {
       return await getPortal({
         data: { slug: getMarketingPortalSourceSlug(params.slug) ?? params.slug },
@@ -273,16 +279,9 @@ function LegalDocModal({ doc, onClose }: { doc: LegalDocKey; onClose: () => void
 function PortalPage() {
   const initialPortal = Route.useLoaderData();
   const { slug } = Route.useParams();
-  const sourceSlug = getMarketingPortalSourceSlug(slug);
-  const { data: refreshedPortal } = useQuery({
-    queryKey: ["marketing-portal-demo", slug],
-    queryFn: () => getPortal({ data: { slug: sourceSlug ?? slug } }),
-    enabled: Boolean(sourceSlug),
-    initialData: initialPortal,
-    refetchOnMount: false,
-    refetchOnWindowFocus: "always",
-  });
-  const portal = sourceSlug ? refreshedPortal : initialPortal;
+  // A demonstração usa os dados estáticos do loader — sem refetch no
+  // cliente (antes, cada volta de foco na aba chamava getPortal de novo).
+  const portal = initialPortal;
   const submit = useServerFn(submitPortalLead);
   const [done, setDone] = useState<{
     isReturning: boolean;
