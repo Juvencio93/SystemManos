@@ -53,9 +53,9 @@ function KpiNumber({
   animated,
   suffix = "",
 }: {
-  value?: number;
+  value?: number | undefined;
   isLoading: boolean;
-  animated?: boolean;
+  animated?: boolean | undefined;
   suffix?: string;
 }) {
   if (isLoading) return <>…</>;
@@ -70,7 +70,7 @@ function parsePicoNumber(label?: string): number | null {
   return match ? Number(match[0]) : null;
 }
 
-function HeroCards({ data, isLoading, animatedNumbers }: { data: Insights | undefined; isLoading: boolean; animatedNumbers?: boolean }) {
+function HeroCards({ data, isLoading, animatedNumbers }: { data: Insights | undefined; isLoading: boolean; animatedNumbers?: boolean | undefined }) {
   const fetchAgoroDevices = useServerFn(getConectadosAgoraDevices);
   const { data: agoraDevices } = useQuery({
     queryKey: ["conectados-agora-devices"],
@@ -522,7 +522,7 @@ function DevicesPanel() {
 /**
  * "Sua rede em resumo" — visão rápida do Wi-Fi esta semana + próxima ação.
  */
-function RedeResumoPanel({ data, isLoading, animatedNumbers }: { data: Insights | undefined; isLoading: boolean; animatedNumbers?: boolean }) {
+function RedeResumoPanel({ data, isLoading, animatedNumbers }: { data: Insights | undefined; isLoading: boolean; animatedNumbers?: boolean | undefined }) {
   const cresceuBase = (data?.leadsNovosSemana ?? 0) > 0;
   return (
     <Card className="border-primary/20 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/50 hover:shadow-[0_8px_32px_rgba(0,192,240,0.20)]">
