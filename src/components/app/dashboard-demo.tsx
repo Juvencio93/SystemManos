@@ -27,8 +27,8 @@ import type { RealtimeActivityResponse } from "@/lib/realtime.functions";
  *
  * MODELO — UMA única fonte de verdade (`LiveState`), tudo derivado dela:
  * - Tudo começa ZERADO. NADA de count-up rápido: os números sobem UM POR
- *   VEZ, devagar — 1 tick a cada 25s. O visitante que fica 2 minutos vê o
- *   número ir de 0 a ~5, como um lugar real acumulando movimento.
+ *   VEZ, devagar — 1 tick a cada 15s. O visitante que fica 2 minutos vê o
+ *   número ir de 0 a ~8, como um lugar real acumulando movimento.
  * - Cada tick = +1 acesso. Esse +1 acesso se reflete em TODOS os lugares:
  *   - Gráfico "Movimento dos últimos 14 dias": a última barra (hoje) É o
  *     "Acessos hoje", sempre igual. Os outros 13 dias são histórico fixo.
@@ -36,15 +36,17 @@ import type { RealtimeActivityResponse } from "@/lib/realtime.functions";
  *     ou um aparelho novo entra (com 1 acesso) ou um que já está lá soma +1.
  *     MÁXIMO 5 aparelhos distintos; a SOMA dos acessos da tabela é SEMPRE
  *     igual a "Acessos hoje". Nada de totais inflados.
- *   - "Base de clientes": começa em 0; +1 a cada 3 ticks (um cliente novo
- *     a cada ~75s). "Sua base cresceu N esta semana" = base atual (N = base).
+ *   - "Base de clientes": ~70% dos acessos do dia — os clientes que
+ *     aceitaram receber mensagens (opt-in): base = Math.round(acessos * 0.7).
+ *     Com 0 acessos, 0; com 10 acessos, 7. "Sua base cresceu N esta semana"
+ *     = base atual (N = base).
  *   - "Conectados agora": começa em 0, +1 a cada 2 ticks até 12, depois
  *     OSCILA ±1 entre 11 e 15. Sempre igual a celulares + computadores
  *     (~75% celulares / ~25% computadores).
- *   - "Sua rede em resumo" e "Conexões na semana": o resumo de acessos da
- *     semana é a SOMA dos últimos 7 dias do gráfico (com a barra de hoje =
- *     acessos atuais) — calculado, nunca inventado. Os conectados do resumo
- *     são o "Conectados agora" atual.
+ *   - "Sua rede em resumo": os acessos do resumo SÃO os "Acessos hoje"
+ *     (nascem em 0 e sobem junto com o resto — nenhum valor fixo
+ *     pré-preenchido); os conectados do resumo são o "Conectados agora"
+ *     atual; o pico é o pico ao vivo (com 0 acessos, "—").
  *   - "Calor do Momento" e "Horário de pico": cada acesso gera 1 entrada de
  *     atividade na hora atual — o mapa e o pico derivam dos acessos reais da
  *     simulação. Com 0 acessos, o mapa fica vazio e o pico indefinido ("—").
@@ -66,19 +68,11 @@ import type { RealtimeActivityResponse } from "@/lib/realtime.functions";
 const HISTORICAL_TOTALS: readonly number[] = [
   22, 28, 25, 31, 29, 35, 41, 33, 38, 44, 40, 47, 43,
 ];
-// Soma dos 6 últimos dias fixos (índices 7..12): "Conexões na semana" =
-// essa soma + a barra de hoje. Calculado a partir do histórico, nunca fixo.
-const HISTORICAL_LAST7_FIXED_SUM = HISTORICAL_TOTALS.slice(7).reduce(
-  (s, n) => s + n,
-  0,
-); // 245
-
-// Ritmo lento: 1 acesso a cada 25 segundos. Quem fica 2 minutos vê 0→~5.
-const INTERVAL_MS = 25000;
+// Ritmo: 1 acesso a cada 15 segundos. Quem fica 2 minutos vê 0→~8.
+const INTERVAL_MS = 15000;
 
 // Travas suaves (tetos de segurança, não metas).
 const CAP_ACESSOS = 120;
-const CAP_BASE = 40;
 
 // "Conectados agora": rampa até 12, depois oscila entre 11 e 15.
 const CONECTADOS_RAMP = 12;
@@ -261,8 +255,8 @@ function insightsFromLive(live: LiveState): Insights {
     conectadosAgora: live.conectados,
     // Total de conexões acumulado (base histórica + acessos de hoje).
     totalConexoes: 1240 + live.acessos,
-    // Resumo da semana = soma dos últimos 7 dias do gráfico (6 fixos + hoje).
-    conexoesSemana: HISTORICAL_LAST7_FIXED_SUM + live.acessos,
+    // Resumo da semana = acessos de hoje (nasce 0, sobe junto com o resto).
+    conexoesSemana: live.acessos,
     recorrentesSemana: live.activity.filter((a) => a.is_returning).length,
     leadsBase: live.base,
     leadsEmpresa: live.base,
@@ -413,9 +407,10 @@ function nextDevices(
 
 /**
  * Um tick = +1 acesso, e esse +1 se espalha por TODOS os lugares coerentes:
- * tabela (+1 num aparelho), atividade (+1 entrada na hora atual), base (+1 a
- * cada 3 ticks), conectados (rampa/oscilação). O gráfico, o resumo da semana,
- * o "cresceu N" e o pico derivam desses valores — nunca são guardados à parte.
+ * tabela (+1 num aparelho), atividade (+1 entrada na hora atual), base
+ * (~70% dos acessos, opt-in), conectados (rampa/oscilação). O gráfico, o
+ * resumo da semana, o "cresceu N" e o pico derivam desses valores — nunca
+ * são guardados à parte.
  */
 function nextLive(prev: LiveState): LiveState {
   // Trava de segurança: acessos parados em ~120. "Conectados agora"
@@ -432,8 +427,9 @@ function nextLive(prev: LiveState): LiveState {
   }
   const tick = prev.tick + 1;
   const acessos = prev.acessos + 1;
-  // Nem todo acesso é cliente novo: +1 na base a cada 3 ticks (~75s).
-  const base = Math.min(CAP_BASE, prev.base + (tick % 3 === 0 ? 1 : 0));
+  // Base = ~70% dos acessos do dia (clientes que aceitaram receber
+  // mensagens — opt-in). Derivada dos acessos, nunca contador separado.
+  const base = Math.round(acessos * 0.7);
   const split = stepConectados(prev, tick);
   const { devices, lastModelIdx } = nextDevices(prev.devices, prev.lastModelIdx);
   const hour = new Date().getHours();
@@ -473,7 +469,7 @@ const LIVE_DEMO_CSS = `
 export function DashboardDemo() {
   const panelRef = useRef<HTMLDivElement | null>(null);
   // Tudo começa ZERADO (SSR/pré-render seguro: nenhum acesso a window aqui).
-  // Os números sobem um por vez, a cada 25s, quando o painel entra na tela.
+  // Os números sobem um por vez, a cada 15s, quando o painel entra na tela.
   const [liveInsights, setLiveInsights] = useState<Insights>(() =>
     insightsFromLive(ZERO_LIVE),
   );
