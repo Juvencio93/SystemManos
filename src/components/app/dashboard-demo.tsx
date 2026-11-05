@@ -31,6 +31,17 @@ import type { RealtimeActivityResponse } from "@/lib/realtime.functions";
  * - Um único setInterval de 7,5s; cleanup no unmount.
  * - ZERO .focus(), ZERO scrollIntoView(), ZERO comando de rolagem.
  * - Respeita prefers-reduced-motion (sem timers; ficam os valores iniciais).
+ * - CALIBRAGEM (operação real, não números explodindo):
+ *   - "Acessos hoje" e "Base de clientes": +1 por tick (acumulado do dia).
+ *   - "Conectados agora": OSCILA entre 11 e 15 (±1 aleatório por tick) —
+ *     gente entra e sai; os sub-contadores "N celulares / N computadores"
+ *     acompanham o tipo do dispositivo da vez e a soma é sempre coerente.
+ *   - Tabela: cada modelo ENVELHECE (−1 acesso por tick, piso 1) e a linha
+ *     nova entra com 4–6 acessos; o teto de 8 modelos descarta o mais antigo
+ *     de menor total. Nenhum total passa de ~14 (e cai para a faixa 4–8) —
+ *     nada cresce sem limite. A linha nova aparece no top 5 desde o tick 1.
+ * - A altura do container é travada (só cresce, nunca encolhe) via
+ *   ResizeObserver, para que nenhuma variação interna mova a rolagem da página.
  */
 
 function buildMockChart(): { date: string; total: number }[] {
@@ -125,6 +136,24 @@ function buildMockActivity(): RealtimeActivityResponse {
 const INTERVAL_MS = 7500;
 const MAX_MODELS = 8;
 
+// Calibragem da tabela (operação real):
+// - Todo modelo ENVELHECE: perde 1 acesso por tick, com piso 1 — o aparelho
+//   vai "saindo da rede" aos poucos em vez de acumular acessos para sempre.
+// - A linha nova entra com 4–6 acessos: o menor valor que a mantém visível
+//   no top 5 (o componente ordena por total decrescente e exibe só as 5
+//   maiores) sem inflar nada. Entrar com 1–3 a deixaria invisível por
+//   minutos e faria o pool colapsar para 2–3 linhas; 4–6 mantém a tabela
+//   cheia (5 linhas) com totais modestos e limitados (máx. inicial 14,
+//   caindo para a faixa 4–8 — nunca acima de ~20, nunca crescendo sem fim).
+// - O teto de 8 modelos descarta o de menor total (mais antigo entre os
+//   empates), então o pool nunca esvazia nem enche demais.
+const NEW_MODEL_TOTAL_MIN = 4;
+const NEW_MODEL_TOTAL_MAX = 6;
+
+// "Conectados agora" oscila entre 11 e 15 — gente entra e sai do local.
+const CONECTADOS_MIN = 11;
+const CONECTADOS_MAX = 15;
+
 type LiveSistema = "iOS" | "Android" | "Computador";
 type LiveModel = { modelo: string; sistema: LiveSistema };
 
@@ -156,12 +185,15 @@ const ROTATION_FALLBACK: LiveModel = { modelo: "Samsung Galaxy S24", sistema: "A
 /**
  * Produz o próximo estado de DispositivosHoje com um modelo novo no topo.
  *
- * O dashboard ordena as linhas por total (decrescente) e exibe as 5 maiores,
- * então o modelo novo entra com total acima do máximo atual (+1 a +3) para
- * aparecer no topo da tabela. Os contadores (total/celular/computador/
- * android/ios) sobem só +1 — um aparelho novo, um acesso novo. Modelos além
- * do limite são descartados pelo menor total (são também os mais antigos,
- * pois cada modelo novo supera o máximo anterior).
+ * Modelo de envelhecimento (nada infla sem limite):
+ * 1. Cada modelo existente perde 1 acesso (piso 1 — não some por
+ *    envelhecimento; sai só pelo teto de 8, o mais antigo de menor total).
+ * 2. O modelo sorteado entra com 4–6 acessos (se já estava na lista, sai e
+ *    volta novo — "reconectou"). Como o dashboard exibe o top 5 por total,
+ *    esse valor o mantém visível desde o primeiro tick.
+ * 3. O pool é cortado em 8 pelo menor total (mais antigo entre os empates).
+ * Os contadores (total/celular/computador/android/ios) sobem só +1 — um
+ * aparelho novo, um acesso novo no acumulado do dia.
  */
 function nextLiveDevices(prev: DispositivosHoje, pick: LiveModel): DispositivosHoje {
   const all: { modelo: string; sistema: LiveSistema; total: number }[] = [
@@ -169,15 +201,19 @@ function nextLiveDevices(prev: DispositivosHoje, pick: LiveModel): DispositivosH
     ...prev.modelosAndroid.map((m) => ({ ...m, sistema: "Android" as LiveSistema })),
     ...prev.modelosComputador.map((m) => ({ ...m, sistema: "Computador" as LiveSistema })),
   ];
-  const maxTotal = all.reduce((acc, m) => Math.max(acc, m.total), 0);
-  const total = maxTotal + 1 + Math.floor(Math.random() * 3);
 
-  const existing = all.find((m) => m.modelo === pick.modelo && m.sistema === pick.sistema);
-  if (existing) {
-    existing.total = total;
-  } else {
-    all.unshift({ modelo: pick.modelo, sistema: pick.sistema, total });
-  }
+  // 1. Envelhecimento: −1 acesso por modelo, com piso 1.
+  for (const m of all) m.total = Math.max(1, m.total - 1);
+
+  // 2. Modelo novo no topo (ou reconectado, se já estava na lista).
+  const at = all.findIndex((m) => m.modelo === pick.modelo && m.sistema === pick.sistema);
+  if (at >= 0) all.splice(at, 1);
+  const total =
+    NEW_MODEL_TOTAL_MIN +
+    Math.floor(Math.random() * (NEW_MODEL_TOTAL_MAX - NEW_MODEL_TOTAL_MIN + 1));
+  all.unshift({ modelo: pick.modelo, sistema: pick.sistema, total });
+
+  // 3. Teto de 8: descarta os de menor total (mais antigos entre os empates).
   const kept = [...all].sort((a, b) => b.total - a.total).slice(0, MAX_MODELS);
 
   const toList = (sistema: LiveSistema) =>
@@ -243,6 +279,29 @@ export function DashboardDemo() {
   const liveAgoraRef = useRef<ConectadosAgoraDevices>(mockConectadosAgora);
   const lastModelIdxRef = useRef(-1);
 
+  // Trava de altura do painel (anti-pulo de rolagem): a altura mínima do
+  // container só cresce, nunca encolhe. Se qualquer conteúdo interno
+  // encolher por um instante (ex: a tabela trocando de 5 linhas pela
+  // mensagem "nenhum dispositivo" num refetch), a página não se move —
+  // o container mantém a altura e nada acima/abaixo dele desloca.
+  // min-height nunca corta conteúdo: se o painel precisar crescer, cresce.
+  const [panelMinHeight, setPanelMinHeight] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    const el = panelRef.current;
+    if (el === null) return;
+    const measure = () => {
+      const h = el.offsetHeight;
+      setPanelMinHeight((prev) => (prev === undefined ? h : Math.max(prev, h)));
+    };
+    measure();
+    if ("ResizeObserver" in window) {
+      const ro = new ResizeObserver(() => measure());
+      ro.observe(el);
+      return () => ro.disconnect();
+    }
+    return undefined;
+  }, []);
+
   useEffect(() => {
     const el = panelRef.current;
     if (el === null) return;
@@ -262,14 +321,26 @@ export function DashboardDemo() {
       }
       lastModelIdxRef.current = idx;
       const pick = ROTATION[idx] ?? ROTATION_FALLBACK;
+      const isPc = pick.sistema === "Computador";
 
-      // Cards principais: +1 em cada contador.
+      // "Conectados agora" OSCILA entre 11 e 15: ±1 aleatório, travado no
+      // intervalo — gente entra e sai do estabelecimento, não acumula.
+      const agoraTotal = liveAgoraRef.current.celular + liveAgoraRef.current.computador;
+      const delta = Math.random() < 0.5 ? -1 : 1;
+      const nextConectados = Math.min(
+        CONECTADOS_MAX,
+        Math.max(CONECTADOS_MIN, agoraTotal + delta),
+      );
+      const effDelta = nextConectados - agoraTotal;
+
+      // Cards principais: "Acessos hoje" e "Base de clientes" +1 (acumulado
+      // do dia — isso é realista); "Conectados agora" oscila.
       setLiveInsights((prev) => ({
         ...prev,
         visitantesHoje: prev.visitantesHoje + 1,
         leadsBase: prev.leadsBase + 1,
         leadsEmpresa: prev.leadsEmpresa + 1,
-        conectadosAgora: prev.conectadosAgora + 1,
+        conectadosAgora: nextConectados,
         conexoesSemana: prev.conexoesSemana + 1,
       }));
 
@@ -277,12 +348,21 @@ export function DashboardDemo() {
       liveDevicesRef.current = nextLiveDevices(liveDevicesRef.current, pick);
       queryClient.setQueryData(["dispositivos-hoje"], liveDevicesRef.current);
 
-      // Sub-contadores "N celulares / N computadores" acompanham o tipo.
-      const isPc = pick.sistema === "Computador";
-      liveAgoraRef.current = {
-        celular: liveAgoraRef.current.celular + (isPc ? 0 : 1),
-        computador: liveAgoraRef.current.computador + (isPc ? 1 : 0),
-      };
+      // Sub-contadores "N celulares / N computadores": a variação efetiva
+      // (±1 ou 0, se travou no limite) vai para o tipo do dispositivo da
+      // vez; o outro absorve a diferença para a soma continuar coerente
+      // com o total oscilado (celulares + computadores === conectadosAgora).
+      const agora = liveAgoraRef.current;
+      let celular = agora.celular;
+      let computador = agora.computador;
+      if (isPc) {
+        computador = Math.max(0, Math.min(nextConectados, computador + effDelta));
+        celular = nextConectados - computador;
+      } else {
+        celular = Math.max(0, Math.min(nextConectados, celular + effDelta));
+        computador = nextConectados - celular;
+      }
+      liveAgoraRef.current = { celular, computador };
       queryClient.setQueryData(["conectados-agora-devices"], liveAgoraRef.current);
     };
 
@@ -318,7 +398,11 @@ export function DashboardDemo() {
   return (
     <QueryClientProvider client={queryClient}>
       <style>{LIVE_DEMO_CSS}</style>
-      <div ref={panelRef} className="live-demo-panel">
+      <div
+        ref={panelRef}
+        className="live-demo-panel"
+        style={panelMinHeight !== undefined ? { minHeight: panelMinHeight } : undefined}
+      >
         <ClientDashboardRedesign data={liveInsights} isLoading={false} />
       </div>
     </QueryClientProvider>
