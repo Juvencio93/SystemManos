@@ -296,11 +296,36 @@ function NotebookCheckinDemo() {
   );
 }
 
-function MobileBotecoDemo() {
+function MobileBotecoDemo({ loop = false }: { loop?: boolean }) {
   const [replay, setReplay] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  // No modo loop (hero): detecta visibilidade para só rodar o timer em tela
+  useEffect(() => {
+    if (!loop) return;
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setVisible(!!entry?.isIntersecting),
+      { threshold: 0 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [loop]);
+
+  // Loop automático: o demo leva ~14s para completar; 22s dá uma pausa
+  // confortável na tela de sucesso antes de recomeçar
+  useEffect(() => {
+    if (!loop || !visible) return;
+    const id = window.setInterval(() => {
+      setReplay((value) => value + 1);
+    }, 22000);
+    return () => window.clearInterval(id);
+  }, [loop, visible]);
 
   return (
-    <div className="mx-auto w-full max-w-[340px] px-2">
+    <div ref={containerRef} className="mx-auto w-full max-w-[340px] px-2">
       <div className="relative rounded-[2.7rem] border-[3px] border-slate-400/80 bg-gradient-to-br from-slate-600 via-slate-900 to-slate-500 p-[5px] shadow-[0_32px_75px_rgba(0,0,0,.58),0_0_35px_rgba(34,211,238,.04)]">
         <span className="absolute -left-[5px] top-28 h-14 w-[3px] rounded-l bg-slate-500" aria-hidden="true" />
         <span className="absolute -right-[5px] top-36 h-20 w-[3px] rounded-r bg-slate-500" aria-hidden="true" />
@@ -314,7 +339,9 @@ function MobileBotecoDemo() {
         />
         <div className="pointer-events-none absolute bottom-3 left-1/2 z-20 h-1 w-[90px] -translate-x-1/2 rounded-full bg-white/75 shadow-sm" aria-hidden="true" />
       </div>
-      <button type="button" onClick={() => setReplay((value) => value + 1)} className="mt-4 w-full text-center text-xs font-semibold text-emerald-200 hover:text-white">↻ Reproduzir check-in fictício</button>
+      {!loop && (
+        <button type="button" onClick={() => setReplay((value) => value + 1)} className="mt-4 w-full text-center text-xs font-semibold text-emerald-200 hover:text-white">↻ Reproduzir check-in fictício</button>
+      )}
     </div>
   );
 }
@@ -408,7 +435,7 @@ function SalesHomePage() {
           </ScrollReveal>
 
           <div className="h-full">
-            <ScrollReveal className="h-full" delay={120}><MobileBotecoDemo /></ScrollReveal>
+            <ScrollReveal className="h-full" delay={120}><MobileBotecoDemo loop /></ScrollReveal>
           </div>
         </div>
       </section>
@@ -617,6 +644,47 @@ function SalesHomePage() {
               </ScrollReveal>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Faixa de números — métricas reais entram aqui quando medidas.
+          NÃO inventar números: regra editorial. */}
+      <section className="border-y border-white/[.07]">
+        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
+          <ScrollReveal>
+            <div className="flex flex-col items-start gap-10 lg:flex-row lg:items-center lg:justify-between">
+              <div className="grid flex-1 grid-cols-1 gap-8 sm:grid-cols-3">
+                <div>
+                  {/* PREENCHER: número real de leads captados */}
+                  <p className="font-display text-4xl font-bold text-cyan-400 sm:text-5xl">—</p>
+                  <p className="mt-2 text-sm font-semibold uppercase tracking-wider text-slate-400">
+                    leads captados
+                  </p>
+                </div>
+                <div>
+                  {/* PREENCHER: número real de estabelecimentos ativos */}
+                  <p className="font-display text-4xl font-bold text-cyan-400 sm:text-5xl">—</p>
+                  <p className="mt-2 text-sm font-semibold uppercase tracking-wider text-slate-400">
+                    estabelecimentos ativos
+                  </p>
+                </div>
+                <div>
+                  {/* PREENCHER: número real de campanhas no ar */}
+                  <p className="font-display text-4xl font-bold text-cyan-400 sm:text-5xl">—</p>
+                  <p className="mt-2 text-sm font-semibold uppercase tracking-wider text-slate-400">
+                    campanhas no ar
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={openPreSaleChat}
+                className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-full bg-cyan-400 px-6 font-bold text-slate-950 transition hover:bg-cyan-300"
+              >
+                Quero pro meu negócio <ArrowRight className="size-4" />
+              </button>
+            </div>
+          </ScrollReveal>
         </div>
       </section>
 
