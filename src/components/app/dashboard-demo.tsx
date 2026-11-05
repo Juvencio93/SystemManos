@@ -65,8 +65,11 @@ import type { RealtimeActivityResponse } from "@/lib/realtime.functions";
 
 // Histórico fixo dos 13 dias anteriores ao dia de hoje. A última barra do
 // gráfico (hoje) é a única que se move — ela É o "Acessos hoje".
+// Índice 6 = barra de 7 dias atrás: base da comparação "vs. mesmo dia da
+// semana passada" do card "Acessos hoje". Zerado para o chip não nascer
+// vermelho enquanto o painel ainda está zerado.
 const HISTORICAL_TOTALS: readonly number[] = [
-  22, 28, 25, 31, 29, 35, 41, 33, 38, 44, 40, 47, 43,
+  22, 28, 25, 31, 29, 35, 0, 33, 38, 44, 40, 47, 43,
 ];
 // Ritmo: 1 acesso a cada 15 segundos. Quem fica 2 minutos vê 0→~8.
 const INTERVAL_MS = 15000;
@@ -127,8 +130,11 @@ const STATIC_INSIGHTS = {
   role: "matriz" as const,
   showFinance: false,
   periodDate: TODAY,
-  visitantesOntem: 42,
-  conexoesSemanaAnterior: 251,
+  // Bases de comparação dos chips DeltaChip: zeradas para não nascerem
+  // vermelhas enquanto o painel ainda está zerado ("sem movimento no
+  // período" no zero; "movimento começando" em verde quando começar).
+  visitantesOntem: 0,
+  conexoesSemanaAnterior: 0,
   rankingUnidades: [] as Insights["rankingUnidades"],
   topCampanhaSemana: null,
   posicaoRede: null,
