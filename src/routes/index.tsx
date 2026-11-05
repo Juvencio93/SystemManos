@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowRight, ArrowUp, Beer, Croissant, Database, Gauge, Megaphone, MessageCircle, PartyPopper, RotateCcw, Store, Timer, UserPlus } from "lucide-react";
+import { ArrowRight, ArrowUp, Beer, Clock, Croissant, Database, Flame, Gauge, Laptop, Megaphone, MessageCircle, PartyPopper, RotateCcw, Smartphone, Store, Timer, TrendingUp, UserPlus, Users } from "lucide-react";
 import logo from "@/assets/manos-tech-logo-institutional.png";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { openPreSaleChat, PreSaleForm } from "@/components/app/pre-sale-form";
@@ -589,6 +589,231 @@ function SalesHomePage() {
             </p>
             <p className="mt-8 text-lg font-bold leading-7 text-cyan-400 sm:text-xl">
               Menos achismo. Mais informação para tomar decisões.
+            </p>
+          </ScrollReveal>
+        </div>
+        <div className="mx-auto max-w-6xl px-5 pb-16 sm:px-8 sm:pb-20" aria-hidden="true">
+          <ScrollReveal>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <article className="rounded-2xl border border-white/[.08] bg-[#0B1118] p-5">
+                <p className="text-sm font-medium text-slate-400">Acessos hoje</p>
+                <p className="mt-2 text-4xl font-bold text-cyan-400">
+                  <CountUp to={47} />
+                </p>
+                <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-400/10 px-2 py-0.5 text-xs font-semibold text-emerald-300">
+                  <ArrowUp className="size-3" />
+                  <CountUp to={15} suffix="%" />&nbsp;vs. semana passada
+                </p>
+                <p className="mt-3 text-xs leading-5 text-slate-500">
+                  Pessoas que passaram pela sua rede Wi-Fi hoje.
+                </p>
+              </article>
+              <article className="rounded-2xl border border-white/[.08] bg-[#0B1118] p-5">
+                <p className="text-sm font-medium text-slate-400">Conectados agora</p>
+                <p className="mt-2 text-4xl font-bold text-cyan-400">
+                  <CountUp to={12} />
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-400">
+                  <span className="inline-flex items-center gap-1">
+                    <Smartphone className="size-3.5 text-cyan-400" />
+                    <CountUp to={9} />&nbsp;celulares
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <Laptop className="size-3.5 text-cyan-400" />
+                    <CountUp to={3} />&nbsp;computadores
+                  </span>
+                </div>
+                <p className="mt-3 text-xs leading-5 text-slate-500">
+                  Pessoas usando o Wi-Fi no momento.
+                </p>
+              </article>
+              <article className="rounded-2xl border border-white/[.08] bg-[#0B1118] p-5">
+                <p className="text-sm font-medium text-slate-400">Sua base de clientes</p>
+                <p className="mt-2 text-4xl font-bold text-cyan-400">
+                  <CountUp to={318} />
+                </p>
+                <p className="mt-2 text-xs font-semibold text-slate-300">
+                  <CountUp to={11} />&nbsp;esta semana
+                </p>
+                <p className="mt-3 text-xs leading-5 text-slate-500">
+                  Contatos que você pode usar em ações de relacionamento.
+                </p>
+                <span className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-cyan-400">
+                  Ver minha base <ArrowRight className="size-4" />
+                </span>
+              </article>
+              <article className="rounded-2xl border border-white/[.08] bg-[#0B1118] p-5">
+                <div className="flex items-center gap-2">
+                  <Clock className="size-4 text-cyan-400" />
+                  <p className="text-sm font-medium text-slate-400">Horário de pico</p>
+                </div>
+                <p className="mt-2 text-4xl font-bold text-cyan-400">
+                  <CountUp to={19} />h
+                </p>
+                <p className="mt-2 text-xs text-slate-400">
+                  <CountUp to={32} />&nbsp;acessos (média)
+                </p>
+                <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-400/10 px-2 py-0.5 text-xs font-semibold text-emerald-300">
+                  <ArrowUp className="size-3" />
+                  +<CountUp to={48} suffix="%" />&nbsp;vs. média do dia
+                </p>
+                <p className="mt-3 text-xs leading-5 text-slate-500">
+                  Momento de maior movimento na sua rede.
+                </p>
+              </article>
+            </div>
+            <div className="mt-4 rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 sm:p-6">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-semibold">Movimento dos últimos 14 dias</h3>
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/10 px-2.5 py-1 text-xs font-semibold text-emerald-300">
+                  <TrendingUp className="size-3.5" />
+                  <CountUp to={13} suffix="%" />&nbsp;vs semana anterior
+                </span>
+              </div>
+              <div className="relative mt-6 h-44">
+                <svg
+                  viewBox="0 0 560 160"
+                  preserveAspectRatio="none"
+                  className="absolute inset-0 h-full w-full"
+                >
+                  <polygon
+                    points="20,103 60,82 100,94 140,70 180,76 220,58 260,85 300,67 340,49 380,73 420,55 460,37 500,64 540,25 540,160 20,160"
+                    fill="rgba(34,211,238,0.08)"
+                  />
+                  <polyline
+                    points="20,103 60,82 100,94 140,70 180,76 220,58 260,85 300,67 340,49 380,73 420,55 460,37 500,64 540,25"
+                    fill="none"
+                    stroke="#22d3ee"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-end justify-between gap-1.5">
+                  {[38, 52, 44, 60, 56, 68, 50, 62, 74, 58, 70, 82, 64, 90].map((h, i, arr) => (
+                    <div
+                      key={i}
+                      className={`flex-1 rounded-t-md ${i === arr.length - 1 ? "bg-cyan-400/70" : "bg-cyan-400/25"}`}
+                      style={{ height: `${h}%` }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-4 lg:grid-cols-3">
+              <article className="rounded-2xl border border-white/[.08] bg-[#0B1118] p-5">
+                <h3 className="font-semibold">Dispositivos conectados hoje</h3>
+                <ul className="mt-4 space-y-3 text-sm">
+                  <li className="flex items-center gap-3">
+                    <span className="flex size-8 items-center justify-center rounded-lg bg-white/[.05]">
+                      <Smartphone className="size-4 text-cyan-400" />
+                    </span>
+                    <span className="text-slate-200">iPhone 13</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <span className="flex size-8 items-center justify-center rounded-lg bg-white/[.05]">
+                      <Smartphone className="size-4 text-cyan-400" />
+                    </span>
+                    <span className="text-slate-200">Galaxy A54</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <span className="flex size-8 items-center justify-center rounded-lg bg-white/[.05]">
+                      <Smartphone className="size-4 text-cyan-400" />
+                    </span>
+                    <span className="text-slate-200">Moto G84</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <span className="flex size-8 items-center justify-center rounded-lg bg-white/[.05]">
+                      <Laptop className="size-4 text-cyan-400" />
+                    </span>
+                    <span className="text-slate-200">Dell Inspiron</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <span className="flex size-8 items-center justify-center rounded-lg bg-white/[.05]">
+                      <Smartphone className="size-4 text-cyan-400" />
+                    </span>
+                    <span className="text-slate-200">iPhone 11</span>
+                  </li>
+                </ul>
+              </article>
+              <article className="rounded-2xl border border-white/[.08] bg-[#0B1118] p-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Flame className="size-5 text-cyan-400" />
+                    <h3 className="font-semibold">Calor do Momento</h3>
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/10 px-2.5 py-1 text-xs font-semibold text-emerald-300">
+                    <span className="relative flex size-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex size-2 rounded-full bg-emerald-400" />
+                    </span>
+                    ao vivo
+                  </span>
+                </div>
+                <div className="mt-4 grid grid-cols-6 gap-1.5 sm:grid-cols-9">
+                  {[
+                    ["7h", 1], ["8h", 1], ["9h", 2], ["10h", 2], ["11h", 1],
+                    ["12h", 2], ["13h", 3], ["14h", 1], ["15h", 1], ["16h", 2],
+                    ["17h", 2], ["18h", 3], ["19h", 3], ["20h", 2], ["21h", 2],
+                    ["22h", 1], ["23h", 1],
+                  ].map(([h, lvl]) => (
+                    <div
+                      key={h as string}
+                      className={`flex h-9 items-center justify-center rounded-md text-[10px] font-semibold ${
+                        lvl === 3
+                          ? "bg-cyan-400/80 text-slate-950"
+                          : lvl === 2
+                            ? "bg-cyan-400/40 text-cyan-100"
+                            : lvl === 1
+                              ? "bg-cyan-400/15 text-cyan-200"
+                              : "bg-white/[.06] text-slate-500"
+                      }`}
+                    >
+                      {h}
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-3 text-xs leading-5 text-slate-500">
+                  Horários com mais gente conectada na sua rede.
+                </p>
+              </article>
+              <article className="rounded-2xl border border-white/[.08] bg-[#0B1118] p-5">
+                <div className="flex items-center gap-2">
+                  <Users className="size-5 text-cyan-400" />
+                  <h3 className="font-semibold">Sua rede em resumo</h3>
+                </div>
+                <dl className="mt-4 space-y-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <dt className="text-slate-400">Acessos</dt>
+                    <dd className="text-xl font-bold text-cyan-400">
+                      <CountUp to={280} />
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt className="text-slate-400">Conectados agora</dt>
+                    <dd className="text-xl font-bold text-cyan-400">
+                      <CountUp to={12} />
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt className="text-slate-400">Pico</dt>
+                    <dd className="text-xl font-bold text-cyan-400">
+                      <CountUp to={19} />h
+                    </dd>
+                  </div>
+                </dl>
+                <div className="mt-5 border-t border-white/[.07] pt-4">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Próxima ação
+                  </p>
+                  <span className="mt-2 inline-flex min-h-10 items-center justify-center rounded-full bg-cyan-400 px-5 text-sm font-bold text-slate-950">
+                    Criar campanha
+                  </span>
+                </div>
+              </article>
+            </div>
+            <p className="mt-6 text-center text-xs text-slate-500">
+              Demonstração com dados de exemplo.
             </p>
           </ScrollReveal>
         </div>
