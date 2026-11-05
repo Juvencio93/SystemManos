@@ -322,6 +322,20 @@ function PortalPage() {
   const markTouched = (field: keyof typeof touched) =>
     setTouched((current) => (current[field] ? current : { ...current, [field]: true }));
 
+  // Rolagem CONTIDA neste documento. NUNCA use element.scrollIntoView()
+  // aqui: o portal vive embutido num iframe na landing e o scrollIntoView
+  // propaga para a página-mãe (o iframe é same-origin), puxando a vista
+  // do usuário para cima enquanto ele está lá embaixo no painel.
+  // window.scrollTo rola SOMENTE o documento do iframe — a página-mãe
+  // nunca se mexe. Em portal aberto sozinho o comportamento é idêntico.
+  const scrollIntoViewLocal = (element: HTMLElement | null) => {
+    if (!element) return;
+    const rect = element.getBoundingClientRect();
+    const targetY =
+      window.scrollY + rect.top + rect.height / 2 - window.innerHeight / 2;
+    window.scrollTo({ top: targetY, behavior: "smooth" });
+  };
+
   useEffect(() => {
     if (slug !== "demo-efraim" && slug !== "demo-barao") return;
     if (new URLSearchParams(window.location.search).get("autoplay") !== "1") return;
@@ -360,7 +374,7 @@ function PortalPage() {
           { threshold: 0.5 },
         );
         observer.observe(element);
-        element.scrollIntoView({ behavior: "smooth", block: "center" });
+        scrollIntoViewLocal(element);
         // Rede de segurança: a demo nunca trava se o observer não disparar
         window.setTimeout(finish, 2500);
       });
@@ -825,7 +839,7 @@ function PortalPage() {
             window.requestAnimationFrame(() => {
               const element = document.getElementById(firstInvalid);
               if (!element) return;
-              element.scrollIntoView({ behavior: "smooth", block: "center" });
+              scrollIntoViewLocal(element);
               if (element instanceof HTMLInputElement && element.type !== "checkbox") {
                 element.focus({ preventScroll: true });
               }
