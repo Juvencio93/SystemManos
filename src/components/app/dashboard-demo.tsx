@@ -56,8 +56,9 @@ import type { RealtimeActivityResponse } from "@/lib/realtime.functions";
  * - A altura do container é travada (só cresce, nunca encolhe) via
  *   ResizeObserver, para que nenhuma variação interna mova a rolagem da página.
  * - ZERO .focus(), ZERO scrollIntoView(), ZERO comando de rolagem.
- * - Respeita prefers-reduced-motion: sem timers; mostra um retrato estático
- *   coerente (o estado após 47 ticks simulados), sem animação.
+ * - Respeita prefers-reduced-motion: sem animação CSS (o fade-in das linhas
+ *   só existe com `no-preference`); os ticks lentos continuam — são
+ *   atualização de dados, não animação. Todo mundo nasce em 0, sem exceção.
  */
 
 // Histórico fixo dos 13 dias anteriores ao dia de hoje. A última barra do
@@ -458,13 +459,6 @@ function nextLive(prev: LiveState): LiveState {
   };
 }
 
-/** Retrato estático coerente (prefers-reduced-motion): 47 ticks simulados. */
-function simulateStatic(): LiveState {
-  let live = ZERO_LIVE;
-  for (let i = 0; i < 47; i++) live = nextLive(live);
-  return live;
-}
-
 // Fade-in das linhas da tabela do painel. As linhas existentes têm chave
 // estável e não remontam, então só a linha nova anima ao entrar. Escopado ao
 // container da demo para não tocar nenhuma outra tabela da landing.
@@ -544,8 +538,6 @@ export function DashboardDemo() {
     let observer: IntersectionObserver | undefined;
     let started = false;
 
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
     // Aplica um LiveState em TODOS os lugares (cards + tabela + calor + pico):
     // deriva Insights + queries a partir da única fonte de verdade.
     const applyLive = (live: LiveState) => {
@@ -566,10 +558,8 @@ export function DashboardDemo() {
     };
 
     // Sempre zerado ao carregar: nada de visita anterior é restaurado.
-    if (reduced) {
-      // Sem animação: retrato estático coerente, sem timers.
-      applyLive(simulateStatic());
-    }
+    // (O estado inicial já é ZERO_LIVE; os ticks começam só quando o painel
+    // entra na tela. Sem snapshot, sem exceção — nem com redução de movimento.)
 
     const tick = () => {
       const next = nextLive(liveRef.current);
@@ -585,7 +575,6 @@ export function DashboardDemo() {
       if (started) return;
       started = true;
       observer?.disconnect();
-      if (reduced) return; // valores estáticos já aplicados, sem timers
       startLive();
     };
 
