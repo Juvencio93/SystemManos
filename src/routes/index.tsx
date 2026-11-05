@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowRight, ArrowUp, Gauge, RotateCcw, Timer } from "lucide-react";
+import { ArrowRight, ArrowUp, Beer, Croissant, Database, Gauge, Megaphone, MessageCircle, PartyPopper, RotateCcw, Store, Timer, UserPlus } from "lucide-react";
 import logo from "@/assets/manos-tech-logo-institutional.png";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { openPreSaleChat, PreSaleForm } from "@/components/app/pre-sale-form";
@@ -126,46 +126,64 @@ const FAQ_ITEMS = [
 const STEPS = [
   {
     num: "01",
-    title: "O cliente se conecta",
-    body: "Ao entrar no Wi-Fi, o cliente encontra um portal personalizado com a identidade do seu negócio.",
+    title: "A gente instala",
+    body: "Configuramos tudo no seu roteador. Você não mexe em nada.",
   },
   {
     num: "02",
-    title: "Você conhece melhor seu público",
-    body: "As conexões ajudam seu estabelecimento a construir uma base de contatos e entender melhor quem está passando pelo seu negócio.",
+    title: "Cliente conecta",
+    body: "Ele faz um cadastro rapidinho pra usar o Wi-Fi grátis.",
   },
   {
     num: "03",
-    title: "Você cria relacionamento",
-    body: "Com essa base, você pode criar campanhas e se comunicar com pessoas que já tiveram contato com sua marca.",
-  },
-  {
-    num: "04",
-    title: "Seu Wi-Fi continua trabalhando",
-    body: "Em vez de cada visita terminar quando o cliente sai pela porta, você passa a ter uma oportunidade de continuar o relacionamento.",
+    title: "Você vende mais",
+    body: "Campanhas, WhatsApp e CRM trabalhando pra você.",
   },
 ];
 
 const PARA_QUEM_E = [
   {
-    icon: "🥐",
-    title: "Padarias e cafeterias",
-    body: "Divulgue produtos e novidades no momento da conexão.",
+    icon: Beer,
+    title: "Bares",
+    body: "Happy hour lotado com campanha no Wi-Fi.",
   },
   {
-    icon: "🍻",
-    title: "Restaurantes e bares",
-    body: "Apresente campanhas e eventos para quem já frequenta.",
+    icon: Croissant,
+    title: "Padarias",
+    body: "Cliente do café da manhã vira cliente do almoço.",
   },
   {
-    icon: "🛍️",
+    icon: PartyPopper,
+    title: "Eventos",
+    body: "Milhares de conexões, milhares de leads.",
+  },
+  {
+    icon: Store,
     title: "Lojas",
-    body: "Transforme a conexão em mais um ponto de contato com seu cliente.",
+    body: "Quem entra na loja entra na sua base.",
+  },
+];
+
+const SOLUCOES = [
+  {
+    icon: UserPlus,
+    title: "Captura de leads",
+    body: "Todo visitante vira contato na sua base, automaticamente.",
   },
   {
-    icon: "🏢",
-    title: "Outros estabelecimentos",
-    body: "Personalize o portal de acordo com a sua marca.",
+    icon: Megaphone,
+    title: "Campanhas",
+    body: "Banners e ofertas direto na tela de conexão do cliente.",
+  },
+  {
+    icon: Database,
+    title: "CRM",
+    body: "Organize contatos e acompanhe quem voltou ou sumiu.",
+  },
+  {
+    icon: MessageCircle,
+    title: "Disparos WhatsApp",
+    body: "Fale com sua base direto no WhatsApp, com 1 clique.",
   },
 ];
 
@@ -395,6 +413,35 @@ function SalesHomePage() {
         </div>
       </section>
 
+      <section className="border-b border-white/[.07]">
+        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
+          <ScrollReveal>
+            <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
+              Soluções
+            </p>
+            <h2 className="mt-3 max-w-3xl font-display text-3xl font-bold tracking-tight sm:text-4xl">
+              Tudo que o seu Wi-Fi <span className="text-cyan-400">pode fazer</span>
+            </h2>
+          </ScrollReveal>
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {SOLUCOES.map(({ icon: Icon, title, body }, index) => (
+              <ScrollReveal key={title} className="h-full" delay={(index % 4) * 80}>
+                <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 sm:p-6">
+                  <div className="flex h-28 items-center justify-center rounded-xl border border-white/[.06] bg-gradient-to-br from-cyan-400/15 via-[#0B1118] to-[#0B1118]">
+                    <Icon className="size-10 text-cyan-400" aria-hidden="true" />
+                  </div>
+                  <h3 className="mt-4 font-semibold">{title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-400">{body}</p>
+                  <a href="#como-funciona" className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-cyan-400 transition hover:text-cyan-300">
+                    Ver como funciona <ArrowRight className="size-4" aria-hidden="true" />
+                  </a>
+                </article>
+              </ScrollReveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section id="portais" className="scroll-mt-20 border-y border-white/[.07] bg-[#070D13]">
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
           <ScrollReveal>
@@ -527,13 +574,13 @@ function SalesHomePage() {
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
           <ScrollReveal>
             <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
-              O que acontece?
+              Simplicidade
             </p>
             <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
-              Como a ManosTech funciona?
+              Do zero ao <span className="text-cyan-400">primeiro lead</span> em 3 passos
             </h2>
           </ScrollReveal>
-          <div className="mt-10 grid gap-4 sm:grid-cols-2">
+          <div className="mt-10 grid gap-4 sm:grid-cols-3">
             {STEPS.map(({ num, title, body }, index) => (
               <ScrollReveal key={title} className="h-full" delay={(index % 2) * 90}>
                 <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 sm:p-6">
@@ -556,16 +603,14 @@ function SalesHomePage() {
               Para quem é
             </p>
             <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
-              Para diferentes tipos de negócio
+              Feito para o <span className="text-cyan-400">seu tipo de negócio</span>
             </h2>
           </ScrollReveal>
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {PARA_QUEM_E.map(({ icon, title, body }, index) => (
+            {PARA_QUEM_E.map(({ icon: Icon, title, body }, index) => (
               <ScrollReveal key={title} className="h-full" delay={(index % 4) * 80}>
                 <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 sm:p-6">
-                  <p className="text-3xl" aria-hidden="true">
-                    {icon}
-                  </p>
+                  <Icon className="size-8 text-cyan-400" aria-hidden="true" />
                   <h3 className="mt-3 font-semibold">{title}</h3>
                   <p className="mt-2 text-sm leading-6 text-slate-400">{body}</p>
                 </article>
@@ -622,14 +667,10 @@ function SalesHomePage() {
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
           <ScrollReveal>
             <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
-              Seu cliente já está entrando pela porta.
+              Pronto pra transformar seu Wi-Fi <span className="text-cyan-400">em vendedor?</span>
             </h2>
-            <p className="mt-3 text-xl font-bold leading-8 sm:text-2xl">
-              Agora faça o Wi-Fi trabalhar para trazer esse cliente de volta.
-            </p>
             <p className="mt-6 max-w-2xl text-base leading-7 text-slate-300">
-              Transforme o Wi-Fi do seu estabelecimento em uma ferramenta de relacionamento,
-              inteligência e vendas.
+              Fala com a gente no WhatsApp — sem compromisso.
             </p>
             <div className="mt-8">
               <button
