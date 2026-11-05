@@ -35,7 +35,7 @@ import { getPortal, submitPortalLead } from "@/lib/portal.functions";
 import { defaultPortalAppearance, type PortalAppearance, type PortalVisualStyle } from "@/lib/campaign-appearance";
 import { portalTheme } from "@/lib/portal-theme";
 import { portalLayoutFor, portalLayoutMaxWidth } from "@/components/app/portal/portal-layouts";
-import { getMarketingPortalSourceSlug, getStaticMarketingPortal } from "@/lib/marketing-portal-demo";
+import { getMarketingPortalSourceSlug } from "@/lib/marketing-portal-demo";
 import {
   PrivacyCenterContactContent,
   PrivacyCenterHowToContent,
@@ -53,12 +53,6 @@ export const Route = createFileRoute("/portal/$slug")({
   // campanha inconsistente). Em qualquer falha devolvemos null, que a rota já
   // trata com a tela "Portal indisponível" — sem vazar detalhe para o visitante.
   loader: async ({ params }) => {
-    // Demonstração (demo-barao / demo-efraim): dados ESTÁTICOS, sem tocar no
-    // Supabase. A página é pré-renderizada no build e cacheada no navegador
-    // — zero query por visitante, mesmo com o aquecimento dos mockups na
-    // landing e ao voltar o foco para a aba.
-    const staticDemo = getStaticMarketingPortal(params.slug);
-    if (staticDemo) return staticDemo;
     try {
       return await getPortal({
         data: { slug: getMarketingPortalSourceSlug(params.slug) ?? params.slug },
@@ -279,8 +273,10 @@ function LegalDocModal({ doc, onClose }: { doc: LegalDocKey; onClose: () => void
 function PortalPage() {
   const initialPortal = Route.useLoaderData();
   const { slug } = Route.useParams();
-  // A demonstração usa os dados estáticos do loader — sem refetch no
+  // Os dados vêm do loader (portal real, ao vivo) — sem refetch no
   // cliente (antes, cada volta de foco na aba chamava getPortal de novo).
+  // A resposta do loader é cacheada 24h no navegador (vercel.json), por
+  // isso a demonstração só consulta o banco 1x ao dia por visitante.
   const portal = initialPortal;
   const submit = useServerFn(submitPortalLead);
   const [done, setDone] = useState<{

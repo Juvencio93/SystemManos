@@ -456,7 +456,6 @@ function ScaledPortalFrame({
   className,
   poster,
   eager = false,
-  warmupMargin = "0px",
 }: {
   src: string;
   title: string;
@@ -469,9 +468,6 @@ function ScaledPortalFrame({
   // Hero (acima da dobra): nasce iniciado e carrega direto com
   // autoplay=1 — um único carregamento, sem a troca de src.
   eager?: boolean;
-  // Notebook (abaixo da dobra): margem para o started virar antes de
-  // chegar na tela, de modo que a troca p/ autoplay=1 já esteja pronta.
-  warmupMargin?: string;
 }) {
   const frameRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
@@ -500,36 +496,40 @@ function ScaledPortalFrame({
       },
       // A phone viewport is taller than the browser viewport, so a higher
       // threshold could prevent its demo from ever starting.
-      { threshold: 0, rootMargin: warmupMargin },
+      { threshold: 0 },
     );
     observer.observe(container);
     return () => observer.disconnect();
-  }, [started, warmupMargin]);
+  }, [started]);
 
   return (
     <div ref={frameRef} className={`relative overflow-hidden bg-[#05080F] ${className}`}>
-      <iframe
-        title={title}
-        src={started ? src : src.replace("autoplay=1", "autoplay=0")}
-        // Sem loading="lazy": o portal (autoplay=0) carrega junto com a
-        // landing e aquece o cache do navegador (app, imagens do banner);
-        // na chegada, a troca p/ autoplay=1 reusa o que já está em cache.
-        onLoad={() => setLoaded(true)}
-        allow="autoplay; encrypted-media; picture-in-picture"
-        // Sem allow-same-origin cruzado o Storage/CDN servindo o .mp4 do
-        // banner pode ser recusado por CORS/mídia dentro do frame. Os dois
-        // tokens juntos mantêm o documento na origem e permitem o vídeo.
-        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation"
-        tabIndex={-1}
-        className="absolute left-0 top-0 border-0 bg-[#05080F]"
-        style={{
-          width: viewportWidth,
-          height: viewportHeight,
-          transform: `scale(${scale})`,
-          transformOrigin: "top left",
-        }}
-        aria-hidden="true"
-      />
+      {started ? (
+        <iframe
+          title={title}
+          src={src}
+          // O iframe só monta quando a demonstração entra na tela (ou
+          // nasce montado no hero, com eager): UM único carregamento,
+          // direto com autoplay=1. Antes ele nascia com autoplay=0 e
+          // recarregava com autoplay=1 na chegada — 2 consultas ao
+          // banco por visita. Enquanto não monta, só o poster aparece.
+          onLoad={() => setLoaded(true)}
+          allow="autoplay; encrypted-media; picture-in-picture"
+          // Sem allow-same-origin cruzado o Storage/CDN servindo o .mp4 do
+          // banner pode ser recusado por CORS/mídia dentro do frame. Os dois
+          // tokens juntos mantêm o documento na origem e permitem o vídeo.
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation"
+          tabIndex={-1}
+          className="absolute left-0 top-0 border-0 bg-[#05080F]"
+          style={{
+            width: viewportWidth,
+            height: viewportHeight,
+            transform: `scale(${scale})`,
+            transformOrigin: "top left",
+          }}
+          aria-hidden="true"
+        />
+      ) : null}
       <div
         aria-hidden="true"
         className={`pointer-events-none absolute left-0 top-0 z-10 overflow-hidden transition-opacity duration-500 ${loaded ? "opacity-0" : "opacity-100"}`}
@@ -563,7 +563,6 @@ function NotebookCheckinDemo() {
             viewportHeight={768}
             className="aspect-video"
             poster={<PortalPosterEfraim />}
-            warmupMargin="600px 0px"
           />
         </div>
       </div>

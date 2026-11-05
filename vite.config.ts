@@ -74,10 +74,10 @@ export default defineConfig({
     ...react().map((plugin) => ({ ...plugin, enforce: "post" as const })),
     viteTsconfigPaths(),
     tanstackStart({ spa: { enabled: true } }),
-    // O pré-render das rotas demo é feito pelo pré-render do Start, que
-    // descobre páginas pelos links da landing (ver os links ocultos no
-    // rodapé de src/routes/index.tsx). routeRules com prerender aqui NÃO
-    // funcionam: esta instância do Nitro responde 404 para rotas do Start.
+    // Pré-render das rotas demo NÃO funciona aqui: routeRules com prerender
+    // dá 404 (esta instância do Nitro não serve as rotas do Start) e o
+    // crawler do pré-render SPA só pega '/'. Por isso as demos são SSR
+    // ao vivo e o cache de 24h no navegador vem do header em vercel.json.
     nitro(),
     staticEntry(),
   ],
