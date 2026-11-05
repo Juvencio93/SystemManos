@@ -48,11 +48,9 @@ import type { RealtimeActivityResponse } from "@/lib/realtime.functions";
  *   - "Calor do Momento" e "Horário de pico": cada acesso gera 1 entrada de
  *     atividade na hora atual — o mapa e o pico derivam dos acessos reais da
  *     simulação. Com 0 acessos, o mapa fica vazio e o pico indefinido ("—").
- * - CACHE LOCAL: o estado é salvo em localStorage a cada tick (chave
- *   "manos:live-demo", com o dia). Ao carregar, se houver cache válido DO
- *   MESMO DIA, a simulação retoma de onde parou — sem recomeçar do zero.
- *   Cache de outro dia é descartado. Tudo roda 100% no navegador: zero
- *   carga no servidor. Falha de localStorage nunca quebra a página.
+ * - SEMPRE ZERADO AO CARREGAR: toda visita começa do zero, sem exceção
+ *   — nenhum estado de visita anterior é restaurado. Tudo roda 100% no
+ *   navegador: zero carga no servidor.
  * - TRAVAS SUAVES: acessos param em ~120, base em ~40 (tetos de segurança
  *   que uma visita realista não alcança em poucos minutos).
  * - A altura do container é travada (só cresce, nunca encolhe) via
@@ -477,107 +475,11 @@ const LIVE_DEMO_CSS = `
 @keyframes live-demo-row-in { from { opacity: 0; } to { opacity: 1; } }
 `;
 
-/* ================= Cache local (localStorage, no aparelho do usuário) ================= */
-
-const CACHE_KEY = "manos:live-demo";
-
-type LiveDemoCache = LiveState & { day: string };
-
-function todayKey(): string {
-  const d = new Date();
-  const m = `${d.getMonth() + 1}`.padStart(2, "0");
-  const day = `${d.getDate()}`.padStart(2, "0");
-  return `${d.getFullYear()}-${m}-${day}`;
-}
-
-function isLiveSistema(value: unknown): value is LiveSistema {
-  return value === "iOS" || value === "Android" || value === "Computador";
-}
-
-function readCache(): LiveState | null {
-  try {
-    const raw = window.localStorage.getItem(CACHE_KEY);
-    if (raw === null) return null;
-    const parsed: unknown = JSON.parse(raw);
-    if (typeof parsed !== "object" || parsed === null) return null;
-    const c = parsed as Partial<LiveDemoCache>;
-    if (c.day !== todayKey()) return null;
-    if (
-      typeof c.tick !== "number" ||
-      typeof c.acessos !== "number" ||
-      typeof c.base !== "number" ||
-      typeof c.conectados !== "number" ||
-      typeof c.celulares !== "number" ||
-      typeof c.computadores !== "number" ||
-      typeof c.lastModelIdx !== "number" ||
-      !Array.isArray(c.devices) ||
-      !Array.isArray(c.activity)
-    ) {
-      return null;
-    }
-    // Coerência interna: a soma da tabela = acessos, a atividade tem 1
-    // entrada por acesso e celulares + computadores = conectados. Cache
-    // inconsistente é descartado (recomeça do zero).
-    let devicesSum = 0;
-    for (const d of c.devices as unknown[]) {
-      if (typeof d !== "object" || d === null) return null;
-      const dev = d as Partial<LiveDevice>;
-      if (
-        typeof dev.modelo !== "string" ||
-        !isLiveSistema(dev.sistema) ||
-        typeof dev.total !== "number" ||
-        dev.total < 1
-      ) {
-        return null;
-      }
-      devicesSum += dev.total;
-    }
-    if (c.devices.length > MAX_DEVICES) return null;
-    if (devicesSum !== c.acessos) return null;
-    if (c.activity.length !== c.acessos) return null;
-    if (c.celulares + c.computadores !== c.conectados) return null;
-    for (const a of c.activity as unknown[]) {
-      if (typeof a !== "object" || a === null) return null;
-      const entry = a as Partial<LiveActivityEntry>;
-      if (
-        typeof entry.hour !== "number" ||
-        typeof entry.opName !== "string" ||
-        typeof entry.is_returning !== "boolean" ||
-        typeof entry.visitor_id !== "string"
-      ) {
-        return null;
-      }
-    }
-    return {
-      tick: c.tick,
-      acessos: c.acessos,
-      base: c.base,
-      conectados: c.conectados,
-      celulares: c.celulares,
-      computadores: c.computadores,
-      devices: c.devices as LiveDevice[],
-      activity: c.activity as LiveActivityEntry[],
-      lastModelIdx: c.lastModelIdx,
-    };
-  } catch {
-    return null;
-  }
-}
-
-function writeCache(live: LiveState): void {
-  try {
-    const payload: LiveDemoCache = { ...live, day: todayKey() };
-    window.localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
-  } catch {
-    // localStorage indisponível — a simulação continua sem cache.
-  }
-}
 
 export function DashboardDemo() {
   const panelRef = useRef<HTMLDivElement | null>(null);
   // Tudo começa ZERADO (SSR/pré-render seguro: nenhum acesso a window aqui).
-  // O cache do dia (se houver) é restaurado no effect; sem cache, os números
-  // sobem um por vez, a cada 25s, quando o painel entra na tela.
+  // Os números sobem um por vez, a cada 25s, quando o painel entra na tela.
   const [liveInsights, setLiveInsights] = useState<Insights>(() =>
     insightsFromLive(ZERO_LIVE),
   );
@@ -595,7 +497,7 @@ export function DashboardDemo() {
       },
     });
     // Pré-carrega as consultas internas do ClientDashboardRedesign — zeradas
-    // até o cache do dia ser restaurado no effect (ou até os ticks começarem).
+    // até os ticks começarem.
     qc.setQueryData(["conectados-agora-devices"], { celular: 0, computador: 0 });
     qc.setQueryData(["dispositivos-hoje"], devicesFromLive(ZERO_LIVE));
     // useAccess() retorna null na landing pública → chave com undefineds.
@@ -663,12 +565,8 @@ export function DashboardDemo() {
       );
     };
 
-    // Cache do dia (se houver) — lido uma vez na montagem. Sem cache (ou
-    // cache de outro dia): fica zerado até os ticks começarem.
-    const cached = readCache();
-    if (cached !== null) {
-      applyLive(cached);
-    } else if (reduced) {
+    // Sempre zerado ao carregar: nada de visita anterior é restaurado.
+    if (reduced) {
       // Sem animação: retrato estático coerente, sem timers.
       applyLive(simulateStatic());
     }
@@ -676,8 +574,6 @@ export function DashboardDemo() {
     const tick = () => {
       const next = nextLive(liveRef.current);
       applyLive(next);
-      // Persiste o estado no aparelho do usuário (cache do dia).
-      writeCache(next);
     };
 
     const startLive = () => {
