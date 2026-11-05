@@ -84,21 +84,23 @@ type LiveDeviceRow = DeviceRow & { key: string };
 
 /** Modelos em rotação para a simulação de novos dispositivos (sem repetir o último). */
 const LIVE_DEVICE_ROTATION: { modelo: string; sistema: "iOS" | "Android" | "Computador" }[] = [
-  { modelo: "Galaxy S23", sistema: "Android" },
-  { modelo: "Redmi Note 13", sistema: "Android" },
-  { modelo: "iPad Air", sistema: "iOS" },
-  { modelo: "iPhone 13", sistema: "iOS" },
+  { modelo: "Samsung Galaxy S24", sistema: "Android" },
+  { modelo: "iPhone 16 Pro", sistema: "iOS" },
   { modelo: "Galaxy A54", sistema: "Android" },
   { modelo: "Moto G84", sistema: "Android" },
+  { modelo: "iPhone 13", sistema: "iOS" },
   { modelo: "Dell Inspiron", sistema: "Computador" },
-  { modelo: "iPhone 11", sistema: "iOS" },
+  { modelo: "Redmi Note 13", sistema: "Android" },
+  { modelo: "iPad Air", sistema: "iOS" },
 ];
 
 /**
  * Simulação "live demo" do painel (só na landing pública, quando `enabled`).
  * Um único IntersectionObserver (threshold 0.3) dispara a simulação quando o
- * painel entra no viewport; os timers continuam rodando de forma suave e
- * lenta enquanto a página estiver aberta. Tudo com cleanup no unmount.
+ * painel entra no viewport; um único setInterval de 7,5s faz a contagem
+ * fluir (Acessos hoje +1, base de clientes +1 e um novo dispositivo no topo
+ * da tabela, que também soma +1 em "Conectados agora"). Tudo com cleanup no
+ * unmount. Nenhum comando toca na rolagem (sem focus/scrollIntoView).
  * Respeita prefers-reduced-motion (valores finais, sem animação e sem timers).
  */
 function useLiveDemo(enabled: boolean, data: Insights | undefined) {
@@ -143,60 +145,34 @@ function useLiveDemo(enabled: boolean, data: Insights | undefined) {
 
   useEffect(() => {
     if (!enabled || !visible || reducedMotion) return;
-    const timers: ReturnType<typeof setInterval>[] = [];
 
-    // Acessos hoje: +1 a cada ~8s.
-    timers.push(
-      setInterval(() => {
-        setCounts((c) => ({ ...c, acessosHoje: c.acessosHoje + 1 }));
-      }, 8000),
-    );
+    // Um único setInterval de 7,5s. A cada tick: Acessos hoje +1, base de
+    // clientes +1 e um novo dispositivo entra NO TOPO da tabela (prepend),
+    // somando +1 em "Conectados agora". Só estado React — nenhum comando
+    // toca na rolagem (sem focus/scrollIntoView).
+    const timer = setInterval(() => {
+      const pick = LIVE_DEVICE_ROTATION[rotationRef.current % LIVE_DEVICE_ROTATION.length];
+      rotationRef.current += 1;
+      if (!pick) return;
+      deviceSeqRef.current += 1;
+      const row: LiveDeviceRow = {
+        key: `live-${deviceSeqRef.current}`,
+        sistema: pick.sistema,
+        modelo: pick.modelo,
+        total: 1,
+      };
+      setExtraDevices((rows) => [row, ...rows].slice(0, 20));
+      setCounts((c) => ({
+        ...c,
+        acessosHoje: c.acessosHoje + 1,
+        baseClientes: c.baseClientes + 1,
+        conectadosAgora: Math.min(16, c.conectadosAgora + 1),
+        celulares: pick.sistema === "Computador" ? c.celulares : c.celulares + 1,
+        computadores: pick.sistema === "Computador" ? c.computadores + 1 : c.computadores,
+      }));
+    }, 7500);
 
-    // Conectados agora: oscila suavemente entre 10 e 16 (±1 a cada ~6s).
-    timers.push(
-      setInterval(() => {
-        setCounts((c) => {
-          const step = Math.random() < 0.5 ? -1 : 1;
-          return { ...c, conectadosAgora: Math.min(16, Math.max(10, c.conectadosAgora + step)) };
-        });
-      }, 6000),
-    );
-
-    // Base de clientes: +1 a cada ~20s.
-    timers.push(
-      setInterval(() => {
-        setCounts((c) => ({ ...c, baseClientes: c.baseClientes + 1 }));
-      }, 20000),
-    );
-
-    // Novo dispositivo a cada ~10s: entra na tabela e soma +1 em
-    // "Acessos hoje" e "Conectados agora" ao mesmo tempo.
-    timers.push(
-      setInterval(() => {
-        const pick = LIVE_DEVICE_ROTATION[rotationRef.current % LIVE_DEVICE_ROTATION.length];
-        rotationRef.current += 1;
-        if (!pick) return;
-        deviceSeqRef.current += 1;
-        const row: LiveDeviceRow = {
-          key: `live-${deviceSeqRef.current}`,
-          sistema: pick.sistema,
-          modelo: pick.modelo,
-          total: 1,
-        };
-        setExtraDevices((rows) => [...rows, row].slice(-20));
-        setCounts((c) => ({
-          ...c,
-          acessosHoje: c.acessosHoje + 1,
-          conectadosAgora: Math.min(16, c.conectadosAgora + 1),
-          celulares: pick.sistema === "Computador" ? c.celulares : c.celulares + 1,
-          computadores: pick.sistema === "Computador" ? c.computadores + 1 : c.computadores,
-        }));
-      }, 10000),
-    );
-
-    return () => {
-      for (const t of timers) clearInterval(t);
-    };
+    return () => clearInterval(timer);
   }, [enabled, visible, reducedMotion]);
 
   return { rootRef, visible, reducedMotion, counts, extraDevices };
@@ -591,23 +567,25 @@ function DevicesPanel({ extraRows }: { extraRows?: LiveDeviceRow[] | undefined }
   const [droppedKeys, setDroppedKeys] = useState<string[]>([]);
   const [leavingKey, setLeavingKey] = useState<string | null>(null);
   const leaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Linhas ao vivo entram NO TOPO (equivalente a prepend no tbody).
   const combinedRows = useMemo(
-    () => [...rows, ...(extraRows ?? [])],
+    () => [...(extraRows ?? []), ...rows],
     [rows, extraRows],
   );
   const activeRows = useMemo(
     () => combinedRows.filter((r) => !droppedKeys.includes(rowKey(r))),
     [combinedRows, droppedKeys],
   );
-  const visibleRows = leavingKey ? activeRows : activeRows.slice(-8);
+  const visibleRows = leavingKey ? activeRows : activeRows.slice(0, 8);
   const lastAddedKey =
-    extraRows && extraRows.length > 0 ? (extraRows[extraRows.length - 1]?.key ?? null) : null;
+    extraRows && extraRows.length > 0 ? (extraRows[0]?.key ?? null) : null;
 
   useEffect(() => {
     if (activeRows.length > 8 && !leavingKey) {
-      const first = activeRows[0];
-      if (!first) return;
-      const key = rowKey(first);
+      // Com o prepend, a mais antiga é a ÚLTIMA da lista.
+      const last = activeRows[activeRows.length - 1];
+      if (!last) return;
+      const key = rowKey(last);
       setLeavingKey(key);
       leaveTimeoutRef.current = setTimeout(() => {
         setDroppedKeys((keys) => [...keys, key]);
