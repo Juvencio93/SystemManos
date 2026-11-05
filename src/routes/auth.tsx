@@ -289,7 +289,7 @@ function AuthPage() {
         <div className="relative hidden flex-col items-center justify-center overflow-hidden p-12 lg:flex">
           <div className="relative max-w-md text-center">
             <h2 className="text-4xl font-display font-black leading-tight tracking-tighter">
-              O Wi-Fi como <span className="text-gradient">máquina de captação</span>
+              Seu Wi-Fi agora é <span className="text-gradient">seu melhor vendedor.</span>
             </h2>
             <p className="mt-4 text-base text-slate-300">
               Matriz, filiais e eventos em uma única base: campanhas, leads, CRM e inteligência
