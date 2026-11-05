@@ -1,10 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowRight, ArrowUp, Gauge, RotateCcw, Timer } from "lucide-react";
+import { ArrowRight, ArrowUp, Beer, Clock, Croissant, Database, Flame, Gauge, Laptop, Megaphone, MessageCircle, PartyPopper, RotateCcw, Smartphone, Store, Timer, TrendingUp, UserPlus, Users } from "lucide-react";
 import logo from "@/assets/manos-tech-logo-institutional.png";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { openPreSaleChat, PreSaleForm } from "@/components/app/pre-sale-form";
-import { DashboardDemo } from "@/components/app/dashboard-demo";
 import { WifiVisitantesDemo } from "@/components/app/wifi-visitantes-demo";
 
 const SOCIAL_IMAGE_URL = new URL(logo, "https://manostech-system.com.br").toString();
@@ -68,6 +67,64 @@ function ScrollReveal({
   );
 }
 
+function CountUp({
+  to,
+  suffix = "",
+  duration = 1500,
+  className = "",
+}: {
+  to: number;
+  suffix?: string;
+  duration?: number;
+  className?: string;
+}) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [value, setValue] = useState(0);
+  const started = useRef(false);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setValue(to);
+      return;
+    }
+    let raf = 0;
+    const animate = () => {
+      const start = performance.now();
+      const tick = (now: number) => {
+        const progress = Math.min((now - start) / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        setValue(Math.round(to * eased));
+        if (progress < 1) raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+    };
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && !started.current) {
+          started.current = true;
+          animate();
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.4 }
+    );
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [to, duration]);
+
+  return (
+    <span ref={ref} className={className}>
+      {value.toLocaleString("pt-BR")}
+      {suffix}
+    </span>
+  );
+}
+
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
@@ -126,46 +183,64 @@ const FAQ_ITEMS = [
 const STEPS = [
   {
     num: "01",
-    title: "O cliente se conecta",
-    body: "Ao entrar no Wi-Fi, o cliente encontra um portal personalizado com a identidade do seu negócio.",
+    title: "A gente instala",
+    body: "Configuramos tudo no seu roteador. Você não mexe em nada.",
   },
   {
     num: "02",
-    title: "Você conhece melhor seu público",
-    body: "As conexões ajudam seu estabelecimento a construir uma base de contatos e entender melhor quem está passando pelo seu negócio.",
+    title: "Cliente conecta",
+    body: "Ele faz um cadastro rapidinho pra usar o Wi-Fi grátis.",
   },
   {
     num: "03",
-    title: "Você cria relacionamento",
-    body: "Com essa base, você pode criar campanhas e se comunicar com pessoas que já tiveram contato com sua marca.",
-  },
-  {
-    num: "04",
-    title: "Seu Wi-Fi continua trabalhando",
-    body: "Em vez de cada visita terminar quando o cliente sai pela porta, você passa a ter uma oportunidade de continuar o relacionamento.",
+    title: "Você vende mais",
+    body: "Campanhas, WhatsApp e CRM trabalhando pra você.",
   },
 ];
 
 const PARA_QUEM_E = [
   {
-    icon: "🥐",
-    title: "Padarias e cafeterias",
-    body: "Divulgue produtos e novidades no momento da conexão.",
+    icon: Beer,
+    title: "Bares",
+    body: "Happy hour lotado com campanha no Wi-Fi.",
   },
   {
-    icon: "🍻",
-    title: "Restaurantes e bares",
-    body: "Apresente campanhas e eventos para quem já frequenta.",
+    icon: Croissant,
+    title: "Padarias",
+    body: "Cliente do café da manhã vira cliente do almoço.",
   },
   {
-    icon: "🛍️",
+    icon: PartyPopper,
+    title: "Eventos",
+    body: "Milhares de conexões, milhares de leads.",
+  },
+  {
+    icon: Store,
     title: "Lojas",
-    body: "Transforme a conexão em mais um ponto de contato com seu cliente.",
+    body: "Quem entra na loja entra na sua base.",
+  },
+];
+
+const SOLUCOES = [
+  {
+    icon: UserPlus,
+    title: "Captura de leads",
+    body: "Todo visitante vira contato na sua base, automaticamente.",
   },
   {
-    icon: "🏢",
-    title: "Outros estabelecimentos",
-    body: "Personalize o portal de acordo com a sua marca.",
+    icon: Megaphone,
+    title: "Campanhas",
+    body: "Banners e ofertas direto na tela de conexão do cliente.",
+  },
+  {
+    icon: Database,
+    title: "CRM",
+    body: "Organize contatos e acompanhe quem voltou ou sumiu.",
+  },
+  {
+    icon: MessageCircle,
+    title: "Disparos WhatsApp",
+    body: "Fale com sua base direto no WhatsApp, com 1 clique.",
   },
 ];
 
@@ -278,11 +353,36 @@ function NotebookCheckinDemo() {
   );
 }
 
-function MobileBotecoDemo() {
+function MobileBotecoDemo({ loop = false }: { loop?: boolean }) {
   const [replay, setReplay] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  // No modo loop (hero): detecta visibilidade para só rodar o timer em tela
+  useEffect(() => {
+    if (!loop) return;
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setVisible(!!entry?.isIntersecting),
+      { threshold: 0 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [loop]);
+
+  // Loop automático: o demo leva ~14s para completar; 22s dá uma pausa
+  // confortável na tela de sucesso antes de recomeçar
+  useEffect(() => {
+    if (!loop || !visible) return;
+    const id = window.setInterval(() => {
+      setReplay((value) => value + 1);
+    }, 22000);
+    return () => window.clearInterval(id);
+  }, [loop, visible]);
 
   return (
-    <div className="mx-auto w-full max-w-[340px] px-2">
+    <div ref={containerRef} className="mx-auto w-full max-w-[340px] px-2">
       <div className="relative rounded-[2.7rem] border-[3px] border-slate-400/80 bg-gradient-to-br from-slate-600 via-slate-900 to-slate-500 p-[5px] shadow-[0_32px_75px_rgba(0,0,0,.58),0_0_35px_rgba(34,211,238,.04)]">
         <span className="absolute -left-[5px] top-28 h-14 w-[3px] rounded-l bg-slate-500" aria-hidden="true" />
         <span className="absolute -right-[5px] top-36 h-20 w-[3px] rounded-r bg-slate-500" aria-hidden="true" />
@@ -296,7 +396,9 @@ function MobileBotecoDemo() {
         />
         <div className="pointer-events-none absolute bottom-3 left-1/2 z-20 h-1 w-[90px] -translate-x-1/2 rounded-full bg-white/75 shadow-sm" aria-hidden="true" />
       </div>
-      <button type="button" onClick={() => setReplay((value) => value + 1)} className="mt-4 w-full text-center text-xs font-semibold text-emerald-200 hover:text-white">↻ Reproduzir check-in fictício</button>
+      {!loop && (
+        <button type="button" onClick={() => setReplay((value) => value + 1)} className="mt-4 w-full text-center text-xs font-semibold text-emerald-200 hover:text-white">↻ Reproduzir check-in fictício</button>
+      )}
     </div>
   );
 }
@@ -390,7 +492,36 @@ function SalesHomePage() {
           </ScrollReveal>
 
           <div className="h-full">
-            <ScrollReveal className="h-full" delay={120}><MobileBotecoDemo /></ScrollReveal>
+            <ScrollReveal className="h-full" delay={120}><MobileBotecoDemo loop /></ScrollReveal>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-white/[.07]">
+        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
+          <ScrollReveal>
+            <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
+              Soluções
+            </p>
+            <h2 className="mt-3 max-w-3xl font-display text-3xl font-bold tracking-tight sm:text-4xl">
+              Tudo que o seu Wi-Fi <span className="text-cyan-400">pode fazer</span>
+            </h2>
+          </ScrollReveal>
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {SOLUCOES.map(({ icon: Icon, title, body }, index) => (
+              <ScrollReveal key={title} className="h-full" delay={(index % 4) * 80}>
+                <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 sm:p-6">
+                  <div className="flex h-28 items-center justify-center rounded-xl border border-white/[.06] bg-gradient-to-br from-cyan-400/15 via-[#0B1118] to-[#0B1118]">
+                    <Icon className="size-10 text-cyan-400" aria-hidden="true" />
+                  </div>
+                  <h3 className="mt-4 font-semibold">{title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-400">{body}</p>
+                  <a href="#como-funciona" className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-cyan-400 transition hover:text-cyan-300">
+                    Ver como funciona <ArrowRight className="size-4" aria-hidden="true" />
+                  </a>
+                </article>
+              </ScrollReveal>
+            ))}
           </div>
         </div>
       </section>
@@ -442,30 +573,249 @@ function SalesHomePage() {
       </section>
 
       <section className="border-y border-white/[.07] bg-[#070D13]">
-        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
+        <div className="mx-auto max-w-2xl px-5 py-16 text-center sm:px-8 sm:py-20">
           <ScrollReveal>
             <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">Painel</p>
-            <h2 className="mt-3 max-w-3xl font-display text-3xl font-bold tracking-tight sm:text-4xl">
+            <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
               E você acompanha tudo pelo seu painel.
             </h2>
-            <p className="mt-6 max-w-2xl text-base leading-7 text-slate-300">
+            <p className="mt-6 text-base leading-7 text-slate-300">
               Com a ManosTech, as conexões do seu Wi-Fi deixam de ser apenas acessos à
               internet.
             </p>
-            <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300">
+            <p className="mt-4 text-base leading-7 text-slate-300">
               Você passa a ter informações que ajudam a entender melhor o relacionamento dos
               clientes com o seu estabelecimento.
             </p>
-            <p className="mt-8 max-w-2xl text-lg font-bold leading-7 sm:text-xl">
+            <p className="mt-8 text-lg font-bold leading-7 text-cyan-400 sm:text-xl">
               Menos achismo. Mais informação para tomar decisões.
             </p>
           </ScrollReveal>
-          <div className="mt-12">
-            <DashboardDemo />
-          </div>
-          <p className="mt-6 text-center text-xs italic text-slate-500">
-            Demonstração com dados de exemplo.
-          </p>
+        </div>
+        <div className="mx-auto max-w-6xl px-5 pb-16 sm:px-8 sm:pb-20" aria-hidden="true">
+          <ScrollReveal>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <article className="rounded-2xl border border-white/[.08] bg-[#0B1118] p-5">
+                <p className="text-sm font-medium text-slate-400">Acessos hoje</p>
+                <p className="mt-2 text-4xl font-bold text-cyan-400">
+                  <CountUp to={47} />
+                </p>
+                <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-400/10 px-2 py-0.5 text-xs font-semibold text-emerald-300">
+                  <ArrowUp className="size-3" />
+                  <CountUp to={15} suffix="%" />&nbsp;vs. semana passada
+                </p>
+                <p className="mt-3 text-xs leading-5 text-slate-500">
+                  Pessoas que passaram pela sua rede Wi-Fi hoje.
+                </p>
+              </article>
+              <article className="rounded-2xl border border-white/[.08] bg-[#0B1118] p-5">
+                <p className="text-sm font-medium text-slate-400">Conectados agora</p>
+                <p className="mt-2 text-4xl font-bold text-cyan-400">
+                  <CountUp to={12} />
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-400">
+                  <span className="inline-flex items-center gap-1">
+                    <Smartphone className="size-3.5 text-cyan-400" />
+                    <CountUp to={9} />&nbsp;celulares
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <Laptop className="size-3.5 text-cyan-400" />
+                    <CountUp to={3} />&nbsp;computadores
+                  </span>
+                </div>
+                <p className="mt-3 text-xs leading-5 text-slate-500">
+                  Pessoas usando o Wi-Fi no momento.
+                </p>
+              </article>
+              <article className="rounded-2xl border border-white/[.08] bg-[#0B1118] p-5">
+                <p className="text-sm font-medium text-slate-400">Sua base de clientes</p>
+                <p className="mt-2 text-4xl font-bold text-cyan-400">
+                  <CountUp to={318} />
+                </p>
+                <p className="mt-2 text-xs font-semibold text-slate-300">
+                  <CountUp to={11} />&nbsp;esta semana
+                </p>
+                <p className="mt-3 text-xs leading-5 text-slate-500">
+                  Contatos que você pode usar em ações de relacionamento.
+                </p>
+                <span className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-cyan-400">
+                  Ver minha base <ArrowRight className="size-4" />
+                </span>
+              </article>
+              <article className="rounded-2xl border border-white/[.08] bg-[#0B1118] p-5">
+                <div className="flex items-center gap-2">
+                  <Clock className="size-4 text-cyan-400" />
+                  <p className="text-sm font-medium text-slate-400">Horário de pico</p>
+                </div>
+                <p className="mt-2 text-4xl font-bold text-cyan-400">
+                  <CountUp to={19} />h
+                </p>
+                <p className="mt-2 text-xs text-slate-400">
+                  <CountUp to={32} />&nbsp;acessos (média)
+                </p>
+                <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-400/10 px-2 py-0.5 text-xs font-semibold text-emerald-300">
+                  <ArrowUp className="size-3" />
+                  +<CountUp to={48} suffix="%" />&nbsp;vs. média do dia
+                </p>
+                <p className="mt-3 text-xs leading-5 text-slate-500">
+                  Momento de maior movimento na sua rede.
+                </p>
+              </article>
+            </div>
+            <div className="mt-4 rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 sm:p-6">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-semibold">Movimento dos últimos 14 dias</h3>
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/10 px-2.5 py-1 text-xs font-semibold text-emerald-300">
+                  <TrendingUp className="size-3.5" />
+                  <CountUp to={13} suffix="%" />&nbsp;vs semana anterior
+                </span>
+              </div>
+              <div className="relative mt-6 h-44">
+                <svg
+                  viewBox="0 0 560 160"
+                  preserveAspectRatio="none"
+                  className="absolute inset-0 h-full w-full"
+                >
+                  <polygon
+                    points="20,103 60,82 100,94 140,70 180,76 220,58 260,85 300,67 340,49 380,73 420,55 460,37 500,64 540,25 540,160 20,160"
+                    fill="rgba(34,211,238,0.08)"
+                  />
+                  <polyline
+                    points="20,103 60,82 100,94 140,70 180,76 220,58 260,85 300,67 340,49 380,73 420,55 460,37 500,64 540,25"
+                    fill="none"
+                    stroke="#22d3ee"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-end justify-between gap-1.5">
+                  {[38, 52, 44, 60, 56, 68, 50, 62, 74, 58, 70, 82, 64, 90].map((h, i, arr) => (
+                    <div
+                      key={i}
+                      className={`flex-1 rounded-t-md ${i === arr.length - 1 ? "bg-cyan-400/70" : "bg-cyan-400/25"}`}
+                      style={{ height: `${h}%` }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-4 lg:grid-cols-3">
+              <article className="rounded-2xl border border-white/[.08] bg-[#0B1118] p-5">
+                <h3 className="font-semibold">Dispositivos conectados hoje</h3>
+                <ul className="mt-4 space-y-3 text-sm">
+                  <li className="flex items-center gap-3">
+                    <span className="flex size-8 items-center justify-center rounded-lg bg-white/[.05]">
+                      <Smartphone className="size-4 text-cyan-400" />
+                    </span>
+                    <span className="text-slate-200">iPhone 13</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <span className="flex size-8 items-center justify-center rounded-lg bg-white/[.05]">
+                      <Smartphone className="size-4 text-cyan-400" />
+                    </span>
+                    <span className="text-slate-200">Galaxy A54</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <span className="flex size-8 items-center justify-center rounded-lg bg-white/[.05]">
+                      <Smartphone className="size-4 text-cyan-400" />
+                    </span>
+                    <span className="text-slate-200">Moto G84</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <span className="flex size-8 items-center justify-center rounded-lg bg-white/[.05]">
+                      <Laptop className="size-4 text-cyan-400" />
+                    </span>
+                    <span className="text-slate-200">Dell Inspiron</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <span className="flex size-8 items-center justify-center rounded-lg bg-white/[.05]">
+                      <Smartphone className="size-4 text-cyan-400" />
+                    </span>
+                    <span className="text-slate-200">iPhone 11</span>
+                  </li>
+                </ul>
+              </article>
+              <article className="rounded-2xl border border-white/[.08] bg-[#0B1118] p-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Flame className="size-5 text-cyan-400" />
+                    <h3 className="font-semibold">Calor do Momento</h3>
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/10 px-2.5 py-1 text-xs font-semibold text-emerald-300">
+                    <span className="relative flex size-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex size-2 rounded-full bg-emerald-400" />
+                    </span>
+                    ao vivo
+                  </span>
+                </div>
+                <div className="mt-4 grid grid-cols-6 gap-1.5 sm:grid-cols-9">
+                  {[
+                    ["7h", 1], ["8h", 1], ["9h", 2], ["10h", 2], ["11h", 1],
+                    ["12h", 2], ["13h", 3], ["14h", 1], ["15h", 1], ["16h", 2],
+                    ["17h", 2], ["18h", 3], ["19h", 3], ["20h", 2], ["21h", 2],
+                    ["22h", 1], ["23h", 1],
+                  ].map(([h, lvl]) => (
+                    <div
+                      key={h as string}
+                      className={`flex h-9 items-center justify-center rounded-md text-[10px] font-semibold ${
+                        lvl === 3
+                          ? "bg-cyan-400/80 text-slate-950"
+                          : lvl === 2
+                            ? "bg-cyan-400/40 text-cyan-100"
+                            : lvl === 1
+                              ? "bg-cyan-400/15 text-cyan-200"
+                              : "bg-white/[.06] text-slate-500"
+                      }`}
+                    >
+                      {h}
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-3 text-xs leading-5 text-slate-500">
+                  Horários com mais gente conectada na sua rede.
+                </p>
+              </article>
+              <article className="rounded-2xl border border-white/[.08] bg-[#0B1118] p-5">
+                <div className="flex items-center gap-2">
+                  <Users className="size-5 text-cyan-400" />
+                  <h3 className="font-semibold">Sua rede em resumo</h3>
+                </div>
+                <dl className="mt-4 space-y-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <dt className="text-slate-400">Acessos</dt>
+                    <dd className="text-xl font-bold text-cyan-400">
+                      <CountUp to={280} />
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt className="text-slate-400">Conectados agora</dt>
+                    <dd className="text-xl font-bold text-cyan-400">
+                      <CountUp to={12} />
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt className="text-slate-400">Pico</dt>
+                    <dd className="text-xl font-bold text-cyan-400">
+                      <CountUp to={19} />h
+                    </dd>
+                  </div>
+                </dl>
+                <div className="mt-5 border-t border-white/[.07] pt-4">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Próxima ação
+                  </p>
+                  <span className="mt-2 inline-flex min-h-10 items-center justify-center rounded-full bg-cyan-400 px-5 text-sm font-bold text-slate-950">
+                    Criar campanha
+                  </span>
+                </div>
+              </article>
+            </div>
+            <p className="mt-6 text-center text-xs text-slate-500">
+              Demonstração com dados de exemplo.
+            </p>
+          </ScrollReveal>
         </div>
       </section>
 
@@ -527,13 +877,13 @@ function SalesHomePage() {
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
           <ScrollReveal>
             <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
-              O que acontece?
+              Simplicidade
             </p>
             <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
-              Como a ManosTech funciona?
+              Do zero ao <span className="text-cyan-400">primeiro lead</span> em 3 passos
             </h2>
           </ScrollReveal>
-          <div className="mt-10 grid gap-4 sm:grid-cols-2">
+          <div className="mt-10 grid gap-4 sm:grid-cols-3">
             {STEPS.map(({ num, title, body }, index) => (
               <ScrollReveal key={title} className="h-full" delay={(index % 2) * 90}>
                 <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 sm:p-6">
@@ -556,16 +906,14 @@ function SalesHomePage() {
               Para quem é
             </p>
             <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
-              Para diferentes tipos de negócio
+              Feito para o <span className="text-cyan-400">seu tipo de negócio</span>
             </h2>
           </ScrollReveal>
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {PARA_QUEM_E.map(({ icon, title, body }, index) => (
+            {PARA_QUEM_E.map(({ icon: Icon, title, body }, index) => (
               <ScrollReveal key={title} className="h-full" delay={(index % 4) * 80}>
                 <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 sm:p-6">
-                  <p className="text-3xl" aria-hidden="true">
-                    {icon}
-                  </p>
+                  <Icon className="size-8 text-cyan-400" aria-hidden="true" />
                   <h3 className="mt-3 font-semibold">{title}</h3>
                   <p className="mt-2 text-sm leading-6 text-slate-400">{body}</p>
                 </article>
@@ -622,14 +970,10 @@ function SalesHomePage() {
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
           <ScrollReveal>
             <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
-              Seu cliente já está entrando pela porta.
+              Pronto pra transformar seu Wi-Fi <span className="text-cyan-400">em vendedor?</span>
             </h2>
-            <p className="mt-3 text-xl font-bold leading-8 sm:text-2xl">
-              Agora faça o Wi-Fi trabalhar para trazer esse cliente de volta.
-            </p>
             <p className="mt-6 max-w-2xl text-base leading-7 text-slate-300">
-              Transforme o Wi-Fi do seu estabelecimento em uma ferramenta de relacionamento,
-              inteligência e vendas.
+              Fala com a gente no WhatsApp — sem compromisso.
             </p>
             <div className="mt-8">
               <button
