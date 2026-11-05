@@ -31,7 +31,7 @@ import type { RealtimeActivityResponse } from "@/lib/realtime.functions";
  *   número ir de 0 a ~8, como um lugar real acumulando movimento.
  * - Cada tick = +1 acesso. Esse +1 acesso se reflete em TODOS os lugares:
  *   - Gráfico "Movimento dos últimos 14 dias": a última barra (hoje) É o
- *     "Acessos hoje", sempre igual. Os outros 13 dias são histórico fixo.
+ *     "Acessos hoje", sempre igual. Os outros 13 dias nascem zerados.
  *   - Tabela "Dispositivos conectados hoje": o acesso vai para UM aparelho —
  *     ou um aparelho novo entra (com 1 acesso) ou um que já está lá soma +1.
  *     MÁXIMO 5 aparelhos distintos; a SOMA dos acessos da tabela é SEMPRE
@@ -63,13 +63,13 @@ import type { RealtimeActivityResponse } from "@/lib/realtime.functions";
  *   atualização de dados, não animação. Todo mundo nasce em 0, sem exceção.
  */
 
-// Histórico fixo dos 13 dias anteriores ao dia de hoje. A última barra do
-// gráfico (hoje) é a única que se move — ela É o "Acessos hoje".
-// Índice 6 = barra de 7 dias atrás: base da comparação "vs. mesmo dia da
-// semana passada" do card "Acessos hoje". Zerado para o chip não nascer
-// vermelho enquanto o painel ainda está zerado.
+// Histórico dos 13 dias anteriores ao dia de hoje: nasce TODO zerado.
+// O gráfico "Movimento dos últimos 14 dias" começa vazio e só a última
+// barra (hoje) cresce — ela É o "Acessos hoje". Isso também zera a base
+// da comparação "vs. mesmo dia da semana passada" (barra de 7 dias atrás),
+// então o chip do card "Acessos hoje" não nasce vermelho.
 const HISTORICAL_TOTALS: readonly number[] = [
-  22, 28, 25, 31, 29, 35, 0, 33, 38, 44, 40, 47, 43,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ];
 // Ritmo: 1 acesso a cada 15 segundos. Quem fica 2 minutos vê 0→~8.
 const INTERVAL_MS = 15000;
