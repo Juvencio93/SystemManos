@@ -286,17 +286,17 @@ function AuthPage() {
   return (
     <Suspense>
       <div className="grid min-h-screen lg:grid-cols-2">
-        <div className="relative hidden flex-col justify-between overflow-hidden p-12 lg:flex">
+        <div className="relative hidden flex-col justify-center overflow-hidden p-12 lg:flex">
           <div className="relative max-w-md">
             <h2 className="text-4xl font-display font-black leading-tight tracking-tighter">
               O Wi-Fi como <span className="text-gradient">máquina de captação</span>
             </h2>
-            <p className="mt-4 text-sm text-muted-foreground">
+            <p className="mt-4 text-base text-slate-300">
               Matriz, filiais e eventos em uma única base: campanhas, leads, CRM e inteligência
               comercial em tempo real.
             </p>
           </div>
-          <p className="relative text-xs text-muted-foreground">Manos Tech Solução em Marketing</p>
+          <p className="absolute bottom-12 left-12 text-xs text-muted-foreground">Manos Tech Solução em Marketing</p>
         </div>
 
         <div className="flex items-center justify-center p-0 sm:p-6">
