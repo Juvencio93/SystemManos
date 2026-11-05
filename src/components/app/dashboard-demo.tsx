@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ClientDashboardRedesign } from "./dashboard/ClientDashboardRedesign";
+import { useLandingLiveDemo } from "./landing-live-demo";
 import type { Insights } from "@/lib/insights.server";
 import type { DispositivosHoje } from "@/lib/device.functions";
 import type { RealtimeActivityResponse } from "@/lib/realtime.functions";
@@ -104,6 +105,10 @@ function buildMockActivity(): RealtimeActivityResponse {
 }
 
 export function DashboardDemo() {
+  // Simulação "live demo" ISOLADA da landing: manipula o DOM renderizado
+  // abaixo; o ClientDashboardRedesign NÃO recebe nenhuma prop nova.
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  useLandingLiveDemo(panelRef);
   const [queryClient] = useState(() => {
     const qc = new QueryClient({
       defaultOptions: {
@@ -130,7 +135,9 @@ export function DashboardDemo() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ClientDashboardRedesign data={mockInsights} isLoading={false} animatedNumbers />
+      <div ref={panelRef}>
+        <ClientDashboardRedesign data={mockInsights} isLoading={false} />
+      </div>
     </QueryClientProvider>
   );
 }

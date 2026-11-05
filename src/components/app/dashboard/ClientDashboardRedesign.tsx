@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import {
   ArrowRight,
   BarChart3,
@@ -36,7 +36,6 @@ import {
 } from "@/lib/device.functions";
 import { getRealtimeActivity } from "@/lib/realtime.functions";
 import { DeltaChip } from "@/routes/_authenticated/dashboard";
-import { CountUp } from "@/components/app/count-up";
 
 /**
  * Redesign do dashboard do CLIENTE (matriz/filial) — "Como está o meu negócio hoje?"
@@ -46,154 +45,7 @@ import { CountUp } from "@/components/app/count-up";
 
 const v = (n?: number, loading?: boolean) => (loading ? "…" : String(n ?? 0));
 
-/** Número de KPI: estático por padrão; animado (CountUp) quando animated=true. */
-function KpiNumber({
-  value,
-  isLoading,
-  animated,
-  suffix = "",
-}: {
-  value?: number | undefined;
-  isLoading: boolean;
-  animated?: boolean | undefined;
-  suffix?: string;
-}) {
-  if (isLoading) return <>…</>;
-  if (animated) return <CountUp to={value ?? 0} suffix={suffix} />;
-  return <>{String(value ?? 0)}{suffix}</>;
-}
-
-/** Extrai o número de um rótulo tipo "19h" para animar (retorna null se não houver dígito). */
-function parsePicoNumber(label?: string): number | null {
-  if (!label) return null;
-  const match = label.match(/\d+/);
-  return match ? Number(match[0]) : null;
-}
-
-/** Valores ao vivo da simulação do painel (landing pública). */
-type LiveCounts = {
-  acessosHoje: number;
-  conectadosAgora: number;
-  baseClientes: number;
-  celulares: number;
-  computadores: number;
-};
-
-/** Linha de dispositivo adicionada pela simulação (chave estável p/ animação). */
-type LiveDeviceRow = DeviceRow & { key: string };
-
-/** Modelos em rotação para a simulação de novos dispositivos (sem repetir o último). */
-const LIVE_DEVICE_ROTATION: string[] = [
-  "Samsung Galaxy S24",
-  "iPhone 16 Pro",
-  "Xiaomi Poco X6",
-  "Galaxy A54",
-  "Moto G84",
-  "iPhone 13",
-  "Dell Inspiron",
-  "Redmi Note 13",
-  "iPad Air",
-];
-
-/**
- * Simulação "live demo" do painel (só na landing pública, quando `enabled`).
- * Um único IntersectionObserver (threshold 0.3) dispara a simulação quando o
- * painel entra no viewport; um único setInterval de 7,5s faz a contagem
- * fluir (Acessos hoje +1, base de clientes +1 e um novo dispositivo no topo
- * da tabela, que também soma +1 em "Conectados agora"). Tudo com cleanup no
- * unmount. Nenhum comando toca na rolagem (sem focus/scrollIntoView).
- * Respeita prefers-reduced-motion (valores finais, sem animação e sem timers).
- */
-function useLiveDemo(enabled: boolean, data: Insights | undefined) {
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const [visible, setVisible] = useState(false);
-  const [reducedMotion] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-  );
-  const [counts, setCounts] = useState<LiveCounts>(() => ({
-    acessosHoje: data?.visitantesHoje ?? 47,
-    conectadosAgora: data?.conectadosAgora ?? 12,
-    baseClientes: data?.leadsEmpresa ?? 318,
-    celulares: 9,
-    computadores: 3,
-  }));
-  const [extraDevices, setExtraDevices] = useState<LiveDeviceRow[]>([]);
-  const rotationRef = useRef(0);
-  const deviceSeqRef = useRef(0);
-
-  useEffect(() => {
-    if (!enabled) return;
-    if (reducedMotion) {
-      setVisible(true);
-      return;
-    }
-    const node = rootRef.current;
-    if (!node) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry?.isIntersecting) {
-          setVisible(true);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.3 },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [enabled, reducedMotion]);
-
-  useEffect(() => {
-    if (!enabled || !visible || reducedMotion) return;
-
-    // Um único setInterval de 7,5s. A cada tick: Acessos hoje +1, base de
-    // clientes +1 e um novo dispositivo entra NO TOPO da tabela (prepend),
-    // somando +1 em "Conectados agora". Só estado React — nenhum comando
-    // toca na rolagem (sem focus/scrollIntoView).
-    const timer = setInterval(() => {
-      const modelo = LIVE_DEVICE_ROTATION[rotationRef.current % LIVE_DEVICE_ROTATION.length];
-      rotationRef.current += 1;
-      if (!modelo) return;
-      // Tipo/sistema como no script do usuário: Dell = Computador/Windows;
-      // celular = Android ou iOS (aleatório).
-      const sistema: LiveDeviceRow["sistema"] =
-        modelo.indexOf("Dell") !== -1 ? "Computador" : Math.random() < 0.5 ? "Android" : "iOS";
-      deviceSeqRef.current += 1;
-      const row: LiveDeviceRow = {
-        key: `live-${deviceSeqRef.current}`,
-        sistema,
-        modelo,
-        total: 1 + Math.floor(Math.random() * 3),
-      };
-      setExtraDevices((rows) => [row, ...rows].slice(0, 20));
-      setCounts((c) => ({
-        ...c,
-        acessosHoje: c.acessosHoje + 1,
-        baseClientes: c.baseClientes + 1,
-        conectadosAgora: Math.min(16, c.conectadosAgora + 1),
-        celulares: sistema === "Computador" ? c.celulares : c.celulares + 1,
-        computadores: sistema === "Computador" ? c.computadores + 1 : c.computadores,
-      }));
-    }, 7500);
-
-    return () => clearInterval(timer);
-  }, [enabled, visible, reducedMotion]);
-
-  return { rootRef, visible, reducedMotion, counts, extraDevices };
-}
-
-function HeroCards({
-  data,
-  isLoading,
-  animatedNumbers,
-  liveCounts,
-}: {
-  data: Insights | undefined;
-  isLoading: boolean;
-  animatedNumbers?: boolean | undefined;
-  liveCounts?: LiveCounts | undefined;
-}) {
+function HeroCards({ data, isLoading }: { data: Insights | undefined; isLoading: boolean }) {
   const fetchAgoroDevices = useServerFn(getConectadosAgoraDevices);
   const { data: agoraDevices } = useQuery({
     queryKey: ["conectados-agora-devices"],
@@ -207,13 +59,6 @@ function HeroCards({
   const hoje = chart.length > 0 ? (chart[chart.length - 1]?.total ?? 0) : 0;
   const semanaPassada =
     chart.length >= 8 ? (chart[chart.length - 8]?.total ?? 0) : (data?.visitantesOntem ?? 0);
-
-  // Valores ao vivo (landing): prevalecem sobre os dados estáticos.
-  const acessosHoje = liveCounts?.acessosHoje ?? data?.visitantesHoje;
-  const conectadosAgora = liveCounts?.conectadosAgora ?? data?.conectadosAgora;
-  const baseClientes = liveCounts?.baseClientes ?? data?.leadsEmpresa;
-  const celularesAgora = liveCounts ? liveCounts.celulares : (agoraDevices?.celular ?? 0);
-  const computadoresAgora = liveCounts ? liveCounts.computadores : (agoraDevices?.computador ?? 0);
 
   return (
     <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 sm:mb-8">
@@ -241,7 +86,7 @@ function HeroCards({
         </CardHeader>
         <CardContent className="relative">
           <p className="font-display text-3xl font-black tracking-tighter sm:text-4xl">
-            <KpiNumber value={acessosHoje} isLoading={isLoading} animated={animatedNumbers} />
+            {v(data?.visitantesHoje, isLoading)}
           </p>
           <div className="mt-3">
             {data && data.visitantesHoje > 0 ? (
@@ -276,7 +121,7 @@ function HeroCards({
         </CardHeader>
         <CardContent className="relative">
           <p className="flex items-center gap-2 font-display text-3xl font-black tracking-tighter sm:text-4xl">
-            <KpiNumber value={conectadosAgora} isLoading={isLoading} animated={animatedNumbers} />
+            {v(data?.conectadosAgora, isLoading)}
             <span className="relative flex size-2.5">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
               <span className="relative inline-flex size-2.5 rounded-full bg-emerald-400" />
@@ -288,10 +133,10 @@ function HeroCards({
             ) : (
               <>
                 <p className="flex items-center gap-1.5">
-                  <Smartphone className="size-3.5" /> {celularesAgora} celulares
+                  <Smartphone className="size-3.5" /> {agoraDevices?.celular ?? 0} celulares
                 </p>
                 <p className="flex items-center gap-1.5">
-                  <Laptop className="size-3.5" /> {computadoresAgora} computadores
+                  <Laptop className="size-3.5" /> {agoraDevices?.computador ?? 0} computadores
                 </p>
               </>
             )}
@@ -320,7 +165,7 @@ function HeroCards({
         </CardHeader>
         <CardContent className="relative">
           <p className="font-display text-4xl font-black tracking-tighter text-purple-300 sm:text-5xl">
-            <KpiNumber value={baseClientes} isLoading={isLoading} animated={animatedNumbers} />
+            {v(data?.leadsEmpresa, isLoading)}
           </p>
           <p className="mt-3 text-xs font-medium leading-relaxed text-muted-foreground">
             {data && data.leadsNovosSemana > 0 ? (
@@ -353,13 +198,7 @@ function HeroCards({
           <div className="flex items-end justify-between gap-3">
             <div>
               <p className="font-display text-3xl font-black tracking-tighter sm:text-4xl">
-                {isLoading ? (
-                  "…"
-                ) : animatedNumbers && parsePicoNumber(data?.horarioPico) !== null ? (
-                  <CountUp to={parsePicoNumber(data?.horarioPico) as number} suffix="h" />
-                ) : (
-                  (data?.horarioPico ?? "—")
-                )}
+                {isLoading ? "…" : (data?.horarioPico ?? "—")}
               </p>
               <p className="mt-1 text-xs font-medium text-muted-foreground">
                 {data && data.horarioPicoTotal > 0
@@ -394,24 +233,11 @@ function HeroCards({
 
 type DeviceRow = { sistema: "iOS" | "Android" | "Computador"; modelo: string; total: number };
 
-/** Chave estável de uma linha da tabela (base ou ao vivo). */
-const rowKey = (r: DeviceRow | LiveDeviceRow) =>
-  "key" in r ? r.key : `${r.sistema}-${r.modelo}`;
-
 /**
  * Gráfico "Movimento dos últimos 14 dias" — barras + linha de tendência (cyan)
  * e linha da semana anterior (roxa, com lag de 7 dias).
  */
-export function MovimentoChartNovo({
-  data,
-  visible,
-  disableAnimation,
-}: {
-  data: Insights | undefined;
-  /** Quando false, mostra um placeholder da mesma altura; ao virar true o gráfico monta e as barras crescem. Undefined = comportamento normal. */
-  visible?: boolean | undefined;
-  disableAnimation?: boolean | undefined;
-}) {
+export function MovimentoChartNovo({ data }: { data: Insights | undefined }) {
   const chart = data?.chart ?? [];
   const chartData = useMemo(() => {
     const base = chart.map((c, i) => ({
@@ -439,23 +265,6 @@ export function MovimentoChartNovo({
         </CardHeader>
         <CardContent>
           <Skeleton className="h-48 w-full rounded-xl" />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // Live demo: o gráfico só monta quando o painel entra no viewport —
-  // o recharts anima as barras crescendo a partir do zero.
-  if (visible === false) {
-    return (
-      <Card className="border-primary/20">
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-[15px] font-bold">
-            <BarChart3 className="size-5 text-primary" /> Movimento dos últimos 14 dias
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-[220px] w-full rounded-xl" />
         </CardContent>
       </Card>
     );
@@ -513,7 +322,7 @@ export function MovimentoChartNovo({
                 </span>
               )}
             />
-            <Bar dataKey="acessos" fill="#00C0F0" fillOpacity={0.55} radius={[4, 4, 0, 0]} barSize={14} isAnimationActive={!disableAnimation} />
+            <Bar dataKey="acessos" fill="#00C0F0" fillOpacity={0.55} radius={[4, 4, 0, 0]} barSize={14} />
             <Line
               type="monotone"
               dataKey="acessos"
@@ -548,7 +357,7 @@ export function MovimentoChartNovo({
   );
 }
 
-function DevicesPanel({ extraRows }: { extraRows?: LiveDeviceRow[] | undefined }) {
+function DevicesPanel() {
   const fetchDevices = useServerFn(getDispositivosHoje);
   const { data, isLoading } = useQuery({
     queryKey: ["dispositivos-hoje"],
@@ -566,45 +375,6 @@ function DevicesPanel({ extraRows }: { extraRows?: LiveDeviceRow[] | undefined }
       out.push({ sistema: "Computador", modelo: m.modelo, total: m.total });
     return out.sort((a, b) => b.total - a.total).slice(0, 5);
   }, [data]);
-
-  // Linhas ao vivo (landing): entram com fade-in; no máximo 8 visíveis —
-  // a mais antiga sai com fade-out antes de ser removida da lista.
-  const [droppedKeys, setDroppedKeys] = useState<string[]>([]);
-  const [leavingKey, setLeavingKey] = useState<string | null>(null);
-  const leaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Linhas ao vivo entram NO TOPO (equivalente a prepend no tbody).
-  const combinedRows = useMemo(
-    () => [...(extraRows ?? []), ...rows],
-    [rows, extraRows],
-  );
-  const activeRows = useMemo(
-    () => combinedRows.filter((r) => !droppedKeys.includes(rowKey(r))),
-    [combinedRows, droppedKeys],
-  );
-  const visibleRows = leavingKey ? activeRows : activeRows.slice(0, 8);
-  const lastAddedKey =
-    extraRows && extraRows.length > 0 ? (extraRows[0]?.key ?? null) : null;
-
-  useEffect(() => {
-    if (activeRows.length > 8 && !leavingKey) {
-      // Com o prepend, a mais antiga é a ÚLTIMA da lista.
-      const last = activeRows[activeRows.length - 1];
-      if (!last) return;
-      const key = rowKey(last);
-      setLeavingKey(key);
-      leaveTimeoutRef.current = setTimeout(() => {
-        setDroppedKeys((keys) => [...keys, key]);
-        setLeavingKey(null);
-      }, 350);
-    }
-  }, [activeRows, leavingKey]);
-
-  useEffect(
-    () => () => {
-      if (leaveTimeoutRef.current) clearTimeout(leaveTimeoutRef.current);
-    },
-    [],
-  );
 
   const sistemaIcon = (sistema: DeviceRow["sistema"] | "Linux") => {
     const cls = "size-[18px] shrink-0";
@@ -663,7 +433,7 @@ function DevicesPanel({ extraRows }: { extraRows?: LiveDeviceRow[] | undefined }
       <CardContent>
         {isLoading ? (
           <Skeleton className="h-40 w-full rounded-xl" />
-        ) : visibleRows.length === 0 ? (
+        ) : rows.length === 0 ? (
           <p className="py-6 text-sm text-muted-foreground">
             Nenhum dispositivo conectou hoje ainda — os modelos aparecem aqui assim que o primeiro
             cliente entrar.
@@ -680,19 +450,10 @@ function DevicesPanel({ extraRows }: { extraRows?: LiveDeviceRow[] | undefined }
               </tr>
             </thead>
             <tbody>
-              {visibleRows.map((r) => {
-                // Linhas ao vivo (simulação): modelo em ciano/negrito e acessos
-                // com "+" (formato definido pelo usuário); linhas existentes
-                // mantêm o formato original intacto.
-                const isLive = "key" in r;
-                return (
+              {rows.map((r) => (
                 <tr
-                  key={rowKey(r)}
-                  className={`border-b border-white/5 last:border-0 ${
-                    rowKey(r) === leavingKey
-                      ? "opacity-0 transition-opacity duration-300"
-                      : ""
-                  } ${rowKey(r) === lastAddedKey ? "animate-in fade-in duration-500" : ""}`}
+                  key={`${r.sistema}-${r.modelo}`}
+                  className="border-b border-white/5 last:border-0"
                 >
                   <td className="py-2.5 pr-2">
                     <span className="flex items-center gap-2 font-medium">
@@ -704,19 +465,14 @@ function DevicesPanel({ extraRows }: { extraRows?: LiveDeviceRow[] | undefined }
                       {sistemaIcon(r.sistema)} {r.sistema === "Computador" ? "Windows" : r.sistema}
                     </span>
                   </td>
-                  <td
-                    className={`py-2.5 pr-2 ${isLive ? "font-bold text-[#00e5ff]" : "font-medium"}`}
-                  >
-                    {r.modelo}
-                  </td>
+                  <td className="py-2.5 pr-2 font-medium">{r.modelo}</td>
                   <td className="py-2.5 text-right">
                     <span className="inline-block rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">
-                      {isLive ? `+${r.total}` : r.total}
+                      {r.total}
                     </span>
                   </td>
                 </tr>
-                );
-              })}
+              ))}
             </tbody>
           </table>
           </div>
@@ -735,19 +491,8 @@ function DevicesPanel({ extraRows }: { extraRows?: LiveDeviceRow[] | undefined }
 /**
  * "Sua rede em resumo" — visão rápida do Wi-Fi esta semana + próxima ação.
  */
-function RedeResumoPanel({
-  data,
-  isLoading,
-  animatedNumbers,
-  liveConectados,
-}: {
-  data: Insights | undefined;
-  isLoading: boolean;
-  animatedNumbers?: boolean | undefined;
-  liveConectados?: number | undefined;
-}) {
+function RedeResumoPanel({ data, isLoading }: { data: Insights | undefined; isLoading: boolean }) {
   const cresceuBase = (data?.leadsNovosSemana ?? 0) > 0;
-  const conectadosAgora = liveConectados ?? data?.conectadosAgora;
   return (
     <Card className="border-primary/20 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/50 hover:shadow-[0_8px_32px_rgba(0,192,240,0.20)]">
       <CardHeader className="pb-2">
@@ -760,7 +505,7 @@ function RedeResumoPanel({
         <div className="grid grid-cols-3 gap-2 sm:gap-3">
           <div>
             <p className="font-display text-xl font-black tracking-tighter sm:text-2xl">
-              <KpiNumber value={data?.conexoesSemana} isLoading={isLoading} animated={animatedNumbers} />
+              {v(data?.conexoesSemana, isLoading)}
             </p>
             <p className="text-[11px] text-muted-foreground">acessos</p>
             {data && data.conexoesSemana > 0 && (
@@ -773,19 +518,13 @@ function RedeResumoPanel({
           </div>
           <div>
             <p className="font-display text-xl font-black tracking-tighter sm:text-2xl">
-              <KpiNumber value={conectadosAgora} isLoading={isLoading} animated={animatedNumbers} />
+              {v(data?.conectadosAgora, isLoading)}
             </p>
             <p className="text-[11px] text-muted-foreground">conectados agora</p>
           </div>
           <div>
             <p className="font-display text-xl font-black tracking-tighter sm:text-2xl">
-              {isLoading ? (
-                "…"
-              ) : animatedNumbers && parsePicoNumber(data?.horarioPico) !== null ? (
-                <CountUp to={parsePicoNumber(data?.horarioPico) as number} suffix="h" />
-              ) : (
-                (data?.horarioPico ?? "—")
-              )}
+              {isLoading ? "…" : (data?.horarioPico ?? "—")}
             </p>
             <p className="text-[11px] text-muted-foreground">pico de movimento</p>
           </div>
@@ -882,7 +621,7 @@ function heatColor(total: number, max: number): string {
   return "bg-orange-400/80 border-orange-300/60";
 }
 
-function CalorMomentoPanel({ visible }: { visible?: boolean | undefined }) {
+function CalorMomentoPanel() {
   const { data: access } = useAccess();
   const fetchActivity = useServerFn(getRealtimeActivity);
   const { data, isLoading } = useQuery({
@@ -931,16 +670,7 @@ function CalorMomentoPanel({ visible }: { visible?: boolean | undefined }) {
                 <div
                   key={h}
                   title={`${h}h — ${total} check-ins`}
-                  className={`flex aspect-square items-center justify-center rounded-[6px] border text-[10px] font-bold transition-all duration-500 ease-out ${heatColor(total, max)}`}
-                  style={
-                    visible === undefined
-                      ? undefined
-                      : {
-                          opacity: visible ? 1 : 0,
-                          transform: visible ? "scale(1)" : "scale(0.5)",
-                          transitionDelay: `${h * 25}ms`,
-                        }
-                  }
+                  className={`flex aspect-square items-center justify-center rounded-[6px] border text-[10px] font-bold ${heatColor(total, max)}`}
                 >
                   {total > 0 && total >= max * 0.5 ? total : ""}
                 </div>
@@ -968,49 +698,26 @@ function CalorMomentoPanel({ visible }: { visible?: boolean | undefined }) {
 export function ClientDashboardRedesign({
   data,
   isLoading,
-  animatedNumbers,
 }: {
   data: Insights | undefined;
   isLoading: boolean;
-  /** Quando true, os números principais animam com CountUp ao entrar na tela (uso da landing pública). */
-  animatedNumbers?: boolean;
 }) {
-  // Live demo (só na landing): um único IntersectionObserver dispara a
-  // simulação quando o painel entra no viewport.
-  const live = useLiveDemo(animatedNumbers === true, data);
-  const liveCounts = animatedNumbers === true ? live.counts : undefined;
-  const liveVisible = animatedNumbers === true ? live.visible : undefined;
-
   return (
-    <div ref={live.rootRef}>
-      <HeroCards
-        data={data}
-        isLoading={isLoading}
-        animatedNumbers={animatedNumbers}
-        liveCounts={liveCounts}
-      />
+    <div>
+      <HeroCards data={data} isLoading={isLoading} />
 
       {/* Movimento 14 dias — full width */}
       <div className="mb-8">
-        <MovimentoChartNovo
-          data={data}
-          visible={liveVisible}
-          disableAnimation={animatedNumbers === true ? live.reducedMotion : undefined}
-        />
+        <MovimentoChartNovo data={data} />
       </div>
 
       {/* Linha inferior: Dispositivos | Calor do Momento | Rede em resumo */}
       {/* mobile: 1 coluna · tablet (md): 2 colunas (3º ocupa largura total) · desktop (lg): 3 colunas */}
       <div className="mb-6 grid gap-4 sm:mb-8 md:grid-cols-2 lg:grid-cols-3">
-        <DevicesPanel extraRows={animatedNumbers === true ? live.extraDevices : undefined} />
-        <CalorMomentoPanel visible={liveVisible} />
+        <DevicesPanel />
+        <CalorMomentoPanel />
         <div className="md:col-span-2 lg:col-span-1">
-          <RedeResumoPanel
-            data={data}
-            isLoading={isLoading}
-            animatedNumbers={animatedNumbers}
-            liveConectados={liveCounts?.conectadosAgora}
-          />
+          <RedeResumoPanel data={data} isLoading={isLoading} />
         </div>
       </div>
 
