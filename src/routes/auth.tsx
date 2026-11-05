@@ -286,8 +286,8 @@ function AuthPage() {
   return (
     <Suspense>
       <div className="grid min-h-screen lg:grid-cols-2">
-        <div className="relative hidden flex-col justify-center overflow-hidden p-12 lg:flex">
-          <div className="relative max-w-md">
+        <div className="relative hidden flex-col items-center justify-center overflow-hidden p-12 lg:flex">
+          <div className="relative max-w-md text-center">
             <h2 className="text-4xl font-display font-black leading-tight tracking-tighter">
               O Wi-Fi como <span className="text-gradient">máquina de captação</span>
             </h2>
