@@ -27,8 +27,8 @@ import type { RealtimeActivityResponse } from "@/lib/realtime.functions";
  *
  * MODELO — UMA única fonte de verdade (`LiveState`), tudo derivado dela:
  * - Tudo começa ZERADO. NADA de count-up rápido: os números sobem UM POR
- *   VEZ, devagar — 1 tick a cada 15s. O visitante que fica 2 minutos vê o
- *   número ir de 0 a ~8, como um lugar real acumulando movimento.
+ *   VEZ — 1 tick a cada 5s. O visitante que fica 2 minutos vê o
+ *   número ir de 0 a ~24, como um lugar real acumulando movimento.
  * - Cada tick = +1 acesso. Esse +1 acesso se reflete em TODOS os lugares:
  *   - Gráfico "Movimento dos últimos 14 dias": a última barra (hoje) É o
  *     "Acessos hoje", sempre igual. Os outros 13 dias nascem zerados.
@@ -72,8 +72,8 @@ import type { RealtimeActivityResponse } from "@/lib/realtime.functions";
 const HISTORICAL_TOTALS: readonly number[] = [
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ];
-// Ritmo: 1 acesso a cada 15 segundos. Quem fica 2 minutos vê 0→~8.
-const INTERVAL_MS = 15000;
+// Ritmo: 1 acesso a cada 5 segundos. Quem fica 2 minutos vê 0→~24.
+const INTERVAL_MS = 5000;
 
 // Travas suaves (tetos de segurança, não metas).
 const CAP_ACESSOS = 120;
@@ -475,7 +475,7 @@ const LIVE_DEMO_CSS = `
 export function DashboardDemo() {
   const panelRef = useRef<HTMLDivElement | null>(null);
   // Tudo começa ZERADO (SSR/pré-render seguro: nenhum acesso a window aqui).
-  // Os números sobem um por vez, a cada 15s, quando o painel entra na tela.
+  // Os números sobem um por vez, a cada 5s, quando o painel entra na tela.
   const [liveInsights, setLiveInsights] = useState<Insights>(() =>
     insightsFromLive(ZERO_LIVE),
   );
