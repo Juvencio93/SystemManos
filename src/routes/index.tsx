@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowRight, ArrowUp, Beer, Croissant, Database, Gauge, Megaphone, MessageCircle, PartyPopper, RotateCcw, Store, Timer, UserPlus } from "lucide-react";
+import { ArrowRight, ArrowUp, Beer, Croissant, Database, Gauge, Megaphone, MessageCircle, PartyPopper, RotateCcw, Store, Timer, UserPlus, Wifi } from "lucide-react";
 import logo from "@/assets/manos-tech-logo-institutional.png";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { openPreSaleChat, PreSaleForm } from "@/components/app/pre-sale-form";
@@ -65,6 +65,64 @@ function ScrollReveal({
     >
       {children}
     </div>
+  );
+}
+
+function CountUp({
+  to,
+  suffix = "",
+  duration = 1500,
+  className = "",
+}: {
+  to: number;
+  suffix?: string;
+  duration?: number;
+  className?: string;
+}) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [value, setValue] = useState(0);
+  const started = useRef(false);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setValue(to);
+      return;
+    }
+    let raf = 0;
+    const animate = () => {
+      const start = performance.now();
+      const tick = (now: number) => {
+        const progress = Math.min((now - start) / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        setValue(Math.round(to * eased));
+        if (progress < 1) raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+    };
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && !started.current) {
+          started.current = true;
+          animate();
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.4 }
+    );
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [to, duration]);
+
+  return (
+    <span ref={ref} className={className}>
+      {value.toLocaleString("pt-BR")}
+      {suffix}
+    </span>
   );
 }
 
@@ -655,22 +713,28 @@ function SalesHomePage() {
             <div className="flex flex-col items-start gap-10 lg:flex-row lg:items-center lg:justify-between">
               <div className="grid flex-1 grid-cols-1 gap-8 sm:grid-cols-3">
                 <div>
-                  {/* PREENCHER: número real de leads captados */}
-                  <p className="font-display text-4xl font-bold text-cyan-400 sm:text-5xl">—</p>
+                  {/* PREENCHER: número real de leads captados — troque o `to` */}
+                  <p className="font-display text-4xl font-bold text-cyan-400 sm:text-5xl">
+                    <CountUp to={0} />
+                  </p>
                   <p className="mt-2 text-sm font-semibold uppercase tracking-wider text-slate-400">
                     leads captados
                   </p>
                 </div>
                 <div>
-                  {/* PREENCHER: número real de estabelecimentos ativos */}
-                  <p className="font-display text-4xl font-bold text-cyan-400 sm:text-5xl">—</p>
+                  {/* PREENCHER: número real de estabelecimentos ativos — troque o `to` */}
+                  <p className="font-display text-4xl font-bold text-cyan-400 sm:text-5xl">
+                    <CountUp to={0} />
+                  </p>
                   <p className="mt-2 text-sm font-semibold uppercase tracking-wider text-slate-400">
                     estabelecimentos ativos
                   </p>
                 </div>
                 <div>
-                  {/* PREENCHER: número real de campanhas no ar */}
-                  <p className="font-display text-4xl font-bold text-cyan-400 sm:text-5xl">—</p>
+                  {/* PREENCHER: número real de campanhas no ar — troque o `to` */}
+                  <p className="font-display text-4xl font-bold text-cyan-400 sm:text-5xl">
+                    <CountUp to={0} />
+                  </p>
                   <p className="mt-2 text-sm font-semibold uppercase tracking-wider text-slate-400">
                     campanhas no ar
                   </p>
@@ -685,6 +749,90 @@ function SalesHomePage() {
               </button>
             </div>
           </ScrollReveal>
+        </div>
+      </section>
+
+      {/* Painel — o dono acompanha tudo em tempo real. Mockup puramente visual. */}
+      <section className="border-b border-white/[.07]">
+        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
+          <div className="grid items-center gap-10 lg:grid-cols-2">
+            <ScrollReveal>
+              <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
+                Painel
+              </p>
+              <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
+                E você acompanha tudo <span className="text-cyan-400">pelo seu painel.</span>
+              </h2>
+              <p className="mt-6 max-w-xl text-base leading-7 text-slate-300">
+                Leads chegando, conexões acontecendo, campanhas rodando — tudo ao vivo,
+                sem complicação. Você abre o painel e vê o movimento do seu negócio em
+                tempo real.
+              </p>
+            </ScrollReveal>
+            <ScrollReveal delay={120}>
+              <div
+                aria-hidden="true"
+                className="rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 shadow-[0_20px_60px_rgba(0,0,0,.45)] sm:p-6"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <span className="grid size-9 place-items-center rounded-xl bg-cyan-400/10">
+                      <Wifi className="size-4.5 text-cyan-400" aria-hidden="true" />
+                    </span>
+                    <p className="text-sm font-semibold text-slate-200">Visão geral</p>
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/10 px-2.5 py-1 text-xs font-semibold text-emerald-300">
+                    <span className="size-1.5 animate-pulse rounded-full bg-emerald-400" />
+                    ao vivo
+                  </span>
+                </div>
+                <div className="mt-5 grid grid-cols-3 gap-3">
+                  <div className="rounded-xl bg-white/[.03] p-3 sm:p-4">
+                    <p className="font-display text-2xl font-bold text-cyan-400 sm:text-3xl">
+                      <CountUp to={0} />
+                    </p>
+                    <p className="mt-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                      leads hoje
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-white/[.03] p-3 sm:p-4">
+                    <p className="font-display text-2xl font-bold text-cyan-400 sm:text-3xl">
+                      <CountUp to={0} />
+                    </p>
+                    <p className="mt-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                      conexões
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-white/[.03] p-3 sm:p-4">
+                    <p className="font-display text-2xl font-bold text-cyan-400 sm:text-3xl">
+                      <CountUp to={0} />
+                    </p>
+                    <p className="mt-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                      campanhas ativas
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-5 rounded-xl bg-white/[.03] p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Movimento da semana
+                  </p>
+                  <div className="mt-3 flex h-20 items-end gap-1.5">
+                    {[35, 55, 40, 70, 52, 85, 64].map((h, i) => (
+                      <div
+                        key={i}
+                        className="flex-1 rounded-sm bg-cyan-400/25"
+                        style={{ height: `${h}%` }}
+                      />
+                    ))}
+                    <div
+                      className="flex-1 rounded-sm bg-cyan-400/70"
+                      style={{ height: "95%" }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </ScrollReveal>
+          </div>
         </div>
       </section>
 
