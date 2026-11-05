@@ -130,7 +130,7 @@ export function DashboardDemo() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ClientDashboardRedesign data={mockInsights} isLoading={false} />
+      <ClientDashboardRedesign data={mockInsights} isLoading={false} animatedNumbers />
     </QueryClientProvider>
   );
 }

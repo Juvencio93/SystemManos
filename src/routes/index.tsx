@@ -1,6 +1,20 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowRight, ArrowUp, Gauge, RotateCcw, Timer } from "lucide-react";
+import {
+  ArrowRight,
+  ArrowUp,
+  Beer,
+  Croissant,
+  Database,
+  Gauge,
+  Megaphone,
+  MessageCircle,
+  PartyPopper,
+  RotateCcw,
+  Store,
+  Timer,
+  UserPlus,
+} from "lucide-react";
 import logo from "@/assets/manos-tech-logo-institutional.png";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { openPreSaleChat, PreSaleForm } from "@/components/app/pre-sale-form";
@@ -146,26 +160,49 @@ const STEPS = [
   },
 ];
 
-const PARA_QUEM_E = [
+const SEGMENTOS = [
   {
-    icon: "🥐",
-    title: "Padarias e cafeterias",
-    body: "Divulgue produtos e novidades no momento da conexão.",
+    Icon: Beer,
+    title: "Bares",
+    body: "Happy hour lotado com campanha no Wi-Fi.",
   },
   {
-    icon: "🍻",
-    title: "Restaurantes e bares",
-    body: "Apresente campanhas e eventos para quem já frequenta.",
+    Icon: Croissant,
+    title: "Padarias",
+    body: "Cliente do café da manhã vira cliente do almoço.",
   },
   {
-    icon: "🛍️",
+    Icon: PartyPopper,
+    title: "Eventos",
+    body: "Milhares de conexões, milhares de leads.",
+  },
+  {
+    Icon: Store,
     title: "Lojas",
-    body: "Transforme a conexão em mais um ponto de contato com seu cliente.",
+    body: "Quem entra na loja entra na sua base.",
+  },
+];
+
+const SOLUCOES = [
+  {
+    Icon: UserPlus,
+    title: "Captura de leads",
+    body: "Todo visitante vira contato na sua base, automaticamente.",
   },
   {
-    icon: "🏢",
-    title: "Outros estabelecimentos",
-    body: "Personalize o portal de acordo com a sua marca.",
+    Icon: Megaphone,
+    title: "Campanhas",
+    body: "Banners e ofertas direto na tela de conexão do cliente.",
+  },
+  {
+    Icon: Database,
+    title: "CRM",
+    body: "Organize contatos e acompanhe quem voltou ou sumiu.",
+  },
+  {
+    Icon: MessageCircle,
+    title: "Disparos WhatsApp",
+    body: "Fale com sua base direto no WhatsApp, com 1 clique.",
   },
 ];
 
@@ -278,11 +315,32 @@ function NotebookCheckinDemo() {
   );
 }
 
-function MobileBotecoDemo() {
+function MobileBotecoDemo({ loop = false }: { loop?: boolean }) {
   const [replay, setReplay] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [inView, setInView] = useState(false);
+
+  useEffect(() => {
+    if (!loop) return;
+    const node = containerRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setInView(entry?.isIntersecting ?? false),
+      { threshold: 0.2 },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [loop]);
+
+  useEffect(() => {
+    if (!loop || !inView) return;
+    // O demo leva ~14s para completar; 22s dá uma pausa confortável na tela final.
+    const timer = window.setInterval(() => setReplay((value) => value + 1), 22000);
+    return () => window.clearInterval(timer);
+  }, [loop, inView]);
 
   return (
-    <div className="mx-auto w-full max-w-[340px] px-2">
+    <div ref={containerRef} className="mx-auto w-full max-w-[340px] px-2">
       <div className="relative rounded-[2.7rem] border-[3px] border-slate-400/80 bg-gradient-to-br from-slate-600 via-slate-900 to-slate-500 p-[5px] shadow-[0_32px_75px_rgba(0,0,0,.58),0_0_35px_rgba(34,211,238,.04)]">
         <span className="absolute -left-[5px] top-28 h-14 w-[3px] rounded-l bg-slate-500" aria-hidden="true" />
         <span className="absolute -right-[5px] top-36 h-20 w-[3px] rounded-r bg-slate-500" aria-hidden="true" />
@@ -296,7 +354,9 @@ function MobileBotecoDemo() {
         />
         <div className="pointer-events-none absolute bottom-3 left-1/2 z-20 h-1 w-[90px] -translate-x-1/2 rounded-full bg-white/75 shadow-sm" aria-hidden="true" />
       </div>
-      <button type="button" onClick={() => setReplay((value) => value + 1)} className="mt-4 w-full text-center text-xs font-semibold text-emerald-200 hover:text-white">↻ Reproduzir check-in fictício</button>
+      {!loop ? (
+        <button type="button" onClick={() => setReplay((value) => value + 1)} className="mt-4 w-full text-center text-xs font-semibold text-emerald-200 hover:text-white">↻ Reproduzir check-in fictício</button>
+      ) : null}
     </div>
   );
 }
@@ -390,7 +450,42 @@ function SalesHomePage() {
           </ScrollReveal>
 
           <div className="h-full">
-            <ScrollReveal className="h-full" delay={120}><MobileBotecoDemo /></ScrollReveal>
+            <ScrollReveal className="h-full" delay={120}><MobileBotecoDemo loop /></ScrollReveal>
+          </div>
+        </div>
+      </section>
+
+      <section id="solucoes" className="scroll-mt-20">
+        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
+          <ScrollReveal>
+            <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
+              Soluções
+            </p>
+            <h2 className="mt-3 max-w-3xl font-display text-3xl font-bold tracking-tight sm:text-4xl">
+              Tudo que o seu Wi-Fi pode fazer
+            </h2>
+            <p className="mt-4 max-w-2xl leading-7 text-slate-400">
+              Cada solução trabalha sozinha — juntas, transformam visitantes em clientes.
+            </p>
+          </ScrollReveal>
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {SOLUCOES.map(({ Icon, title, body }, index) => (
+              <ScrollReveal key={title} className="h-full" delay={(index % 4) * 80}>
+                <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 sm:p-6">
+                  <span className="flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400/20 to-cyan-400/5 text-cyan-400" aria-hidden="true">
+                    <Icon className="size-6" />
+                  </span>
+                  <h3 className="mt-4 font-semibold">{title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-400">{body}</p>
+                  <a
+                    href="#como-funciona"
+                    className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-cyan-400 hover:text-cyan-300"
+                  >
+                    Ver como funciona <ArrowRight className="size-3.5" aria-hidden="true" />
+                  </a>
+                </article>
+              </ScrollReveal>
+            ))}
           </div>
         </div>
       </section>
@@ -556,17 +651,17 @@ function SalesHomePage() {
               Para quem é
             </p>
             <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
-              Para diferentes tipos de negócio
+              Feito para o seu tipo de negócio
             </h2>
           </ScrollReveal>
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {PARA_QUEM_E.map(({ icon, title, body }, index) => (
+            {SEGMENTOS.map(({ Icon, title, body }, index) => (
               <ScrollReveal key={title} className="h-full" delay={(index % 4) * 80}>
                 <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 sm:p-6">
-                  <p className="text-3xl" aria-hidden="true">
-                    {icon}
-                  </p>
-                  <h3 className="mt-3 font-semibold">{title}</h3>
+                  <span className="flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400/20 to-cyan-400/5 text-cyan-400" aria-hidden="true">
+                    <Icon className="size-6" />
+                  </span>
+                  <h3 className="mt-4 font-semibold">{title}</h3>
                   <p className="mt-2 text-sm leading-6 text-slate-400">{body}</p>
                 </article>
               </ScrollReveal>

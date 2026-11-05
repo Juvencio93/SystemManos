@@ -36,6 +36,7 @@ import {
 } from "@/lib/device.functions";
 import { getRealtimeActivity } from "@/lib/realtime.functions";
 import { DeltaChip } from "@/routes/_authenticated/dashboard";
+import { CountUp } from "@/components/app/count-up";
 
 /**
  * Redesign do dashboard do CLIENTE (matriz/filial) — "Como está o meu negócio hoje?"
@@ -45,7 +46,31 @@ import { DeltaChip } from "@/routes/_authenticated/dashboard";
 
 const v = (n?: number, loading?: boolean) => (loading ? "…" : String(n ?? 0));
 
-function HeroCards({ data, isLoading }: { data: Insights | undefined; isLoading: boolean }) {
+/** Número de KPI: estático por padrão; animado (CountUp) quando animated=true. */
+function KpiNumber({
+  value,
+  isLoading,
+  animated,
+  suffix = "",
+}: {
+  value?: number;
+  isLoading: boolean;
+  animated?: boolean;
+  suffix?: string;
+}) {
+  if (isLoading) return <>…</>;
+  if (animated) return <CountUp to={value ?? 0} suffix={suffix} />;
+  return <>{String(value ?? 0)}{suffix}</>;
+}
+
+/** Extrai o número de um rótulo tipo "19h" para animar (retorna null se não houver dígito). */
+function parsePicoNumber(label?: string): number | null {
+  if (!label) return null;
+  const match = label.match(/\d+/);
+  return match ? Number(match[0]) : null;
+}
+
+function HeroCards({ data, isLoading, animatedNumbers }: { data: Insights | undefined; isLoading: boolean; animatedNumbers?: boolean }) {
   const fetchAgoroDevices = useServerFn(getConectadosAgoraDevices);
   const { data: agoraDevices } = useQuery({
     queryKey: ["conectados-agora-devices"],
@@ -86,7 +111,7 @@ function HeroCards({ data, isLoading }: { data: Insights | undefined; isLoading:
         </CardHeader>
         <CardContent className="relative">
           <p className="font-display text-3xl font-black tracking-tighter sm:text-4xl">
-            {v(data?.visitantesHoje, isLoading)}
+            <KpiNumber value={data?.visitantesHoje} isLoading={isLoading} animated={animatedNumbers} />
           </p>
           <div className="mt-3">
             {data && data.visitantesHoje > 0 ? (
@@ -121,7 +146,7 @@ function HeroCards({ data, isLoading }: { data: Insights | undefined; isLoading:
         </CardHeader>
         <CardContent className="relative">
           <p className="flex items-center gap-2 font-display text-3xl font-black tracking-tighter sm:text-4xl">
-            {v(data?.conectadosAgora, isLoading)}
+            <KpiNumber value={data?.conectadosAgora} isLoading={isLoading} animated={animatedNumbers} />
             <span className="relative flex size-2.5">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
               <span className="relative inline-flex size-2.5 rounded-full bg-emerald-400" />
@@ -165,7 +190,7 @@ function HeroCards({ data, isLoading }: { data: Insights | undefined; isLoading:
         </CardHeader>
         <CardContent className="relative">
           <p className="font-display text-4xl font-black tracking-tighter text-purple-300 sm:text-5xl">
-            {v(data?.leadsEmpresa, isLoading)}
+            <KpiNumber value={data?.leadsEmpresa} isLoading={isLoading} animated={animatedNumbers} />
           </p>
           <p className="mt-3 text-xs font-medium leading-relaxed text-muted-foreground">
             {data && data.leadsNovosSemana > 0 ? (
@@ -198,7 +223,13 @@ function HeroCards({ data, isLoading }: { data: Insights | undefined; isLoading:
           <div className="flex items-end justify-between gap-3">
             <div>
               <p className="font-display text-3xl font-black tracking-tighter sm:text-4xl">
-                {isLoading ? "…" : (data?.horarioPico ?? "—")}
+                {isLoading ? (
+                  "…"
+                ) : animatedNumbers && parsePicoNumber(data?.horarioPico) !== null ? (
+                  <CountUp to={parsePicoNumber(data?.horarioPico) as number} suffix="h" />
+                ) : (
+                  (data?.horarioPico ?? "—")
+                )}
               </p>
               <p className="mt-1 text-xs font-medium text-muted-foreground">
                 {data && data.horarioPicoTotal > 0
@@ -491,7 +522,7 @@ function DevicesPanel() {
 /**
  * "Sua rede em resumo" — visão rápida do Wi-Fi esta semana + próxima ação.
  */
-function RedeResumoPanel({ data, isLoading }: { data: Insights | undefined; isLoading: boolean }) {
+function RedeResumoPanel({ data, isLoading, animatedNumbers }: { data: Insights | undefined; isLoading: boolean; animatedNumbers?: boolean }) {
   const cresceuBase = (data?.leadsNovosSemana ?? 0) > 0;
   return (
     <Card className="border-primary/20 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/50 hover:shadow-[0_8px_32px_rgba(0,192,240,0.20)]">
@@ -505,7 +536,7 @@ function RedeResumoPanel({ data, isLoading }: { data: Insights | undefined; isLo
         <div className="grid grid-cols-3 gap-2 sm:gap-3">
           <div>
             <p className="font-display text-xl font-black tracking-tighter sm:text-2xl">
-              {v(data?.conexoesSemana, isLoading)}
+              <KpiNumber value={data?.conexoesSemana} isLoading={isLoading} animated={animatedNumbers} />
             </p>
             <p className="text-[11px] text-muted-foreground">acessos</p>
             {data && data.conexoesSemana > 0 && (
@@ -518,13 +549,19 @@ function RedeResumoPanel({ data, isLoading }: { data: Insights | undefined; isLo
           </div>
           <div>
             <p className="font-display text-xl font-black tracking-tighter sm:text-2xl">
-              {v(data?.conectadosAgora, isLoading)}
+              <KpiNumber value={data?.conectadosAgora} isLoading={isLoading} animated={animatedNumbers} />
             </p>
             <p className="text-[11px] text-muted-foreground">conectados agora</p>
           </div>
           <div>
             <p className="font-display text-xl font-black tracking-tighter sm:text-2xl">
-              {isLoading ? "…" : (data?.horarioPico ?? "—")}
+              {isLoading ? (
+                "…"
+              ) : animatedNumbers && parsePicoNumber(data?.horarioPico) !== null ? (
+                <CountUp to={parsePicoNumber(data?.horarioPico) as number} suffix="h" />
+              ) : (
+                (data?.horarioPico ?? "—")
+              )}
             </p>
             <p className="text-[11px] text-muted-foreground">pico de movimento</p>
           </div>
@@ -698,13 +735,16 @@ function CalorMomentoPanel() {
 export function ClientDashboardRedesign({
   data,
   isLoading,
+  animatedNumbers,
 }: {
   data: Insights | undefined;
   isLoading: boolean;
+  /** Quando true, os números principais animam com CountUp ao entrar na tela (uso da landing pública). */
+  animatedNumbers?: boolean;
 }) {
   return (
     <div>
-      <HeroCards data={data} isLoading={isLoading} />
+      <HeroCards data={data} isLoading={isLoading} animatedNumbers={animatedNumbers} />
 
       {/* Movimento 14 dias — full width */}
       <div className="mb-8">
@@ -717,7 +757,7 @@ export function ClientDashboardRedesign({
         <DevicesPanel />
         <CalorMomentoPanel />
         <div className="md:col-span-2 lg:col-span-1">
-          <RedeResumoPanel data={data} isLoading={isLoading} />
+          <RedeResumoPanel data={data} isLoading={isLoading} animatedNumbers={animatedNumbers} />
         </div>
       </div>
 
