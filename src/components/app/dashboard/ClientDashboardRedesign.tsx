@@ -83,15 +83,16 @@ type LiveCounts = {
 type LiveDeviceRow = DeviceRow & { key: string };
 
 /** Modelos em rotação para a simulação de novos dispositivos (sem repetir o último). */
-const LIVE_DEVICE_ROTATION: { modelo: string; sistema: "iOS" | "Android" | "Computador" }[] = [
-  { modelo: "Samsung Galaxy S24", sistema: "Android" },
-  { modelo: "iPhone 16 Pro", sistema: "iOS" },
-  { modelo: "Galaxy A54", sistema: "Android" },
-  { modelo: "Moto G84", sistema: "Android" },
-  { modelo: "iPhone 13", sistema: "iOS" },
-  { modelo: "Dell Inspiron", sistema: "Computador" },
-  { modelo: "Redmi Note 13", sistema: "Android" },
-  { modelo: "iPad Air", sistema: "iOS" },
+const LIVE_DEVICE_ROTATION: string[] = [
+  "Samsung Galaxy S24",
+  "iPhone 16 Pro",
+  "Xiaomi Poco X6",
+  "Galaxy A54",
+  "Moto G84",
+  "iPhone 13",
+  "Dell Inspiron",
+  "Redmi Note 13",
+  "iPad Air",
 ];
 
 /**
@@ -151,15 +152,19 @@ function useLiveDemo(enabled: boolean, data: Insights | undefined) {
     // somando +1 em "Conectados agora". Só estado React — nenhum comando
     // toca na rolagem (sem focus/scrollIntoView).
     const timer = setInterval(() => {
-      const pick = LIVE_DEVICE_ROTATION[rotationRef.current % LIVE_DEVICE_ROTATION.length];
+      const modelo = LIVE_DEVICE_ROTATION[rotationRef.current % LIVE_DEVICE_ROTATION.length];
       rotationRef.current += 1;
-      if (!pick) return;
+      if (!modelo) return;
+      // Tipo/sistema como no script do usuário: Dell = Computador/Windows;
+      // celular = Android ou iOS (aleatório).
+      const sistema: LiveDeviceRow["sistema"] =
+        modelo.indexOf("Dell") !== -1 ? "Computador" : Math.random() < 0.5 ? "Android" : "iOS";
       deviceSeqRef.current += 1;
       const row: LiveDeviceRow = {
         key: `live-${deviceSeqRef.current}`,
-        sistema: pick.sistema,
-        modelo: pick.modelo,
-        total: 1,
+        sistema,
+        modelo,
+        total: 1 + Math.floor(Math.random() * 3),
       };
       setExtraDevices((rows) => [row, ...rows].slice(0, 20));
       setCounts((c) => ({
@@ -167,8 +172,8 @@ function useLiveDemo(enabled: boolean, data: Insights | undefined) {
         acessosHoje: c.acessosHoje + 1,
         baseClientes: c.baseClientes + 1,
         conectadosAgora: Math.min(16, c.conectadosAgora + 1),
-        celulares: pick.sistema === "Computador" ? c.celulares : c.celulares + 1,
-        computadores: pick.sistema === "Computador" ? c.computadores + 1 : c.computadores,
+        celulares: sistema === "Computador" ? c.celulares : c.celulares + 1,
+        computadores: sistema === "Computador" ? c.computadores + 1 : c.computadores,
       }));
     }, 7500);
 
@@ -675,7 +680,12 @@ function DevicesPanel({ extraRows }: { extraRows?: LiveDeviceRow[] | undefined }
               </tr>
             </thead>
             <tbody>
-              {visibleRows.map((r) => (
+              {visibleRows.map((r) => {
+                // Linhas ao vivo (simulação): modelo em ciano/negrito e acessos
+                // com "+" (formato definido pelo usuário); linhas existentes
+                // mantêm o formato original intacto.
+                const isLive = "key" in r;
+                return (
                 <tr
                   key={rowKey(r)}
                   className={`border-b border-white/5 last:border-0 ${
@@ -694,14 +704,19 @@ function DevicesPanel({ extraRows }: { extraRows?: LiveDeviceRow[] | undefined }
                       {sistemaIcon(r.sistema)} {r.sistema === "Computador" ? "Windows" : r.sistema}
                     </span>
                   </td>
-                  <td className="py-2.5 pr-2 font-medium">{r.modelo}</td>
+                  <td
+                    className={`py-2.5 pr-2 ${isLive ? "font-bold text-[#00e5ff]" : "font-medium"}`}
+                  >
+                    {r.modelo}
+                  </td>
                   <td className="py-2.5 text-right">
                     <span className="inline-block rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">
-                      {r.total}
+                      {isLive ? `+${r.total}` : r.total}
                     </span>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
           </div>
