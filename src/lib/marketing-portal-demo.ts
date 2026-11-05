@@ -18,10 +18,15 @@ import type { SponsorDisplayType } from "@/lib/campaign-sponsors";
  * públicas estáveis do Storage, aparência e destino).
  *
  * As rotas demo NÃO consultam o Supabase: o loader devolve estes dados e a
- * página é pré-renderizada no build. Zero query por visitante — nem no
- * carregamento, nem no aquecimento dos mockups na landing, nem ao voltar
- * o foco para a aba. Os assets (logo, banner, vídeo) são URLs públicas do
- * Storage, servidas pelo CDN e cacheadas pelo navegador.
+ * resposta é cacheada 24h no navegador (vercel.json). Zero query por
+ * visitante — nem no carregamento, nem no aquecimento dos mockups na
+ * landing, nem ao voltar o foco para a aba. Os assets (logo, banner,
+ * vídeo) são URLs públicas do Storage, servidas pelo CDN e cacheadas
+ * pelo navegador.
+ *
+ * (Pré-render estático no build NÃO funcionou: o Nitro dá 404 nas rotas
+ * Start e o crawler do pré-render SPA só pega '/'. Se um dia funcionar,
+ * estes dados já estão prontos para ele.)
  *
  * Se o lojista mudar o portal real (nome, banner, cores, destino), a demo
  * NÃO acompanha sozinha: atualize estes dados e faça novo deploy.
