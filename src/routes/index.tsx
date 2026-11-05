@@ -530,26 +530,57 @@ function ScaledPortalFrame({
           aria-hidden="true"
         />
       ) : null}
-      <div
-        aria-hidden="true"
-        className={`pointer-events-none absolute left-0 top-0 z-10 overflow-hidden transition-opacity duration-500 ${loaded ? "opacity-0" : "opacity-100"}`}
-        style={{
-          width: viewportWidth,
-          height: viewportHeight,
-          transform: `scale(${scale})`,
-          transformOrigin: "top left",
-        }}
-      >
-        {poster}
-      </div>
+      {/* O poster some INSTANTÂNEO quando o iframe carrega (sem fade): o fade
+          de 500ms sobrepunha o portal ao vivo — mesmo texto, posição
+          levemente diferente — e o onLoad do iframe atrasa (o vídeo do banner
+          tem preload="auto"), então o fade caía até sobre a tela de sucesso e
+          o título aparecia duplicado/fantasma. Sem sobreposição, sem fantasma. */}
+      {!loaded ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute left-0 top-0 z-10 overflow-hidden"
+          style={{
+            width: viewportWidth,
+            height: viewportHeight,
+            transform: `scale(${scale})`,
+            transformOrigin: "top left",
+          }}
+        >
+          {poster}
+        </div>
+      ) : null}
     </div>
   );
 }
 
 function NotebookCheckinDemo() {
   const [replay, setReplay] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [inView, setInView] = useState(false);
+
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setInView(entry?.isIntersecting ?? false),
+      { threshold: 0.2 },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!inView) return;
+    // Reinício automático igual ao do hero: o demo leva ~15s até o sucesso;
+    // 30s dá uma pausa confortável na tela final. Só roda enquanto o
+    // notebook está visível — fora da vista não recarrega o iframe à toa.
+    // O botão "Reproduzir check-in fictício" continua funcionando (manual).
+    const timer = window.setInterval(() => setReplay((value) => value + 1), 30000);
+    return () => window.clearInterval(timer);
+  }, [inView]);
+
   return (
-    <div className="mx-auto w-full max-w-[820px] px-2">
+    <div ref={containerRef} className="mx-auto w-full max-w-[820px] px-2">
       <div className="overflow-hidden rounded-t-[1rem] border border-b-0 border-white/10 bg-[#14171b] p-1.5 shadow-[0_24px_55px_rgba(0,0,0,.45)] sm:p-2">
         <div className="mx-auto mb-1.5 size-1 rounded-full bg-white/20" aria-hidden="true" />
         <div className="overflow-hidden rounded-[0.4rem] border border-white/[.06]">
@@ -593,8 +624,11 @@ function MobileBotecoDemo({ loop = false }: { loop?: boolean }) {
 
   useEffect(() => {
     if (!loop || !inView) return;
-    // O demo leva ~14s para completar; 22s dá uma pausa confortável na tela final.
-    const timer = window.setInterval(() => setReplay((value) => value + 1), 22000);
+    // O demo leva ~14s para completar, mas o boot do iframe atrasa o início;
+    // com 22s o loop disparava no meio da digitação e a demonstração só
+    // chegava ao sucesso no 2º ciclo (~40-55s). 35s dá tempo de completar e
+    // pausar na tela final antes de recomeçar.
+    const timer = window.setInterval(() => setReplay((value) => value + 1), 35000);
     return () => window.clearInterval(timer);
   }, [loop, inView]);
 

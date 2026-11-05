@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useLayoutEffect } from "react";
 import {
   CheckCircle2,
   Loader2,
@@ -78,6 +78,19 @@ export const Route = createFileRoute("/portal/$slug")({
         { property: "og:type", content: "website" },
         { name: "twitter:card", content: "summary_large_image" },
         ...(loaderData ? [] : [{ name: "robots", content: "noindex" }]),
+      ],
+      scripts: [
+        {
+          // Demonstração (autoplay=1): esconde a barra de rolagem do documento
+          // ANTES da primeira pintura. A classe via efeito React só chega
+          // depois da hidratação — e com o HTML da demonstração em cache
+          // (24h), o documento já nasce alto: a barra clássica do Windows
+          // (sempre visível) piscava a cada carregamento e a cada reinício
+          // do loop. Este script roda no <head>, durante o parse, e a barra
+          // nunca aparece. Só age com autoplay=1; o portal real não muda.
+          children:
+            "if(new URLSearchParams(location.search).get('autoplay')==='1'){document.documentElement.classList.add('demo-no-scrollbar')}",
+        },
       ],
     };
   },
@@ -336,7 +349,11 @@ function PortalPage() {
   // Esconde SÓ a barra (classe no <html> + regra no styles.css); a rolagem
   // programática da demonstração (window.scrollTo) continua funcionando.
   // No portal real (sem autoplay=1) nada muda.
-  useEffect(() => {
+  // useLayoutEffect (antes da pintura) e não useEffect: a classe tem que
+  // estar presente antes do primeiro paint da hidratação. O script inline
+  // do head cobre o parse inicial; este efeito é a garantia para navegações
+  // no cliente e caso o script não rode.
+  useLayoutEffect(() => {
     if (new URLSearchParams(window.location.search).get("autoplay") !== "1") return;
     document.documentElement.classList.add("demo-no-scrollbar");
     return () => {
@@ -1275,7 +1292,10 @@ function PortalSuccess({
           </div>
 
           <div className="flex items-center justify-center gap-2 text-sm font-semibold text-primary">
-            <div className="size-1.5 animate-pulse rounded-full bg-primary" />
+            {/* Na demonstração o ponto pulsante parece um marcador solto antes
+                do texto — some só aqui; no portal real ele continua como
+                indicador de status ao lado do texto dinâmico. */}
+            {!isDemo && <div className="size-1.5 animate-pulse rounded-full bg-primary" />}
             {isDemo
               ? "Próximo passo: destino configurado da campanha."
               : done.checkinBlocked
