@@ -40,9 +40,10 @@ import type { RealtimeActivityResponse } from "@/lib/realtime.functions";
  *     aceitaram receber mensagens (opt-in): base = Math.round(acessos * 0.7).
  *     Com 0 acessos, 0; com 10 acessos, 7. "Sua base cresceu N esta semana"
  *     = base atual (N = base).
- *   - "Conectados agora": começa em 0, +1 a cada 2 ticks até 12, depois
- *     OSCILA ±1 entre 11 e 15. Sempre igual a celulares + computadores
- *     (~75% celulares / ~25% computadores).
+ *   - "Conectados agora": começa em 0, +1 POR TICK (junto com os
+ *     acessos) até 12 — com 1 acesso, já há 1 conectado: quem acabou de
+ *     conectar aparece na hora. Depois OSCILA ±1 entre 11 e 15. Sempre
+ *     igual a celulares + computadores (~75% celulares / ~25% computadores).
  *   - "Sua rede em resumo": os acessos do resumo SÃO os "Acessos hoje"
  *     (nascem em 0 e sobem junto com o resto — nenhum valor fixo
  *     pré-preenchido); os conectados do resumo são o "Conectados agora"
@@ -345,17 +346,16 @@ function oscillateConectados(s: ConectadosSplit): ConectadosSplit {
   return { ...s, conectados: next };
 }
 
-/** Rampa até 12 (+1 a cada 2 ticks) e depois oscila entre 11 e 15. */
-function stepConectados(
-  s: ConectadosSplit,
-  tick: number,
-): ConectadosSplit {
+/**
+ * Rampa até 12 (+1 POR TICK, junto com os acessos) e depois oscila
+ * entre 11 e 15. Quem acabou de conectar aparece na hora: com 1 acesso,
+ * conectados = 1 — nunca 0 com acessos > 0. O split (celulares +
+ * computadores) soma SEMPRE igual a "conectados".
+ */
+function stepConectados(s: ConectadosSplit): ConectadosSplit {
   if (s.conectados < CONECTADOS_RAMP) {
-    if (tick % 2 === 0) {
-      const r = addConnection(s.celulares, s.computadores);
-      return { conectados: s.conectados + 1, ...r };
-    }
-    return { ...s };
+    const r = addConnection(s.celulares, s.computadores);
+    return { conectados: s.conectados + 1, ...r };
   }
   return oscillateConectados(s);
 }
@@ -436,7 +436,7 @@ function nextLive(prev: LiveState): LiveState {
   // Base = ~70% dos acessos do dia (clientes que aceitaram receber
   // mensagens — opt-in). Derivada dos acessos, nunca contador separado.
   const base = Math.round(acessos * 0.7);
-  const split = stepConectados(prev, tick);
+  const split = stepConectados(prev);
   const { devices, lastModelIdx } = nextDevices(prev.devices, prev.lastModelIdx);
   const hour = new Date().getHours();
   const activity: LiveActivityEntry[] = [
