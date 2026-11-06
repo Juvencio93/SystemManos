@@ -317,7 +317,7 @@ function NotebookCheckinDemo() {
     // 30s dá uma pausa confortável na tela final. Só roda enquanto o
     // notebook está visível — fora da vista não recarrega o iframe à toa.
     // O botão "Reproduzir check-in fictício" continua funcionando (manual).
-    const timer = window.setInterval(() => setReplay((value) => value + 1), 30000);
+    const timer = window.setInterval(() => setReplay((value) => value + 1), 20000);
     return () => window.clearInterval(timer);
   }, [inView]);
 
