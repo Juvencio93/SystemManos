@@ -1,7 +1,7 @@
 const baseUrl = "https://manostech-system.com.br";
 
 export function heartbeatScript(identity: string, token: string) {
-  const kitVersion = "2026.10.28.1";
+  const kitVersion = "2026.11.06.1";
   const scriptSource = `
   :local routerIdentity "${identity}"
   :local heartbeatToken "${token}"
@@ -59,20 +59,52 @@ export function heartbeatScript(identity: string, token: string) {
   # when the installed RouterOS formats version or uptime differently.
   :local heartbeatUrl "${baseUrl}/api/internal/hotspot-heartbeat"
   :local heartbeatHeaders ("X-Manos-Heartbeat: " . $heartbeatToken . ",X-Manos-Router: " . $routerIdentity . ",X-Manos-Mac: " . $routerMac . ",X-Manos-IP: " . $wanIp . ",X-Manos-Version: " . $routerVersion . ",X-Manos-Kit-Version: ${kitVersion}" . ",X-Manos-Uptime: " . $uptime . ",X-Manos-Sessions: " . $sessions . ",X-Manos-RX-Bytes: " . $rxBytes . ",X-Manos-TX-Bytes: " . $txBytes . ",X-Manos-Latency-MS: " . $latencyMs . ",X-Manos-Packet-Loss: " . $packetLossPct . ",X-Manos-Firewall: " . $firewallBlocked . ",X-Manos-Reboot-Command: " . $rebootCommandId)
+  # Piggyback: o heartbeat devolve o comando pendente na própria resposta
+  # (texto puro; JSON {"ok":...} quando não há comando). O script antigo
+  # descartava a resposta e fazia o GET a cada ciclo;
+  # este lê a resposta e só usa o GET como fallback (heartbeat falhou) ou
+  # 1×/hora (refresh de RADIUS/login-page/MAC bypass, que o servidor não
+  # consegue provar como aplicado na RB).
+  :local heartbeatFile "flash/manos-heartbeat.txt"
+  :local heartbeatFileId [/file find where name=$heartbeatFile]
+  :if ([:len $heartbeatFileId] > 0) do={ /file remove $heartbeatFileId }
+  :global manosCommandFetchIn
+  :if ([:typeof $manosCommandFetchIn] = "nothing") do={ :set manosCommandFetchIn 0 }
+  :local heartbeatOk false
+  :local commandFromHeartbeat false
   :do {
-    /tool fetch url=$heartbeatUrl http-method=post http-header-field=$heartbeatHeaders check-certificate=yes keep-result=no
+    :local heartbeatResult [/tool fetch url=$heartbeatUrl http-method=post http-header-field=$heartbeatHeaders check-certificate=yes dst-path=$heartbeatFile as-value]
+    :if (($heartbeatResult->"status") = "finished") do={ :set heartbeatOk true }
   } on-error={ :log warning "Manos Tech heartbeat failed" }
-  :local commandFile "flash/manos-command.rsc"
-  :local commandFileId [/file find where name=$commandFile]
-  :if ([:len $commandFileId] > 0) do={ /file remove $commandFileId }
-  :local commandUrl ("${baseUrl}/api/internal/hotspot-command?routerIdentity=" . $routerIdentity . "&rebootCommandId=" . $rebootCommandId)
-  :do {
-    :local fetchResult [/tool fetch url=$commandUrl http-header-field=("X-Manos-Heartbeat: " . $heartbeatToken) check-certificate=yes dst-path=$commandFile as-value]
-    :if (($fetchResult->"status") = "finished") do={
-      :local fetchedFileId [/file find where name=$commandFile]
-      :if ([:len $fetchedFileId] > 0) do={ /import file-name=$commandFile }
+  :if ($heartbeatOk = true) do={
+    :local hbFileId [/file find where name=$heartbeatFile]
+    :if ([:len $hbFileId] > 0) do={
+      :local hbContents [/file get $hbFileId contents]
+      :if (([:len $hbContents] > 0) && ([:pick $hbContents 0 1] != "{")) do={
+        /import file-name=$heartbeatFile
+        :set commandFromHeartbeat true
+      }
     }
-  } on-error={ :log warning "Manos Tech command fetch/import failed" }
+  }
+  :local fetchCommand false
+  :if ($heartbeatOk = false) do={ :set fetchCommand true }
+  :if ($commandFromHeartbeat = false && $manosCommandFetchIn = 0) do={ :set fetchCommand true }
+  :if ($fetchCommand = true) do={
+    :set manosCommandFetchIn 29
+    :local commandFile "flash/manos-command.rsc"
+    :local commandFileId [/file find where name=$commandFile]
+    :if ([:len $commandFileId] > 0) do={ /file remove $commandFileId }
+    :local commandUrl ("${baseUrl}/api/internal/hotspot-command?routerIdentity=" . $routerIdentity . "&rebootCommandId=" . $rebootCommandId)
+    :do {
+      :local fetchResult [/tool fetch url=$commandUrl http-header-field=("X-Manos-Heartbeat: " . $heartbeatToken) check-certificate=yes dst-path=$commandFile as-value]
+      :if (($fetchResult->"status") = "finished") do={
+        :local fetchedFileId [/file find where name=$commandFile]
+        :if ([:len $fetchedFileId] > 0) do={ /import file-name=$commandFile }
+      }
+    } on-error={ :log warning "Manos Tech command fetch/import failed" }
+  } else={
+    :if ($manosCommandFetchIn > 0) do={ :set manosCommandFetchIn ($manosCommandFetchIn - 1) }
+  }
 `;
   return `# Personalized Manos Tech heartbeat for RouterOS v7; safe to import again.
 :if ([:len [/system script find where name="MANOS-HEARTBEAT"]] = 0) do={

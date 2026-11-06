@@ -1,4 +1,5 @@
 import { assignmentAllowsAccess } from "@/lib/rb-inventory";
+import { buildHotspotCommand, expireStaleRequests, hotspotCommandHeaders } from "@/lib/rb-command.server";
 import { createFileRoute } from "@tanstack/react-router";
 import { heartbeatUpdate, routerUptimeSeconds, sanitizeRouterOsHeartbeat, validateHeartbeat, type HeartbeatInput } from "@/lib/hotspot-protocol";
 import { hasAssignedRouterAuth } from "@/lib/hotspot-router-auth";
@@ -63,6 +64,9 @@ export const Route = createFileRoute("/api/internal/hotspot-heartbeat")({
         }
         if (!current || !hasAssignedRouterAuth(request, heartbeat.routerIdentity!, current)) return new Response("Unauthorized", { status: 401 });
         const now = new Date().toISOString();
+        // Pedidos expirados (~30 min sem confirmação) são limpos aqui — o
+        // heartbeat é o varredor natural, pois roda a cada 120s por RB.
+        current = (await expireStaleRequests(supabaseAdmin, current, now)).device;
         const routerStatusPending = Boolean(current.router_status_requested_at &&
           current.router_status_applied_at !== current.router_status_requested_at);
         const previousUptime = routerUptimeSeconds(current.last_seen_uptime ?? undefined);
@@ -128,6 +132,28 @@ export const Route = createFileRoute("/api/internal/hotspot-heartbeat")({
           if (auditError) console.error("[hotspot-heartbeat] Could not audit applied firewall state", auditError);
         }
         const applied = firewallMatchesRequest ? reportedFirewallStatus : null;
+        // Piggyback: devolve o comando pendente na própria resposta do
+        // heartbeat, para a RB com o script novo não precisar do GET por
+        // ciclo. Scripts antigos descartam o corpo da resposta
+        // (keep-result=no) e continuam usando o GET — nada muda para eles.
+        // A resposta só vira texto quando há comando; sem comando, o JSON
+        // histórico é mantido. Se a montagem falhar, a RB busca o comando
+        // pelo GET (fallback), então o heartbeat nunca quebra por isso.
+        const effectiveDevice = { ...current, ...update };
+        let piggyback: string | null = null;
+        try {
+          piggyback = await buildHotspotCommand(supabaseAdmin, {
+            identity: heartbeat.routerIdentity!,
+            commandIdFromRouter: heartbeat.rebootCommandId ?? "",
+            device: effectiveDevice,
+            includeRefresh: false,
+          });
+        } catch (error) {
+          console.error("[hotspot-heartbeat] Could not build piggyback command", error);
+        }
+        if (piggyback) {
+          return new Response(piggyback, { headers: hotspotCommandHeaders });
+        }
         return Response.json({ ok: true, reboot: rebootConfirmed, firewall: applied });
       },
     },

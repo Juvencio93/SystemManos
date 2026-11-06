@@ -11,6 +11,10 @@ export const HOTSPOT_EVENT_LABELS: Record<string, string> = {
   request_reboot: "Reinicialização solicitada",
   reboot_dispatched: "Comando de reinicialização enviado",
   reboot_completed: "RB reiniciada",
+  reboot_expired: "Reinicialização expirada",
+  reboot_dispatch_limit: "Limite de tentativas de reinicialização atingido",
+  sync_expired: "Sincronização expirada",
+  login_page_sync_dispatched: "Página de login enviada para sincronização",
 };
 
 export function hotspotEventLabel(action: string) {
@@ -136,6 +140,21 @@ export function buildHotspotAlerts(devices: AlertDevice[], audits: AlertAudit[],
         severity: "success",
         title: `${identity} foi reiniciada`,
         description: "A RB voltou online e confirmou a reinicialização.",
+        createdAt: audit.created_at,
+        deviceId: audit.device_id,
+        routerIdentity: identity,
+      });
+    } else if (audit.action === "reboot_expired" || audit.action === "sync_expired" || audit.action === "reboot_dispatch_limit") {
+      alerts.push({
+        id: `audit:${audit.id}`,
+        severity: "warning",
+        title: `Intervenção manual necessária em ${identity}`,
+        description:
+          audit.action === "reboot_expired"
+            ? "A reinicialização não foi confirmada em 30 minutos e expirou. Solicite novamente ou verifique a RB."
+            : audit.action === "sync_expired"
+              ? "A sincronização não foi confirmada em 30 minutos e expirou. Solicite novamente ou verifique a RB."
+              : "A reinicialização foi enviada 5 vezes sem confirmação. Verifique a RB antes de solicitar novamente.",
         createdAt: audit.created_at,
         deviceId: audit.device_id,
         routerIdentity: identity,
