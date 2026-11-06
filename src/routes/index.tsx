@@ -206,255 +206,12 @@ const SOLUCOES = [
   },
 ];
 
-/*
- * Posters estáticos da primeira tela do portal — HTML/CSS puro, sem rede.
- * Cobrem a espera do iframe: aparecem junto com a página e somem (fade)
- * quando o iframe termina de carregar. Copiam a estrutura visual real do
- * portal (portal.$slug.tsx + portal-layouts.tsx), com os dados de cada
- * negócio de demonstração. A foto do banner só chega com o iframe — no
- * poster ela é um bloco em gradiente no lugar da imagem.
- */
-
-function PortalPosterBarao() {
-  const cardShadow =
-    "0 1px 2px rgba(15,23,42,.06), 0 4px 10px -2px rgba(15,23,42,.06), 0 24px 44px -22px rgba(15,23,42,.28)";
-  return (
-    <div
-      className="flex min-h-full flex-col px-[4%] py-5"
-      style={{
-        background:
-          "radial-gradient(900px 420px at 50% -12%, #0891b222, transparent 70%), linear-gradient(180deg, #e8ecf3 0%, #f1f4f9 60%)",
-      }}
-    >
-      {/* Identidade: inicial da marca, nome, localização e chamada. */}
-      <div className="rounded-[28px] border border-[#d6dce7] bg-white p-5" style={{ boxShadow: cardShadow }}>
-        <div className="flex flex-col items-center gap-2 text-center">
-          <span className="font-display text-[30px] font-black leading-none tracking-tight" style={{ color: "#000000" }}>
-            B
-          </span>
-          <h1 className="text-[24px] font-bold leading-tight tracking-tight text-[#0f172a]">Boteco do Barão</h1>
-          <p className="flex items-center gap-1.5 text-[12px] font-semibold text-[#64748b]">
-            <span className="size-1.5 rounded-full" style={{ background: "#000000" }} aria-hidden />
-            Camboriú - SC
-          </p>
-          <p className="text-[14px] leading-relaxed text-[#0f172a]">Sejam bem-vindos.</p>
-        </div>
-      </div>
-
-      {/* Banner. */}
-      <div className="mt-4 overflow-hidden rounded-[28px] border border-[#d6dce7] bg-white p-2.5" style={{ boxShadow: cardShadow }}>
-        <div
-          className="h-[140px] rounded-[24px]"
-          style={{
-            background:
-              "radial-gradient(circle at 30% 20%, rgba(255,255,255,.28), transparent 55%), linear-gradient(135deg, #92400e 0%, #b45309 45%, #7c2d12 100%)",
-          }}
-        />
-      </div>
-
-      {/* Formulário: cabeçalho, campos, LGPD e botão. */}
-      <div className="mt-4 rounded-[28px] border border-[#d6dce7] bg-white p-5" style={{ boxShadow: cardShadow }}>
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div>
-            <p className="text-[19px] font-bold leading-tight tracking-tight text-[#0f172a]">Conecte-se</p>
-            <p className="mt-0.5 text-[13px] text-[#64748b]">Rápido, sem senha.</p>
-          </div>
-          <span
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-semibold"
-            style={{ background: "#0000001a", color: "#000000" }}
-          >
-            <span className="size-1.5 rounded-full bg-current" aria-hidden />1 min
-          </span>
-        </div>
-        <div className="space-y-3">
-          <div>
-            <p className="ml-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#0f172a]">Nome completo *</p>
-            <div className="mt-1.5 flex h-11 items-center rounded-2xl border border-[#d6dce7] bg-[#f4f6fa] px-4 text-[15px] text-[#94a3b8]">
-              Ex: João Silva
-            </div>
-          </div>
-          <div>
-            <p className="ml-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#0f172a]">WhatsApp *</p>
-            <div className="mt-1.5 flex items-stretch gap-2">
-              <div className="flex h-11 w-[116px] shrink-0 items-center justify-center gap-1.5 rounded-2xl border border-[#d6dce7] bg-[#f4f6fa] text-[12px] font-medium text-[#0f172a]">
-                🇧🇷 +55
-              </div>
-              <div className="flex h-11 flex-1 items-center rounded-2xl border border-[#d6dce7] bg-[#f4f6fa] px-4 text-[15px] text-[#94a3b8]">
-                (00) 00000-0000
-              </div>
-            </div>
-          </div>
-          <div>
-            <p className="ml-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#0f172a]">Cidade *</p>
-            <div className="mt-1.5 flex h-11 items-center rounded-2xl border border-[#d6dce7] bg-[#f4f6fa] px-4 text-[15px] text-[#94a3b8]">
-              Sua cidade atual
-            </div>
-          </div>
-        </div>
-        <div className="mt-4 space-y-1 rounded-2xl border border-[#d6dce7] bg-[#f4f6fa] p-3">
-          <p className="text-xs font-semibold leading-snug text-[#0f172a]">
-            <span className="font-bold uppercase tracking-wider" style={{ color: "#000000" }}>LGPD</span>
-            {" — Lei Geral de Proteção de Dados"}
-          </p>
-          <p className="text-[11px] leading-relaxed text-[#64748b]">
-            Seus dados são usados só para liberar e proteger este Wi-Fi. Ofertas são opcionais — e você pode parar quando quiser.
-          </p>
-          <p className="text-[11px] text-[#64748b] underline decoration-dotted underline-offset-2">Ver detalhes da privacidade</p>
-        </div>
-        <div
-          className="mt-4 flex h-14 items-center justify-center rounded-[18px] text-[15px] font-semibold text-white"
-          style={{
-            background: "#000000",
-            boxShadow: "0 14px 26px -10px #000000b3, inset 0 1px 0 rgba(255,255,255,.28), inset 0 -2px 0 rgba(0,0,0,.14)",
-          }}
-        >
-          Conectar ao Wi-Fi grátis
-        </div>
-      </div>
-
-      <div className="mt-4 flex flex-col items-center space-y-1 pb-2 text-center opacity-60">
-        <p className="text-[9px] font-medium uppercase tracking-widest text-[#64748b]">Navegação segura e criptografada</p>
-        <p className="text-[10px] text-[#64748b]">
-          Tecnologia <span className="font-semibold">Manos Tech</span>
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function PosterOrnament() {
-  return (
-    <div className="flex items-center gap-4" aria-hidden>
-      <span className="h-px flex-1" style={{ background: "linear-gradient(90deg, transparent, #3f3f46)" }} />
-      <span className="size-1.5 rotate-45" style={{ background: "#3f3f46" }} />
-      <span className="h-px flex-1" style={{ background: "linear-gradient(270deg, transparent, #3f3f46)" }} />
-    </div>
-  );
-}
-
-function PortalPosterEfraim() {
-  return (
-    <div
-      className="flex min-h-full flex-col items-center px-12 py-8"
-      style={{
-        background:
-          "radial-gradient(820px 380px at 50% -14%, #0891b21f, transparent 70%), linear-gradient(180deg, #08080a 0%, #0b0b0d 62%)",
-      }}
-    >
-      <header className="w-full max-w-[1120px] space-y-5 text-center">
-        <PosterOrnament />
-        <div className="space-y-2">
-          <span className="font-display text-[30px] font-black leading-none" style={{ color: "#fff70f" }}>
-            E
-          </span>
-          <h1
-            className="text-[40px] font-medium leading-tight tracking-[0.01em] text-[#fafafa]"
-            style={{ fontFamily: "var(--font-elegant-title)" }}
-          >
-            EFRAIM PADARIA E CONFEITARIA LTDA
-          </h1>
-          <p className="flex items-center justify-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.42em] text-[#a1a1aa]">
-            <span className="size-1.5 rounded-full" style={{ background: "#fff70f" }} aria-hidden />
-            Joinville - SC
-          </p>
-        </div>
-        <PosterOrnament />
-      </header>
-
-      <div className="mt-8 grid w-full max-w-[1120px] grid-cols-[1.1fr_.9fr] items-start gap-16">
-        <div className="p-2.5" style={{ border: "1px solid #3f3f46" }}>
-          <div className="p-1.5" style={{ border: "1px solid #3f3f4680" }}>
-            <div
-              className="flex h-[280px] flex-col items-center justify-center gap-2 rounded-[3px] text-center"
-              style={{
-                background:
-                  "radial-gradient(circle at 50% 0%, rgba(201,162,39,.28), transparent 60%), linear-gradient(135deg, #1c1917 0%, #44403c 55%, #292524 100%)",
-              }}
-            >
-              <p
-                className="text-[30px] font-medium leading-tight text-[#fafaf9]"
-                style={{ fontFamily: "var(--font-elegant-title)" }}
-              >
-                Festival de Cucas
-              </p>
-              <p className="text-[11px] font-medium uppercase tracking-[0.3em] text-[#d6d3d1]">Toda quarta-feira · R$ 14,99</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-[8px] p-2" style={{ border: "1px solid #3f3f46aa" }}>
-          <div className="px-9 py-7">
-            <div className="mb-6 space-y-3 text-center">
-              <p className="text-[10px] font-medium uppercase tracking-[0.42em]" style={{ color: "#fff70f" }}>
-                Acesso exclusivo
-              </p>
-              <p
-                className="text-[28px] font-medium leading-tight text-[#fafafa]"
-                style={{ fontFamily: "var(--font-elegant-title)" }}
-              >
-                Cadastro de cortesia
-              </p>
-              <div className="mx-auto h-px w-16 bg-[#3f3f46]" aria-hidden />
-            </div>
-            <div className="space-y-3">
-              <div>
-                <p className="ml-1 text-[10px] font-medium uppercase tracking-[0.3em] text-[#a1a1aa]">Nome completo *</p>
-                <div className="mt-1.5 flex h-11 items-center rounded-[4px] border border-[#3f3f46] bg-transparent px-4 text-[14px] tracking-wide text-[#71717a]">
-                  Ex: João Silva
-                </div>
-              </div>
-              <div>
-                <p className="ml-1 text-[10px] font-medium uppercase tracking-[0.3em] text-[#a1a1aa]">WhatsApp *</p>
-                <div className="mt-1.5 flex h-11 items-center rounded-[4px] border border-[#3f3f46] bg-transparent px-4 text-[14px] tracking-wide text-[#71717a]">
-                  (00) 00000-0000
-                </div>
-              </div>
-              <div>
-                <p className="ml-1 text-[10px] font-medium uppercase tracking-[0.3em] text-[#a1a1aa]">Cidade *</p>
-                <div className="mt-1.5 flex h-11 items-center rounded-[4px] border border-[#3f3f46] bg-transparent px-4 text-[14px] tracking-wide text-[#71717a]">
-                  Sua cidade atual
-                </div>
-              </div>
-            </div>
-            <div className="mt-5 space-y-2 px-1 py-2 text-center">
-              <p className="text-[10px] font-medium uppercase tracking-[0.32em]" style={{ color: "#fff70f" }}>
-                Privacidade e consentimento
-              </p>
-              <p className="text-[11px] font-light leading-[1.85] tracking-[0.01em] text-[#a1a1aa]">
-                Seus dados são usados só para liberar e proteger este Wi-Fi. Ofertas são opcionais — e você pode parar quando quiser.
-              </p>
-            </div>
-            <div
-              className="mt-5 flex h-14 items-center justify-center rounded-[4px] border text-[11px] font-medium uppercase tracking-[0.24em]"
-              style={{
-                borderColor: "#fff70f",
-                color: "#fff70f",
-                background: "linear-gradient(0deg, #fff70f1f, #fff70f0d)",
-              }}
-            >
-              Conectar
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-8 flex flex-col items-center space-y-1 pb-2 text-center opacity-60">
-        <p className="text-[9px] font-medium uppercase tracking-widest text-[#a1a1aa]">Navegação segura e criptografada</p>
-        <p className="text-[10px] text-[#a1a1aa]">
-          Tecnologia <span className="font-semibold">Manos Tech</span>
-        </p>
-      </div>
-    </div>
-  );
-}
-
 function ScaledPortalFrame({
   src,
   title,
   viewportWidth,
   viewportHeight,
   className,
-  poster,
   eager = false,
 }: {
   src: string;
@@ -462,9 +219,6 @@ function ScaledPortalFrame({
   viewportWidth: number;
   viewportHeight: number;
   className: string;
-  // Poster estático da primeira tela do portal (HTML/CSS puro, sem rede):
-  // aparece junto com a página e some quando o iframe carrega.
-  poster: ReactNode;
   // Hero (acima da dobra): nasce iniciado e carrega direto com
   // autoplay=1 — um único carregamento, sem a troca de src.
   eager?: boolean;
@@ -512,7 +266,7 @@ function ScaledPortalFrame({
           // nasce montado no hero, com eager): UM único carregamento,
           // direto com autoplay=1. Antes ele nascia com autoplay=0 e
           // recarregava com autoplay=1 na chegada — 2 consultas ao
-          // banco por visita. Enquanto não monta, só o poster aparece.
+          // banco por visita. Enquanto não monta, só o "Carregando portal…" aparece.
           onLoad={() => setLoaded(true)}
           allow="autoplay; encrypted-media; picture-in-picture"
           // Sem allow-same-origin cruzado o Storage/CDN servindo o .mp4 do
@@ -530,25 +284,13 @@ function ScaledPortalFrame({
           aria-hidden="true"
         />
       ) : null}
-      {/* O poster some INSTANTÂNEO quando o iframe carrega (sem fade): o fade
-          de 500ms sobrepunha o portal ao vivo — mesmo texto, posição
-          levemente diferente — e o onLoad do iframe atrasa (o vídeo do banner
-          tem preload="auto"), então o fade caía até sobre a tela de sucesso e
-          o título aparecia duplicado/fantasma. Sem sobreposição, sem fantasma. */}
-      {!loaded ? (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute left-0 top-0 z-10 overflow-hidden"
-          style={{
-            width: viewportWidth,
-            height: viewportHeight,
-            transform: `scale(${scale})`,
-            transformOrigin: "top left",
-          }}
-        >
-          {poster}
-        </div>
-      ) : null}
+      <div
+        aria-hidden="true"
+        className={`pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[#05080F] transition-opacity duration-500 ${loaded ? "opacity-0" : "opacity-100"}`}
+      >
+        <img src={logo} alt="" className="size-12 rounded-full object-contain" />
+        <p className="text-xs font-semibold tracking-wide text-slate-400">Carregando portal…</p>
+      </div>
     </div>
   );
 }
@@ -593,7 +335,6 @@ function NotebookCheckinDemo() {
             viewportWidth={1366}
             viewportHeight={768}
             className="aspect-video"
-            poster={<PortalPosterEfraim />}
           />
         </div>
       </div>
@@ -646,7 +387,6 @@ function MobileBotecoDemo({ loop = false }: { loop?: boolean }) {
           viewportWidth={390}
           viewportHeight={844}
           className="aspect-[390/844] rounded-[2.6rem]"
-          poster={<PortalPosterBarao />}
           eager
         />
         <div className="pointer-events-none absolute bottom-2.5 left-1/2 z-20 h-1 w-[80px] -translate-x-1/2 rounded-full bg-white/60" aria-hidden="true" />

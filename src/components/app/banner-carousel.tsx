@@ -11,10 +11,18 @@ export function BannerCarousel({
   urls,
   alt,
   appearance = defaultPortalAppearance,
+  // Demonstração (mockups da landing, autoplay=1): o vídeo NÃO pode travar o
+  // início — com preload="auto" o navegador baixa o vídeo antes de disparar
+  // o onLoad do iframe e a demonstração já está digitando atrás do
+  // "Carregando portal…". Com "metadata" o onLoad dispara assim que o app
+  // carrega e o vídeo continua tocando sozinho (muted + autoPlay). No portal
+  // real (fora da demonstração) continua "auto", como sempre foi.
+  demoMode = false,
 }: {
   urls: string[];
   alt: string;
   appearance?: PortalAppearance;
+  demoMode?: boolean;
 }) {
   const [index, setIndex] = useState(0);
   const [progressKey, setProgressKey] = useState(0);
@@ -117,7 +125,7 @@ export function BannerCarousel({
                   controls={false}
                   disablePictureInPicture
                   disableRemotePlayback
-                  preload="auto"
+                  preload={demoMode ? "metadata" : "auto"}
                   onEnded={() => {
                     if (urls.length > 1) select(index + 1);
                   }}

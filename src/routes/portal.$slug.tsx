@@ -786,6 +786,11 @@ function PortalPage() {
         urls={portal.bannerUrls}
         alt={`Banner de ${portal.companyName}`}
         appearance={portal.appearance}
+        // Demonstração (slugs demo da landing, autoplay=1): o vídeo do banner
+        // usa preload="metadata" para não travar o onLoad do iframe — a
+        // demonstração ao vivo começa assim que o app carrega. No portal real
+        // o vídeo continua com preload="auto", como sempre foi.
+        demoMode={slug === "demo-efraim" || slug === "demo-barao"}
       />
     ) : null;
 
