@@ -84,4 +84,31 @@ export default defineConfig({
   build: {
     target: "es2022",
   },
+  // Produção: remove console.* e debugger do bundle do CLIENTE (limpeza
+  // dos logs da Vercel — auditoria de logs, frente Console).
+  //
+  // Por que não o `esbuild: { drop: [...] }` da sugestão da auditoria:
+  // este repo usa Vite 8 (rolldown) e `build.esbuild` não existe mais no
+  // tipo — o equivalente é o `dropConsole`/`dropDebugger` do minify do
+  // oxc, via `rolldownOptions.output.minify`.
+  //
+  // Por que SÓ o cliente: o bundle do servidor precisa manter os
+  // `console.error` — `src/lib/error-capture.ts` reescreve `console.error`
+  // (atribuição, não chamada) para expandir/registrar erros, e
+  // `src/server.ts` registra o erro recuperado via `console.error`
+  // (consumeLastCapturedError). Dropar no servidor mataria esse caminho
+  // de recuperação de erros SSR. O servidor segue sem minify (padrão).
+  environments: {
+    client: {
+      build: {
+        rolldownOptions: {
+          output: {
+            minify: {
+              compress: { dropConsole: true, dropDebugger: true },
+            },
+          },
+        },
+      },
+    },
+  },
 });

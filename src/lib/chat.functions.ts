@@ -191,7 +191,6 @@ export const getConversations = createServerFn({ method: "GET" })
     const { data: queriedConversations, error } = await query;
     
     if (error) {
-      console.error("[getConversations] Supabase error:", error);
       throw error;
     }
 
@@ -218,10 +217,8 @@ export const getConversations = createServerFn({ method: "GET" })
           .in("conversation_id", conversationIds)
       : { data: [], error: null };
 
-    if (prefError) {
-      console.error("[getConversations] Preferences error:", prefError);
-    }
-
+    // Sem log de erro de preferências: o poll repete a cada ciclo e o erro
+    // não muda o resultado (as preferências seguem vazias).
     const preferencesByConv = new Map(
       (rawPreferences ?? []).map(p => [p.conversation_id, p])
     );
@@ -267,11 +264,6 @@ export const getConversations = createServerFn({ method: "GET" })
         .order("created_at", { ascending: false })
         .limit(CHAT_MESSAGES_PER_CONVERSATION + 1);
       if (messagesError) {
-        console.error("[getConversations] Messages error:", {
-          conversationId: conv.id,
-          userId,
-          error: messagesError,
-        });
         throw new Error(messagesError.message || "Não foi possível carregar as mensagens da conversa.");
       }
       const hasMoreMessages = (fetchedMessages || []).length > CHAT_MESSAGES_PER_CONVERSATION;
@@ -301,7 +293,6 @@ export const getConversations = createServerFn({ method: "GET" })
       "chat_get_contacts",
     );
     if (contactsError) {
-      console.error("[getConversations] Contact enrichment error:", contactsError);
       throw new Error(contactsError.message || "Não foi possível identificar os contatos.");
     }
 
@@ -404,9 +395,8 @@ export const getConversations = createServerFn({ method: "GET" })
     const { data: contactAvatarData, error: contactAvatarError } = await (supabase as any).rpc(
       "chat_get_contact_avatar_urls",
     );
-    if (contactAvatarError) {
-      console.error("[getConversations] Contact avatar enrichment error:", contactAvatarError);
-    }
+    // Sem log: o poll repete a cada ciclo (o erro não muda o resultado —
+    // os avatares seguem vazios).
     const contactAvatarUrls = (contactAvatarData || {}) as Record<string, string | null>;
     const chatContacts = [
       ...(contactGroups.matrices || []),

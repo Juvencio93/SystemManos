@@ -74,8 +74,6 @@ export async function callGateway(
       };
     }
 
-    console.log(`[AI Server] Calling DeepSeek directly (RequestId=${requestId})`);
-
     const messages = [
       { role: "system", content: system },
       ...history.map((h) => ({ role: h.role, content: h.content })),
@@ -121,7 +119,12 @@ export async function callGateway(
 
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
-          console.error(`[AI Server] DeepSeek API failed: Status=${response.status}, RequestId=${requestId}`, payload);
+          // Só status + mensagem de erro do provedor: o payload inteiro
+          // (choices/usage) inundava o log a cada falha.
+          console.error(
+            `[AI Server] DeepSeek API failed: Status=${response.status}, RequestId=${requestId}`,
+            payload?.error?.message ?? "unknown",
+          );
           const errorMsg = payload?.error?.message || "Não foi possível obter a resposta agora. Tente novamente.";
           return {
             ok: false,

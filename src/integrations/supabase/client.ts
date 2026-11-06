@@ -173,6 +173,7 @@ function wireRefreshSync(): void {
 
 let _sessionStartedAt: number | null = null;
 let _idleWatcherArmed = false;
+let _idleTimer: number | undefined;
 let _maxTimer: ReturnType<typeof setTimeout> | undefined;
 let _lastInteraction = 0;
 let _expireInFlight = false;
@@ -180,6 +181,10 @@ let _expireInFlight = false;
 function clearWatchers(): void {
   _idleWatcherArmed = false;
   _sessionStartedAt = null;
+  if (_idleTimer) {
+    clearInterval(_idleTimer);
+    _idleTimer = undefined;
+  }
   if (_maxTimer) {
     clearTimeout(_maxTimer);
     _maxTimer = undefined;
@@ -211,7 +216,7 @@ function armIdleWatcher(): void {
   // Checagem a cada minuto: sem interação por mais que o limite, a sessão
   // morre de verdade (logout no servidor revoga os tokens e limpa o
   // cookie) e o usuário cai no /auth com mensagem amigável.
-  window.setInterval(() => {
+  _idleTimer = window.setInterval(() => {
     void (async () => {
       if (Date.now() - _lastInteraction <= IDLE_TIMEOUT_MS) return;
       try {
