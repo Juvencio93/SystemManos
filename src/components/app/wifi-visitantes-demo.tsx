@@ -1,9 +1,12 @@
+import { useState } from "react";
 import { ChevronDown, Wifi } from "lucide-react";
 
 /**
  * Réplica VISUAL estática do card "Wi-Fi dos visitantes" (wifi-visitantes-card.tsx)
  * para a landing: mesmos 6 campos da política RADIUS, com valores de exemplo.
- * Sem fetch, sem auth, sem edição — expande no hover via CSS (group-hover).
+ * Sem fetch, sem auth, sem edição — expande no hover (desktop, group-hover)
+ * e no toque/clique (celular, estado `open`): no celular não existe hover,
+ * então só o hover deixava o card fechado para sempre.
  */
 const CAMPOS_DEMO = [
   { rotulo: "Tempo máximo por check-in", valor: "30 min" },
@@ -15,8 +18,23 @@ const CAMPOS_DEMO = [
 ] as const;
 
 export function WifiVisitantesDemo() {
+  const [open, setOpen] = useState(false);
+  const toggle = () => setOpen((value) => !value);
+
   return (
-    <article className="group overflow-hidden rounded-2xl border border-white/[.08] bg-[#0B1118] transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 hover:shadow-[0_8px_32px_rgba(0,192,240,0.18)]">
+    <article
+      onClick={toggle}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          toggle();
+        }
+      }}
+      tabIndex={0}
+      role="button"
+      aria-expanded={open}
+      className="group cursor-pointer overflow-hidden rounded-2xl border border-white/[.08] bg-[#0B1118] transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 hover:shadow-[0_8px_32px_rgba(0,192,240,0.18)]"
+    >
       {/* Cabeçalho — sempre visível */}
       <div className="flex items-center gap-3 p-5 text-left sm:p-6">
         <span className="grid size-10 shrink-0 place-items-center rounded-xl border border-cyan-400/25 bg-cyan-400/10">
@@ -35,18 +53,22 @@ export function WifiVisitantesDemo() {
           </p>
         </div>
         <ChevronDown
-          className="ml-auto size-5 shrink-0 text-cyan-400 transition-transform duration-500 group-hover:rotate-180"
+          className={`ml-auto size-5 shrink-0 text-cyan-400 transition-transform duration-500 ${open ? "rotate-180" : "group-hover:rotate-180"}`}
           aria-hidden="true"
         />
       </div>
 
       {/* Dica — some quando expande */}
-      <p className="px-5 pb-5 text-xs text-slate-500 group-hover:hidden sm:px-6">
-        Passe o mouse para ver o painel completo
+      <p
+        className={`px-5 pb-5 text-xs text-slate-500 sm:px-6 ${open ? "hidden" : "group-hover:hidden"}`}
+      >
+        Toque ou passe o mouse para ver o painel completo
       </p>
 
-      {/* Corpo expansível */}
-      <div className="grid grid-rows-[0fr] transition-[grid-template-rows] duration-500 ease-out group-hover:grid-rows-[1fr]">
+      {/* Corpo expansível — abre no toque/clique OU no hover */}
+      <div
+        className={`grid transition-[grid-template-rows] duration-500 ease-out ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr] group-hover:grid-rows-[1fr]"}`}
+      >
         <div className="overflow-hidden">
           <div className="border-t border-white/[.07] px-5 py-5 sm:px-6">
             <p className="text-sm font-medium text-white">
