@@ -68,18 +68,37 @@ async function assertExpenseAccess(
   }
 }
 
+// Cobrança de valor zero (ex.: conta de teste / período proporcional sem
+// cobrança) precisa poder ser baixada como recebida — por isso o valor é
+// `nonnegative` (0 aceito, negativo bloqueado), e não `gt(0)`.
+export const confirmManualPaymentInputSchema = z.object({
+  chargeId: z.string().uuid(),
+  amount: z.number().nonnegative(),
+  paidAt: z.string().min(1),
+  observation: z.string().optional().nullable(),
+});
+
+// O validador nunca deixa o JSON cru do Zod chegar ao toast do usuário:
+// falha de validação vira um Error com mensagem simples em pt-BR.
+export function validateConfirmManualPayment(input: unknown) {
+  const result = confirmManualPaymentInputSchema.safeParse(input);
+  if (!result.success) {
+    const amountIssue = result.error.issues.find(
+      (issue) => issue.path[0] === "amount",
+    );
+    if (amountIssue?.code === "too_small") {
+      throw new Error("O valor recebido não pode ser negativo.");
+    }
+    throw new Error(
+      "Não foi possível confirmar o recebimento. Verifique o valor e a data.",
+    );
+  }
+  return result.data;
+}
+
 export const confirmManualPayment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((input: unknown) =>
-    z
-      .object({
-        chargeId: z.string().uuid(),
-        amount: z.number().gt(0),
-        paidAt: z.string().min(1),
-        observation: z.string().optional().nullable(),
-      })
-      .parse(input),
-  )
+  .validator(validateConfirmManualPayment)
   .handler(async ({ data, context }) => {
     const access = await resolveRole(context.supabase, context.userId);
     if (!access || (access.role !== "adm" && access.role !== "revenda")) {
