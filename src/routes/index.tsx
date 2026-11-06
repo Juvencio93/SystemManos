@@ -564,12 +564,12 @@ function SalesHomePage() {
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {SOLUCOES.map(({ Icon, title, body }, index) => (
               <ScrollReveal key={title} className="h-full" delay={(index % 4) * 80}>
-                <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 sm:p-6">
+                <article className="h-full rounded-2xl border border-[rgba(255,255,255,0.1)] bg-[rgba(220,225,230,0.3)] p-5 backdrop-blur-[12px] transition-all duration-200 hover:-translate-y-1 hover:border-white/25 hover:bg-[rgba(220,225,230,0.35)] sm:p-6">
                   <span className="flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400/20 to-cyan-400/5 text-cyan-400" aria-hidden="true">
                     <Icon className="size-6" />
                   </span>
-                  <h3 className="mt-4 font-semibold">{title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-400">{body}</p>
+                  <h3 className="mt-4 font-semibold text-white">{title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-[#CBD5E1]">{body}</p>
                   <a
                     href="#como-funciona"
                     className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-cyan-400 hover:text-cyan-300"
