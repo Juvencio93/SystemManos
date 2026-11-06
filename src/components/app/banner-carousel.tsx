@@ -54,11 +54,30 @@ export function BannerCarousel({
       const attempt = () => el.play().catch(() => {});
       attempt();
       el.addEventListener("canplay", attempt);
-      return () => el.removeEventListener("canplay", attempt);
+      // O carrossel não avança por timer em slide de vídeo — só no onEnded.
+      // Se o vídeo nunca começa a tocar (play() recusada ou .mp4 que não
+      // carrega nesse navegador), o banner congela para sempre no poster.
+      // Timeout de segurança: após ~4s, se o vídeo continuar pausado,
+      // avança para o próximo slide. O timeout é limpo quando o vídeo
+      // começa a tocar ("playing") ou quando o efeito é desmontado.
+      const stuckTimer = window.setTimeout(() => {
+        if (el.paused && !el.ended) select(index + 1);
+      }, 4000);
+      // Teto absoluto: mesmo que o vídeo toque, o slide não passa de ~15s
+      // sem o onEnded — o banner nunca fica travado num slide só.
+      const maxTimer = window.setTimeout(() => select(index + 1), 15000);
+      const clearStuckTimer = () => window.clearTimeout(stuckTimer);
+      el.addEventListener("playing", clearStuckTimer);
+      return () => {
+        el.removeEventListener("canplay", attempt);
+        el.removeEventListener("playing", clearStuckTimer);
+        window.clearTimeout(stuckTimer);
+        window.clearTimeout(maxTimer);
+      };
     }
     el.pause();
     return undefined;
-  }, [currentIsVideo, index]);
+  }, [currentIsVideo, index, select]);
 
   useEffect(() => {
     if (!appearance.autoplayEnabled || urls.length < 2 || currentIsVideo) return;

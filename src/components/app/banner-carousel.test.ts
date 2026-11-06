@@ -36,3 +36,9 @@ describe("BannerCarousel em demonstração (demoMode)", () => {
     expect(html).toContain(POSTER_URL);
   });
 });
+
+// Nota: o timeout de segurança do slide de vídeo (avança após ~4s se o vídeo
+// continuar pausado, e o teto absoluto de ~15s) vive num useEffect e não é
+// coberto por estes testes — efeitos não rodam em renderToString e o ambiente
+// de teste aqui é node (sem DOM). Cobri-lo exigiria @testing-library/react +
+// jsdom, que o projeto não tem.

@@ -804,12 +804,10 @@ function PortalPage() {
         alt={`Banner de ${portal.companyName}`}
         appearance={portal.appearance}
         // Demonstração (slugs demo da landing, autoplay=1): o vídeo do banner
-        // usa preload="metadata" para não travar o onLoad do iframe — a
-        // demonstração ao vivo começa assim que o app carrega. No portal real
-        // o vídeo continua com preload="auto", como sempre foi.
-        // Além disso, em demonstração o vídeo nem é baixado: o slide de vídeo
-        // vira a foto de capa (.jpg) no lugar do <video> — o .mp4 não pode ser
-        // requisitado, senão o mockup demora ~1min numa conexão lenta.
+        // é renderizado como no portal real (decisão do Gabriel, 06/11) — o
+        // mockup volta a baixar o .mp4. O formulário continua aparecendo rápido
+        // porque o overlay "Carregando portal…" some no readyState interactive
+        // (PR #189), não no onLoad — o download do vídeo não trava o início.
         demoMode={slug === "demo-efraim" || slug === "demo-barao"}
       />
     ) : null;
