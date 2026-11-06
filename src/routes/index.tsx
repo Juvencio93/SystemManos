@@ -20,6 +20,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { openPreSaleChat, PreSaleForm } from "@/components/app/pre-sale-form";
 import { DashboardDemo } from "@/components/app/dashboard-demo";
 import { WifiVisitantesDemo } from "@/components/app/wifi-visitantes-demo";
+import { isFrameDocumentReady } from "@/lib/iframe-ready";
 
 const SOCIAL_IMAGE_URL = new URL(logo, "https://manostech-system.com.br").toString();
 
@@ -224,9 +225,38 @@ function ScaledPortalFrame({
   eager?: boolean;
 }) {
   const frameRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const [scale, setScale] = useState(1);
   const [started, setStarted] = useState(eager);
   const [loaded, setLoaded] = useState(false);
+
+  // O formulário do portal JÁ VEM no HTML (SSR): esconder o "Carregando
+  // portal…" assim que o documento do iframe estiver pronto (readyState
+  // "interactive" = HTML lido, formulário visível) — NÃO esperar o onLoad,
+  // que só dispara quando TODOS os recursos terminam (JS + imagens) e numa
+  // conexão lenta esconde o formulário por dezenas de segundos. Teto de 10s
+  // pra o overlay nunca ficar preso. O onLoad continua como rede de
+  // segurança. Vale pros dois mockups (celular do hero e notebook).
+  useEffect(() => {
+    if (!started) return;
+    const frame = iframeRef.current;
+    if (!frame) return;
+    if (isFrameDocumentReady(frame)) {
+      setLoaded(true);
+      return;
+    }
+    const timer = window.setInterval(() => {
+      if (isFrameDocumentReady(frame)) {
+        setLoaded(true);
+        window.clearInterval(timer);
+      }
+    }, 100);
+    const safety = window.setTimeout(() => setLoaded(true), 10000);
+    return () => {
+      window.clearInterval(timer);
+      window.clearTimeout(safety);
+    };
+  }, [started, src]);
 
   useEffect(() => {
     const container = frameRef.current;
@@ -260,6 +290,7 @@ function ScaledPortalFrame({
     <div ref={frameRef} className={`relative overflow-hidden bg-[#05080F] ${className}`}>
       {started ? (
         <iframe
+          ref={iframeRef}
           title={title}
           src={src}
           // O iframe só monta quando a demonstração entra na tela (ou
