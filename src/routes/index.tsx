@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowRight,
   ArrowUp,
@@ -212,16 +212,20 @@ function ScaledPortalFrame({
   viewportWidth,
   viewportHeight,
   className,
+  eager = false,
 }: {
   src: string;
   title: string;
   viewportWidth: number;
   viewportHeight: number;
   className: string;
+  // Hero (acima da dobra): nasce iniciado e carrega direto com
+  // autoplay=1 — um único carregamento, sem a troca de src.
+  eager?: boolean;
 }) {
   const frameRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
-  const [started, setStarted] = useState(false);
+  const [started, setStarted] = useState(eager);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -254,26 +258,32 @@ function ScaledPortalFrame({
 
   return (
     <div ref={frameRef} className={`relative overflow-hidden bg-[#05080F] ${className}`}>
-      <iframe
-        title={title}
-        src={started ? src : src.replace("autoplay=1", "autoplay=0")}
-        loading="lazy"
-        onLoad={() => setLoaded(true)}
-        allow="autoplay; encrypted-media; picture-in-picture"
-        // Sem allow-same-origin cruzado o Storage/CDN servindo o .mp4 do
-        // banner pode ser recusado por CORS/mídia dentro do frame. Os dois
-        // tokens juntos mantêm o documento na origem e permitem o vídeo.
-        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation"
-        tabIndex={-1}
-        className="absolute left-0 top-0 border-0 bg-[#05080F]"
-        style={{
-          width: viewportWidth,
-          height: viewportHeight,
-          transform: `scale(${scale})`,
-          transformOrigin: "top left",
-        }}
-        aria-hidden="true"
-      />
+      {started ? (
+        <iframe
+          title={title}
+          src={src}
+          // O iframe só monta quando a demonstração entra na tela (ou
+          // nasce montado no hero, com eager): UM único carregamento,
+          // direto com autoplay=1. Antes ele nascia com autoplay=0 e
+          // recarregava com autoplay=1 na chegada — 2 consultas ao
+          // banco por visita. Enquanto não monta, só o "Carregando portal…" aparece.
+          onLoad={() => setLoaded(true)}
+          allow="autoplay; encrypted-media; picture-in-picture"
+          // Sem allow-same-origin cruzado o Storage/CDN servindo o .mp4 do
+          // banner pode ser recusado por CORS/mídia dentro do frame. Os dois
+          // tokens juntos mantêm o documento na origem e permitem o vídeo.
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation"
+          tabIndex={-1}
+          className="absolute left-0 top-0 border-0 bg-[#05080F]"
+          style={{
+            width: viewportWidth,
+            height: viewportHeight,
+            transform: `scale(${scale})`,
+            transformOrigin: "top left",
+          }}
+          aria-hidden="true"
+        />
+      ) : null}
       <div
         aria-hidden="true"
         className={`pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[#05080F] transition-opacity duration-500 ${loaded ? "opacity-0" : "opacity-100"}`}
@@ -285,18 +295,82 @@ function ScaledPortalFrame({
   );
 }
 
+// Loop da demonstração disparado pelo SUCESSO (postMessage do iframe): o portal
+// avisa a landing quando o check-in de demonstração chega na tela de sucesso,
+// e a landing reinicia poucos segundos depois. Não depende do relógio nem do
+// tempo de carregamento — com carga lenta ou rápida, o ciclo se repete para
+// sempre. O intervalo antigo (ancorado no carregamento da página / na
+// visibilidade) não se repetia de verdade: com carga lenta ele disparava antes
+// da demonstração começar e a tela de sucesso ficava parada.
+// Rede de segurança: se o sucesso não chegar em 90s (falha de carga, demo
+// travada), reinicia assim mesmo. O recarregamento usa a mesma URL da
+// demonstração, já em cache no navegador por 24h — não gera consulta ao banco.
+function useDemoLoop({
+  demoSlug,
+  enabled,
+  resetKey,
+  onRestart,
+}: {
+  demoSlug: string;
+  enabled: boolean;
+  resetKey: number;
+  onRestart: () => void;
+}) {
+  const restartTimer = useRef<number | null>(null);
+  const scheduleRestart = useCallback(
+    (ms: number) => {
+      if (restartTimer.current !== null) window.clearTimeout(restartTimer.current);
+      restartTimer.current = window.setTimeout(onRestart, ms);
+    },
+    [onRestart],
+  );
+  const clearRestartTimer = useCallback(() => {
+    if (restartTimer.current !== null) {
+      window.clearTimeout(restartTimer.current);
+      restartTimer.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data as { type?: unknown; slug?: unknown } | null;
+      if (!data || typeof data !== "object") return;
+      if (data.type !== "manos-demo-success" || data.slug !== demoSlug) return;
+      // Pausa na tela de sucesso para o visitante ver o resultado, e recomeça.
+      scheduleRestart(5000);
+    };
+    window.addEventListener("message", onMessage);
+    return () => {
+      window.removeEventListener("message", onMessage);
+      clearRestartTimer();
+    };
+  }, [enabled, demoSlug, scheduleRestart, clearRestartTimer]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    scheduleRestart(90000);
+    return clearRestartTimer;
+  }, [enabled, resetKey, scheduleRestart, clearRestartTimer]);
+}
+
 function NotebookCheckinDemo() {
   const [replay, setReplay] = useState(0);
+  const restart = useCallback(() => setReplay((value) => value + 1), []);
+  // Loop disparado pelo sucesso (useDemoLoop): o portal avisa quando o
+  // check-in chega na tela de sucesso e a demonstração recomeça 5s depois,
+  // ciclo após ciclo, para sempre. Sem botão manual: só o loop automático
+  // (o botão "Reproduzir check-in fictício" bagunçava o ciclo automático).
+  useDemoLoop({ demoSlug: "demo-efraim", enabled: true, resetKey: replay, onRestart: restart });
+
   return (
     <div className="mx-auto w-full max-w-[820px] px-2">
-      <div className="overflow-hidden rounded-t-[1.25rem] border-[4px] border-b-0 border-slate-500/90 bg-[#05080F] p-2 shadow-[0_30px_70px_rgba(0,0,0,.48),0_0_35px_rgba(34,211,238,.03)] sm:p-3">
-        <div className="mx-auto mb-2 size-1.5 rounded-full bg-slate-500" aria-hidden="true" />
-        <div className="overflow-hidden rounded-md border border-white/[.08]">
-          <div className="flex h-7 items-center gap-1.5 border-b border-white/[.08] bg-[#131920] px-2.5">
-            <span className="size-1.5 rounded-full bg-rose-400/90" />
-            <span className="size-1.5 rounded-full bg-amber-300/90" />
-            <span className="size-1.5 rounded-full bg-emerald-400/90" />
-            <span className="mx-auto w-2/5 rounded-full border border-white/[.06] bg-white/[.04] py-0.5 text-center text-[8px] text-slate-500">manostech-system.com.br</span>
+      <div className="overflow-hidden rounded-t-[1rem] border border-b-0 border-white/10 bg-[#14171b] p-1.5 shadow-[0_24px_55px_rgba(0,0,0,.45)] sm:p-2">
+        <div className="mx-auto mb-1.5 size-1 rounded-full bg-white/20" aria-hidden="true" />
+        <div className="overflow-hidden rounded-[0.4rem] border border-white/[.06]">
+          <div className="flex h-8 items-center justify-center border-b border-white/[.06] bg-[#0f1114] px-2.5">
+            <span className="text-[9px] tracking-wide text-slate-500">manostech-system.com.br</span>
           </div>
           <ScaledPortalFrame
             src={`/portal/demo-efraim?autoplay=1&replay=${replay}`}
@@ -307,52 +381,40 @@ function NotebookCheckinDemo() {
           />
         </div>
       </div>
-      <div className="relative mx-auto h-6 w-[106%] -translate-x-[2.8%] rounded-b-[1.1rem] border-x border-b border-slate-500 bg-gradient-to-b from-slate-400 via-slate-600 to-slate-800 shadow-[0_18px_35px_rgba(0,0,0,.4)]">
-        <div className="mx-auto h-2 w-28 rounded-b-lg border-x border-b border-slate-700/70 bg-slate-500/80" />
+      <div className="relative mx-auto h-3 w-[104%] -translate-x-[2%] rounded-b-[0.7rem] border-x border-b border-white/[0.08] bg-[#23262b] shadow-[0_14px_28px_rgba(0,0,0,.35)]">
+        <div className="mx-auto h-1.5 w-24 rounded-b-md bg-[#101214]" />
       </div>
-      <button type="button" onClick={() => setReplay((value) => value + 1)} className="mt-4 w-full text-center text-xs font-semibold text-emerald-200 hover:text-white">↻ Reproduzir check-in fictício</button>
     </div>
   );
 }
 
 function MobileBotecoDemo({ loop = false }: { loop?: boolean }) {
   const [replay, setReplay] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [inView, setInView] = useState(false);
-
-  useEffect(() => {
-    if (!loop) return;
-    const node = containerRef.current;
-    if (!node) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setInView(entry?.isIntersecting ?? false),
-      { threshold: 0.2 },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [loop]);
-
-  useEffect(() => {
-    if (!loop || !inView) return;
-    // O demo leva ~14s para completar; 22s dá uma pausa confortável na tela final.
-    const timer = window.setInterval(() => setReplay((value) => value + 1), 22000);
-    return () => window.clearInterval(timer);
-  }, [loop, inView]);
+  const restart = useCallback(() => setReplay((value) => value + 1), []);
+  // Loop disparado pelo sucesso (useDemoLoop), igual ao do notebook: o portal
+  // avisa quando o check-in chega na tela de sucesso e a demonstração recomeça
+  // 5s depois, ciclo após ciclo, para sempre. O intervalo antigo (35s, ancorado
+  // no carregamento da página) não se repetia de verdade: com carga lenta ele
+  // disparava antes da demonstração começar e a tela de sucesso ficava parada.
+  useDemoLoop({ demoSlug: "demo-barao", enabled: loop, resetKey: replay, onRestart: restart });
 
   return (
-    <div ref={containerRef} className="mx-auto w-full max-w-[340px] px-2">
-      <div className="relative rounded-[2.7rem] border-[3px] border-slate-400/80 bg-gradient-to-br from-slate-600 via-slate-900 to-slate-500 p-[5px] shadow-[0_32px_75px_rgba(0,0,0,.58),0_0_35px_rgba(34,211,238,.04)]">
-        <span className="absolute -left-[5px] top-28 h-14 w-[3px] rounded-l bg-slate-500" aria-hidden="true" />
-        <span className="absolute -right-[5px] top-36 h-20 w-[3px] rounded-r bg-slate-500" aria-hidden="true" />
-        <div className="pointer-events-none absolute left-1/2 top-3 z-20 h-[18px] w-[82px] -translate-x-1/2 rounded-full border border-white/[.06] bg-[#03060b] shadow-md" aria-hidden="true" />
+    <div className="mx-auto w-full max-w-[340px] px-2">
+      <div className="relative rounded-[2.9rem] border border-[#3a3d42] bg-[#17181a] p-[3px] shadow-[0_20px_50px_rgba(0,0,0,.5)] ring-1 ring-white/[0.06]">
+        <span className="absolute -left-[2px] top-28 h-14 w-[3px] rounded-l bg-[#2a2d31]" aria-hidden="true" />
+        <span className="absolute -right-[2px] top-36 h-20 w-[3px] rounded-r bg-[#2a2d31]" aria-hidden="true" />
+        <div className="pointer-events-none absolute left-1/2 top-2.5 z-20 flex h-[16px] w-[68px] -translate-x-1/2 items-center justify-end rounded-full bg-black pr-2" aria-hidden="true">
+          <span className="size-[6px] rounded-full bg-[#16202b] ring-1 ring-white/10" aria-hidden="true" />
+        </div>
         <ScaledPortalFrame
           src={`/portal/demo-barao?autoplay=1&replay=${replay}`}
           title="Portal real do Boteco do Barão"
           viewportWidth={390}
           viewportHeight={844}
-          className="aspect-[390/844] rounded-[2.2rem]"
+          className="aspect-[390/844] rounded-[2.6rem]"
+          eager
         />
-        <div className="pointer-events-none absolute bottom-3 left-1/2 z-20 h-1 w-[90px] -translate-x-1/2 rounded-full bg-white/75 shadow-sm" aria-hidden="true" />
+        <div className="pointer-events-none absolute bottom-2.5 left-1/2 z-20 h-1 w-[80px] -translate-x-1/2 rounded-full bg-white/60" aria-hidden="true" />
       </div>
       {!loop ? (
         <button type="button" onClick={() => setReplay((value) => value + 1)} className="mt-4 w-full text-center text-xs font-semibold text-emerald-200 hover:text-white">↻ Reproduzir check-in fictício</button>

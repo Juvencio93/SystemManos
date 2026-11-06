@@ -486,6 +486,25 @@
   }
 }
 
+/* Demonstração do portal na landing (autoplay=1): esconde a barra de
+   rolagem em TODOS os elementos que rolam — o documento e qualquer
+   container interno (ex.: o conteúdo do modal de privacidade). A barra
+   some de verdade (não só transparente), inclusive a clássica do Windows,
+   que é sempre visível; a rolagem programática continua funcionando. */
+html.demo-no-scrollbar,
+html.demo-no-scrollbar body,
+html.demo-no-scrollbar * {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+html.demo-no-scrollbar::-webkit-scrollbar,
+html.demo-no-scrollbar body::-webkit-scrollbar,
+html.demo-no-scrollbar *::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 @keyframes attention-shake {
   0%, 100% { transform: translateX(0); }
   15% { transform: translateX(-8px); }

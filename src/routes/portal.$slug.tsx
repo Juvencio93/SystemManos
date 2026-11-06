@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { useMemo, useState, useEffect } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { useMemo, useState, useEffect, useLayoutEffect } from "react";
 import {
   CheckCircle2,
   Loader2,
@@ -78,6 +78,19 @@ export const Route = createFileRoute("/portal/$slug")({
         { property: "og:type", content: "website" },
         { name: "twitter:card", content: "summary_large_image" },
         ...(loaderData ? [] : [{ name: "robots", content: "noindex" }]),
+      ],
+      scripts: [
+        {
+          // Demonstração (autoplay=1): esconde a barra de rolagem do documento
+          // ANTES da primeira pintura. A classe via efeito React só chega
+          // depois da hidratação — e com o HTML da demonstração em cache
+          // (24h), o documento já nasce alto: a barra clássica do Windows
+          // (sempre visível) piscava a cada carregamento e a cada reinício
+          // do loop. Este script roda no <head>, durante o parse, e a barra
+          // nunca aparece. Só age com autoplay=1; o portal real não muda.
+          children:
+            "if(new URLSearchParams(location.search).get('autoplay')==='1'){document.documentElement.classList.add('demo-no-scrollbar')}",
+        },
       ],
     };
   },
@@ -273,16 +286,11 @@ function LegalDocModal({ doc, onClose }: { doc: LegalDocKey; onClose: () => void
 function PortalPage() {
   const initialPortal = Route.useLoaderData();
   const { slug } = Route.useParams();
-  const sourceSlug = getMarketingPortalSourceSlug(slug);
-  const { data: refreshedPortal } = useQuery({
-    queryKey: ["marketing-portal-demo", slug],
-    queryFn: () => getPortal({ data: { slug: sourceSlug ?? slug } }),
-    enabled: Boolean(sourceSlug),
-    initialData: initialPortal,
-    refetchOnMount: false,
-    refetchOnWindowFocus: "always",
-  });
-  const portal = sourceSlug ? refreshedPortal : initialPortal;
+  // Os dados vêm do loader (portal real, ao vivo) — sem refetch no
+  // cliente (antes, cada volta de foco na aba chamava getPortal de novo).
+  // A resposta do loader é cacheada 24h no navegador (vercel.json), por
+  // isso a demonstração só consulta o banco 1x ao dia por visitante.
+  const portal = initialPortal;
   const submit = useServerFn(submitPortalLead);
   const [done, setDone] = useState<{
     isReturning: boolean;
@@ -335,6 +343,23 @@ function PortalPage() {
       window.scrollY + rect.top + rect.height / 2 - window.innerHeight / 2;
     window.scrollTo({ top: targetY, behavior: "smooth" });
   };
+
+  // Demonstração (autoplay=1): o portal vive num iframe na landing e a
+  // barra de rolagem lateral do documento aparece dentro do celular — feio.
+  // Esconde SÓ a barra (classe no <html> + regra no styles.css); a rolagem
+  // programática da demonstração (window.scrollTo) continua funcionando.
+  // No portal real (sem autoplay=1) nada muda.
+  // useLayoutEffect (antes da pintura) e não useEffect: a classe tem que
+  // estar presente antes do primeiro paint da hidratação. O script inline
+  // do head cobre o parse inicial; este efeito é a garantia para navegações
+  // no cliente e caso o script não rode.
+  useLayoutEffect(() => {
+    if (new URLSearchParams(window.location.search).get("autoplay") !== "1") return;
+    document.documentElement.classList.add("demo-no-scrollbar");
+    return () => {
+      document.documentElement.classList.remove("demo-no-scrollbar");
+    };
+  }, []);
 
   useEffect(() => {
     if (slug !== "demo-efraim" && slug !== "demo-barao") return;
@@ -431,6 +456,23 @@ function PortalPage() {
       cancelled = true;
     };
   }, [slug]);
+
+  // Demonstração (autoplay=1): avisa a landing (iframe pai) quando o check-in
+  // de demonstração chega na tela de sucesso, para o mockup reiniciar sozinho.
+  // O loop é disparado pelo sucesso, não pelo relógio — não depende do tempo
+  // de carregamento, então com carga lenta ou rápida o ciclo se repete para
+  // sempre. Só age nas rotas demo com autoplay=1; no portal real nada muda.
+  useEffect(() => {
+    if (!done) return;
+    if (slug !== "demo-efraim" && slug !== "demo-barao") return;
+    if (new URLSearchParams(window.location.search).get("autoplay") !== "1") return;
+    if (window.parent === window) return;
+    try {
+      window.parent.postMessage({ type: "manos-demo-success", slug }, window.location.origin);
+    } catch {
+      // Sem acesso ao pai (origem diferente): nada a avisar.
+    }
+  }, [done, slug]);
 
   const selectedCountry = useMemo(
     () => countries.find((c) => `${c.code}|${c.name}` === countryKey) ?? defaultCountry,
@@ -761,6 +803,14 @@ function PortalPage() {
         urls={portal.bannerUrls}
         alt={`Banner de ${portal.companyName}`}
         appearance={portal.appearance}
+        // Demonstração (slugs demo da landing, autoplay=1): o vídeo do banner
+        // usa preload="metadata" para não travar o onLoad do iframe — a
+        // demonstração ao vivo começa assim que o app carrega. No portal real
+        // o vídeo continua com preload="auto", como sempre foi.
+        // Além disso, em demonstração o vídeo nem é baixado: o slide de vídeo
+        // vira a foto de capa (.jpg) no lugar do <video> — o .mp4 não pode ser
+        // requisitado, senão o mockup demora ~1min numa conexão lenta.
+        demoMode={slug === "demo-efraim" || slug === "demo-barao"}
       />
     ) : null;
 
@@ -1267,7 +1317,10 @@ function PortalSuccess({
           </div>
 
           <div className="flex items-center justify-center gap-2 text-sm font-semibold text-primary">
-            <div className="size-1.5 animate-pulse rounded-full bg-primary" />
+            {/* Na demonstração o ponto pulsante parece um marcador solto antes
+                do texto — some só aqui; no portal real ele continua como
+                indicador de status ao lado do texto dinâmico. */}
+            {!isDemo && <div className="size-1.5 animate-pulse rounded-full bg-primary" />}
             {isDemo
               ? "Próximo passo: destino configurado da campanha."
               : done.checkinBlocked

@@ -11,10 +11,21 @@ export function BannerCarousel({
   urls,
   alt,
   appearance = defaultPortalAppearance,
+  // Demonstração (mockups da landing, autoplay=1): o vídeo NÃO pode travar o
+  // início — com preload="auto" o navegador baixa o vídeo antes de disparar
+  // o onLoad do iframe e a demonstração já está digitando atrás do
+  // "Carregando portal…". Com "metadata" o onLoad dispara assim que o app
+  // carrega e o vídeo continua tocando sozinho (muted + autoPlay). No portal
+  // real (fora da demonstração) continua "auto", como sempre foi.
+  // Além disso, em demonstração o vídeo nem é baixado: o slide de vídeo vira
+  // a foto de capa (.jpg) no lugar do <video> — o .mp4 (4MB no Boteco) não
+  // pode ser requisitado, senão o mockup demora ~1min numa conexão lenta.
+  demoMode = false,
 }: {
   urls: string[];
   alt: string;
   appearance?: PortalAppearance;
+  demoMode?: boolean;
 }) {
   const [index, setIndex] = useState(0);
   const [progressKey, setProgressKey] = useState(0);
@@ -31,7 +42,10 @@ export function BannerCarousel({
   );
 
   const currentUrl = urls[index] ?? "";
-  const currentIsVideo = isVideoPath(currentUrl);
+  // Em demonstração o vídeo vira a foto de capa: não há elemento <video>, então
+  // o slide se comporta como imagem (o carrossel avança sozinho e a barra de
+  // progresso anima). No portal real continua vídeo.
+  const currentIsVideo = isVideoPath(currentUrl) && !demoMode;
 
   // Pausa o video ao sair dele e retoma (do inicio, se ja terminou) ao voltar.
   useEffect(() => {
@@ -64,11 +78,14 @@ export function BannerCarousel({
   useEffect(() => {
     if (urls.length < 2) return;
     const nextUrl = urls[(index + 1) % urls.length] ?? "";
-    if (isVideoPath(nextUrl)) return;
+    // Em demonstração o próximo vídeo vira foto de capa: pré-carrega a foto,
+    // nunca o .mp4. No portal real o vídeo não é pré-carregado (só imagem).
+    if (isVideoPath(nextUrl) && !demoMode) return;
+    const preloadUrl = isVideoPath(nextUrl) ? videoPosterUrl(nextUrl) : nextUrl;
     const nextImage = new Image();
     nextImage.decoding = "async";
-    nextImage.src = nextUrl;
-  }, [index, urls]);
+    nextImage.src = preloadUrl;
+  }, [index, urls, demoMode]);
 
   if (urls.length === 0) return null;
 
@@ -104,7 +121,7 @@ export function BannerCarousel({
               {!loadedUrls.has(url) && (
                 <div className="absolute inset-0 animate-pulse bg-[color:var(--portal-surface-alt)]" />
               )}
-              {isVideoPath(url) ? (
+              {isVideoPath(url) && !demoMode ? (
                 <video
                   src={url}
                   poster={videoPosterUrl(url)}
@@ -117,7 +134,7 @@ export function BannerCarousel({
                   controls={false}
                   disablePictureInPicture
                   disableRemotePlayback
-                  preload="auto"
+                  preload={demoMode ? "metadata" : "auto"}
                   onEnded={() => {
                     if (urls.length > 1) select(index + 1);
                   }}
@@ -152,7 +169,10 @@ export function BannerCarousel({
                 />
               ) : (
                 <img
-                src={url}
+                // Em demonstração o slide de vídeo vira a foto de capa (.jpg):
+                // o .mp4 nunca é requisitado. No portal real o vídeo cai no
+                // ramo <video> acima e a foto só aparece como poster dele.
+                src={isVideoPath(url) ? videoPosterUrl(url) : url}
                 alt={currentIndex === index ? alt : ""}
                 loading={currentIndex === 0 ? "eager" : "lazy"}
                 fetchPriority={currentIndex === 0 ? "high" : "auto"}

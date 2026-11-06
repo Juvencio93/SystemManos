@@ -8,4 +8,3 @@ const marketingPortalSources: Record<string, string> = {
 export function getMarketingPortalSourceSlug(slug: string) {
   return marketingPortalSources[slug] ?? null;
 }
-
