@@ -13,12 +13,6 @@ import { isBannerCreationRequest } from "@/lib/banner-intent";
 
 export async function generateInsight(prompt: string, system: string) {
   const { callGateway } = await import("@/lib/ai.server");
-  const contextFields =
-    system.includes("Gerente de Inteligência") || system.includes("Especialista de Marketing")
-      ? "Contexto Encontrado: Perfil Comercial (Segmento, Descrição, Objetivo, Nome, Métricas Operacionais)"
-      : "Contexto Encontrado: Métricas Globais da Plataforma";
-
-  console.log(`[AI Context Log] ${contextFields}`);
 
   const response = await callGateway(system, prompt);
   return response.text;
@@ -248,10 +242,6 @@ export const getCompanyBriefing = createServerFn({ method: "POST" })
         try {
           const jsonMatch = response.text.match(/\{[\s\S]*\}/);
           const aiData = JSON.parse(jsonMatch ? jsonMatch[0] : response.text);
-
-          console.log(
-            `[AI Briefing Log] Contexto utilizado: Segmento="${snapshot.business_segment}", Objetivo="${snapshot.wifi_marketing_goal}", Conexões=${snapshot.totalConexoes}`,
-          );
 
           await context.supabase
             .from("companies")
@@ -533,7 +523,7 @@ export const askAgent = createServerFn({ method: "POST" })
         stage: response.ok ? "empty_response" : response.stage || "deepseek_failure",
       };
     } catch (e: any) {
-      console.error(`[askAgent Error] RequestId=${requestId}`, e.message, e.stack);
+      console.error(`[askAgent Error] RequestId=${requestId}`, e.message, e.stack?.slice(0, 1_500));
       return {
         ok: false,
         text: null,

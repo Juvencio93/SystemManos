@@ -469,9 +469,6 @@ export async function computeCompanySnapshot(
   }
 
   const visitantesUnicosMes = uniqueMonthVisitorIds.length;
-  console.log(
-    `[Audit Metrics] Visitantes Únicos (${visitantesUnicosMes}) = Novos (${contatosNovosMes}) + Recorrentes (${contatosRecorrentesMes})`,
-  );
 
   const weekStartDate = startOfWeekDateSP();
   const { data: weekVisitorRows, error: weekVisitorsError } = await supabase

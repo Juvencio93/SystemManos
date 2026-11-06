@@ -13,7 +13,9 @@ function record(error: unknown) {
 // the failure detail stripped. Expand Error-like args into a string that keeps the
 // message, stack, and the full cause chain.
 const CAUSE_DEPTH_LIMIT = 5;
-const DESCRIPTION_LENGTH_LIMIT = 8_000;
+// Limite de ~1.500 chars: stack completo + cadeia de cause até 5 níveis
+// inundava os logs (o erro expandido chegava a 8.000 chars por ocorrência).
+const DESCRIPTION_LENGTH_LIMIT = 1_500;
 
 export function describeError(error: unknown): string {
   const parts: string[] = [];

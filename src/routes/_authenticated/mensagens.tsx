@@ -1052,11 +1052,6 @@ function MensagensPage() {
                   : "offline";
 
 
-              // DEBUG LOG
-              if (activeConversationId === conv.id) {
-                console.log(`[ChatDebug] conversationId: ${conv.id}, currentProfileId: ${access?.userId}, otherProfileId: ${otherProfileId}, displayName: ${name}, contactType: ${conv.contact_type}`);
-              }
-
               const lastMessage = conv.messages?.[conv.messages.length - 1];
               const unreadCount = conv.messages?.filter((m: any) => {
                 const isMe = m.sender_id === access?.userId;

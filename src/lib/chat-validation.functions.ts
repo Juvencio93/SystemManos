@@ -377,7 +377,6 @@ export const getChatContacts = createServerFn({ method: "GET" })
     const { data, error } = await (context.supabase as any).rpc("chat_get_contacts");
 
     if (error) {
-      console.error("[getChatContacts] Secure RPC error:", error);
       throw new Error(error.message || "Não foi possível carregar os contatos do chat.");
     }
 
@@ -506,10 +505,8 @@ export const getChatContacts = createServerFn({ method: "GET" })
       "chat_get_contact_avatar_urls",
     );
 
-    if (avatarError) {
-      console.error("[getChatContacts] Avatar resolver error:", avatarError);
-    }
-
+    // Sem log: o poll repete a cada ciclo (o erro não muda o resultado —
+    // os avatares seguem vazios).
     const avatarUrls = (avatarData || {}) as Record<string, string | null>;
     const contactIds = [...result.matrices, ...result.others].map((contact) => contact.profileId).filter(Boolean);
     if (contactIds.length) {
@@ -974,13 +971,6 @@ export const markConversationAsReadLegacy = createServerFn({ method: "POST" })
     const messageIds = (receipts as any[] || []).map(r => r.message_id);
     
     if (messageIds.length === 0) {
-      // Registrar no servidor o motivo pelo qual não houve atualização
-      console.log("[markConversationAsRead] No unread receipts found", { 
-        conversationId: data.conversationId, 
-        userId,
-        reason: "No matching receipts or already read"
-      });
-      
       // Calculate remaining anyway to be sure
       const { count } = await supabaseAdmin
         .from("chat_message_receipts")
@@ -1049,13 +1039,6 @@ export const markConversationAsReadLegacy = createServerFn({ method: "POST" })
       .select("*", { count: 'exact', head: true })
       .eq("recipient_profile_id", userId)
       .is("read_at", null);
-
-    console.log("[markConversationAsRead] Success", { 
-      conversationId: data.conversationId, 
-      userId, 
-      readCount: messageIds.length,
-      remaining: remainingCount
-    });
 
     return { 
       success: true, 
