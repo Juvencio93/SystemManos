@@ -67,7 +67,11 @@ export const getRealtimeActivity = createServerFn({ method: "GET" })
       return { activity: [], lastUpdate: new Date().toISOString() };
     }
 
-    const { data } = await query;
+    // Frente 1: varria as connections do dia inteiro sem limite, a cada
+    // 60s por usuário (o resultado é agregado por hora). Teto de segurança
+    // de 5000 linhas/dia por escopo; acima disso o agregado passa a ser
+    // parcial — trocar por agregação no banco se o teto for atingido.
+    const { data } = await query.limit(5000);
     const activity: RealtimeActivity[] = (data || []).map((conn) => {
       const hourStr = new Intl.DateTimeFormat("pt-BR", {
         timeZone: "America/Sao_Paulo",

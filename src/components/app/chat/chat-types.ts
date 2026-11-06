@@ -35,5 +35,7 @@ export interface ChatConversation {
   last_message_at: string;
   conversation_participants: ChatParticipant[];
   messages: ChatMessage[];
+  /** true quando getConversations trouxe só as 50 mais recentes. */
+  has_more_messages?: boolean;
 }
 

@@ -61,7 +61,7 @@ export const saveTelegramOperationalIntegration = createServerFn({ method: "POST
   .handler(async ({ context, data }) => {
     await requireAdm(context.supabase, context.userId);
 
-    const check = await fetch(`https://api.telegram.org/bot${data.botToken}/getMe`);
+    const check = await fetch(`https://api.telegram.org/bot${data.botToken}/getMe`, { signal: AbortSignal.timeout(30_000) });
     const result = await check.json().catch(() => ({}));
     if (!check.ok || !result.ok) throw new Error("Token do bot inválido.");
 
@@ -76,6 +76,7 @@ export const saveTelegramOperationalIntegration = createServerFn({ method: "POST
     const webhookUrl = `${process.env["VITE_SITE_URL"] || "https://manostech-system.com.br"}/api/public/telegram-operational-webhook`;
     const hook = await fetch(`https://api.telegram.org/bot${data.botToken}/setWebhook`, {
       method: "POST",
+      signal: AbortSignal.timeout(30_000),
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         url: webhookUrl,
@@ -138,7 +139,7 @@ export const removeTelegramOperationalIntegration = createServerFn({ method: "PO
       .select("bot_token")
       .maybeSingle();
     if (data?.bot_token) {
-      await fetch(`https://api.telegram.org/bot${data.bot_token}/deleteWebhook`, { method: "POST" });
+      await fetch(`https://api.telegram.org/bot${data.bot_token}/deleteWebhook`, { method: "POST", signal: AbortSignal.timeout(30_000) });
     }
     const { error } = await supabaseAdmin
       .from("telegram_operational_integrations")

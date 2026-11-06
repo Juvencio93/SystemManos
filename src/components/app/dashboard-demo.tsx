@@ -486,6 +486,18 @@ export function DashboardDemo() {
           staleTime: Infinity,
           gcTime: Infinity,
           retry: false,
+          // Frente 1: a demo NÃO deve pollar o Supabase (visitante sem
+          // login). Este default cobre queries da demo sem intervalo
+          // explícito — MAS não desliga os refetchInterval: 180_000 /
+          // 60_000 declarados dentro de ClientDashboardRedesign: no
+          // TanStack Query v5 (verificado no 5.104.0 instalado) a opção
+          // por query vence o default do client. Desligar de verdade
+          // exige `refetchInterval: false` (ou `enabled: false`) DENTRO
+          // de ClientDashboardRedesign.tsx — arquivo compartilhado com o
+          // painel real, fora do escopo desta frente. Custo residual: 2
+          // server-fn calls 401 a cada 180s por visitante (auth falha
+          // antes de qualquer query no banco), sem retry.
+          refetchInterval: false,
           refetchOnMount: false,
           refetchOnWindowFocus: false,
           refetchOnReconnect: false,

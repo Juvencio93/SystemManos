@@ -3,6 +3,13 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { mapRoleToParticipantType, normalizeAppRole } from "./chat-validation.functions";
 
+// Frente 1 — auditoria de logs do Supabase: getConversations carregava o
+// histórico INTEIRO de todas as conversas a cada poll (60s, até 3
+// observers). Agora cada conversa traz no máximo as 50 mensagens mais
+// recentes; o restante vem sob demanda via getConversationMessages
+// (botão "Carregar mensagens mais antigas").
+export const CHAT_MESSAGES_PER_CONVERSATION = 50;
+
 async function getOptionalSupabaseAdmin(supabase: any) {
   if (!process.env["TECH_SUPABASE_SERVICE_KEY"]) {
     return supabase;
@@ -254,7 +261,11 @@ export const getConversations = createServerFn({ method: "GET" })
         msgQuery = msgQuery.gt("created_at", historyClearedAt);
       }
 
-      const { data: messages, error: messagesError } = await msgQuery.order('created_at', { ascending: true });
+      // Últimas N mensagens: busca em ordem decrescente com limit+1 (o
+      // +1 diz se há mais antigas) e devolve em ordem crescente, como antes.
+      const { data: fetchedMessages, error: messagesError } = await msgQuery
+        .order("created_at", { ascending: false })
+        .limit(CHAT_MESSAGES_PER_CONVERSATION + 1);
       if (messagesError) {
         console.error("[getConversations] Messages error:", {
           conversationId: conv.id,
@@ -263,6 +274,10 @@ export const getConversations = createServerFn({ method: "GET" })
         });
         throw new Error(messagesError.message || "Não foi possível carregar as mensagens da conversa.");
       }
+      const hasMoreMessages = (fetchedMessages || []).length > CHAT_MESSAGES_PER_CONVERSATION;
+      const messages = (fetchedMessages || [])
+        .slice(0, CHAT_MESSAGES_PER_CONVERSATION)
+        .reverse();
       const replyIds = Array.from(new Set((messages || []).map((msg: any) => msg.reply_to_message_id).filter(Boolean)));
       let repliesById = new Map<string, any>();
       if (replyIds.length > 0) {
@@ -276,7 +291,7 @@ export const getConversations = createServerFn({ method: "GET" })
         ...msg,
         reply_to: msg.reply_to_message_id ? repliesById.get(msg.reply_to_message_id) || null : null,
       }));
-      return { ...conv, messages: enrichedMessages };
+      return { ...conv, messages: enrichedMessages, has_more_messages: hasMoreMessages };
     }));
 
 
@@ -671,6 +686,131 @@ export const getConversations = createServerFn({ method: "GET" })
     });
     return [...uniqueByContact.values()];
 
+  });
+
+
+/**
+ * Página de mensagens antigas de UMA conversa (Frente 1).
+ * `getConversations` traz só as 50 mais recentes; o botão "Carregar
+ * mensagens mais antigas" chama esta fn com `before` = created_at da
+ * mensagem mais antiga já exibida. Acesso com o mesmo escopo do
+ * `getConversations` (participante, ADM, revenda dona da empresa,
+ * matriz/filial da empresa) e o mesmo filtro de histórico limpo.
+ */
+export const getConversationMessages = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) =>
+    z
+      .object({
+        conversationId: z.string().uuid(),
+        before: z.string().datetime({ offset: true }).optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+      })
+      .parse(data),
+  )
+  .handler(async ({ context, data }) => {
+    const { supabase, userId } = context;
+    const serverSupabase = await getOptionalSupabaseAdmin(supabase);
+    const limit = data.limit ?? CHAT_MESSAGES_PER_CONVERSATION;
+
+    const { data: userRoles } = await supabase
+      .from("user_roles")
+      .select("role, company_id, branch_id")
+      .eq("user_id", userId);
+    const roles = (userRoles || []).map((r) => ({ ...r, role: normalizeAppRole(r.role) }));
+    const primaryRole = [...roles].sort((a, b) => {
+      const priority = ["adm", "revenda", "matriz", "filial"];
+      const roleA = a?.role || "";
+      const roleB = b?.role || "";
+      return priority.indexOf(roleA) - priority.indexOf(roleB);
+    })[0];
+    if (!primaryRole) throw new Error("Conversa não encontrada.");
+
+    const { data: conversation } = await serverSupabase
+      .from("conversations")
+      .select("id, company_id, conversation_participants(profile_id)")
+      .eq("id", data.conversationId)
+      .maybeSingle();
+    if (!conversation) throw new Error("Conversa não encontrada.");
+
+    const isParticipant = (conversation.conversation_participants ?? []).some(
+      (participant: any) => participant.profile_id === userId,
+    );
+    let allowed = isParticipant || primaryRole.role === "adm";
+    if (!allowed && primaryRole.role === "revenda") {
+      const { data: reseller } = await serverSupabase
+        .from("resellers")
+        .select("id")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (reseller?.id) {
+        const { data: ownedCompanies } = await serverSupabase
+          .from("companies")
+          .select("id")
+          .eq("reseller_id", reseller.id);
+        allowed = (ownedCompanies ?? []).some((company: any) => company.id === conversation.company_id);
+      }
+    }
+    if (!allowed && (primaryRole.role === "matriz" || primaryRole.role === "filial")) {
+      allowed = Boolean(primaryRole.company_id) && conversation.company_id === primaryRole.company_id;
+    }
+    if (!allowed) throw new Error("Conversa não encontrada.");
+
+    const { data: prefs } = await supabase
+      .from("conversation_user_preferences")
+      .select("history_cleared_at")
+      .eq("user_id", userId)
+      .eq("conversation_id", data.conversationId)
+      .maybeSingle();
+    const historyClearedAt = (prefs as any)?.history_cleared_at as string | null;
+
+    let msgQuery = serverSupabase
+      .from("messages")
+      .select(`
+        id,
+        content,
+        created_at,
+        sender_id,
+        event,
+        reply_to_message_id,
+        edited_at,
+        deleted_at,
+        chat_attachments (*),
+        sender_profile:profiles!messages_sender_id_fkey(id, display_name, full_name, chat_avatar_url),
+        chat_message_receipts (
+          delivered_at,
+          read_at,
+          recipient_profile_id
+        )
+      `)
+      .eq("conversation_id", data.conversationId);
+    if (historyClearedAt) msgQuery = msgQuery.gt("created_at", historyClearedAt);
+    if (data.before) msgQuery = msgQuery.lt("created_at", data.before);
+
+    const { data: fetchedMessages, error: messagesError } = await msgQuery
+      .order("created_at", { ascending: false })
+      .limit(limit + 1);
+    if (messagesError) throw new Error(messagesError.message || "Não foi possível carregar as mensagens.");
+    const hasMore = (fetchedMessages || []).length > limit;
+    const messages = (fetchedMessages || []).slice(0, limit).reverse();
+
+    const replyIds = Array.from(
+      new Set((messages || []).map((msg: any) => msg.reply_to_message_id).filter(Boolean)),
+    );
+    let repliesById = new Map<string, any>();
+    if (replyIds.length > 0) {
+      const { data: replies } = await serverSupabase
+        .from("messages")
+        .select("id, content, sender_id, created_at, deleted_at")
+        .in("id", replyIds);
+      repliesById = new Map((replies || []).map((reply: any) => [reply.id, reply]));
+    }
+    const enrichedMessages = (messages || []).map((msg: any) => ({
+      ...msg,
+      message_type: msg?.event === "nudge" ? "attention" : "text",
+      reply_to: msg.reply_to_message_id ? repliesById.get(msg.reply_to_message_id) || null : null,
+    }));
+    return { messages: enrichedMessages, hasMore };
   });
 
 export const setConversationPinned = createServerFn({ method: "POST" })

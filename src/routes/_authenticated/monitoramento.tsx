@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { PageHeader } from "@/components/app/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useAccess } from "@/hooks/use-access";
+import { pollingInterval } from "@/lib/polling";
 import {
   getHermesResumo,
   type HermesResumoResult,
@@ -29,6 +30,7 @@ const onlineAgora = (lastSeen?: string | null) =>
 
 function MonitoramentoPage() {
   const { data: access } = useAccess();
+  const queryClient = useQueryClient();
   const canSee = access?.role === "adm";
   const fetchResumo = useServerFn(getHermesResumo);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -36,12 +38,14 @@ function MonitoramentoPage() {
   const devicesQuery = useQuery({
     queryKey: ["monitoramento-devices", access?.role, access?.companyId],
     enabled: canSee,
-    refetchInterval: 30000,
+    refetchInterval: pollingInterval(queryClient, ["monitoramento-devices", access?.role, access?.companyId], 120_000),
+    refetchIntervalInBackground: false,
+    retry: false,
     queryFn: async () => {
       let query = (supabase as any)
         .from("hotspot_devices")
         .select(
-          "id,router_identity,ap_mac,status,company_id,branch_id,last_seen_at,last_seen_ip,router_version,active_sessions,rx_bytes,tx_bytes,latency_ms,packet_loss_pct,sync_requested_at,sync_applied_at,reboot_requested_at,reboot_applied_at,latitude,longitude,maps_url,companies(name,trade_name,address,neighborhood,city,state,zip_code),branches(name,trade_name,address,neighborhood,city,state,zip_code)",
+          "id,router_identity,ap_mac,status,company_id,branch_id,last_seen_at,last_seen_ip,router_version,active_sessions,latency_ms,packet_loss_pct,sync_requested_at,sync_applied_at,reboot_requested_at,reboot_applied_at,latitude,longitude,maps_url,companies(name,trade_name,address,neighborhood,city,state,zip_code),branches(name,trade_name,address,neighborhood,city,state,zip_code)",
         );
       if (access?.role === "matriz" && access.companyId)
         query = query.eq("company_id", access.companyId);
@@ -77,7 +81,9 @@ function MonitoramentoPage() {
   const resumoQuery = useQuery({
     queryKey: ["monitoramento-resumo"],
     enabled: canSee,
-    refetchInterval: 30000,
+    refetchInterval: pollingInterval(queryClient, ["monitoramento-resumo"], 120_000),
+    refetchIntervalInBackground: false,
+    retry: false,
     queryFn: () => fetchResumo() as Promise<HermesResumoResult>,
   });
 
@@ -168,7 +174,7 @@ function MonitoramentoPage() {
       <div className="-mt-2 mb-6">
         <HotspotNetworkMap
           devices={mapDevices}
-          refreshSeconds={30}
+          refreshSeconds={120}
           isLoading={devicesQuery.isLoading}
           compact
           onBlock={handleMapBlock}

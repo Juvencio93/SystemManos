@@ -28,6 +28,7 @@ async function evolutionFetch(path: string, init?: RequestInit) {
   if (!configurado) throw new Error("EVOLUTION_NAO_CONFIGURADA");
   const res = await fetch(`${url}${path}`, {
     ...init,
+    signal: init?.signal ?? AbortSignal.timeout(30_000),
     headers: {
       "Content-Type": "application/json",
       apikey: key,

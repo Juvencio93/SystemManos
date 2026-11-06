@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Bell, CheckCheck, CircleCheck, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import type { AppRole } from "@/hooks/use-access";
 import { supabase } from "@/integrations/supabase/client";
 import { buildHotspotAlerts } from "@/lib/hotspot-events";
+import { pollingInterval } from "@/lib/polling";
 
 const STORAGE_PREFIX = "manos-hotspot-alerts-read:";
 const DISMISSED_STORAGE_PREFIX = "manos-hotspot-alerts-dismissed:";
@@ -70,10 +71,12 @@ export function NotificationCenter({ userId, role }: { userId: string; role: App
     }
   }, [dismissedStorageKey]);
 
+  const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: ["notifications", userId, role],
-    refetchInterval: 180_000,
+    refetchInterval: pollingInterval(queryClient, ["notifications", userId, role], 180_000),
     refetchIntervalInBackground: false,
+    retry: false,
     queryFn: async () => {
       const [{ data: devices, error: devicesError }, { data: audits, error: auditsError }, { data: systemNotifications, error: systemError }] =
         await Promise.all([
@@ -81,7 +84,10 @@ export function NotificationCenter({ userId, role }: { userId: string; role: App
             .from("hotspot_devices")
             .select(
               "id,router_identity,status,router_applied_status,last_seen_at,packet_loss_pct,router_status_requested_at,router_status_applied_at,sync_requested_at,sync_applied_at,reboot_requested_at,reboot_applied_at",
-            ),
+            )
+            // Frente 1: este SELECT rodava sem limite a cada 3 min por usuário.
+            // 500 cobre folgado a frota de RBs e impede varredura sem teto.
+            .limit(500),
           supabase
             .from("hotspot_device_audit")
             .select("id,device_id,action,created_at")

@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useQuery } from "@tanstack/react-query";
+import { pollingInterval } from "@/lib/polling";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo, ReactNode, useEffect } from "react";
 import { ArrowRight } from "lucide-react";
 
@@ -350,14 +351,14 @@ function NetworkMapPanel({ devices, isLoading, overlay, onClose, onMouseLeave }:
 // Contador do heartbeat ISOLADO: tem seu próprio timer de 1s para não
 // forçar re-render do painel do mapa (e do modal de gráficos) a cada segundo.
 function DashboardHeartbeatLabel() {
-  const [secondsToRefresh, setSecondsToRefresh] = useState(5);
+  const [secondsToRefresh, setSecondsToRefresh] = useState(60);
   useEffect(() => {
-    const timer = window.setInterval(() => setSecondsToRefresh((value) => (value <= 1 ? 5 : value - 1)), 1000);
+    const timer = window.setInterval(() => setSecondsToRefresh((value) => (value <= 1 ? 60 : value - 1)), 1000);
     return () => window.clearInterval(timer);
   }, []);
   return (
     <p className="mt-1 text-xs text-muted-foreground">
-      Heartbeat em {secondsToRefresh}s · atualização automática a cada 5s
+      Heartbeat em {secondsToRefresh}s · atualização automática a cada 60s
     </p>
   );
 }
@@ -701,9 +702,12 @@ export function ProblemasRedeResumo() {
     setVistosAte(agora);
   };
   const buscarResumo = useServerFn(getHermesResumo);
+  const queryClient = useQueryClient();
   const resumo = useQuery({
     queryKey: ["monitoramento-resumo"],
-    refetchInterval: 60_000,
+    refetchInterval: pollingInterval(queryClient, ["monitoramento-resumo"], 60_000),
+    refetchIntervalInBackground: false,
+    retry: false,
     queryFn: () => buscarResumo() as Promise<HermesResumoResult>,
   });
   if (!resumo.data?.ok) return null;
@@ -845,7 +849,8 @@ export function ProblemasRedeResumo() {
 }
 
 function AdminDashboard({ access }: { access: AccessInfo | null }) {
-  const hotspotDevices = useQuery({ queryKey: ["dashboard-hotspot-devices", access?.role, access?.companyId, access?.branchId, access?.resellerId], enabled: Boolean(access?.userId), refetchInterval: 60_000, queryFn: async () => {
+  const queryClient = useQueryClient();
+  const hotspotDevices = useQuery({ queryKey: ["dashboard-hotspot-devices", access?.role, access?.companyId, access?.branchId, access?.resellerId], enabled: Boolean(access?.userId), refetchInterval: pollingInterval(queryClient, ["dashboard-hotspot-devices", access?.role, access?.companyId, access?.branchId, access?.resellerId], 180_000), refetchIntervalInBackground: false, retry: false, queryFn: async () => {
     let query = (supabase as any).from("hotspot_devices").select("id,router_identity,last_seen_at,last_seen_ip,last_seen_uptime,router_version,active_sessions,rx_bytes,tx_bytes,latency_ms,packet_loss_pct,status,company_id,branch_id,reboot_requested_at,reboot_applied_at,router_applied_status,router_status_applied_at,latitude,longitude,maps_url,companies(name,trade_name,address,neighborhood,city,state,zip_code),branches(name,trade_name,address,neighborhood,city,state,zip_code)");
     if (access?.role === "revenda" && access.resellerId) {
       const [{ data: companies }, { data: branches }] = await Promise.all([
@@ -918,7 +923,9 @@ function AdminDashboard({ access }: { access: AccessInfo | null }) {
     queryKey: ["insights"],
     queryFn: () => fetchInsights(),
     enabled: Boolean(access?.userId),
-    refetchInterval: 60_000,
+    refetchInterval: pollingInterval(queryClient, ["insights"], 180_000),
+    refetchIntervalInBackground: false,
+    retry: false,
   });
 
   const data = insights.data as Insights | undefined;
