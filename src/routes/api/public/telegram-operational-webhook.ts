@@ -70,6 +70,7 @@ export const Route = createFileRoute("/api/public/telegram-operational-webhook")
             `https://api.telegram.org/bot${integration.bot_token}/sendMessage`,
             {
               method: "POST",
+              signal: AbortSignal.timeout(30_000),
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 chat_id: integration.alert_chat_id,
@@ -113,6 +114,7 @@ export const Route = createFileRoute("/api/public/telegram-operational-webhook")
         const send = (messageText: string, parseMode?: "HTML") =>
           fetch(`https://api.telegram.org/bot${integration.bot_token}/sendMessage`, {
             method: "POST",
+            signal: AbortSignal.timeout(30_000),
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               chat_id: chatId,
@@ -149,6 +151,7 @@ export const Route = createFileRoute("/api/public/telegram-operational-webhook")
 
         await fetch(`https://api.telegram.org/bot${integration.bot_token}/sendChatAction`, {
           method: "POST",
+          signal: AbortSignal.timeout(30_000),
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ chat_id: chatId, action: "typing" }),
         });

@@ -8,6 +8,7 @@ const api = (environment: string) => environment === "sandbox" ? "https://sandbo
 async function pagbank(token: string, environment: string, path: string, body?: unknown) {
   const init: RequestInit = {
     method: body ? "POST" : "GET",
+    signal: AbortSignal.timeout(30_000),
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: "application/json",

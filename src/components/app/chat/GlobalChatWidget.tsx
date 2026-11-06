@@ -29,7 +29,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAccess } from "@/hooks/use-access";
 import { ChatPresenceContext, usePresence } from "./ChatPresenceProvider";
-import { deleteChatMessage, editChatMessage, getConversations, hideConversation, setConversationPinned } from "@/lib/chat.functions";
+import { deleteChatMessage, editChatMessage, getConversations, getConversationMessages, hideConversation, setConversationPinned } from "@/lib/chat.functions";
+import { pollingInterval } from "@/lib/polling";
 import { getChatContacts, getOrCreateConversation, participantKey, resolveNudgeTargetUserIds, markConversationAsRead, ChatContact } from "@/lib/chat-validation.functions";
 import { getPresenceStatus, updateMyPresence } from "@/lib/chat-presence.functions";
 import { callContactAttention } from "@/lib/chat-attention.functions";
@@ -290,9 +291,12 @@ function ChatPanel({ onClose, setIsOpen, activeConversationId, setActiveConversa
         },
         enabled: !!access?.userId && !!access?.role,
         // Realtime atualiza mensagens/conversas imediatamente; este polling
-        // é apenas uma salvaguarda leve para eventos perdidos.
-        refetchInterval: 60000,
+        // é apenas uma salvaguarda leve para eventos perdidos. Este widget
+        // (montado no layout autenticado) é o ÚNICO dono do polling desta
+        // chave: ChatTrigger e /mensagens só leem o cache.
+        refetchInterval: pollingInterval(queryClient, ["conversations"], 60_000),
         refetchIntervalInBackground: false,
+        retry: false,
     });
 
     const { data: contactsResponse, isLoading: isLoadingContacts } = useQuery<{ matrices: ChatContact[], others: ChatContact[] }>({
@@ -376,8 +380,9 @@ function ChatPanel({ onClose, setIsOpen, activeConversationId, setActiveConversa
       queryKey: ["chat-presence-status", trackedPresenceProfileIds],
       queryFn: async () => getPresenceStatus({ data: { profileIds: trackedPresenceProfileIds } }),
       enabled: trackedPresenceProfileIds.length > 0,
-      refetchInterval: 60000,
+      refetchInterval: pollingInterval(queryClient, ["chat-presence-status", trackedPresenceProfileIds], 300_000),
       refetchIntervalInBackground: false,
+      retry: false,
     });
 
     const getPersistedPresenceStatus = useCallback((profileId: string | null) => {
@@ -418,6 +423,31 @@ function ChatPanel({ onClose, setIsOpen, activeConversationId, setActiveConversa
       : undefined;
     const activeConversation = storedActiveConversation || draftConversation;
     const messages = activeConversation?.messages || [];
+    const [olderMessagesByConv, setOlderMessagesByConv] = useState<Record<string, any[]>>({});
+    const [olderExhaustedByConv, setOlderExhaustedByConv] = useState<Record<string, boolean>>({});
+    const [loadingOlder, setLoadingOlder] = useState(false);
+    const loadOlderMessages = async () => {
+      if (!activeConversationId || !isValidUuid(activeConversationId) || loadingOlder) return;
+      const shown = [...(olderMessagesByConv[activeConversationId] ?? []), ...(activeConversation?.messages ?? [])];
+      const oldest = shown[0]?.created_at as string | undefined;
+      setLoadingOlder(true);
+      try {
+        const payload: { conversationId: string; before?: string } = { conversationId: activeConversationId };
+        if (oldest) payload.before = oldest;
+        const result = await getConversationMessages({ data: payload });
+        const fresh = (result.messages ?? []).filter((m: any) => !shown.some((s: any) => s.id === m.id));
+        if (fresh.length > 0) {
+          setOlderMessagesByConv((prev) => ({ ...prev, [activeConversationId]: [...fresh, ...(prev[activeConversationId] ?? [])] }));
+        }
+        if (!result.hasMore || fresh.length === 0) {
+          setOlderExhaustedByConv((prev) => ({ ...prev, [activeConversationId]: true }));
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Não foi possível carregar as mensagens mais antigas.");
+      } finally {
+        setLoadingOlder(false);
+      }
+    };
 
     const compactOrganizationName = (name: string) => {
       const words = name
@@ -1364,8 +1394,16 @@ function ChatPanel({ onClose, setIsOpen, activeConversationId, setActiveConversa
               <div className="flex-1 relative overflow-hidden">
                 <ScrollArea className="h-full p-4 chat-messages-scroll-area" ref={scrollRef}>
                   <div className="space-y-4 min-h-full">
+                    {(activeConversation as any)?.has_more_messages && activeConversationId && !olderExhaustedByConv[activeConversationId] ? (
+                      <div className="flex justify-center">
+                        <Button variant="outline" size="sm" onClick={() => void loadOlderMessages()} disabled={loadingOlder}>
+                          {loadingOlder ? "Carregando…" : "Carregar mensagens mais antigas"}
+                        </Button>
+                      </div>
+                    ) : null}
                     {(() => {
                       const combined = [
+                        ...(olderMessagesByConv[activeConversationId ?? ""] ?? []),
                         ...(activeConversation?.messages || []),
                         ...(optimisticMessages[activeConversationId!] || []).map(m => ({ ...m, isOptimistic: true }))
                       ].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());

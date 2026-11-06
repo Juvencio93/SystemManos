@@ -31,7 +31,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAccess } from "@/hooks/use-access";
 import { usePresence } from "@/components/app/chat/ChatPresenceProvider";
-import { deleteChatMessage, editChatMessage, getConversations, hideConversation, setConversationPinned } from "@/lib/chat.functions";
+import { deleteChatMessage, editChatMessage, getConversations, getConversationMessages, hideConversation, setConversationPinned } from "@/lib/chat.functions";
+import { pollingInterval } from "@/lib/polling";
 import { getChatContacts, getOrCreateConversation, participantKey, resolveNudgeTargetUserIds, markConversationAsRead, ChatContact } from "@/lib/chat-validation.functions";
 import { getPresenceStatus } from "@/lib/chat-presence.functions";
 import { callContactAttention } from "@/lib/chat-attention.functions";
@@ -177,9 +178,9 @@ function MensagensPage() {
     queryKey: ["conversations"],
     queryFn: () => getConversations(),
     enabled: !!access?.userId && !!access?.role,
-    // Realtime mantém a lista atualizada; polling moderado evita requests
-    // agressivos e é pausado quando a aba fica em segundo plano.
-    refetchInterval: 60000,
+    // Sem refetchInterval: o GlobalChatWidget (montado no layout
+    // autenticado) é o único observer com polling desta chave. O Realtime
+    // mantém a lista atualizada; sem cache, busca uma vez no mount.
     refetchIntervalInBackground: false,
   });
 
@@ -197,8 +198,9 @@ function MensagensPage() {
     queryKey: ["chat-presence-status", trackedPresenceProfileIds],
     queryFn: async () => getPresenceStatus({ data: { profileIds: trackedPresenceProfileIds } }),
     enabled: trackedPresenceProfileIds.length > 0,
-    refetchInterval: 60000,
+    refetchInterval: pollingInterval(queryClient, ["chat-presence-status", trackedPresenceProfileIds], 300_000),
     refetchIntervalInBackground: false,
+    retry: false,
   });
 
   const getPersistedPresenceStatus = useCallback((profileId: string | null) => {
@@ -229,6 +231,31 @@ function MensagensPage() {
     : undefined;
   const activeConversation = storedActiveConversation || draftConversation;
   const messages = activeConversation?.messages || [];
+  const [olderMessagesByConv, setOlderMessagesByConv] = useState<Record<string, any[]>>({});
+  const [olderExhaustedByConv, setOlderExhaustedByConv] = useState<Record<string, boolean>>({});
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const loadOlderMessages = async () => {
+    if (!activeConversationId || !isValidUuid(activeConversationId) || loadingOlder) return;
+    const shown = [...(olderMessagesByConv[activeConversationId] ?? []), ...(activeConversation?.messages ?? [])];
+    const oldest = shown[0]?.created_at as string | undefined;
+    setLoadingOlder(true);
+    try {
+      const payload: { conversationId: string; before?: string } = { conversationId: activeConversationId };
+      if (oldest) payload.before = oldest;
+      const result = await getConversationMessages({ data: payload });
+      const fresh = (result.messages ?? []).filter((m: any) => !shown.some((s: any) => s.id === m.id));
+      if (fresh.length > 0) {
+        setOlderMessagesByConv((prev) => ({ ...prev, [activeConversationId]: [...fresh, ...(prev[activeConversationId] ?? [])] }));
+      }
+      if (!result.hasMore || fresh.length === 0) {
+        setOlderExhaustedByConv((prev) => ({ ...prev, [activeConversationId]: true }));
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível carregar as mensagens mais antigas.");
+    } finally {
+      setLoadingOlder(false);
+    }
+  };
 
   const compactOrganizationName = (name: string) => {
     const words = name
@@ -1270,8 +1297,16 @@ function MensagensPage() {
             <div className="flex-1 relative overflow-hidden">
               <ScrollArea className="h-full p-4 chat-messages-scroll-area" ref={scrollRef}>
                 <div className="flex flex-col gap-4 min-h-full">
+                  {(activeConversation as any)?.has_more_messages && activeConversationId && !olderExhaustedByConv[activeConversationId] ? (
+                    <div className="flex justify-center">
+                      <Button variant="outline" size="sm" onClick={() => void loadOlderMessages()} disabled={loadingOlder}>
+                        {loadingOlder ? "Carregando…" : "Carregar mensagens mais antigas"}
+                      </Button>
+                    </div>
+                  ) : null}
                   {(() => {
                     const combined = [
+                      ...(olderMessagesByConv[activeConversationId ?? ""] ?? []),
                       ...(activeConversation?.messages || []),
                       ...(optimisticMessages[activeConversationId!] || []).map(m => ({ ...m, isOptimistic: true }))
                     ].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());

@@ -22,31 +22,43 @@ export function LiveCrmPreview() {
 
   useEffect(() => {
     let active = true;
+    let consecutiveErrors = 0;
+    let timer: number | undefined;
     const refresh = async () => {
       if (document.visibilityState === "hidden") return;
       try {
-        const response = await fetch("/api/public/marketing-crm-summary");
+        const response = await fetch("/api/public/marketing-crm-summary", { signal: AbortSignal.timeout(15_000) });
         if (!response.ok) throw new Error("Indicadores indisponíveis");
         const data: unknown = await response.json();
         if (!isCrmSummary(data)) throw new Error("Resposta inválida");
+        consecutiveErrors = 0;
         if (active) {
           setSummary(data);
           setState("ready");
         }
       } catch {
+        consecutiveErrors += 1;
         if (active) {
           setSummary(null);
           setState("error");
+        }
+        // Frente 1: sem este freio o intervalo batia no endpoint para
+        // sempre, mesmo com o backend fora. Após 3 erros seguidos o
+        // polling para (a volta ao topo / reload recomeça).
+        if (consecutiveErrors >= 3 && timer !== undefined) {
+          window.clearInterval(timer);
+          timer = undefined;
         }
       }
     };
 
     void refresh();
-    const timer = window.setInterval(() => void refresh(), 60_000);
+    // Frente 1: 60s -> 300s por visitante da landing pública.
+    timer = window.setInterval(() => void refresh(), 300_000);
     document.addEventListener("visibilitychange", refresh);
     return () => {
       active = false;
-      window.clearInterval(timer);
+      if (timer !== undefined) window.clearInterval(timer);
       document.removeEventListener("visibilitychange", refresh);
     };
   }, []);

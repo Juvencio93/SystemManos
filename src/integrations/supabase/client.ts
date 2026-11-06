@@ -33,7 +33,10 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
     }
 
     headers.set("apikey", supabaseKey);
-    return fetch(input, { ...init, headers });
+    // Frente 1: sem timeout, uma query pendurada ficava pendurada até o
+    // timeout da plataforma e o próximo ciclo de polling disparava outra
+    // em paralelo (acúmulo de requisições concorrentes).
+    return fetch(input, { ...init, headers, signal: init?.signal ?? AbortSignal.timeout(30_000) });
   };
 }
 

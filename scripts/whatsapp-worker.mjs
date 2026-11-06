@@ -230,13 +230,24 @@ async function processarInstancia(inst) {
   console.log(`[${nome}] próximo lote após ${proximo}`);
 }
 
+// Frente 1: um lote leva 10 msgs x 30-90s de pausa (5-15 min), mas o
+// setInterval dispara a cada 60s — ciclos sobrepostos liam a mesma fila
+// pendente e podiam processar a mesma campanha em paralelo. A trava
+// descarta o tick enquanto um ciclo está em andamento; o finally libera.
+let cicloEmAndamento = false;
 async function ciclo() {
+  if (cicloEmAndamento) return;
   if (!emHorarioComercial()) return;
-  const instancias = await sbGet(`whatsapp_instancias?select=*`);
-  for (const inst of instancias || []) {
-    await processarInstancia(inst).catch((e) =>
-      console.error(`[${inst.instance_name}] ciclo falhou: ${e.message}`),
-    );
+  cicloEmAndamento = true;
+  try {
+    const instancias = await sbGet(`whatsapp_instancias?select=*`);
+    for (const inst of instancias || []) {
+      await processarInstancia(inst).catch((e) =>
+        console.error(`[${inst.instance_name}] ciclo falhou: ${e.message}`),
+      );
+    }
+  } finally {
+    cicloEmAndamento = false;
   }
 }
 

@@ -17,12 +17,14 @@ type TriggerConversation = {
 
 export function ChatTrigger({ onClick, isOpen }: { onClick: () => void; isOpen: boolean }) {
   const { data: access } = useAccess();
+  // Sem refetchInterval: o GlobalChatWidget é o ÚNICO observer com
+  // polling da chave ["conversations"] (montado em todas as rotas
+  // autenticadas). O selo de não-lido lê o cache dele; sem cache, esta
+  // query busca uma vez no mount.
   const { data: conversations = [] } = useQuery<TriggerConversation[]>({
     queryKey: ["conversations"],
     queryFn: async () => (await getConversations()) as TriggerConversation[],
     enabled: Boolean(access?.userId && access?.role),
-    refetchInterval: 60_000,
-    refetchIntervalInBackground: false,
   });
 
   const hasUnread = useMemo(

@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useSuspenseQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { pollingInterval } from "@/lib/polling";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import {
@@ -237,7 +238,9 @@ function PasswordResetRequestsCard() {
   } = useQuery({
     queryKey: ["password-reset-requests"],
     queryFn: () => listFn(),
-    refetchInterval: 60_000,
+    refetchInterval: pollingInterval(queryClient, ["password-reset-requests"], 60_000),
+    refetchIntervalInBackground: false,
+    retry: false,
   });
 
   const invalidate = () =>

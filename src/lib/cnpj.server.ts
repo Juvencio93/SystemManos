@@ -39,7 +39,7 @@ export async function fetchCnpj(rawCnpj: string): Promise<CnpjLookup> {
   for (const url of endpoints) {
     for (let attempt = 0; attempt < 2 && !data; attempt++) {
       try {
-        const response = await fetch(url, { headers: { accept: "application/json" } });
+        const response = await fetch(url, { headers: { accept: "application/json" }, signal: AbortSignal.timeout(15_000) });
         if (response.status === 404) {
           throw new Error("CNPJ não encontrado na base da Receita.");
         }

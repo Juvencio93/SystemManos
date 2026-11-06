@@ -17,7 +17,7 @@ async function ownerFor(supabase: any, userId: string): Promise<Owner> {
 }
 function scoped(query: any, owner: Owner) { const q = query.eq("owner_type", owner.ownerType); return owner.ownerId ? q.eq("owner_id", owner.ownerId) : q.is("owner_id", null); }
 async function request(token: string, environment: "sandbox" | "production", path: string) {
-  const response = await fetch(`${baseUrl(environment)}${path}`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
+  const response = await fetch(`${baseUrl(environment)}${path}`, { signal: AbortSignal.timeout(30_000), headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(getPagBankErrorMessage(payload, response.status));
   return payload;

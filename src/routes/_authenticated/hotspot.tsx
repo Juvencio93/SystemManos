@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { BookOpen, Download, Router, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/app/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import { MacBypassManager } from "@/components/app/mac-bypass-manager";
 import { useServerFn } from "@tanstack/react-start";
 import { getMikrotikActivationDownload } from "@/lib/hotspot-config.functions";
 import { useAccess } from "@/hooks/use-access";
+import { pollingInterval } from "@/lib/polling";
 import { HermesSetupCard } from "@/components/app/hermes-setup-card";
 import { hotspotActionError, postHotspotAction } from "@/lib/hotspot-client";
 import { hotspotEventLabel } from "@/lib/hotspot-events";
@@ -29,6 +30,7 @@ export const Route = createFileRoute("/_authenticated/hotspot")({
 
 function HotspotPage() {
   const { data: access } = useAccess();
+  const queryClient = useQueryClient();
   const canManageHotspot = access?.role === "adm" || access?.role === "revenda";
   const getActivation = useServerFn(getMikrotikActivationDownload);
   const fetchPortals = useServerFn(getPortals);
@@ -36,7 +38,7 @@ function HotspotPage() {
   const portalItems = (portalsQuery.data?.items ?? []) as PortalItem[];
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<any>(null);
-  const clientsQuery = useQuery({ queryKey: ["hotspot-approved-clients", access?.role, access?.resellerId, access?.companyId, access?.branchId], enabled: canManageHotspot, refetchInterval: 60_000, queryFn: async () => {
+  const clientsQuery = useQuery({ queryKey: ["hotspot-approved-clients", access?.role, access?.resellerId, access?.companyId, access?.branchId], enabled: canManageHotspot, refetchInterval: pollingInterval(queryClient, ["hotspot-approved-clients", access?.role, access?.resellerId, access?.companyId, access?.branchId], 60_000), refetchIntervalInBackground: false, retry: false, queryFn: async () => {
     let query = (supabase as any).from("hotspot_devices").select("id,router_identity,ap_mac,status,company_id,branch_id,updated_at,last_seen_at,last_seen_ip,last_seen_uptime,router_version,active_sessions,rx_bytes,tx_bytes,latency_ms,packet_loss_pct,sync_requested_at,sync_applied_at,reboot_requested_at,reboot_applied_at,router_applied_status,router_status_applied_at,latitude,longitude,maps_url,companies(name,trade_name,address,neighborhood,city,state,zip_code),branches(name,trade_name,address,neighborhood,city,state,zip_code)");
     if (access?.role === "revenda" && access.resellerId) {
       const [{ data: companies }, { data: branches }] = await Promise.all([
@@ -65,12 +67,12 @@ function HotspotPage() {
       };
     }) as any[];
   }});
-  const auditQuery = useQuery({ queryKey: ["hotspot-audit"], enabled: canManageHotspot, refetchInterval: 60000, queryFn: async () => {
+  const auditQuery = useQuery({ queryKey: ["hotspot-audit"], enabled: canManageHotspot, refetchInterval: pollingInterval(queryClient, ["hotspot-audit"], 60_000), refetchIntervalInBackground: false, retry: false, queryFn: async () => {
     const { data, error } = await (supabase as any).from("hotspot_device_audit").select("id,device_id,action,previous_status,new_status,created_at").order("created_at", { ascending: false }).limit(20);
     if (error) throw error; return (data ?? []) as any[];
   }});
-  const healthQuery = useQuery({ queryKey: ["hotspot-health"], enabled: canManageHotspot, refetchInterval: 60000, queryFn: async () => { const response = await fetch("/api/internal/hotspot-health"); if (!response.ok) throw new Error("Falha no diagnóstico"); return response.json() as Promise<{ radiusConfigured: boolean; heartbeatConfigured: boolean; reason: string; checkedAt: string }>; } });
-  const filesQuery = useQuery({ queryKey: ["hotspot-files"], enabled: canManageHotspot, refetchInterval: 60000, queryFn: async () => (await fetch("/api/internal/hotspot-files")).json() as Promise<{ files: { path: string; available: boolean }[]; kitUpdatedAt: string | null; manualUpdatedAt: string | null }> });
+  const healthQuery = useQuery({ queryKey: ["hotspot-health"], enabled: canManageHotspot, refetchInterval: pollingInterval(queryClient, ["hotspot-health"], 300_000), refetchIntervalInBackground: false, retry: false, queryFn: async () => { const response = await fetch("/api/internal/hotspot-health"); if (!response.ok) throw new Error("Falha no diagnóstico"); return response.json() as Promise<{ radiusConfigured: boolean; heartbeatConfigured: boolean; reason: string; checkedAt: string }>; } });
+  const filesQuery = useQuery({ queryKey: ["hotspot-files"], enabled: canManageHotspot, refetchInterval: pollingInterval(queryClient, ["hotspot-files"], 300_000), refetchIntervalInBackground: false, retry: false, queryFn: async () => (await fetch("/api/internal/hotspot-files")).json() as Promise<{ files: { path: string; available: boolean }[]; kitUpdatedAt: string | null; manualUpdatedAt: string | null }> });
   const clients = clientsQuery.data ?? [];
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");

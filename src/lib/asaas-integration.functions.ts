@@ -120,6 +120,7 @@ async function fetchAsaas({
 }) {
   const response = await fetch(`${getAsaasApiUrl(environment)}${endpoint}`, {
     ...options,
+    signal: options.signal ?? AbortSignal.timeout(30_000),
     headers: {
       ...(options.headers || {}),
       "Content-Type": "application/json",

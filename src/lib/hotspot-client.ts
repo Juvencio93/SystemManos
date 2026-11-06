@@ -5,6 +5,7 @@ export async function postHotspotAction(path: string, body: Record<string, unkno
   if (error || !data.session?.access_token) throw new Error("Sua sessão expirou. Entre novamente.");
   return fetch(path, {
     method: "POST",
+    signal: AbortSignal.timeout(30_000),
     headers: {
       authorization: `Bearer ${data.session.access_token}`,
       "content-type": "application/json",
