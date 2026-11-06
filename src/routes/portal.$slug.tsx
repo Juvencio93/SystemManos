@@ -457,6 +457,23 @@ function PortalPage() {
     };
   }, [slug]);
 
+  // Demonstração (autoplay=1): avisa a landing (iframe pai) quando o check-in
+  // de demonstração chega na tela de sucesso, para o mockup reiniciar sozinho.
+  // O loop é disparado pelo sucesso, não pelo relógio — não depende do tempo
+  // de carregamento, então com carga lenta ou rápida o ciclo se repete para
+  // sempre. Só age nas rotas demo com autoplay=1; no portal real nada muda.
+  useEffect(() => {
+    if (!done) return;
+    if (slug !== "demo-efraim" && slug !== "demo-barao") return;
+    if (new URLSearchParams(window.location.search).get("autoplay") !== "1") return;
+    if (window.parent === window) return;
+    try {
+      window.parent.postMessage({ type: "manos-demo-success", slug }, window.location.origin);
+    } catch {
+      // Sem acesso ao pai (origem diferente): nada a avisar.
+    }
+  }, [done, slug]);
+
   const selectedCountry = useMemo(
     () => countries.find((c) => `${c.code}|${c.name}` === countryKey) ?? defaultCountry,
     [countryKey],
@@ -790,6 +807,9 @@ function PortalPage() {
         // usa preload="metadata" para não travar o onLoad do iframe — a
         // demonstração ao vivo começa assim que o app carrega. No portal real
         // o vídeo continua com preload="auto", como sempre foi.
+        // Além disso, em demonstração o vídeo nem é baixado: o slide de vídeo
+        // vira a foto de capa (.jpg) no lugar do <video> — o .mp4 não pode ser
+        // requisitado, senão o mockup demora ~1min numa conexão lenta.
         demoMode={slug === "demo-efraim" || slug === "demo-barao"}
       />
     ) : null;

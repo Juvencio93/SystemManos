@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowRight,
   ArrowUp,
@@ -295,34 +295,77 @@ function ScaledPortalFrame({
   );
 }
 
-function NotebookCheckinDemo() {
-  const [replay, setReplay] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [inView, setInView] = useState(false);
-
-  useEffect(() => {
-    const node = containerRef.current;
-    if (!node) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setInView(entry?.isIntersecting ?? false),
-      { threshold: 0.2 },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
+// Loop da demonstração disparado pelo SUCESSO (postMessage do iframe): o portal
+// avisa a landing quando o check-in de demonstração chega na tela de sucesso,
+// e a landing reinicia poucos segundos depois. Não depende do relógio nem do
+// tempo de carregamento — com carga lenta ou rápida, o ciclo se repete para
+// sempre. O intervalo antigo (ancorado no carregamento da página / na
+// visibilidade) não se repetia de verdade: com carga lenta ele disparava antes
+// da demonstração começar e a tela de sucesso ficava parada.
+// Rede de segurança: se o sucesso não chegar em 90s (falha de carga, demo
+// travada), reinicia assim mesmo. O recarregamento usa a mesma URL da
+// demonstração, já em cache no navegador por 24h — não gera consulta ao banco.
+function useDemoLoop({
+  demoSlug,
+  enabled,
+  resetKey,
+  onRestart,
+}: {
+  demoSlug: string;
+  enabled: boolean;
+  resetKey: number;
+  onRestart: () => void;
+}) {
+  const restartTimer = useRef<number | null>(null);
+  const scheduleRestart = useCallback(
+    (ms: number) => {
+      if (restartTimer.current !== null) window.clearTimeout(restartTimer.current);
+      restartTimer.current = window.setTimeout(onRestart, ms);
+    },
+    [onRestart],
+  );
+  const clearRestartTimer = useCallback(() => {
+    if (restartTimer.current !== null) {
+      window.clearTimeout(restartTimer.current);
+      restartTimer.current = null;
+    }
   }, []);
 
   useEffect(() => {
-    if (!inView) return;
-    // Reinício automático igual ao do hero: o demo leva ~15s até o sucesso;
-    // 30s dá uma pausa confortável na tela final. Só roda enquanto o
-    // notebook está visível — fora da vista não recarrega o iframe à toa.
-    // O botão "Reproduzir check-in fictício" continua funcionando (manual).
-    const timer = window.setInterval(() => setReplay((value) => value + 1), 20000);
-    return () => window.clearInterval(timer);
-  }, [inView]);
+    if (!enabled) return;
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data as { type?: unknown; slug?: unknown } | null;
+      if (!data || typeof data !== "object") return;
+      if (data.type !== "manos-demo-success" || data.slug !== demoSlug) return;
+      // Pausa na tela de sucesso para o visitante ver o resultado, e recomeça.
+      scheduleRestart(5000);
+    };
+    window.addEventListener("message", onMessage);
+    return () => {
+      window.removeEventListener("message", onMessage);
+      clearRestartTimer();
+    };
+  }, [enabled, demoSlug, scheduleRestart, clearRestartTimer]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    scheduleRestart(90000);
+    return clearRestartTimer;
+  }, [enabled, resetKey, scheduleRestart, clearRestartTimer]);
+}
+
+function NotebookCheckinDemo() {
+  const [replay, setReplay] = useState(0);
+  const restart = useCallback(() => setReplay((value) => value + 1), []);
+  // Loop disparado pelo sucesso (useDemoLoop): o portal avisa quando o
+  // check-in chega na tela de sucesso e a demonstração recomeça 5s depois,
+  // ciclo após ciclo, para sempre. Sem botão manual: só o loop automático
+  // (o botão "Reproduzir check-in fictício" bagunçava o ciclo automático).
+  useDemoLoop({ demoSlug: "demo-efraim", enabled: true, resetKey: replay, onRestart: restart });
 
   return (
-    <div ref={containerRef} className="mx-auto w-full max-w-[820px] px-2">
+    <div className="mx-auto w-full max-w-[820px] px-2">
       <div className="overflow-hidden rounded-t-[1rem] border border-b-0 border-white/10 bg-[#14171b] p-1.5 shadow-[0_24px_55px_rgba(0,0,0,.45)] sm:p-2">
         <div className="mx-auto mb-1.5 size-1 rounded-full bg-white/20" aria-hidden="true" />
         <div className="overflow-hidden rounded-[0.4rem] border border-white/[.06]">
@@ -341,40 +384,22 @@ function NotebookCheckinDemo() {
       <div className="relative mx-auto h-3 w-[104%] -translate-x-[2%] rounded-b-[0.7rem] border-x border-b border-white/[0.08] bg-[#23262b] shadow-[0_14px_28px_rgba(0,0,0,.35)]">
         <div className="mx-auto h-1.5 w-24 rounded-b-md bg-[#101214]" />
       </div>
-      <button type="button" onClick={() => setReplay((value) => value + 1)} className="mt-4 w-full text-center text-xs font-semibold text-emerald-200 hover:text-white">↻ Reproduzir check-in fictício</button>
     </div>
   );
 }
 
 function MobileBotecoDemo({ loop = false }: { loop?: boolean }) {
   const [replay, setReplay] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [inView, setInView] = useState(false);
-
-  useEffect(() => {
-    if (!loop) return;
-    const node = containerRef.current;
-    if (!node) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setInView(entry?.isIntersecting ?? false),
-      { threshold: 0.2 },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [loop]);
-
-  useEffect(() => {
-    if (!loop || !inView) return;
-    // O demo leva ~14s para completar, mas o boot do iframe atrasa o início;
-    // com 22s o loop disparava no meio da digitação e a demonstração só
-    // chegava ao sucesso no 2º ciclo (~40-55s). 35s dá tempo de completar e
-    // pausar na tela final antes de recomeçar.
-    const timer = window.setInterval(() => setReplay((value) => value + 1), 35000);
-    return () => window.clearInterval(timer);
-  }, [loop, inView]);
+  const restart = useCallback(() => setReplay((value) => value + 1), []);
+  // Loop disparado pelo sucesso (useDemoLoop), igual ao do notebook: o portal
+  // avisa quando o check-in chega na tela de sucesso e a demonstração recomeça
+  // 5s depois, ciclo após ciclo, para sempre. O intervalo antigo (35s, ancorado
+  // no carregamento da página) não se repetia de verdade: com carga lenta ele
+  // disparava antes da demonstração começar e a tela de sucesso ficava parada.
+  useDemoLoop({ demoSlug: "demo-barao", enabled: loop, resetKey: replay, onRestart: restart });
 
   return (
-    <div ref={containerRef} className="mx-auto w-full max-w-[340px] px-2">
+    <div className="mx-auto w-full max-w-[340px] px-2">
       <div className="relative rounded-[2.9rem] border border-[#3a3d42] bg-[#17181a] p-[3px] shadow-[0_20px_50px_rgba(0,0,0,.5)] ring-1 ring-white/[0.06]">
         <span className="absolute -left-[2px] top-28 h-14 w-[3px] rounded-l bg-[#2a2d31]" aria-hidden="true" />
         <span className="absolute -right-[2px] top-36 h-20 w-[3px] rounded-r bg-[#2a2d31]" aria-hidden="true" />
