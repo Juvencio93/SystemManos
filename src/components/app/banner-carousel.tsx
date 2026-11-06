@@ -11,15 +11,11 @@ export function BannerCarousel({
   urls,
   alt,
   appearance = defaultPortalAppearance,
-  // Demonstração (mockups da landing, autoplay=1): o vídeo NÃO pode travar o
-  // início — com preload="auto" o navegador baixa o vídeo antes de disparar
-  // o onLoad do iframe e a demonstração já está digitando atrás do
-  // "Carregando portal…". Com "metadata" o onLoad dispara assim que o app
-  // carrega e o vídeo continua tocando sozinho (muted + autoPlay). No portal
-  // real (fora da demonstração) continua "auto", como sempre foi.
-  // Além disso, em demonstração o vídeo nem é baixado: o slide de vídeo vira
-  // a foto de capa (.jpg) no lugar do <video> — o .mp4 (4MB no Boteco) não
-  // pode ser requisitado, senão o mockup demora ~1min numa conexão lenta.
+  // Demonstração (mockups da landing, autoplay=1): o vídeo é renderizado
+  // como no portal real (decisão do Gabriel, 06/11) — o mockup volta a
+  // baixar o .mp4 (4MB no Boteco). O formulário continua aparecendo rápido
+  // porque o overlay "Carregando portal…" some no readyState interactive
+  // (PR #189), não no onLoad — o download do vídeo não trava o início.
   demoMode = false,
 }: {
   urls: string[];
@@ -42,10 +38,9 @@ export function BannerCarousel({
   );
 
   const currentUrl = urls[index] ?? "";
-  // Em demonstração o vídeo vira a foto de capa: não há elemento <video>, então
-  // o slide se comporta como imagem (o carrossel avança sozinho e a barra de
-  // progresso anima). No portal real continua vídeo.
-  const currentIsVideo = isVideoPath(currentUrl) && !demoMode;
+  // O slide de vídeo é vídeo nos dois modos (demonstração e portal real):
+  // o carrossel não avança sozinho por timer — avança no onEnded do vídeo.
+  const currentIsVideo = isVideoPath(currentUrl);
 
   // Pausa o video ao sair dele e retoma (do inicio, se ja terminou) ao voltar.
   useEffect(() => {
@@ -78,8 +73,9 @@ export function BannerCarousel({
   useEffect(() => {
     if (urls.length < 2) return;
     const nextUrl = urls[(index + 1) % urls.length] ?? "";
-    // Em demonstração o próximo vídeo vira foto de capa: pré-carrega a foto,
-    // nunca o .mp4. No portal real o vídeo não é pré-carregado (só imagem).
+    // Em demonstração, pré-carrega a foto de capa do próximo vídeo (o poster
+    // já vem do cache quando o <video> monta). No portal real o vídeo não é
+    // pré-carregado (só imagem).
     if (isVideoPath(nextUrl) && !demoMode) return;
     const preloadUrl = isVideoPath(nextUrl) ? videoPosterUrl(nextUrl) : nextUrl;
     const nextImage = new Image();
@@ -121,7 +117,7 @@ export function BannerCarousel({
               {!loadedUrls.has(url) && (
                 <div className="absolute inset-0 animate-pulse bg-[color:var(--portal-surface-alt)]" />
               )}
-              {isVideoPath(url) && !demoMode ? (
+              {isVideoPath(url) ? (
                 <video
                   src={url}
                   poster={videoPosterUrl(url)}
@@ -134,7 +130,7 @@ export function BannerCarousel({
                   controls={false}
                   disablePictureInPicture
                   disableRemotePlayback
-                  preload={demoMode ? "metadata" : "auto"}
+                  preload="auto"
                   onEnded={() => {
                     if (urls.length > 1) select(index + 1);
                   }}
@@ -169,10 +165,9 @@ export function BannerCarousel({
                 />
               ) : (
                 <img
-                // Em demonstração o slide de vídeo vira a foto de capa (.jpg):
-                // o .mp4 nunca é requisitado. No portal real o vídeo cai no
-                // ramo <video> acima e a foto só aparece como poster dele.
-                src={isVideoPath(url) ? videoPosterUrl(url) : url}
+                // Só chega aqui quem NÃO é vídeo (vídeo cai no ramo <video>
+                // acima) — a foto é o próprio banner.
+                src={url}
                 alt={currentIndex === index ? alt : ""}
                 loading={currentIndex === 0 ? "eager" : "lazy"}
                 fetchPriority={currentIndex === 0 ? "high" : "auto"}
