@@ -1,114 +1,8 @@
-import { assignmentCleanupScript } from "@/lib/rb-assignment.server";
-import { assignmentAllowsAccess } from "@/lib/rb-inventory";
-import { macBypassCommand } from "@/lib/mac-bypass-script.server";
+import { buildHotspotCommand, expireStaleRequests, hotspotCommandHeaders, NO_OP_COMMAND, RebootDispatchAuditError } from "@/lib/rb-command.server";
 import { createFileRoute } from "@tanstack/react-router";
-import { createHash } from "node:crypto";
-import { hasAssignedRouterAuth, hotspotSyncAckSignature } from "@/lib/hotspot-router-auth";
+import { hasAssignedRouterAuth } from "@/lib/hotspot-router-auth";
 
-const headers = { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store, no-cache, must-revalidate" };
-const noOp = () => new Response("# no-op\n", { headers });
-
-const BLOCK_RULES = [
-  ["MANOS-BLOCK-HOTSPOT-FORWARD", "forward", "192.168.88.0/24"],
-  ["MANOS-BLOCK-LIVRE-FORWARD", "forward", "192.168.89.0/24"],
-  ["MANOS-BLOCK-HOTSPOT-INPUT", "input", "192.168.88.0/24"],
-  ["MANOS-BLOCK-LIVRE-INPUT", "input", "192.168.89.0/24"],
-] as const;
-
-function radiusMarker(secret: string) {
-  return `MANOS-RADIUS-${createHash("sha256").update(secret).digest("hex").slice(0, 16)}-V5`;
-}
-
-function firewallStateScript() {
-  const tests = BLOCK_RULES.map(([comment]) => `:if ([:len [/ip firewall filter find where comment="${comment}" disabled=no]] > 0) do={ :set blockedRuleCount ($blockedRuleCount + 1) }`).join("\n");
-  return `:local blockedRuleCount 0\n${tests}\n:local firewallState "no"\n:if ($blockedRuleCount = 4) do={ :set firewallState "yes" }\n:local expectedComment ("MANOS-FW-" . $firewallState)\n:local schedulerId [/system scheduler find where name="MANOS-HEARTBEAT"]\n:if ([:len $schedulerId] > 0 && [/system scheduler get $schedulerId comment] != $expectedComment) do={ /system scheduler set $schedulerId comment=$expectedComment }\n`;
-}
-
-function statusCommand(blocked: boolean) {
-  const removeManagedRule = (comment: string) => `:if ([:len [/ip firewall filter find where comment="${comment}"]] > 0) do={ /ip firewall filter remove [find where comment="${comment}"] }`;
-  if (!blocked) {
-    return `${BLOCK_RULES.map(([comment]) => removeManagedRule(comment)).join("\n")}\n${removeManagedRule("MANOS-BLOCK-ETHER5")}\n`;
-  }
-  return `# Quarantine all RB-routed networks. ether5 remains a transparent provider-LAN bridge.
-${removeManagedRule("MANOS-BLOCK-ETHER5")}
-${BLOCK_RULES.map(([comment, chain, subnet]) => `:if ([:len [/ip firewall filter find where comment="${comment}"]] = 0) do={/ip firewall filter add chain=${chain} src-address=${subnet} action=drop comment="${comment}"} else={/ip firewall filter set [find where comment="${comment}"] disabled=no}; :local manosFirstRule [:pick [/ip firewall filter find] 0]; :local manosManagedRule [:pick [/ip firewall filter find where comment="${comment}"] 0]; :if ($manosManagedRule != $manosFirstRule) do={/ip firewall filter move $manosManagedRule destination=$manosFirstRule}`).join("\n")}
-`;
-}
-
-function schedulerIntervalCommand() {
-  return `:local hsSched [/system scheduler find where name="MANOS-HEARTBEAT"]
-:if ([:len $hsSched] > 0) do={
-  :local curInterval [/system scheduler get $hsSched interval]
-  :if ($curInterval != 2m && $curInterval != 120s) do={
-    /system scheduler set $hsSched interval=120s
-    :log info "Manos Tech: heartbeat interval adjusted to 120s"
-  }
-}
-`;
-}
-function hotspotLoginFileSyncCommand() {
-  // Upgrade the on-router login page once. This keeps the credentials POST
-  // same-origin with RouterOS and retries on later heartbeats if a fetch fails.
-  return `:if ([:len [/file find where name="flash/manos-login-v3.marker"]] = 0) do={
-  :do {
-    :local manosLoginFetch [/tool fetch url="https://manostech-system.com.br/mikrotik/login.html" mode=https dst-path="flash/hotspot/login.html" check-certificate=yes as-value]
-    :if (($manosLoginFetch->"status") = "finished") do={
-      :local manosAloginFetch [/tool fetch url="https://manostech-system.com.br/mikrotik/alogin.html" mode=https dst-path="flash/hotspot/alogin.html" check-certificate=yes as-value]
-      :if (($manosAloginFetch->"status") = "finished") do={
-        /tool fetch url="https://manostech-system.com.br/mikrotik/manos-login-v3.marker" mode=https dst-path="flash/manos-login-v3.marker" check-certificate=yes
-      }
-    }
-  } on-error={ :log warning "Manos Tech login page update failed; will retry" }
-}
-`;
-}
-
-function syncAcknowledgementCommand(identity: string, requestedAt: string, blocked: boolean) {
-  const requestId = String(Date.parse(requestedAt));
-  if (!/^\d{13}$/.test(requestId)) return "";
-  const signature = hotspotSyncAckSignature(identity, requestId);
-  if (!signature) return "";
-  const firewallState = blocked ? "yes" : "no";
-  const url = `https://manostech-system.com.br/api/internal/hotspot-sync-ack?routerIdentity=${identity}&requestId=${requestId}&signature=${signature}`;
-  // These checks run after the commands above. An import or fetch failure
-  // leaves the request pending instead of reporting a false success.
-  return `:if ([:len [/radius find where service=hotspot comment~"^MANOS-RADIUS" disabled=no]] = 0) do={ :error "Manos Tech RADIUS sync not confirmed" }
-:if ([:len [/file find where name="flash/manos-login-v3.marker"]] = 0) do={ :error "Manos Tech login sync not confirmed" }
-:if ([:len [/system scheduler find where name="MANOS-HEARTBEAT" comment="MANOS-FW-${firewallState}"]] = 0) do={ :error "Manos Tech firewall sync not confirmed" }
-/tool fetch url="${url}" http-method=post http-data="" output=none check-certificate=yes
-`;
-}
-
-/**
- * A router that is already proving its identity through the heartbeat can
- * safely receive the current RADIUS credential over that TLS channel. The
- * marker makes credential rotations idempotent. The same heartbeat also
- * repairs an accidentally disabled RADIUS entry, which otherwise silently
- * prevents HotSpot logins even when the shared secret is correct.
- */
-function radiusCredentialCommand() {
-  const host = process.env["MIKROTIK_RADIUS_HOST"]?.trim();
-  const secret = process.env["MIKROTIK_RADIUS_SECRET"]?.trim();
-  if (!host || !/^[A-Za-z0-9.-]{1,253}$/.test(host) || !secret || !/^[A-Za-z0-9_-]{16,128}$/.test(secret)) return "";
-  const marker = radiusMarker(secret);
-  // RouterOS never returns the RADIUS secret. The version marker is therefore
-  // the proof that this managed secret was last applied. A marker change (for
-  // example, after a credential rotation) causes one update; normal 5-second
-  // telemetry cycles only read the configuration and do not rewrite it.
-  return `:local manosRadiusId [/radius find where service=hotspot comment~"^MANOS-RADIUS"]
-:local manosRadiusNeedsUpdate true
-:if ([:len $manosRadiusId] > 0) do={
-  :local manosRadiusItem [:pick $manosRadiusId 0]
-  :if (([/radius get $manosRadiusItem comment] = "${marker}") && ([/radius get $manosRadiusItem address] = "${host}") && ([/radius get $manosRadiusItem disabled] = false)) do={ :set manosRadiusNeedsUpdate false }
-}
-:if ($manosRadiusNeedsUpdate && [:len $manosRadiusId] = 0) do={
-  /radius add service=hotspot address="${host}" secret="${secret}" authentication-port=1812 accounting-port=1813 timeout=3s require-message-auth=no disabled=no comment="${marker}"
-}
-:if ($manosRadiusNeedsUpdate && [:len $manosRadiusId] > 0) do={
-  /radius set $manosRadiusId service=hotspot address="${host}" secret="${secret}" authentication-port=1812 accounting-port=1813 timeout=3s require-message-auth=no disabled=no comment="${marker}"
-}
-`;
-}
+const headers = hotspotCommandHeaders;
 
 export const Route = createFileRoute("/api/internal/hotspot-command")({
   server: {
@@ -165,94 +59,28 @@ export const Route = createFileRoute("/api/internal/hotspot-command")({
         }
         if (!device || !hasAssignedRouterAuth(request, identity, device)) return new Response("Unauthorized", { status: 401 });
 
-        if (device.assignment_applied_version !== device.assignment_version) {
-          // Rename pendente: a caixa adota o nome novo ANTES do cleanup; o resto
-          // do script (heartbeat + ack) já sai com a identidade nova.
-          const pendingIdentity = device.pending_router_identity as string | null;
-          const renamePending = Boolean(
-            pendingIdentity && /^MT-[A-Z0-9-]{6,48}$/.test(pendingIdentity),
-          );
-          const cleanup = renamePending && pendingIdentity
-            ? `/system identity set name=${pendingIdentity}\n` + assignmentCleanupScript(pendingIdentity, device.assignment_version)
-            : assignmentCleanupScript(identity, device.assignment_version);
-          return new Response(statusCommand(true) + cleanup, { headers });
-        }
+        // Pedidos expirados (~30 min sem confirmação) são limpos antes de
+        // montar o comando, para a RB parar de receber o comando travado.
+        const now = new Date().toISOString();
+        device = (await expireStaleRequests(supabaseAdmin, device, now)).device;
 
-        if (device.reboot_requested_at) {
-          const expectedCommandId = String(Date.parse(device.reboot_requested_at));
-
-          // A marker proves that a command was received, but not that RouterOS
-          // actually rebooted. The old flow stopped forever after writing the
-          // marker when the reboot itself failed. Retry at a controlled pace
-          // until a post-boot heartbeat confirms the restart.
-          const { data: lastDispatch } = await (supabaseAdmin as any)
-            .from("hotspot_device_audit")
-            .select("created_at")
-            .eq("device_id", device.id)
-            .eq("action", "reboot_dispatched")
-            .gte("created_at", device.reboot_requested_at)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          if (
-            lastDispatch?.created_at &&
-            Date.now() - Date.parse(lastDispatch.created_at) < 30_000
-          ) {
-            return noOp();
-          }
-
-          const { error: auditError } = await (supabaseAdmin as any).from("hotspot_device_audit").insert({
-            action: "reboot_dispatched",
-            device_id: device.id,
-            new_status: "reboot_dispatched",
-            created_at: new Date().toISOString(),
-          });
-          if (auditError) return new Response("Could not audit reboot dispatch", { status: 500 });
-
-          // Run the reboot outside the imported command file. This lets the
-          // import finish cleanly before RouterOS terminates the current job.
-          const command = `/system script set [find where name="MANOS-HEARTBEAT"] comment="MANOS-REBOOT-${expectedCommandId}"\n:execute {:delay 2s; /system reboot}\n`;
-          return new Response(command, { headers });
-        }
-
-        if (commandIdFromRouter) {
-          return new Response('/system script set [find where name="MANOS-HEARTBEAT"] comment=""\n', { headers });
-        }
-
-        const radiusCommand = radiusCredentialCommand();
-        const syncPending = Boolean(device.sync_requested_at && device.sync_applied_at !== device.sync_requested_at);
-        const statusPending = Boolean(device.router_status_requested_at && device.router_status_applied_at !== device.router_status_requested_at);
-        const blocked = !assignmentAllowsAccess(device);
-        const confirmation = syncPending && radiusCommand
-          ? syncAcknowledgementCommand(identity, device.sync_requested_at, blocked)
-          : "";
-        const reportedStatusMismatch = device.router_applied_status !== (blocked ? "blocked" : "unblocked");
-        const firewallCheck = statusPending || confirmation || reportedStatusMismatch ? `\n${firewallStateScript()}` : "";
-        // Dispositivos liberados (MAC bypass): a RB sincroniza os ip-bindings.
-        // Vale para a empresa toda (branch_id null) ou para a filial da RB.
-        let macBypass = "";
+        // O GET é o transporte das RBs com o script antigo (e o fallback do
+        // piggyback): sempre devolve um script, como antes.
+        let command: string | null;
         try {
-          const { data: config } = await (supabaseAdmin as any)
-            .from("hotspot_configs")
-            .select("branch_id")
-            .eq("id", device.hotspot_config_id)
-            .maybeSingle();
-          const branchId = (config as { branch_id?: string | null } | null)?.branch_id ?? null;
-          const { data: macRows } = await (supabaseAdmin as any)
-            .from("hotspot_mac_bypass")
-            .select("mac_address, branch_id")
-            .eq("company_id", device.company_id);
-          const macs = ((macRows ?? []) as { mac_address: string; branch_id: string | null }[])
-            .filter((r) => r.branch_id === null || r.branch_id === branchId)
-            .map((r) => r.mac_address);
-          macBypass = `\n${macBypassCommand(macs)}`;
-        } catch {
-          macBypass = "";
+          command = await buildHotspotCommand(supabaseAdmin, {
+            identity,
+            commandIdFromRouter,
+            device,
+            includeRefresh: true,
+          });
+        } catch (error) {
+          if (error instanceof RebootDispatchAuditError) {
+            return new Response("Could not audit reboot dispatch", { status: 500 });
+          }
+          throw error;
         }
-        return new Response(
-          `${schedulerIntervalCommand()}${radiusCommand}${hotspotLoginFileSyncCommand()}${statusCommand(blocked)}${firewallCheck}${confirmation}${macBypass}`,
-          { headers },
-        );
+        return new Response(command ?? NO_OP_COMMAND, { headers });
       },
     },
   },

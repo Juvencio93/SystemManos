@@ -6,6 +6,12 @@ describe("hotspotEventLabel", () => {
     expect(hotspotEventLabel("block_applied")).toBe("RB bloqueada");
     expect(hotspotEventLabel("unblock_device")).toBe("Desbloqueio solicitado");
   });
+
+  it("traduz as expirações e o limite de re-dispatch do heartbeat", () => {
+    expect(hotspotEventLabel("reboot_expired")).toBe("Reinicialização expirada");
+    expect(hotspotEventLabel("sync_expired")).toBe("Sincronização expirada");
+    expect(hotspotEventLabel("reboot_dispatch_limit")).toBe("Limite de tentativas de reinicialização atingido");
+  });
 });
 
 describe("buildHotspotAlerts", () => {
@@ -105,6 +111,35 @@ describe("buildHotspotAlerts", () => {
         id: "audit:audit-reboot",
         severity: "success",
         title: "MT-REINICIADA foi reiniciada",
+      }),
+    );
+  });
+
+  it("alerta intervenção manual quando o pedido expira ou o limite de re-dispatch é atingido", () => {
+    const alerts = buildHotspotAlerts(
+      [
+        {
+          id: "one",
+          router_identity: "MT-TRAVADA",
+          last_seen_at: "2026-10-02T11:59:30.000Z",
+        },
+      ],
+      [
+        {
+          id: "audit-expired",
+          device_id: "one",
+          action: "reboot_expired",
+          created_at: "2026-10-02T11:59:00.000Z",
+        },
+      ],
+      now,
+    );
+
+    expect(alerts).toContainEqual(
+      expect.objectContaining({
+        id: "audit:audit-expired",
+        severity: "warning",
+        title: "Intervenção manual necessária em MT-TRAVADA",
       }),
     );
   });
