@@ -213,7 +213,7 @@ export const getCrmLeads = createServerFn({ method: "GET" })
     // comparativo por campanha precisa de todas as campanhas).
     let chartQuery = context.supabase
       .from("crm_leads")
-      .select("id, stage, campaign_id, company_id, created_at")
+      .select("id, stage, campaign_id, company_id, visitor_id, created_at")
       .order("created_at", { ascending: false })
       .limit(2000);
     if (scope.role !== "adm" && scope.companyId) chartQuery = chartQuery.eq("company_id", scope.companyId);
@@ -316,6 +316,27 @@ export const getCrmLeads = createServerFn({ method: "GET" })
       return acc;
     }, {} as Record<CrmStage, number>);
 
+    // Recebeu mensagem: leads do funil atual (mesmo escopo e filtro de
+    // campanha) com ao menos um disparo WhatsApp enviado. A fila registra
+    // o envio por visitante (status "enviado"); a contagem é de visitantes
+    // distintos, não de mensagens. Até o disparo em massa existir, é 0.
+    const funnelVisitorIds = [
+      ...new Set(funnelRows.map((row) => row.visitor_id).filter(Boolean)),
+    ] as string[];
+    const messagedVisitorIds = new Set<string>();
+    for (let i = 0; i < funnelVisitorIds.length; i += 200) {
+      const chunk = funnelVisitorIds.slice(i, i + 200);
+      const { data: sent } = await context.supabase
+        .from("whatsapp_fila")
+        .select("visitor_id")
+        .eq("status", "enviado")
+        .in("visitor_id", chunk);
+      for (const row of sent ?? []) {
+        if (row.visitor_id) messagedVisitorIds.add(row.visitor_id);
+      }
+    }
+    const messagedCount = messagedVisitorIds.size;
+
     // Comparativo por campanha: ignora o filtro de campanha (comparar
     // exige todas) e respeita o de empresa, já aplicado na consulta.
     const campaignTotals = new Map<string | null, number>();
@@ -352,6 +373,7 @@ export const getCrmLeads = createServerFn({ method: "GET" })
       page: filters.page,
       pageSize: filters.pageSize,
       stageCounts,
+      messagedCount,
       campaignCounts,
       evolution,
     };

@@ -57,6 +57,12 @@ const STAGE_BAR_COLORS: Record<CrmStage, string> = {
 
 const STAGE_ORDER: CrmStage[] = ["interessado", "sem_interesse", "convertido", "nao_contatar"];
 
+// O funil do painel mostra só as duas etapas que o dono acompanha:
+// quem autorizou e quem não autorizou. "Convertido" e "Não contatar"
+// continuam existindo no modelo (e a regra de supressão LGPD continua
+// valendo por dentro), mas não aparecem mais no painel.
+const FUNNEL_STAGES: CrmStage[] = ["interessado", "sem_interesse"];
+
 function KpiCard({
   label,
   value,
@@ -138,7 +144,7 @@ export function CrmRedesign() {
 
   const stageCounts = data?.stageCounts ?? { interessado: 0, sem_interesse: 0, convertido: 0, nao_contatar: 0 };
   const total = Object.values(stageCounts).reduce((a, b) => a + b, 0);
-  const conversionRate = total > 0 ? Math.round((stageCounts.convertido / total) * 1000) / 10 : 0;
+  const messagedCount = data?.messagedCount ?? 0;
   const evolution = data?.evolution ?? [];
   const maxEvolution = Math.max(...evolution.map((e) => e.total), 1);
 
@@ -192,8 +198,8 @@ export function CrmRedesign() {
         </div>
       </div>
 
-      {/* 5 KPI cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      {/* 4 KPI cards */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           label="Total de leads"
           value={total.toLocaleString("pt-BR")}
@@ -217,18 +223,11 @@ export function CrmRedesign() {
           color="cinza"
         />
         <KpiCard
-          label="Convertidos"
-          value={stageCounts.convertido.toLocaleString("pt-BR")}
-          detail={`${conversionRate}% de conversão total`}
-          sub=""
+          label="Recebeu mensagem"
+          value={messagedCount.toLocaleString("pt-BR")}
+          detail="Leads que receberam WhatsApp"
+          sub="Disparos enviados"
           color="verde"
-        />
-        <KpiCard
-          label="Não contatar"
-          value={stageCounts.nao_contatar.toLocaleString("pt-BR")}
-          detail="Respeitado automaticamente"
-          sub="Opt-out LGPD"
-          color="vermelho"
         />
       </div>
 
@@ -238,11 +237,11 @@ export function CrmRedesign() {
         <Card className="border-white/10 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 hover:shadow-[0_8px_32px_rgba(0,192,240,0.15)]">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-sm">
-              <span className="size-2 rounded-full bg-cyan-400" /> Funil de Conversão
+              <span className="size-2 rounded-full bg-cyan-400" /> Funil de Leads
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {STAGE_ORDER.map((s) => {
+            {FUNNEL_STAGES.map((s) => {
               const count = stageCounts[s] ?? 0;
               const pct = total > 0 ? (count / total) * 100 : 0;
               return (
@@ -300,7 +299,7 @@ export function CrmRedesign() {
               <p className="text-2xl font-black text-amber-300">
                 {(data?.leads ?? []).filter((l) => l.stage === "interessado" && l.connectionsCount >= 3).length}
               </p>
-              <p className="text-[11px] text-muted-foreground">3+ visitas, ainda não convertidos</p>
+              <p className="text-[11px] text-muted-foreground">3+ visitas, prontos para receber mensagem</p>
             </div>
             <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] p-3">
               <p className="flex items-center gap-1 text-xs text-muted-foreground">🔄 Voltaram hoje</p>
