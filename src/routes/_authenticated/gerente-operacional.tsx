@@ -225,9 +225,9 @@ function OperationalManagerPage() {
         if (isAdmin && Number(finalCompaniesCount || 0) >= 2 && Number(finalUnitsCount || 0) >= 3) {
           const companiesMsg = `${finalCompaniesCount} empresas e `;
           const unitsMsg = `${finalUnitsCount} unidades `;
-          toast.success(`${companiesMsg}${unitsMsg}atualizadas com sucesso.`);
+          toast.success(`${companiesMsg}${unitsMsg}atualizadas.`);
         } else {
-          toast.success("Análise da sua rede atualizada com sucesso.");
+          toast.success("Análise da sua rede atualizada.");
         }
 
         setRefreshComplete(true);
