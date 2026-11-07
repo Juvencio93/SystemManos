@@ -16,13 +16,14 @@ import {
   UserPlus,
 } from "lucide-react";
 import logo from "@/assets/manos-tech-logo-institutional.png";
+import ogImage from "@/assets/manos-tech-og.jpg";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { openPreSaleChat, PreSaleForm } from "@/components/app/pre-sale-form";
 import { DashboardDemo } from "@/components/app/dashboard-demo";
 import { WifiVisitantesDemo } from "@/components/app/wifi-visitantes-demo";
 import { isFrameDocumentReady } from "@/lib/iframe-ready";
 
-const SOCIAL_IMAGE_URL = new URL(logo, "https://manostech-system.com.br").toString();
+const SOCIAL_IMAGE_URL = new URL(ogImage, "https://manostech-system.com.br").toString();
 
 function ScrollReveal({
   children,
@@ -103,6 +104,9 @@ export const Route = createFileRoute("/")({
       },
       { property: "og:type", content: "website" },
       { property: "og:image", content: SOCIAL_IMAGE_URL },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
+      { property: "og:image:alt", content: "Manos Tech — Soluções que conectam" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:image", content: SOCIAL_IMAGE_URL },
       { name: "theme-color", content: "#05080F" },
