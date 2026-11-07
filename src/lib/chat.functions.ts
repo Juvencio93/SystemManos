@@ -10,6 +10,14 @@ import { mapRoleToParticipantType, normalizeAppRole } from "./chat-validation.fu
 // (botão "Carregar mensagens mais antigas").
 export const CHAT_MESSAGES_PER_CONVERSATION = 50;
 
+// Frente 2 — N+1 do chat: a lista de conversas não tinha order nem limit
+// (trazia todas), e cada poll chamava chat_get_contacts E
+// chat_get_contact_avatar_urls — sendo que a segunda reexecuta a primeira
+// por dentro (v_contacts := public.chat_get_contacts()). Agora a lista vem
+// ordenada pela última mensagem com limite, e os avatares vêm de uma única
+// consulta em lote em profiles, sem a segunda RPC.
+export const CHAT_CONVERSATIONS_LIMIT = 100;
+
 async function getOptionalSupabaseAdmin(supabase: any) {
   if (!process.env["TECH_SUPABASE_SERVICE_KEY"]) {
     return supabase;
@@ -188,7 +196,9 @@ export const getConversations = createServerFn({ method: "GET" })
       }
     }
 
-    const { data: queriedConversations, error } = await query;
+    const { data: queriedConversations, error } = await query
+      .order("last_message_at", { ascending: false, nullsFirst: false })
+      .limit(CHAT_CONVERSATIONS_LIMIT);
     
     if (error) {
       throw error;
@@ -392,16 +402,27 @@ export const getConversations = createServerFn({ method: "GET" })
         }
       }
     }
-    const { data: contactAvatarData, error: contactAvatarError } = await (supabase as any).rpc(
-      "chat_get_contact_avatar_urls",
-    );
-    // Sem log: o poll repete a cada ciclo (o erro não muda o resultado —
-    // os avatares seguem vazios).
-    const contactAvatarUrls = (contactAvatarData || {}) as Record<string, string | null>;
-    const chatContacts = [
+    // Avatares em uma única consulta em lote. Antes havia aqui uma segunda
+    // RPC (chat_get_contact_avatar_urls) que reexecutava chat_get_contacts
+    // por dentro — cada poll pagava o scan da hierarquia duas vezes. O
+    // server client lê todos os perfis (RLS não bloqueia), então o lote
+    // cobre os mesmos contatos que a RPC cobria, mais revendas e suporte.
+    const rawChatContacts = [
       ...(contactGroups.matrices || []),
       ...(contactGroups.others || []),
-    ].map((contact) => ({
+    ];
+    const contactAvatarUrls: Record<string, string | null> = {};
+    const contactAvatarIds = [...new Set(rawChatContacts.map((contact: any) => contact.profileId).filter(Boolean))];
+    if (contactAvatarIds.length) {
+      const { data: avatarProfiles } = await serverSupabase
+        .from("profiles")
+        .select("id, chat_avatar_url")
+        .in("id", contactAvatarIds);
+      (avatarProfiles || []).forEach((profile: any) => {
+        if (profile.chat_avatar_url) contactAvatarUrls[profile.id] = profile.chat_avatar_url;
+      });
+    }
+    const chatContacts = rawChatContacts.map((contact) => ({
       ...contact,
       profileAvatarUrl: contactAvatarUrls[contact.profileId] || contact.profileAvatarUrl || null,
     }));

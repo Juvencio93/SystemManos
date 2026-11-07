@@ -501,13 +501,11 @@ export const getChatContacts = createServerFn({ method: "GET" })
         }
       }
     }
-    const { data: avatarData, error: avatarError } = await (context.supabase as any).rpc(
-      "chat_get_contact_avatar_urls",
-    );
-
-    // Sem log: o poll repete a cada ciclo (o erro não muda o resultado —
-    // os avatares seguem vazios).
-    const avatarUrls = (avatarData || {}) as Record<string, string | null>;
+    // Sem a RPC chat_get_contact_avatar_urls: ela reexecutava
+    // chat_get_contacts por dentro, e o lote em profiles abaixo (server
+    // client, sem RLS) já cobre todos os contatos, inclusive os de outra
+    // rede. Os avatares passam a vir só do lote.
+    const avatarUrls = {} as Record<string, string | null>;
     const contactIds = [...result.matrices, ...result.others].map((contact) => contact.profileId).filter(Boolean);
     if (contactIds.length) {
       // Some cross-network contacts (ADM <-> Revenda) are intentionally not
