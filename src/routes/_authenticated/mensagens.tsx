@@ -174,6 +174,10 @@ function MensagensPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Nudges já tremidos (broadcast ou poll): evita tremer duas vezes pelo
+  // mesmo nudge quando os dois caminhos o veem.
+  const seenPollNudgeIds = useRef(new Set<string>());
+
   const { data: conversations = [], isLoading } = useQuery({
     queryKey: ["conversations"],
     queryFn: () => getConversations(),
@@ -374,7 +378,7 @@ function MensagensPage() {
       if (nudgeEventIds.has(data.eventId)) return;
       nudgeEventIds.add(data.eventId);
 
-      const isSender = data.senderUserId === access?.userId;
+      const isSender = data.fromUserId === access?.userId;
       const isRecipient = 
         data.targetUserIds?.includes(access?.userId) ||
         (data.targetRole === "adm" && access?.role === "adm") ||
@@ -382,6 +386,10 @@ function MensagensPage() {
         (data.targetRole === "filial" && access?.role === "filial" && data.targetBranchId === access?.branchId);
 
       if (!isSender && !isRecipient) return;
+
+      // Registra aqui para o fallback do poll não tremer de novo pelo
+      // mesmo nudge quando o refetch trouxer a mensagem.
+      seenPollNudgeIds.current.add(data.eventId);
 
       if (isRecipient && activeConversationId !== data.conversationId) {
         setActiveConversationId(data.conversationId);
@@ -402,6 +410,28 @@ function MensagensPage() {
       supabase.removeChannel(nudgeChannel);
     };
   }, [access?.userId, access?.role, access?.companyId, access?.branchId, playChatSound, activeConversationId, conversations, queryClient]);
+
+  // Fallback do tremor pelo poll (mesma razão do widget): o nudge é uma
+  // mensagem persistida; se o broadcast cair, o refetch traz o nudge novo
+  // e a tela treme do mesmo jeito. Só valem nudges dos últimos 90s.
+  useEffect(() => {
+    if (!access?.userId || !conversations?.length) return;
+    const now = Date.now();
+    for (const conv of conversations as any[]) {
+      for (const msg of (conv.messages ?? []) as any[]) {
+        if (msg?.event !== "nudge" || !msg?.id) continue;
+        if (seenPollNudgeIds.current.has(msg.id)) continue;
+        seenPollNudgeIds.current.add(msg.id);
+        if (msg.sender_id === access.userId) continue;
+        const createdAt = msg.created_at ? new Date(msg.created_at).getTime() : 0;
+        if (now - createdAt > 90_000) continue;
+        if (activeConversationId !== conv.id) setActiveConversationId(conv.id);
+        playChatSound("attention");
+        setIsAttentionShaking(true);
+        setTimeout(() => setIsAttentionShaking(false), 550);
+      }
+    }
+  }, [conversations, access?.userId, activeConversationId, playChatSound]);
 
   // Join sound effect
   useEffect(() => {
@@ -560,7 +590,11 @@ function MensagensPage() {
 
 
   const handleNudge = async () => {
-    if (!activeConversationId || nudgeCooldowns[activeConversationId] || !activeConversation || !access?.userId) return;
+    if (activeConversationId && nudgeCooldowns[activeConversationId]) {
+      toast.error("Aguarde 5 minutos para chamar a atenção novamente.");
+      return;
+    }
+    if (!activeConversationId || !activeConversation || !access?.userId) return;
 
     try {
       const targetConversationId = await ensureConversation();
