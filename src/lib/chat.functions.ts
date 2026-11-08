@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { mapRoleToParticipantType, normalizeAppRole } from "./chat-validation.functions";
+import { sendChatPush } from "./push.server";
 
 // Frente 1 — auditoria de logs do Supabase: getConversations carregava o
 // histórico INTEIRO de todas as conversas a cada poll (60s, até 3
@@ -1011,6 +1012,36 @@ export const sendMessage = createServerFn({ method: "POST" })
         await channel.send({ type: "broadcast", event: "chat:message", payload: broadcastPayload });
         void supabase.removeChannel(channel);
       }));
+    }
+
+    // 6. Web Push para quem está fora do app (navegador fechado ou em
+    // segundo plano, principalmente no celular). O service worker dispensa
+    // a notificação quando já há aba visível. Nunca quebra o envio.
+    if (targetUserIds.length > 0) {
+      const { data: senderProfile } = await supabase
+        .from("profiles")
+        .select("display_name, full_name")
+        .eq("id", userId)
+        .maybeSingle();
+      const senderName =
+        senderProfile?.display_name || senderProfile?.full_name || "ManosTech";
+      const isNudge = data.event === "nudge";
+      await sendChatPush({
+        supabase: writeClient,
+        recipientUserIds: targetUserIds.filter((id) => id !== userId),
+        payload: {
+          title: isNudge ? "🫨 Chamada de atenção" : senderName,
+          body: isNudge
+            ? `${senderName} chamou sua atenção no bate-papo`
+            : message.content?.trim()
+              ? message.content.trim().slice(0, 120)
+              : "Enviou um arquivo no bate-papo",
+          conversationId: data.conversationId,
+          url: "/mensagens",
+          tag: `${isNudge ? "nudge" : "msg"}-${data.conversationId}`,
+          type: isNudge ? "nudge" : "message",
+        },
+      });
     }
 
     const { data: finalMessage } = await supabase
