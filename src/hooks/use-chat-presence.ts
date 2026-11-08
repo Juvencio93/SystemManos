@@ -37,9 +37,44 @@ export function useChatPresence() {
   const [pendingConversationId, setPendingConversationId] = useState<string | null>(null);
   const [nudgeEventId, setNudgeEventId] = useState<string | null>(null);
 
-  const onlineAudioRef = useRef<HTMLAudioElement | null>(null);
-  const messageAudioRef = useRef<HTMLAudioElement | null>(null);
-  const attentionAudioRef = useRef<HTMLAudioElement | null>(null);
+  // Sons do chat via Web Audio API, não via <audio>: o elemento <audio>
+  // registra uma sessão de mídia e o iOS mostra o cartão de "Now Playing"
+  // (player de música) na tela de bloqueio. O AudioContext não cria sessão
+  // de mídia, então o som toca sem o cartão.
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioBuffersRef = useRef<
+    Partial<Record<"online" | "message" | "attention", AudioBuffer>>
+  >({});
+
+  const getAudioContext = () => {
+    if (!audioContextRef.current) {
+      const Ctor =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext?: typeof AudioContext })
+          .webkitAudioContext;
+      if (!Ctor) return null;
+      audioContextRef.current = new Ctor();
+    }
+    return audioContextRef.current;
+  };
+
+  const loadSoundBuffer = async (
+    type: "online" | "message" | "attention",
+  ): Promise<AudioBuffer | null> => {
+    const cached = audioBuffersRef.current[type];
+    if (cached) return cached;
+    const ctx = getAudioContext();
+    if (!ctx) return null;
+    try {
+      const res = await fetch(SOUNDS[type]);
+      const data = await res.arrayBuffer();
+      const buffer = await ctx.decodeAudioData(data);
+      audioBuffersRef.current[type] = buffer;
+      return buffer;
+    } catch {
+      return null;
+    }
+  };
 
   const processedEvents = useRef(new Set<string>());
   const sessionIdRef = useRef(crypto.randomUUID());
@@ -63,22 +98,13 @@ export function useChatPresence() {
   }, [manualStatus]);
 
   useEffect(() => {
-    onlineAudioRef.current = new Audio(SOUNDS.online);
-    onlineAudioRef.current.preload = "auto";
-    messageAudioRef.current = new Audio(SOUNDS.message);
-    messageAudioRef.current.preload = "auto";
-    attentionAudioRef.current = new Audio(SOUNDS.attention);
-    attentionAudioRef.current.preload = "auto";
-
     const unlockAudio = () => {
-      [onlineAudioRef, messageAudioRef, attentionAudioRef].forEach(ref => {
-        if (ref.current) {
-          ref.current.play().then(() => {
-            ref.current?.pause();
-            if (ref.current) ref.current.currentTime = 0;
-          }).catch(() => {});
-        }
-      });
+      const ctx = getAudioContext();
+      if (ctx && ctx.state === "suspended") void ctx.resume();
+      // Pré-carrega os sons para tocarem sem atraso depois.
+      void loadSoundBuffer("online");
+      void loadSoundBuffer("message");
+      void loadSoundBuffer("attention");
       document.removeEventListener('pointerdown', unlockAudio);
       document.removeEventListener('touchstart', unlockAudio);
       document.removeEventListener('keydown', unlockAudio);
@@ -92,6 +118,7 @@ export function useChatPresence() {
       document.removeEventListener('pointerdown', unlockAudio);
       document.removeEventListener('touchstart', unlockAudio);
       document.removeEventListener('keydown', unlockAudio);
+      void audioContextRef.current?.close();
     };
   }, []);
 
@@ -103,17 +130,16 @@ export function useChatPresence() {
 
   const playChatSound = async (type: "online" | "message" | "attention") => {
     if (isMuted) return;
-    const audio =
-      type === "online"
-        ? onlineAudioRef.current
-        : type === "message"
-          ? messageAudioRef.current
-          : attentionAudioRef.current;
-    if (!audio) return;
     try {
-      audio.pause();
-      audio.currentTime = 0;
-      await audio.play();
+      const ctx = getAudioContext();
+      if (!ctx) return;
+      if (ctx.state === "suspended") await ctx.resume();
+      const buffer = await loadSoundBuffer(type);
+      if (!buffer) return;
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ctx.destination);
+      source.start();
       setAudioEnabled(true);
     } catch (error) {
       console.error(`[Chat Audio] Falha ao tocar ${type}:`, error);
