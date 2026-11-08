@@ -226,7 +226,7 @@ function ChatPanel({ onClose, setIsOpen, activeConversationId, setActiveConversa
     const queryClient = useQueryClient();
     const presence = useContext(ChatPresenceContext);
     if (!presence) throw new Error("ChatPanel must be used within ChatPresenceProvider");
-    const { onlineUsers, onlinePresences, isMuted, toggleMute, playChatSound, audioEnabled, nudgeEventId, setNudgeEventId, globalChannelName, currentStatus, manualStatus } = presence;
+    const { onlineUsers, onlinePresences, isMuted, toggleMute, playChatSound, audioEnabled, nudgeEventId, setNudgeEventId, setPendingConversationId, globalChannelName, currentStatus, manualStatus } = presence;
     const [messageText, setMessageText] = useState("");
     const [replyingTo, setReplyingTo] = useState<any | null>(null);
     const [editingMessage, setEditingMessage] = useState<any | null>(null);
@@ -641,12 +641,41 @@ function ChatPanel({ onClose, setIsOpen, activeConversationId, setActiveConversa
     // Effect to trigger shake when a nudge event ID changes
     useEffect(() => {
         if (nudgeEventId) {
+            // Registra aqui para o fallback do poll não tremer de novo
+            // pelo mesmo nudge quando o refetch trouxer a mensagem.
+            processedNudgeEvents.current.add(nudgeEventId);
             triggerAttentionShake();
             const timer = setTimeout(() => setNudgeEventId(null), 1000);
             return () => clearTimeout(timer);
         }
         return undefined;
     }, [nudgeEventId, setNudgeEventId, triggerAttentionShake]);
+
+    // Fallback do tremor pelo poll: o tremor de quem recebe não pode
+    // depender só do broadcast Realtime (a função do servidor o envia com
+    // corrida de 1500ms, sem retry). O nudge é uma mensagem persistida:
+    // quando o refetch de 60s traz um nudge novo, de outro remetente,
+    // treme e toca o som como o broadcast faria. O mesmo conjunto de ids
+    // evita tremer duas vezes quando o broadcast E o poll veem o mesmo
+    // nudge. Só valem nudges dos últimos 90s: histórico antigo não treme.
+    useEffect(() => {
+        if (!access?.userId || !conversations?.length) return;
+        const now = Date.now();
+        for (const conv of conversations as any[]) {
+            for (const msg of (conv.messages ?? []) as any[]) {
+                if (msg?.event !== "nudge" || !msg?.id) continue;
+                if (processedNudgeEvents.current.has(msg.id)) continue;
+                processedNudgeEvents.current.add(msg.id);
+                if (msg.sender_id === access.userId) continue;
+                const createdAt = msg.created_at ? new Date(msg.created_at).getTime() : 0;
+                if (now - createdAt > 90_000) continue;
+                setPendingConversationId(conv.id);
+                setIsOpen(true);
+                void playChatSound("attention");
+                triggerAttentionShake();
+            }
+        }
+    }, [conversations, access?.userId, playChatSound, setIsOpen, setPendingConversationId, triggerAttentionShake]);
     
     // Typing indicator logic
     const lastTypingSent = useRef<number>(0);
