@@ -32,6 +32,7 @@ import { ChatPresenceContext, usePresence } from "./ChatPresenceProvider";
 import { deleteChatMessage, editChatMessage, getConversations, getConversationMessages, hideConversation, setConversationPinned } from "@/lib/chat.functions";
 import { pollingInterval } from "@/lib/polling";
 import { getChatContacts, getOrCreateConversation, participantKey, resolveNudgeTargetUserIds, markConversationAsRead, ChatContact } from "@/lib/chat-validation.functions";
+import { usePushSubscription } from "@/hooks/use-push-subscription";
 import { getPresenceStatus, updateMyPresence } from "@/lib/chat-presence.functions";
 import { callContactAttention } from "@/lib/chat-attention.functions";
 import { withConversationLock } from "@/lib/chat-conversation-request-lock.ts";
@@ -85,6 +86,9 @@ function ChatInner() {
     const { data: access } = useAccess();
     const queryClient = useQueryClient();
     const presence = usePresence();
+    // Web Push do bate-papo: assina as notificações para o celular receber
+    // mensagem e chamada de atenção com o navegador em segundo plano.
+    usePushSubscription(access?.userId);
     const playSound = presence?.playChatSound || (() => {});
     const { isChatOpen: isOpen, setIsChatOpen: setIsOpen, pendingConversationId, setPendingConversationId, nudgeEventId, setNudgeEventId } = presence;
     const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
