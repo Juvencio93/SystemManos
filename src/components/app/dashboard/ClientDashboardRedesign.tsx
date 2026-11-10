@@ -290,13 +290,13 @@ export function MovimentoChartNovo({ data }: { data: Insights | undefined }) {
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
             <XAxis
               dataKey="date"
-              tick={{ fill: "#94a3b8", fontSize: 10 }}
+              tick={{ fill: "#9BA8AB", fontSize: 10 }}
               tickLine={false}
               axisLine={{ stroke: "rgba(255,255,255,0.1)" }}
               interval={1}
             />
             <YAxis
-              tick={{ fill: "#94a3b8", fontSize: 10 }}
+              tick={{ fill: "#9BA8AB", fontSize: 10 }}
               tickLine={false}
               axisLine={false}
               allowDecimals={false}
@@ -311,9 +311,9 @@ export function MovimentoChartNovo({ data }: { data: Insights | undefined }) {
               labelStyle={{ color: "#e2e8f0", fontWeight: 700 }}
             />
             <Legend
-              wrapperStyle={{ fontSize: 11, color: "#94a3b8" }}
+              wrapperStyle={{ fontSize: 11, color: "#9BA8AB" }}
               formatter={(value: string) => (
-                <span style={{ color: "#94a3b8" }}>
+                <span style={{ color: "#9BA8AB" }}>
                   {value === "acessos"
                     ? "Acessos"
                     : value === "semanaAnterior"

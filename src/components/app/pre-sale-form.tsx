@@ -316,7 +316,7 @@ export function PreSaleForm() {
           role="dialog"
           aria-modal="false"
           aria-label="Pré-venda Manos Tech"
-          className="flex max-h-[min(740px,calc(100dvh-6rem))] w-[calc(100vw-2rem)] max-w-[420px] animate-in slide-in-from-bottom-3 fade-in flex-col overflow-hidden rounded-[1.5rem] border border-cyan-300/20 bg-[#0b1220] shadow-[0_28px_90px_rgba(0,0,0,.62)] duration-200"
+          className="flex max-h-[min(740px,calc(100dvh-6rem))] w-[calc(100vw-2rem)] max-w-[420px] animate-in slide-in-from-bottom-3 fade-in flex-col overflow-hidden rounded-[1.5rem] border border-cyan-300/20 bg-[#11212D] shadow-[0_28px_90px_rgba(0,0,0,.62)] duration-200"
         >
           <header className="flex items-center justify-between gap-3 bg-[#0c1726] px-4 py-3">
             <div className="flex min-w-0 items-center gap-3">
@@ -346,7 +346,7 @@ export function PreSaleForm() {
               <span className="mb-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-cyan-300/10 text-cyan-200">
                 <MessageCircle className="size-3.5" />
               </span>
-              <div className="max-w-[88%] rounded-2xl rounded-bl-md bg-[#141e2d] px-3.5 py-3 text-sm leading-6 text-slate-200">
+              <div className="max-w-[88%] rounded-2xl rounded-bl-md bg-[#11212D] px-3.5 py-3 text-sm leading-6 text-slate-200">
                 Oi!👋 Quer saber como a ManosTech System pode funcionar no seu negócio?
               </div>
             </div>
@@ -357,7 +357,7 @@ export function PreSaleForm() {
                   <span className="mb-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-cyan-300/10 text-cyan-200">
                     <MessageCircle className="size-3.5" />
                   </span>
-                  <p className="max-w-[88%] rounded-2xl rounded-bl-md bg-[#141e2d] px-3.5 py-2.5 text-sm leading-6 text-slate-200">
+                  <p className="max-w-[88%] rounded-2xl rounded-bl-md bg-[#11212D] px-3.5 py-2.5 text-sm leading-6 text-slate-200">
                     {reply.question}
                   </p>
                 </div>
@@ -375,7 +375,7 @@ export function PreSaleForm() {
                   <span className="mb-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-cyan-300/10 text-cyan-200">
                     <MessageCircle className="size-3.5" />
                   </span>
-                  <p className="max-w-[88%] rounded-2xl rounded-bl-md bg-[#141e2d] px-3.5 py-2.5 text-sm leading-6 text-slate-200">
+                  <p className="max-w-[88%] rounded-2xl rounded-bl-md bg-[#11212D] px-3.5 py-2.5 text-sm leading-6 text-slate-200">
                     Você autoriza o uso desses dados para responder a esta solicitação e entrar em contato sobre a proposta?
                   </p>
                 </div>
