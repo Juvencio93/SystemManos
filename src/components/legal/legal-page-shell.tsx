@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, FileCheck2, Scale } from "lucide-react";
 import type { ReactNode } from "react";
+import { CookieBanner } from "@/components/app/cookie-banner";
 
 type LegalPageShellProps = {
   eyebrow: string;
@@ -80,6 +81,12 @@ export function LegalPageShell({
               >
                 Política de reembolso
               </Link>
+              <Link
+                to="/cookies"
+                className="block rounded-lg px-3 py-2 text-slate-300 hover:bg-white/5 hover:text-white"
+              >
+                Política de cookies
+              </Link>
             </nav>
           </div>
         </aside>
@@ -105,6 +112,7 @@ export function LegalPageShell({
           </div>
         </article>
       </div>
+      <CookieBanner />
     </main>
   );
 }

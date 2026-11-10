@@ -18,6 +18,7 @@ import {
 import logo from "@/assets/manos-tech-logo-institutional.png";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { openPreSaleChat, PreSaleForm } from "@/components/app/pre-sale-form";
+import { CookieBanner } from "@/components/app/cookie-banner";
 import { DashboardDemo } from "@/components/app/dashboard-demo";
 import { WifiVisitantesDemo } from "@/components/app/wifi-visitantes-demo";
 import { isFrameDocumentReady } from "@/lib/iframe-ready";
@@ -850,6 +851,8 @@ function SalesHomePage() {
       ) : null}
 
       <PreSaleForm />
+
+      <CookieBanner />
 
       <ScrollReveal>
         <footer className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-8 text-xs text-slate-500 sm:px-8 md:flex-row md:items-center md:justify-between">

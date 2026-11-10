@@ -97,6 +97,60 @@ export function TermsOfUseContent() {
   );
 }
 
+export function CookiePolicyContent() {
+  return (
+    <>
+      <LegalSection title="1 O que são cookies">
+        <p>
+          Cookies são pequenos arquivos que o navegador guarda para lembrar informações entre
+          visitas. A Manos Tech usa apenas cookies necessários para o login e o funcionamento do
+          Wi-Fi. Não usamos cookies de análise nem de publicidade. Quando uma tecnologia não
+          essencial for ativada, o consentimento será pedido antes do uso (LGPD, arts. 7º e 8º).
+        </p>
+      </LegalSection>
+      <LegalSection title="2 Cookies necessários">
+        <LegalList
+          items={[
+            "sb-manostech-auth-token — sessão do login na plataforma. Cookie httpOnly (não é lido por scripts da página), válido por 30 dias e renovado a cada acesso. Sem ele, não é possível entrar no sistema.",
+            "manos_hotspot_context — contexto do check-in no portal Wi-Fi (qual portal e qual liberação de acesso). Cookie httpOnly, Secure e SameSite=Lax, válido por 10 minutos. Sem ele, o portal não consegue liberar o Wi-Fi.",
+          ]}
+        />
+      </LegalSection>
+      <LegalSection title="3 Armazenamento local">
+        <p>
+          Além dos cookies, o navegador pode guardar preferências no próprio aparelho, sem enviar
+          esses dados para a Manos Tech: som do chat, status manual de presença, notificações já
+          lidas e os dados do formulário do portal (nome, telefone e cidade) para pré-preencher a
+          próxima visita no mesmo aparelho, por até 90 dias. Os consentimentos nunca voltam
+          marcados: o aceite é sempre uma ação nova do visitante. Nada disso autoriza comunicações
+          de marketing.
+        </p>
+      </LegalSection>
+      <LegalSection title="4 Terceiros">
+        <p>
+          As fontes de texto da plataforma são carregadas dos servidores do Google (Google Fonts).
+          Ao carregar a página, o navegador do visitante faz uma requisição a esses servidores, que
+          podem ver o endereço IP — o Google não recebe cookies da Manos Tech nem dados do
+          cadastro. Não há ferramentas de análise ou publicidade de terceiros ativas hoje.
+        </p>
+      </LegalSection>
+      <LegalSection title="5 Como controlar">
+        <p>
+          Os cookies necessários não podem ser desativados sem impedir o login e o Wi-Fi, porque
+          são eles que mantêm a sessão e a liberação de acesso. O armazenamento local pode ser
+          limpo nas configurações do navegador, a qualquer momento, sem afetar o cadastro. Quando
+          cookies não essenciais existirem, será possível aceitar ou recusar cada categoria no
+          banner, e retirar o consentimento será tão fácil quanto dá-lo (LGPD, art. 8º, § 5º).
+        </p>
+      </LegalSection>
+      <LegalSection title="6 Contato">
+        <p>Dúvidas sobre cookies e armazenamento local podem ser encaminhadas pelos canais oficiais abaixo.</p>
+        <LegalCompanyDetails />
+      </LegalSection>
+    </>
+  );
+}
+
 export function RefundPolicyContent() {
   return (
     <>
