@@ -402,7 +402,7 @@ function NotebookCheckinDemo() {
         <div className="mx-auto mb-1.5 size-1 rounded-full bg-white/20" aria-hidden="true" />
         <div className="overflow-hidden rounded-[0.4rem] border border-white/[.06]">
           <div className="flex h-8 items-center justify-center border-b border-white/[.06] bg-[#0f1114] px-2.5">
-            <span className="text-[9px] tracking-wide text-slate-500">manostech-system.com.br</span>
+            <span className="text-[9px] tracking-wide text-slate-400">manostech-system.com.br</span>
           </div>
           <ScaledPortalFrame
             src={`/portal/demo-efraim?autoplay=1&replay=${replay}`}
@@ -652,7 +652,7 @@ function SalesHomePage() {
           <div className="mt-12">
             <DashboardDemo />
           </div>
-          <p className="mt-6 text-center text-xs italic text-slate-500">
+          <p className="mt-6 text-center text-xs italic text-slate-400">
             Demonstração com dados de exemplo.
           </p>
         </div>
@@ -726,7 +726,7 @@ function SalesHomePage() {
             {STEPS.map(({ num, title, body }, index) => (
               <ScrollReveal key={title} className="h-full" delay={(index % 2) * 90}>
                 <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 sm:p-6">
-                  <p className="text-[11px] font-bold uppercase tracking-[.15em] text-slate-500">
+                  <p className="text-[11px] font-bold uppercase tracking-[.15em] text-slate-400">
                     {num}
                   </p>
                   <h3 className="mt-1 font-semibold">{title}</h3>
@@ -855,7 +855,7 @@ function SalesHomePage() {
       <CookieBanner />
 
       <ScrollReveal>
-        <footer className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-8 text-xs text-slate-500 sm:px-8 md:flex-row md:items-center md:justify-between">
+        <footer className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-8 text-xs text-slate-400 sm:px-8 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3">
             <img src={logo} alt="" className="size-8 rounded-full object-contain" />
             <span>© {new Date().getFullYear()} Manos Tech Solução em Marketing</span>
