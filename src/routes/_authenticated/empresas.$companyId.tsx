@@ -458,7 +458,7 @@ function CompanyDetailPage() {
                   />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: "#1E293B",
+                      backgroundColor: "#253745",
                       borderColor: "rgba(255,255,255,0.1)",
                       borderRadius: "12px",
                       fontSize: "12px",
@@ -490,7 +490,7 @@ function CompanyDetailPage() {
                             cy={cy}
                             r={4}
                             fill="#06D6D6"
-                            stroke="#0F172A"
+                            stroke="#11212D"
                             strokeWidth={2}
                           />
                         );
@@ -563,7 +563,7 @@ function CompanyDetailPage() {
                         </Pie>
                         <Tooltip
                           contentStyle={{
-                            backgroundColor: "#1E293B",
+                            backgroundColor: "#253745",
                             borderColor: "rgba(255,255,255,0.1)",
                             borderRadius: "12px",
                             fontSize: "12px",
