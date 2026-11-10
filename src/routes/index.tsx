@@ -858,6 +858,21 @@ function SalesHomePage() {
             <span>© {new Date().getFullYear()} Manos Tech Solução em Marketing</span>
           </div>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            <Link className="transition hover:text-slate-300" to="/termos-de-uso">
+              Termos de uso
+            </Link>
+            <Link className="transition hover:text-slate-300" to="/politica-de-privacidade">
+              Privacidade
+            </Link>
+            <Link className="transition hover:text-slate-300" to="/direitos-do-titular">
+              Direitos do titular
+            </Link>
+            <Link className="transition hover:text-slate-300" to="/reembolso">
+              Reembolso
+            </Link>
+            <Link className="transition hover:text-slate-300" to="/cookies">
+              Cookies
+            </Link>
             <a className="transition hover:text-slate-300" href="mailto:contato@manostech-system.com.br">
               contato@manostech-system.com.br
             </a>
