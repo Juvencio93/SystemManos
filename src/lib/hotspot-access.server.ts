@@ -29,6 +29,9 @@ type PendingHotspotCheckin = {
   city: string;
   consent: boolean;
   marketingConsent: boolean;
+  ageGroup?: "adult" | "minor";
+  guardianName?: string;
+  guardianConsent?: boolean;
   consentSource: "wifi_portal";
   consentIp?: string;
   portalSlug: string;
@@ -218,6 +221,9 @@ export async function authorizeHotspotAccess(
       city: pending.city,
       consent: pending.consent,
       marketingConsent: pending.marketingConsent,
+      ageGroup: pending.ageGroup,
+      guardianName: pending.guardianName,
+      guardianConsent: pending.guardianConsent,
       consentSource: pending.consentSource,
       consentIp: pending.consentIp,
       portalSlug: pending.portalSlug,
