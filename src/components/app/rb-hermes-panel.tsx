@@ -75,21 +75,21 @@ function MiniGrafico({
           <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
           <XAxis
             dataKey="rotulo"
-            tick={{ fill: "#94a3b8", fontSize: 10 }}
+            tick={{ fill: "#9BA8AB", fontSize: 10 }}
             tickLine={false}
             axisLine={{ stroke: "#1e293b" }}
             minTickGap={40}
           />
           <YAxis
             domain={dominio ?? ["auto", "auto"]}
-            tick={{ fill: "#94a3b8", fontSize: 10 }}
+            tick={{ fill: "#9BA8AB", fontSize: 10 }}
             tickLine={false}
             axisLine={false}
             unit={unidade}
           />
           <Tooltip
             contentStyle={{
-              background: "#0b1220",
+              background: "#11212D",
               border: "1px solid rgba(255,255,255,.12)",
               borderRadius: 8,
               fontSize: 12,

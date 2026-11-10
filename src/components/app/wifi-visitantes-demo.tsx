@@ -33,7 +33,7 @@ export function WifiVisitantesDemo() {
       tabIndex={0}
       role="button"
       aria-expanded={open}
-      className="group cursor-pointer overflow-hidden rounded-2xl border border-white/[.08] bg-[#0B1118] transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 hover:shadow-[0_8px_32px_rgba(0,192,240,0.18)]"
+      className="group cursor-pointer overflow-hidden rounded-2xl border border-white/[.08] bg-[#06141B] transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 hover:shadow-[0_8px_32px_rgba(0,192,240,0.18)]"
     >
       {/* Cabeçalho — sempre visível */}
       <div className="flex items-center gap-3 p-5 text-left sm:p-6">
