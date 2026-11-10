@@ -220,7 +220,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
   }
 
   const selectedPanel = selected ? (
-            <div className="w-full rounded-xl border border-primary/20 bg-[#071017] p-4 shadow-2xl">
+            <div className="w-full rounded-xl border border-primary/20 bg-[#06141B] p-4 shadow-2xl">
               <div>
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -308,7 +308,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
                 className={`radar-sweep ${hasOffline ? "radar-sweep--alert" : ""} pointer-events-none absolute inset-0 z-[645] rounded-full`}
               />
               {isLoading ? (
-                <div className="absolute inset-0 z-[700] grid place-items-center rounded-full bg-[#071017]/80 text-sm text-muted-foreground">
+                <div className="absolute inset-0 z-[700] grid place-items-center rounded-full bg-[#06141B]/80 text-sm text-muted-foreground">
                   Carregando localizações das RBs…
                 </div>
               ) : null}
@@ -401,7 +401,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
 
   return (
     <div className="mt-6">
-      <Card className="relative w-full overflow-hidden border-primary/30 bg-[#071017] shadow-2xl shadow-cyan-950/40">
+      <Card className="relative w-full overflow-hidden border-primary/30 bg-[#06141B] shadow-2xl shadow-cyan-950/40">
         <CardHeader className="gap-4 border-b border-white/10 pb-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -474,7 +474,7 @@ export function HotspotNetworkMap({ devices, isLoading = false, compact = false,
             className="relative z-0 overflow-hidden rounded-xl border border-white/10"
           >
             {isLoading ? (
-              <div className="absolute inset-0 z-[500] grid place-items-center bg-[#071017]/80 text-sm text-muted-foreground">
+              <div className="absolute inset-0 z-[500] grid place-items-center bg-[#06141B]/80 text-sm text-muted-foreground">
                 Carregando localizações das RBs…
               </div>
             ) : null}
