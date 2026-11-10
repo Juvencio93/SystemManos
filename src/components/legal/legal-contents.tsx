@@ -306,28 +306,34 @@ export function PrivacyPolicyContent() {
           não define o prazo de conservação dos dados ativos de visitantes.
         </p>
         <p>
-          Os prazos para dados ativos de visitantes, solicitações de privacidade, comprovantes de
-          consentimento e registros financeiros dependem da finalidade e das obrigações aplicáveis.
-          Ao terminar a necessidade de conservação, os dados são eliminados ou anonimizados, salvo
-          hipótese legal de guarda.
+          Dados de visitantes: enquanto a empresa cliente estiver ativa e por até 90 dias após o
+          fim do contrato. Comprovantes de consentimento e solicitações de privacidade: 5 anos após
+          a revogação ou o fim do tratamento, para prova do consentimento e das respostas dadas
+          (CDC, art. 27). Registros financeiros e fiscais: pelo prazo das obrigações legais
+          aplicáveis. Ao terminar a necessidade de conservação, os dados são eliminados ou
+          anonimizados, salvo hipótese legal de guarda.
         </p>
       </LegalSection>
       <LegalSection title="8 Cookies e armazenamento local">
         <p>
           A plataforma usa cookies e armazenamento local necessários para manter sessões seguras,
-          permitir o funcionamento do portal Wi-Fi e guardar preferências da interface. Esses
-          recursos não autorizam comunicações de marketing. Se forem ativadas tecnologias não
-          essenciais de análise ou publicidade, as informações e os controles correspondentes
-          serão apresentados antes do seu uso, quando exigido.
+          permitir o funcionamento do portal Wi-Fi e guardar preferências da interface. O portal
+          pode lembrar nome, telefone e cidade neste aparelho para pré-preencher a próxima visita,
+          por até 90 dias; os consentimentos nunca voltam marcados. Esses recursos não autorizam
+          comunicações de marketing. Se forem ativadas tecnologias não essenciais de análise ou
+          publicidade, as informações e os controles correspondentes serão apresentados antes do seu
+          uso, quando exigido.
         </p>
       </LegalSection>
       <LegalSection title="9 Crianças e adolescentes">
         <p>
-          Quando o tratamento envolver crianças ou adolescentes, ele deverá atender ao melhor
-          interesse e às regras aplicáveis. Para dados de crianças, será observado o consentimento
-          específico e em destaque de pelo menos um dos pais ou responsável legal, ressalvadas as
-          hipóteses legais. O portal Wi-Fi não deve ser usado para coletar dados além do necessário
-          para a finalidade informada.
+          O portal Wi-Fi pergunta se o visitante tem 18 anos ou mais antes do cadastro. Quem tem
+          menos de 18 anos só conecta com o nome do responsável e a autorização dele, registrada
+          junto ao cadastro (nome do responsável e momento do aceite). Para dados de crianças, é
+          observado o consentimento específico e em destaque de pelo menos um dos pais ou
+          responsável legal, ressalvadas as hipóteses legais (LGPD, art. 14; ECA Digital, Lei
+          15.211/2025). O portal não deve ser usado para coletar dados além do necessário para a
+          finalidade informada.
         </p>
       </LegalSection>
       <LegalSection title="10 Segurança">
