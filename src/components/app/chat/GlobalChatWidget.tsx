@@ -208,7 +208,7 @@ function ChatInner() {
         <div 
           className={cn(
             "fixed z-[70] flex flex-col w-[90vw] sm:w-[420px] shadow-elevated overflow-hidden transition-all duration-500",
-            "bg-[#0F172A] border border-primary/20 rounded-3xl",
+            "bg-[#11212D] border border-primary/20 rounded-3xl",
             "animate-in slide-in-from-bottom-5 fade-in",
             isAiAssistantOpen ? "left-5 right-auto" : "right-5 left-auto"
           )}
@@ -1076,7 +1076,7 @@ function ChatPanel({ onClose, setIsOpen, activeConversationId, setActiveConversa
 
 
   return (
-    <div ref={widgetRef} className={cn("flex flex-col h-full bg-[#0F172A]", isAttentionShaking && "attention-shake")}>
+    <div ref={widgetRef} className={cn("flex flex-col h-full bg-[#11212D]", isAttentionShaking && "attention-shake")}>
         <div className="flex items-center justify-between p-4 border-b border-white/5 bg-black/40 backdrop-blur-md">
           <div className="flex items-center gap-3">
             <div className="size-10 bg-primary/10 rounded-full flex items-center justify-center">
@@ -1268,7 +1268,7 @@ function ChatPanel({ onClose, setIsOpen, activeConversationId, setActiveConversa
                                 />
                                 <ChatPresenceIndicator 
                                   status={presenceStatus}
-                                  className="absolute bottom-0 right-0 border-[#0F172A]"
+                                  className="absolute bottom-0 right-0 border-[#11212D]"
                                 />
                                 {conv.is_pinned && (
                                   <div className="absolute -top-1 -left-1 bg-primary rounded-full p-0.5 shadow-sm">
@@ -1315,7 +1315,7 @@ function ChatPanel({ onClose, setIsOpen, activeConversationId, setActiveConversa
                                   side="left" 
                                   align="start" 
                                   sideOffset={6}
-                                  className="w-32 bg-[#0F172A] border-white/10 z-[100]"
+                                  className="w-32 bg-[#11212D] border-white/10 z-[100]"
                                 >
                                   <DropdownMenuItem 
                                     className="text-[10px] py-1.5"
@@ -1690,7 +1690,7 @@ function ChatPanel({ onClose, setIsOpen, activeConversationId, setActiveConversa
           )}
         </div>
       <AlertDialog open={!!conversationToHide} onOpenChange={(open) => !open && setConversationToHide(null)}>
-        <AlertDialogContent className="bg-[#0F172A] border-white/10 text-white max-w-[90vw] sm:max-w-md">
+        <AlertDialogContent className="bg-[#11212D] border-white/10 text-white max-w-[90vw] sm:max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle className="font-display font-black uppercase tracking-tight">Apagar conversa da lista?</AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground text-xs">
