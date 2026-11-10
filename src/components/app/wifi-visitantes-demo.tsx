@@ -22,7 +22,7 @@ export function WifiVisitantesDemo() {
   const toggle = () => setOpen((value) => !value);
 
   return (
-    <article
+    <div
       onClick={toggle}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
@@ -33,7 +33,7 @@ export function WifiVisitantesDemo() {
       tabIndex={0}
       role="button"
       aria-expanded={open}
-      className="group cursor-pointer overflow-hidden rounded-2xl border border-white/[.08] bg-[#0B1118] transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 hover:shadow-[0_8px_32px_rgba(0,192,240,0.18)]"
+      className="group cursor-pointer overflow-hidden rounded-2xl border border-white/[.08] bg-[#06141B] transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 hover:shadow-[0_8px_32px_rgba(0,192,240,0.18)]"
     >
       {/* Cabeçalho — sempre visível */}
       <div className="flex items-center gap-3 p-5 text-left sm:p-6">
@@ -60,7 +60,7 @@ export function WifiVisitantesDemo() {
 
       {/* Dica — some quando expande */}
       <p
-        className={`px-5 pb-5 text-xs text-slate-500 sm:px-6 ${open ? "hidden" : "group-hover:hidden"}`}
+        className={`px-5 pb-5 text-xs text-slate-400 sm:px-6 ${open ? "hidden" : "group-hover:hidden"}`}
       >
         Toque ou passe o mouse para ver o painel completo
       </p>
@@ -74,7 +74,7 @@ export function WifiVisitantesDemo() {
             <p className="text-sm font-medium text-white">
               Política do Wi-Fi para visitantes
             </p>
-            <p className="mt-1 text-xs leading-5 text-slate-500">
+            <p className="mt-1 text-xs leading-5 text-slate-400">
               É assim que o painel mostra as regras: aplicadas a cada novo
               check-in, a sessão encerra ao atingir o tempo máximo ou o período
               sem tráfego.
@@ -91,12 +91,12 @@ export function WifiVisitantesDemo() {
                 </div>
               ))}
             </div>
-            <p className="mt-4 text-xs italic text-slate-500">
+            <p className="mt-4 text-xs italic text-slate-400">
               Demonstração com valores de exemplo.
             </p>
           </div>
         </div>
       </div>
-    </article>
+    </div>
   );
 }

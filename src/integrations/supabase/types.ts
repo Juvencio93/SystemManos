@@ -2657,7 +2657,10 @@ export type Database = {
           email: string | null
           first_seen_at: string
           full_name: string
+          guardian_consent_at: string | null
+          guardian_name: string | null
           id: string
+          is_minor: boolean
           last_seen_at: string
           lgpd_consent: boolean
           lgpd_consent_at: string | null
@@ -2682,7 +2685,10 @@ export type Database = {
           email?: string | null
           first_seen_at?: string
           full_name: string
+          guardian_consent_at?: string | null
+          guardian_name?: string | null
           id?: string
+          is_minor?: boolean
           last_seen_at?: string
           lgpd_consent?: boolean
           lgpd_consent_at?: string | null
@@ -2707,7 +2713,10 @@ export type Database = {
           email?: string | null
           first_seen_at?: string
           full_name?: string
+          guardian_consent_at?: string | null
+          guardian_name?: string | null
           id?: string
+          is_minor?: boolean
           last_seen_at?: string
           lgpd_consent?: boolean
           lgpd_consent_at?: string | null

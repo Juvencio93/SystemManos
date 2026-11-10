@@ -81,8 +81,141 @@ export function TermsOfUseContent() {
           seguirão o contrato e a Política de Privacidade.
         </p>
       </LegalSection>
-      <LegalSection title="8 Contato">
+      <LegalSection title="8 Cancelamento e arrependimento">
+        <p>
+          O cliente pode cancelar a assinatura quando quiser, pelos canais oficiais da Manos Tech
+          (telefone e e-mail abaixo). O pedido de cancelamento é confirmado imediatamente. O
+          arrependimento em até 7 dias corridos da contratação, sem motivo e sem ônus, a troca e a
+          devolução de valores seguem a Política de Reembolso, disponível em /reembolso.
+        </p>
+      </LegalSection>
+      <LegalSection title="9 Contato">
         <p>Questões sobre estes Termos podem ser encaminhadas pelos canais oficiais abaixo.</p>
+        <LegalCompanyDetails />
+      </LegalSection>
+    </>
+  );
+}
+
+export function CookiePolicyContent() {
+  return (
+    <>
+      <LegalSection title="1 O que são cookies">
+        <p>
+          Cookies são pequenos arquivos que o navegador guarda para lembrar informações entre
+          visitas. A Manos Tech usa apenas cookies necessários para o login e o funcionamento do
+          Wi-Fi. Não usamos cookies de análise nem de publicidade. Quando uma tecnologia não
+          essencial for ativada, o consentimento será pedido antes do uso (LGPD, arts. 7º e 8º).
+        </p>
+      </LegalSection>
+      <LegalSection title="2 Cookies necessários">
+        <LegalList
+          items={[
+            "sb-manostech-auth-token — sessão do login na plataforma. Cookie httpOnly (não é lido por scripts da página), válido por 30 dias e renovado a cada acesso. Sem ele, não é possível entrar no sistema.",
+            "manos_hotspot_context — contexto do check-in no portal Wi-Fi (qual portal e qual liberação de acesso). Cookie httpOnly, Secure e SameSite=Lax, válido por 10 minutos. Sem ele, o portal não consegue liberar o Wi-Fi.",
+          ]}
+        />
+      </LegalSection>
+      <LegalSection title="3 Armazenamento local">
+        <p>
+          Além dos cookies, o navegador pode guardar preferências no próprio aparelho, sem enviar
+          esses dados para a Manos Tech: som do chat, status manual de presença, notificações já
+          lidas e os dados do formulário do portal (nome, telefone e cidade) para pré-preencher a
+          próxima visita no mesmo aparelho, por até 90 dias. Os consentimentos nunca voltam
+          marcados: o aceite é sempre uma ação nova do visitante. Nada disso autoriza comunicações
+          de marketing.
+        </p>
+      </LegalSection>
+      <LegalSection title="4 Terceiros">
+        <p>
+          As fontes de texto da plataforma são carregadas dos servidores do Google (Google Fonts).
+          Ao carregar a página, o navegador do visitante faz uma requisição a esses servidores, que
+          podem ver o endereço IP — o Google não recebe cookies da Manos Tech nem dados do
+          cadastro. Não há ferramentas de análise ou publicidade de terceiros ativas hoje.
+        </p>
+      </LegalSection>
+      <LegalSection title="5 Como controlar">
+        <p>
+          Os cookies necessários não podem ser desativados sem impedir o login e o Wi-Fi, porque
+          são eles que mantêm a sessão e a liberação de acesso. O armazenamento local pode ser
+          limpo nas configurações do navegador, a qualquer momento, sem afetar o cadastro. Quando
+          cookies não essenciais existirem, será possível aceitar ou recusar cada categoria no
+          banner, e retirar o consentimento será tão fácil quanto dá-lo (LGPD, art. 8º, § 5º).
+        </p>
+      </LegalSection>
+      <LegalSection title="6 Contato">
+        <p>Dúvidas sobre cookies e armazenamento local podem ser encaminhadas pelos canais oficiais abaixo.</p>
+        <LegalCompanyDetails />
+      </LegalSection>
+    </>
+  );
+}
+
+export function RefundPolicyContent() {
+  return (
+    <>
+      <LegalSection title="1 Arrependimento em 7 dias">
+        <p>
+          Quem contrata a assinatura fora do estabelecimento comercial pode desistir em até 7 dias
+          corridos da contratação, sem precisar dar motivo e sem nenhum ônus. Nesse caso, a Manos
+          Tech devolve imediatamente e com atualização monetária tudo o que foi pago, inclusive
+          valores de eventuais serviços acessórios contratados junto com a assinatura (CDC, art.
+          49 e parágrafo único; Decreto 7.962/2013, art. 5º).
+        </p>
+      </LegalSection>
+      <LegalSection title="2 Como exercer o arrependimento">
+        <p>
+          O pedido pode ser feito pelos canais oficiais da Manos Tech — telefone (47) 99704-9730
+          ou e-mail contato@manostech-system.com.br — e é confirmado imediatamente. A Manos Tech
+          comunica o cancelamento à operadora do cartão na mesma hora, para que o valor não seja
+          lançado ou seja estornado, e rescinde sem ônus os contratos acessórios (Decreto
+          7.962/2013, art. 5º, §§ 1º a 4º).
+        </p>
+      </LegalSection>
+      <LegalSection title="3 Defeito no serviço">
+        <p>
+          Se o serviço apresentar defeito, o cliente pode reclamar em até 30 dias (serviços) e a
+          Manos Tech tem 30 dias para sanar o problema. Sem solução nesse prazo, o cliente escolhe
+          entre a reexecução do serviço, a restituição imediata e atualizada do valor pago ou o
+          abatimento proporcional do preço (CDC, arts. 18, § 1º, e 26). Em caso de serviço
+          essencial indisponível, a escolha é imediata (CDC, art. 18, § 3º).
+        </p>
+      </LegalSection>
+      <LegalSection title="4 Oferta não cumprida">
+        <p>
+          Se a oferta anunciada não for cumprida, o cliente pode exigir o cumprimento forçado, um
+          serviço equivalente ou a rescisão do contrato com restituição atualizada do valor pago e
+          perdas e danos (CDC, art. 35). A oferta anunciada obriga e integra o contrato (CDC, art.
+          30).
+        </p>
+      </LegalSection>
+      <LegalSection title="5 Cobrança indevida">
+        <p>
+          Valor cobrado indevidamente é devolvido em dobro, com correção monetária, salvo engano
+          justificável (CDC, art. 42, parágrafo único).
+        </p>
+      </LegalSection>
+      <LegalSection title="6 Cancelamento da assinatura">
+        <p>
+          Fora do prazo de arrependimento, a assinatura pode ser cancelada a qualquer momento
+          pelos canais oficiais, sem multa. O acesso continua até o fim do período já pago. Valores
+          de períodos já utilizados não são devolvidos, salvo nas hipóteses de arrependimento (item
+          1) e defeito (item 3).
+        </p>
+      </LegalSection>
+      <LegalSection title="7 Prazo e forma do reembolso">
+        <p>
+          O reembolso é feito no mesmo meio usado no pagamento (estorno no cartão ou Pix). A Manos
+          Tech comunica o estorno à operadora imediatamente; o prazo para o valor aparecer na
+          fatura ou na conta depende da operadora do cartão ou do banco, não da Manos Tech. A
+          garantia contratual soma-se à garantia legal e não a substitui (CDC, art. 50).
+        </p>
+      </LegalSection>
+      <LegalSection title="8 Contato">
+        <p>
+          Pedidos de reembolso, troca e cancelamento são atendidos pelos canais oficiais abaixo,
+          com resposta em até 5 dias (Decreto 7.962/2013, art. 4º, V).
+        </p>
         <LegalCompanyDetails />
       </LegalSection>
     </>
@@ -173,28 +306,34 @@ export function PrivacyPolicyContent() {
           não define o prazo de conservação dos dados ativos de visitantes.
         </p>
         <p>
-          Os prazos para dados ativos de visitantes, solicitações de privacidade, comprovantes de
-          consentimento e registros financeiros dependem da finalidade e das obrigações aplicáveis.
-          Ao terminar a necessidade de conservação, os dados são eliminados ou anonimizados, salvo
-          hipótese legal de guarda.
+          Dados de visitantes: enquanto a empresa cliente estiver ativa e por até 90 dias após o
+          fim do contrato. Comprovantes de consentimento e solicitações de privacidade: 5 anos após
+          a revogação ou o fim do tratamento, para prova do consentimento e das respostas dadas
+          (CDC, art. 27). Registros financeiros e fiscais: pelo prazo das obrigações legais
+          aplicáveis. Ao terminar a necessidade de conservação, os dados são eliminados ou
+          anonimizados, salvo hipótese legal de guarda.
         </p>
       </LegalSection>
       <LegalSection title="8 Cookies e armazenamento local">
         <p>
           A plataforma usa cookies e armazenamento local necessários para manter sessões seguras,
-          permitir o funcionamento do portal Wi-Fi e guardar preferências da interface. Esses
-          recursos não autorizam comunicações de marketing. Se forem ativadas tecnologias não
-          essenciais de análise ou publicidade, as informações e os controles correspondentes
-          serão apresentados antes do seu uso, quando exigido.
+          permitir o funcionamento do portal Wi-Fi e guardar preferências da interface. O portal
+          pode lembrar nome, telefone e cidade neste aparelho para pré-preencher a próxima visita,
+          por até 90 dias; os consentimentos nunca voltam marcados. Esses recursos não autorizam
+          comunicações de marketing. Se forem ativadas tecnologias não essenciais de análise ou
+          publicidade, as informações e os controles correspondentes serão apresentados antes do seu
+          uso, quando exigido.
         </p>
       </LegalSection>
       <LegalSection title="9 Crianças e adolescentes">
         <p>
-          Quando o tratamento envolver crianças ou adolescentes, ele deverá atender ao melhor
-          interesse e às regras aplicáveis. Para dados de crianças, será observado o consentimento
-          específico e em destaque de pelo menos um dos pais ou responsável legal, ressalvadas as
-          hipóteses legais. O portal Wi-Fi não deve ser usado para coletar dados além do necessário
-          para a finalidade informada.
+          O portal Wi-Fi pergunta se o visitante tem 18 anos ou mais antes do cadastro. Quem tem
+          menos de 18 anos só conecta com o nome do responsável e a autorização dele, registrada
+          junto ao cadastro (nome do responsável e momento do aceite). Para dados de crianças, é
+          observado o consentimento específico e em destaque de pelo menos um dos pais ou
+          responsável legal, ressalvadas as hipóteses legais (LGPD, art. 14; ECA Digital, Lei
+          15.211/2025). O portal não deve ser usado para coletar dados além do necessário para a
+          finalidade informada.
         </p>
       </LegalSection>
       <LegalSection title="10 Segurança">

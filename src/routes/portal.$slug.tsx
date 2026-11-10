@@ -311,6 +311,10 @@ function PortalPage() {
     fullName: "",
     phone: "",
     city: "",
+    // Verificação de idade (ECA Digital): "" = ainda não respondeu.
+    ageGroup: "" as "" | "adult" | "minor",
+    guardianName: "",
+    guardianConsent: false,
     consent: false,
     marketingConsent: false,
   });
@@ -320,6 +324,9 @@ function PortalPage() {
     fullName: false,
     phone: false,
     city: false,
+    ageGroup: false,
+    guardianName: false,
+    guardianConsent: false,
     consent: false,
     marketingConsent: false,
   });
@@ -423,6 +430,15 @@ function PortalPage() {
         await pause(500);
       }
       if (cancelled) return;
+      // Verificação de idade: a demonstração responde "18 anos ou mais"
+      // antes do consentimento, como um visitante adulto faria.
+      const ageAdult = document.getElementById("ageGroup-adult") as HTMLInputElement | null;
+      await scrollToVisible(ageAdult);
+      if (cancelled) return;
+      await pause(350);
+      if (ageAdult && !ageAdult.checked) ageAdult.click();
+      await pause(500);
+      if (cancelled) return;
       const consent = document.getElementById("consent") as HTMLInputElement | null;
       await scrollToVisible(consent);
       if (cancelled) return;
@@ -496,6 +512,9 @@ function PortalPage() {
           phone: form.phone,
           city: form.city,
           countryCode: selectedCountry.code,
+          // O pré-preenchimento expira em 90 dias: dado pessoal guardado
+          // só no aparelho do visitante, sem prazo, vira passivo.
+          savedAt: Date.now(),
         }),
       );
     } catch {
@@ -508,7 +527,7 @@ function PortalPage() {
     } catch {
       // Sem armazenamento: só limpa o formulário.
     }
-    setForm({ fullName: "", phone: "", city: "", consent: false, marketingConsent: false });
+    setForm({ fullName: "", phone: "", city: "", ageGroup: "", guardianName: "", guardianConsent: false, consent: false, marketingConsent: false });
     setPrefilled(false);
   };
 
@@ -524,7 +543,19 @@ function PortalPage() {
         phone?: string;
         city?: string;
         countryCode?: string;
+        savedAt?: number;
       };
+      // Pré-preenchimento com mais de 90 dias é descartado (LGPD: retenção
+      // definida na Política de Privacidade, seção 7). Registros antigos,
+      // sem savedAt, continuam valendo e ganham o prazo no próximo check-in.
+      if (typeof saved.savedAt === "number" && Date.now() - saved.savedAt > 90 * 24 * 60 * 60 * 1000) {
+        try {
+          window.localStorage.removeItem(prefillKey);
+        } catch {
+          // Sem acesso ao armazenamento: segue com o formulário vazio.
+        }
+        return;
+      }
       if (!saved.fullName && !saved.phone) return;
       setForm((current) =>
         current.fullName || current.phone
@@ -533,6 +564,9 @@ function PortalPage() {
               fullName: saved.fullName ?? "",
               phone: saved.phone ?? "",
               city: saved.city ?? "",
+              ageGroup: "",
+              guardianName: "",
+              guardianConsent: false,
               consent: false,
               marketingConsent: false,
             },
@@ -589,7 +623,12 @@ function PortalPage() {
         cleanPhoneDigits.length >= 8 &&
         cleanPhoneDigits.length <= 15 &&
         !/^0+$/.test(cleanPhoneDigits);
-      if (!isNameValid || !isCityValid || !isPhoneValid || !form.consent) {
+      const isMinor = form.ageGroup === "minor";
+      const isAgeValid =
+        (form.ageGroup === "adult" || form.ageGroup === "minor") &&
+        (!isMinor || form.guardianName.trim().length >= 3) &&
+        (!isMinor || form.guardianConsent);
+      if (!isNameValid || !isCityValid || !isPhoneValid || !isAgeValid || !form.consent) {
         throw new Error("Por favor, preencha todos os campos corretamente");
       }
 
@@ -600,6 +639,9 @@ function PortalPage() {
           phone: cleanPhoneDigits,
           city: form.city.trim(),
           countryCode: selectedCountry.code,
+          ageGroup: form.ageGroup as "adult" | "minor",
+          guardianName: isMinor ? form.guardianName.trim() : undefined,
+          guardianConsent: isMinor ? form.guardianConsent : undefined,
           consent: true,
           marketingConsent: form.marketingConsent,
           deviceType: detectDevice(navigator.userAgent),
@@ -657,11 +699,15 @@ function PortalPage() {
       cleanPhoneDigits.length >= 8 &&
       cleanPhoneDigits.length <= 15 &&
       !/^0+$/.test(cleanPhoneDigits);
+    const isMinor = form.ageGroup === "minor";
 
     return {
       fullName: isNameValid,
       phone: isPhoneValid,
       city: isCityValid,
+      ageGroup: form.ageGroup === "adult" || form.ageGroup === "minor",
+      guardianName: !isMinor || form.guardianName.trim().length >= 3,
+      guardianConsent: !isMinor || form.guardianConsent,
       consent: form.consent,
       // Consentimento de marketing é opcional: nunca bloqueia o envio nem
       // gera erro — o mecanismo de erro cobre os dois consentimentos, mas só
@@ -674,6 +720,9 @@ function PortalPage() {
     fieldValidity.fullName &&
     fieldValidity.phone &&
     fieldValidity.city &&
+    fieldValidity.ageGroup &&
+    fieldValidity.guardianName &&
+    fieldValidity.guardianConsent &&
     fieldValidity.consent &&
     !mutation.isPending;
 
@@ -696,6 +745,18 @@ function PortalPage() {
     city:
       !fieldValidity.city && (touched.city || submitAttempted)
         ? "Digite sua cidade"
+        : null,
+    ageGroup:
+      !fieldValidity.ageGroup && (touched.ageGroup || submitAttempted)
+        ? "Informe se você tem 18 anos ou mais"
+        : null,
+    guardianName:
+      !fieldValidity.guardianName && (touched.guardianName || submitAttempted)
+        ? "Informe o nome do responsável"
+        : null,
+    guardianConsent:
+      !fieldValidity.guardianConsent && (touched.guardianConsent || submitAttempted)
+        ? "O responsável precisa autorizar"
         : null,
     consent:
       !fieldValidity.consent && (touched.consent || submitAttempted)
@@ -880,6 +941,9 @@ function PortalPage() {
               ["fullName", fieldValidity.fullName],
               ["phone", fieldValidity.phone],
               ["city", fieldValidity.city],
+              ["ageGroup", fieldValidity.ageGroup],
+              ["guardianName", fieldValidity.guardianName],
+              ["guardianConsent", fieldValidity.guardianConsent],
               ["consent", fieldValidity.consent],
             ] as const
           ).find(([, valid]) => !valid)?.[0];
@@ -1016,6 +1080,91 @@ function PortalPage() {
                     <FieldError id="city-error" message={fieldErrors.city} />
                   </div>
                 </div>
+
+                {/* Verificação de idade (ECA Digital, Lei 15.211/2025): pergunta
+                    obrigatória antes do consentimento. Menor de 18 anos só
+                    conecta com o nome do responsável e o aceite dele. */}
+                <fieldset
+                  id="ageGroup"
+                  className="space-y-2"
+                  aria-describedby={fieldErrors.ageGroup ? "ageGroup-error" : undefined}
+                >
+                  <legend className={theme.labelClass}>Você tem 18 anos ou mais? *</legend>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-[color:var(--portal-border)] bg-[color:var(--portal-surface-alt)] px-3.5 py-2.5 text-sm text-[color:var(--portal-text)]">
+                      <input
+                        id="ageGroup-adult"
+                        type="radio"
+                        name="ageGroup"
+                        value="adult"
+                        checked={form.ageGroup === "adult"}
+                        onChange={() => {
+                          setForm((f) => ({ ...f, ageGroup: "adult", guardianName: "", guardianConsent: false }));
+                          markTouched("ageGroup");
+                        }}
+                        className="size-4 shrink-0"
+                        style={{ accentColor: "var(--portal-accent-on)" }}
+                      />
+                      Sim, tenho 18 anos ou mais
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-[color:var(--portal-border)] bg-[color:var(--portal-surface-alt)] px-3.5 py-2.5 text-sm text-[color:var(--portal-text)]">
+                      <input
+                        id="ageGroup-minor"
+                        type="radio"
+                        name="ageGroup"
+                        value="minor"
+                        checked={form.ageGroup === "minor"}
+                        onChange={() => {
+                          setForm((f) => ({ ...f, ageGroup: "minor" }));
+                          markTouched("ageGroup");
+                        }}
+                        className="size-4 shrink-0"
+                        style={{ accentColor: "var(--portal-accent-on)" }}
+                      />
+                      Não, tenho menos de 18 anos
+                    </label>
+                  </div>
+                  <FieldError id="ageGroup-error" message={fieldErrors.ageGroup} />
+                  {form.ageGroup === "minor" && (
+                    <div className="space-y-1.5 pt-1">
+                      <FieldLabel htmlFor="guardianName" className={theme.labelClass}>Nome do responsável *</FieldLabel>
+                      <Input
+                        id="guardianName"
+                        required
+                        value={form.guardianName}
+                        onChange={(e) => setForm((f) => ({ ...f, guardianName: e.target.value }))}
+                        onBlur={() => markTouched("guardianName")}
+                        aria-invalid={fieldErrors.guardianName ? true : undefined}
+                        aria-describedby={fieldErrors.guardianName ? "guardianName-error" : undefined}
+                        placeholder="Nome completo do responsável"
+                        className={`${fieldSizeClass} transition-all placeholder:text-[color:var(--portal-faint)] ${theme.inputClass}`}
+                        style={inputStyleWithError(Boolean(fieldErrors.guardianName))}
+                      />
+                      <FieldError id="guardianName-error" message={fieldErrors.guardianName} />
+                      <label htmlFor="guardianConsent" className="flex cursor-pointer items-start gap-2.5 pt-1">
+                        <input
+                          id="guardianConsent"
+                          type="checkbox"
+                          checked={form.guardianConsent}
+                          onChange={(e) => {
+                            setForm((f) => ({ ...f, guardianConsent: e.target.checked }));
+                            markTouched("guardianConsent");
+                          }}
+                          aria-invalid={fieldErrors.guardianConsent ? true : undefined}
+                          aria-describedby={fieldErrors.guardianConsent ? "guardianConsent-error" : undefined}
+                          className="mt-1 size-4 shrink-0 rounded border-[color:var(--portal-border)] bg-[color:var(--portal-surface-alt)] transition-all focus:ring-offset-transparent"
+                          style={{ accentColor: "var(--portal-accent-on)" }}
+                        />
+                        <span className={`text-[color:var(--portal-muted)] ${theme.typography.lgpdClass}`}>
+                          <strong className="text-[color:var(--portal-text)]">Sou o responsável</strong> e
+                          autorizo o uso dos dados deste menor para liberar o Wi-Fi, conforme a
+                          Política de Privacidade.
+                        </span>
+                      </label>
+                      <FieldError id="guardianConsent-error" message={fieldErrors.guardianConsent} />
+                    </div>
+                  )}
+                </fieldset>
 
                 {/* LGPD: cada linguagem visual apresenta o consentimento de forma própria. */}
                 <div

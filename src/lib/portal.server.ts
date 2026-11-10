@@ -32,6 +32,13 @@ export const portalLeadSchema = z.object({
   city: z.string().trim().min(2, "Informe sua cidade").max(120),
   consent: z.boolean().refine((val) => val === true, "E necessário aceitar a política LGPD"),
   marketingConsent: z.boolean().default(false),
+  // Verificação de idade (ECA Digital, Lei 15.211/2025): o portal pergunta
+  // se o visitante tem 18 anos ou mais. Menor de 18 anos só conecta com o
+  // nome do responsável e o aceite dele — o responsável autoriza o
+  // tratamento, não o menor.
+  ageGroup: z.enum(["adult", "minor"]),
+  guardianName: z.string().trim().max(120).optional().default(""),
+  guardianConsent: z.boolean().default(false),
   deviceType: z.string().trim().max(40).optional(),
   userAgent: z.string().trim().max(400).optional(),
   mac: z.string().trim().max(100).optional(),
@@ -42,6 +49,22 @@ export const portalLeadSchema = z.object({
   hotspotOrig: z.string().url().max(2000).optional(),
   hotspotLinkOrig: z.string().url().max(2000).optional(),
   hotspotHandoff: z.string().uuid().optional(),
+}).superRefine((data, ctx) => {
+  if (data.ageGroup !== "minor") return;
+  if (data.guardianName.trim().length < 3) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["guardianName"],
+      message: "Informe o nome do responsável",
+    });
+  }
+  if (data.guardianConsent !== true) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["guardianConsent"],
+      message: "O responsável precisa autorizar",
+    });
+  }
 });
 
 export type PortalTarget = {
@@ -378,6 +401,9 @@ export async function registerLead(
     consentSource: "wifi_portal" | "privacy_center";
     consentIp?: string | undefined;
     portalSlug: string;
+    ageGroup?: "adult" | "minor" | undefined;
+    guardianName?: string | undefined;
+    guardianConsent?: boolean | undefined;
     deviceType?: string | undefined;
     userAgent?: string | undefined;
     mac?: string | undefined;
@@ -414,6 +440,12 @@ export async function registerLead(
   // Mas podemos garantir que se o visitante falhar, nada acontece.
   // E se o visitante ok, mas conexão falhar, o visitante já está lá (idempotência posterior ajuda).
 
+  // Verificação de idade (ECA Digital): a última declaração vale — um
+  // visitante que era menor e hoje é maior deixa de ser marcado como menor.
+  const isMinor = input.ageGroup === "minor";
+  const guardianName = isMinor ? input.guardianName?.trim() || null : null;
+  const guardianConsentAt = isMinor && input.guardianConsent ? now : null;
+
   try {
     if (visitorId) {
       const { error: updateError } = await admin
@@ -433,6 +465,9 @@ export async function registerLead(
           marketing_consent_revoked_at: marketingConsent ? null : now,
           consent_version: WIFI_CONSENT_VERSION,
           consent_source: input.consentSource,
+          is_minor: isMinor,
+          guardian_name: guardianName,
+          guardian_consent_at: guardianConsentAt,
         })
         .eq("id", visitorId);
 
@@ -457,6 +492,9 @@ export async function registerLead(
           consent_version: WIFI_CONSENT_VERSION,
           consent_source: input.consentSource,
           connections_count: 1,
+          is_minor: isMinor,
+          guardian_name: guardianName,
+          guardian_consent_at: guardianConsentAt,
         })
         .select("id")
         .single();
