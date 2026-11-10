@@ -1003,7 +1003,7 @@ function MensagensPage() {
                     Iniciar nova conversa
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-72 max-h-[400px] overflow-hidden flex flex-col p-0 bg-[#0F172A] border-white/10">
+                <DropdownMenuContent align="start" className="w-72 max-h-[400px] overflow-hidden flex flex-col p-0 bg-[#11212D] border-white/10">
                   <div className="p-3 border-b border-white/5 bg-white/5">
                     <span className="text-[10px] font-black uppercase tracking-widest text-primary block mb-2">Hierarquia da Plataforma</span>
                     <div className="relative">
@@ -1153,7 +1153,7 @@ function MensagensPage() {
                       )}
                       <ChatPresenceIndicator 
                         status={presenceStatus}
-                        className="absolute bottom-0 right-0 border-[#0F172A]"
+                        className="absolute bottom-0 right-0 border-[#11212D]"
                       />
                       {conv.is_pinned && (
                         <div className="absolute -top-1 -left-1 bg-primary rounded-full p-0.5 shadow-sm">
