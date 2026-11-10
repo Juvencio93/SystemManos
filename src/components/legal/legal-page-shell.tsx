@@ -74,6 +74,12 @@ export function LegalPageShell({
               >
                 Direitos do titular
               </Link>
+              <Link
+                to="/reembolso"
+                className="block rounded-lg px-3 py-2 text-slate-300 hover:bg-white/5 hover:text-white"
+              >
+                Política de reembolso
+              </Link>
             </nav>
           </div>
         </aside>

@@ -81,8 +81,87 @@ export function TermsOfUseContent() {
           seguirão o contrato e a Política de Privacidade.
         </p>
       </LegalSection>
-      <LegalSection title="8 Contato">
+      <LegalSection title="8 Cancelamento e arrependimento">
+        <p>
+          O cliente pode cancelar a assinatura quando quiser, pelos canais oficiais da Manos Tech
+          (telefone e e-mail abaixo). O pedido de cancelamento é confirmado imediatamente. O
+          arrependimento em até 7 dias corridos da contratação, sem motivo e sem ônus, a troca e a
+          devolução de valores seguem a Política de Reembolso, disponível em /reembolso.
+        </p>
+      </LegalSection>
+      <LegalSection title="9 Contato">
         <p>Questões sobre estes Termos podem ser encaminhadas pelos canais oficiais abaixo.</p>
+        <LegalCompanyDetails />
+      </LegalSection>
+    </>
+  );
+}
+
+export function RefundPolicyContent() {
+  return (
+    <>
+      <LegalSection title="1 Arrependimento em 7 dias">
+        <p>
+          Quem contrata a assinatura fora do estabelecimento comercial pode desistir em até 7 dias
+          corridos da contratação, sem precisar dar motivo e sem nenhum ônus. Nesse caso, a Manos
+          Tech devolve imediatamente e com atualização monetária tudo o que foi pago, inclusive
+          valores de eventuais serviços acessórios contratados junto com a assinatura (CDC, art.
+          49 e parágrafo único; Decreto 7.962/2013, art. 5º).
+        </p>
+      </LegalSection>
+      <LegalSection title="2 Como exercer o arrependimento">
+        <p>
+          O pedido pode ser feito pelos canais oficiais da Manos Tech — telefone (47) 99704-9730
+          ou e-mail contato@manostech-system.com.br — e é confirmado imediatamente. A Manos Tech
+          comunica o cancelamento à operadora do cartão na mesma hora, para que o valor não seja
+          lançado ou seja estornado, e rescinde sem ônus os contratos acessórios (Decreto
+          7.962/2013, art. 5º, §§ 1º a 4º).
+        </p>
+      </LegalSection>
+      <LegalSection title="3 Defeito no serviço">
+        <p>
+          Se o serviço apresentar defeito, o cliente pode reclamar em até 30 dias (serviços) e a
+          Manos Tech tem 30 dias para sanar o problema. Sem solução nesse prazo, o cliente escolhe
+          entre a reexecução do serviço, a restituição imediata e atualizada do valor pago ou o
+          abatimento proporcional do preço (CDC, arts. 18, § 1º, e 26). Em caso de serviço
+          essencial indisponível, a escolha é imediata (CDC, art. 18, § 3º).
+        </p>
+      </LegalSection>
+      <LegalSection title="4 Oferta não cumprida">
+        <p>
+          Se a oferta anunciada não for cumprida, o cliente pode exigir o cumprimento forçado, um
+          serviço equivalente ou a rescisão do contrato com restituição atualizada do valor pago e
+          perdas e danos (CDC, art. 35). A oferta anunciada obriga e integra o contrato (CDC, art.
+          30).
+        </p>
+      </LegalSection>
+      <LegalSection title="5 Cobrança indevida">
+        <p>
+          Valor cobrado indevidamente é devolvido em dobro, com correção monetária, salvo engano
+          justificável (CDC, art. 42, parágrafo único).
+        </p>
+      </LegalSection>
+      <LegalSection title="6 Cancelamento da assinatura">
+        <p>
+          Fora do prazo de arrependimento, a assinatura pode ser cancelada a qualquer momento
+          pelos canais oficiais, sem multa. O acesso continua até o fim do período já pago. Valores
+          de períodos já utilizados não são devolvidos, salvo nas hipóteses de arrependimento (item
+          1) e defeito (item 3).
+        </p>
+      </LegalSection>
+      <LegalSection title="7 Prazo e forma do reembolso">
+        <p>
+          O reembolso é feito no mesmo meio usado no pagamento (estorno no cartão ou Pix). A Manos
+          Tech comunica o estorno à operadora imediatamente; o prazo para o valor aparecer na
+          fatura ou na conta depende da operadora do cartão ou do banco, não da Manos Tech. A
+          garantia contratual soma-se à garantia legal e não a substitui (CDC, art. 50).
+        </p>
+      </LegalSection>
+      <LegalSection title="8 Contato">
+        <p>
+          Pedidos de reembolso, troca e cancelamento são atendidos pelos canais oficiais abaixo,
+          com resposta em até 5 dias (Decreto 7.962/2013, art. 4º, V).
+        </p>
         <LegalCompanyDetails />
       </LegalSection>
     </>
