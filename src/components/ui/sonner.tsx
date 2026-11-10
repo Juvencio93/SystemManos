@@ -2,7 +2,7 @@ import { Toaster as Sonner } from "sonner";
 
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 
-// Toasts (avisos) na identidade do sistema: superfície #0B1118,
+// Toasts (avisos) na identidade do sistema: superfície #06141B,
 // borda branca suave, texto claro — nada das cores padrão da
 // biblioteca (o richColors saiu da montagem em __root.tsx).
 // A cor do tipo (sucesso/erro/aviso/info) aparece só no ícone,
@@ -14,7 +14,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       theme="dark"
       style={
         {
-          "--normal-bg": "#0B1118",
+          "--normal-bg": "#06141B",
           "--normal-border": "rgba(255, 255, 255, 0.1)",
           "--normal-text": "#E2E8F0",
           "--border-radius": "1rem",

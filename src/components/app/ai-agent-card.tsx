@@ -460,7 +460,7 @@ function ClientAiAgentCard({
                       Ver comparação
                     </button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-md bg-[#0F172A] border-primary/20">
+                  <DialogContent className="max-w-md bg-[#11212D] border-primary/20">
                     <DialogHeader>
                       <DialogTitle className="font-display text-lg text-white">
                         Manos Tech x operação manual
@@ -953,7 +953,7 @@ export const BannerAgentDialog = forwardRef<{ openWithPrompt: (prompt: string) =
         if (!open) reset();
       }}
     >
-      <DialogContent className="max-w-2xl bg-[#0F172A] border-cyan-500/20 max-h-[90vh] flex flex-col p-0">
+      <DialogContent className="max-w-2xl bg-[#11212D] border-cyan-500/20 max-h-[90vh] flex flex-col p-0">
         <DialogHeader className="p-6 border-b border-white/5">
           <DialogTitle className="flex items-center gap-2 text-white">
             <Sparkles className="size-5 text-cyan-400" />
