@@ -12,8 +12,10 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as CookiesRouteImport } from './routes/cookies'
 import { Route as DireitosDoTitularRouteImport } from './routes/direitos-do-titular'
 import { Route as PoliticaDePrivacidadeRouteImport } from './routes/politica-de-privacidade'
+import { Route as ReembolsoRouteImport } from './routes/reembolso'
 import { Route as TermosDeUsoRouteImport } from './routes/termos-de-uso'
 import { Route as AuthenticatedAssinaturaRouteImport } from './routes/_authenticated/assinatura'
 import { Route as AuthenticatedCampanhasRouteImport } from './routes/_authenticated/campanhas'
@@ -83,6 +85,11 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CookiesRoute = CookiesRouteImport.update({
+  id: '/cookies',
+  path: '/cookies',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DireitosDoTitularRoute = DireitosDoTitularRouteImport.update({
   id: '/direitos-do-titular',
   path: '/direitos-do-titular',
@@ -91,6 +98,11 @@ const DireitosDoTitularRoute = DireitosDoTitularRouteImport.update({
 const PoliticaDePrivacidadeRoute = PoliticaDePrivacidadeRouteImport.update({
   id: '/politica-de-privacidade',
   path: '/politica-de-privacidade',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReembolsoRoute = ReembolsoRouteImport.update({
+  id: '/reembolso',
+  path: '/reembolso',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TermosDeUsoRoute = TermosDeUsoRouteImport.update({
@@ -396,8 +408,10 @@ const AuthenticatedFinanceiroReciboChargeIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/cookies': typeof CookiesRoute
   '/direitos-do-titular': typeof DireitosDoTitularRoute
   '/politica-de-privacidade': typeof PoliticaDePrivacidadeRoute
+  '/reembolso': typeof ReembolsoRoute
   '/termos-de-uso': typeof TermosDeUsoRoute
   '/financeiro': typeof AuthenticatedFinanceiroRouteRouteWithChildren
   '/assinatura': typeof AuthenticatedAssinaturaRoute
@@ -456,8 +470,10 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/cookies': typeof CookiesRoute
   '/direitos-do-titular': typeof DireitosDoTitularRoute
   '/politica-de-privacidade': typeof PoliticaDePrivacidadeRoute
+  '/reembolso': typeof ReembolsoRoute
   '/termos-de-uso': typeof TermosDeUsoRoute
   '/assinatura': typeof AuthenticatedAssinaturaRoute
   '/campanhas': typeof AuthenticatedCampanhasRoute
@@ -517,8 +533,10 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/cookies': typeof CookiesRoute
   '/direitos-do-titular': typeof DireitosDoTitularRoute
   '/politica-de-privacidade': typeof PoliticaDePrivacidadeRoute
+  '/reembolso': typeof ReembolsoRoute
   '/termos-de-uso': typeof TermosDeUsoRoute
   '/_authenticated/financeiro': typeof AuthenticatedFinanceiroRouteRouteWithChildren
   '/_authenticated/assinatura': typeof AuthenticatedAssinaturaRoute
@@ -579,8 +597,10 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/cookies'
     | '/direitos-do-titular'
     | '/politica-de-privacidade'
+    | '/reembolso'
     | '/termos-de-uso'
     | '/financeiro'
     | '/assinatura'
@@ -639,8 +659,10 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/cookies'
     | '/direitos-do-titular'
     | '/politica-de-privacidade'
+    | '/reembolso'
     | '/termos-de-uso'
     | '/assinatura'
     | '/campanhas'
@@ -699,8 +721,10 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/cookies'
     | '/direitos-do-titular'
     | '/politica-de-privacidade'
+    | '/reembolso'
     | '/termos-de-uso'
     | '/_authenticated/financeiro'
     | '/_authenticated/assinatura'
@@ -761,8 +785,10 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  CookiesRoute: typeof CookiesRoute
   DireitosDoTitularRoute: typeof DireitosDoTitularRoute
   PoliticaDePrivacidadeRoute: typeof PoliticaDePrivacidadeRoute
+  ReembolsoRoute: typeof ReembolsoRoute
   TermosDeUsoRoute: typeof TermosDeUsoRoute
   PortalSlugRoute: typeof PortalSlugRoute
   ApiInternalHotspotAssignmentAckRoute: typeof ApiInternalHotspotAssignmentAckRoute
@@ -813,6 +839,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/cookies': {
+      id: '/cookies'
+      path: '/cookies'
+      fullPath: '/cookies'
+      preLoaderRoute: typeof CookiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/direitos-do-titular': {
       id: '/direitos-do-titular'
       path: '/direitos-do-titular'
@@ -825,6 +858,13 @@ declare module '@tanstack/react-router' {
       path: '/politica-de-privacidade'
       fullPath: '/politica-de-privacidade'
       preLoaderRoute: typeof PoliticaDePrivacidadeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reembolso': {
+      id: '/reembolso'
+      path: '/reembolso'
+      fullPath: '/reembolso'
+      preLoaderRoute: typeof ReembolsoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/termos-de-uso': {
@@ -1295,8 +1335,10 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  CookiesRoute: CookiesRoute,
   DireitosDoTitularRoute: DireitosDoTitularRoute,
   PoliticaDePrivacidadeRoute: PoliticaDePrivacidadeRoute,
+  ReembolsoRoute: ReembolsoRoute,
   TermosDeUsoRoute: TermosDeUsoRoute,
   PortalSlugRoute: PortalSlugRoute,
   ApiInternalHotspotAssignmentAckRoute: ApiInternalHotspotAssignmentAckRoute,
