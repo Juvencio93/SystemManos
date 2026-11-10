@@ -48,7 +48,7 @@ export function ChatStatusSelector({ className, showLabel = false }: ChatStatusS
         align="end" 
         side="bottom"
         sideOffset={8}
-        className="bg-[#1E293B] border-white/10 text-white min-w-[140px] z-[9999]"
+        className="bg-[#253745] border-white/10 text-white min-w-[140px] z-[9999]"
         onCloseAutoFocus={(e) => e.preventDefault()}
       >
         {options.map((option) => (

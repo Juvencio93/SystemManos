@@ -95,7 +95,7 @@ export function VisitorHistoryModal({ visitorId, onClose }: VisitorHistoryModalP
 
   return (
     <Dialog open={!!visitorId} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl bg-[#0F172A] border-primary/20 p-0 overflow-hidden max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-2xl bg-[#11212D] border-primary/20 p-0 overflow-hidden max-h-[90vh] flex flex-col">
         <DialogHeader className="p-6 pb-4 border-b border-white/5 shrink-0">
           <div className="flex items-center gap-3">
             <div className="rounded-full bg-primary/10 p-2 text-primary">
@@ -313,7 +313,7 @@ function TimelineItem({ entry }: { entry: VisitorHistoryEntry }) {
       {/* Dot on line */}
       <div
         className={cn(
-          "absolute -left-[29px] top-1 size-3 rounded-full border-2 border-[#0F172A] z-10",
+          "absolute -left-[29px] top-1 size-3 rounded-full border-2 border-[#11212D] z-10",
           entry.isFirst ? "bg-cyan-400" : "bg-primary",
         )}
       />

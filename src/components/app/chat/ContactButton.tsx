@@ -11,7 +11,7 @@ export function ContactButton({ contact, presenceStatus, onClick, isMatrix, isNe
       <div className="relative">
         {isLoading ? <div className="flex size-7 items-center justify-center rounded-full bg-primary/10"><Loader2 className="size-3 animate-spin text-primary" /></div> : <>
           <ChatProfileAvatar name={contact.displayName ?? "Contato"} imageUrl={contact.profileAvatarUrl ?? null} status={presenceStatus} className={cn("size-7", isMatrix && "ring-1 ring-primary/40")} />
-          <ChatPresenceIndicator status={presenceStatus} className="absolute -bottom-0.5 -right-0.5 border-[#0F172A]" />
+          <ChatPresenceIndicator status={presenceStatus} className="absolute -bottom-0.5 -right-0.5 border-[#11212D]" />
         </>}
       </div>
       <div className="flex-1 min-w-0">
