@@ -31,5 +31,16 @@ export const setCompanyBlocked = createServerFn({ method: "POST" })
       .update({ blocked: data.blocked, status: data.blocked ? "bloqueada" : "ativa" })
       .eq("id", data.companyId);
     if (error) throw new Error(error.message);
+
+    // Trilha de auditoria (frente 10): fail-open — nunca bloqueia a ação.
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { logAdminAction } = await import("@/lib/admin-audit-log.server");
+    await logAdminAction(supabaseAdmin, {
+      userId: context.userId,
+      action: data.blocked ? "company.block" : "company.unblock",
+      companyId: data.companyId,
+      details: { blocked: data.blocked },
+    });
+
     return { blocked: data.blocked };
   });

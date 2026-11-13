@@ -158,6 +158,16 @@ export const resetCompanyAccess = createServerFn({ method: "POST" })
 
     await supabaseAdmin.from("companies").update({ access_email: email }).eq("id", company.id);
 
+    // Trilha de auditoria (frente 10): fail-open — nunca bloqueia o reset.
+    // Sem senha/e-mail novo no detalhe: só a empresa afetada.
+    const { logAdminAction } = await import("./admin-audit-log.server");
+    await logAdminAction(supabaseAdmin, {
+      userId: context.userId,
+      action: "company.access_reset",
+      companyId: company.id,
+      details: { trade_name: company.trade_name ?? company.name },
+    });
+
     return { userId, email };
   });
 
@@ -330,6 +340,15 @@ export const createCompanyWithAccess = createServerFn({ method: "POST" })
       );
     }
 
+    // Trilha de auditoria (frente 10): fail-open — nunca bloqueia a criação.
+    const { logAdminAction } = await import("./admin-audit-log.server");
+    await logAdminAction(supabaseAdmin, {
+      userId: context.userId,
+      action: "company.create",
+      companyId: company.id,
+      details: { trade_name: companyFields.trade_name ?? companyFields.name },
+    });
+
     return { companyId: company.id, userId, email };
   });
 
@@ -463,6 +482,21 @@ export const updateCompany = createServerFn({ method: "POST" })
     } else {
       accessMissing = true;
     }
+
+    // Trilha de auditoria (frente 10): fail-open — nunca bloqueia a edição.
+    // Sem senha/e-mail no detalhe: só os campos de plano e se o acesso mudou.
+    const { logAdminAction } = await import("./admin-audit-log.server");
+    await logAdminAction(supabaseAdmin, {
+      userId: context.userId,
+      action: "company.edit",
+      companyId: id,
+      details: {
+        plan_name: fields.plan_name ?? null,
+        monthly_price: fields.monthly_price ?? null,
+        subscription_status: fields.subscription_status ?? null,
+        access_updated: accessUpdated,
+      },
+    });
 
     return {
       companyId: id,

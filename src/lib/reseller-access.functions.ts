@@ -65,6 +65,15 @@ export const createResellerLogin = createServerFn({ method: "POST" })
       throw new Error(updateError.message);
     }
 
+    // Trilha de auditoria (frente 10): fail-open — nunca bloqueia a criação.
+    const { logAdminAction } = await import("@/lib/admin-audit-log.server");
+    await logAdminAction(supabaseAdmin, {
+      userId: context.userId,
+      action: "reseller.login_create",
+      companyId: null,
+      details: { reseller_id: reseller.id, email: data.email },
+    });
+
     return { success: true };
   });
 
@@ -79,5 +88,15 @@ export const deleteReseller = createServerFn({ method: "POST" })
     // This immediately removes access and keeps the operation recoverable by the ADM.
     const { error } = await supabaseAdmin.from("resellers").delete().eq("id", data.resellerId);
     if (error) throw new Error(error.message);
+
+    // Trilha de auditoria (frente 10): fail-open — nunca bloqueia a exclusão.
+    const { logAdminAction } = await import("@/lib/admin-audit-log.server");
+    await logAdminAction(supabaseAdmin, {
+      userId: context.userId,
+      action: "reseller.delete",
+      companyId: null,
+      details: { reseller_id: data.resellerId },
+    });
+
     return { success: true };
   });
