@@ -21,6 +21,10 @@ const privacyRequestSchema = z.object({
   phone: z.string().trim().min(8).max(24),
   portalSlug: z.string().trim().max(120).optional(),
   details: z.string().trim().max(2000).optional(),
+  // Token do Cloudflare Turnstile (anti-bot, item 12 da auditoria).
+  // Opcional no schema; a verificação recusa quando a chave está
+  // configurada e o token falta ou é inválido (turnstile.server.ts).
+  turnstileToken: z.string().max(2048).optional(),
 });
 
 function normalizePhone(value: string) {
@@ -43,8 +47,12 @@ function requestIp() {
 export const submitPrivacyRequest = createServerFn({ method: "POST" })
   .validator((input: unknown) => privacyRequestSchema.parse(input))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // Anti-bot (Turnstile): conferir o token ANTES do rate limit e do
+    // registro. O IP real já é resolvido aqui para a verificação.
+    const { assertTurnstileToken } = await import("@/lib/turnstile.server");
     const ip = requestIp();
+    await assertTurnstileToken(data.turnstileToken, ip === "unknown" ? undefined : ip);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: allowed, error: limiterError } = await (supabaseAdmin as any).rpc(
       "consume_portal_checkin_rate_limit",
       {

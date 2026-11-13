@@ -2,6 +2,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { CheckCircle2, LoaderCircle, MessageCircle, Send, X } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent, type RefObject } from "react";
 import { completePreSale, savePreSalePartial } from "@/lib/pre-sales.functions";
+import { TurnstileWidget, isTurnstileEnabled } from "@/components/turnstile-widget";
 
 const OPEN_PRE_SALE_EVENT = "manostech:open-pre-sale";
 
@@ -151,6 +152,19 @@ export function PreSaleForm() {
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
+  // Anti-bot (Turnstile, item 12 da auditoria): um token por envio
+  // público (passo 1 = contato parcial; conclusão = envio final). O token
+  // é de uso único — depois de cada tentativa o widget é remontado
+  // (turnstileKey) para gerar um novo. Sem a site key configurada o
+  // widget não renderiza e o envio segue sem token.
+  const [partialToken, setPartialToken] = useState<string | null>(null);
+  const [completeToken, setCompleteToken] = useState<string | null>(null);
+  const [turnstileKey, setTurnstileKey] = useState(0);
+  function resetTurnstile() {
+    setPartialToken(null);
+    setCompleteToken(null);
+    setTurnstileKey((v) => v + 1);
+  }
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
   const activeScreen = screens[step];
@@ -193,6 +207,7 @@ export function PreSaleForm() {
     setBusy(false);
     setSent(false);
     setError("");
+    resetTurnstile();
   }
 
   function goBack() {
@@ -220,6 +235,11 @@ export function PreSaleForm() {
         setError("Não foi possível localizar esta solicitação. Recomece o atendimento.");
         return;
       }
+      // Anti-bot: sem token (e com o widget ativo), nem chama o servidor.
+      if (isTurnstileEnabled() && !completeToken) {
+        setError("Confirme que você não é um robô antes de continuar.");
+        return;
+      }
       setBusy(true);
       setError("");
       try {
@@ -231,6 +251,7 @@ export function PreSaleForm() {
             summary: answers.summary,
             consent: true,
             website: "",
+            turnstileToken: completeToken ?? undefined,
           },
         });
         setReplies((current) => [
@@ -240,6 +261,8 @@ export function PreSaleForm() {
         setSent(true);
       } catch (submitError) {
         setError(submitError instanceof Error ? submitError.message : "Não foi possível enviar. Tente novamente.");
+        // O token é de uso único: tentativa consumida, gera outro.
+        resetTurnstile();
       } finally {
         setBusy(false);
       }
@@ -281,6 +304,11 @@ export function PreSaleForm() {
     // O contato é salvo já no primeiro passo: se o visitante parar aqui,
     // a equipe já tem o WhatsApp e pode chamar de volta.
     if (step === 0) {
+      // Anti-bot: sem token (e com o widget ativo), nem chama o servidor.
+      if (isTurnstileEnabled() && !partialToken) {
+        setError("Confirme que você não é um robô antes de continuar.");
+        return;
+      }
       setBusy(true);
       setError("");
       try {
@@ -290,12 +318,15 @@ export function PreSaleForm() {
             contactName: answer.contactName,
             phone: answer.phone,
             website: "",
+            turnstileToken: partialToken ?? undefined,
           },
         });
         setLeadId(saved.id);
       } catch (saveError) {
         setError(saveError instanceof Error ? saveError.message : "Não foi possível registrar. Tente novamente.");
         setBusy(false);
+        // O token é de uso único: tentativa consumida, gera outro.
+        resetTurnstile();
         return;
       } finally {
         setBusy(false);
@@ -422,6 +453,13 @@ export function PreSaleForm() {
             <form onSubmit={handleReply} className="p-3.5 sm:p-4">
               {lastStep ? (
                 <>
+                  <div className="mb-3 flex justify-center">
+                    <TurnstileWidget
+                      key={`complete-${turnstileKey}`}
+                      onToken={setCompleteToken}
+                      compact
+                    />
+                  </div>
                   <div className="flex gap-2">
                     {step > 0 ? (
                       <button type="button" onClick={goBack} className="min-h-11 rounded-xl border border-white/10 px-3 text-xs font-semibold text-slate-300 transition hover:bg-white/[.06]">
@@ -497,6 +535,13 @@ export function PreSaleForm() {
                         ) : null}
                       </div>
                     ))}
+                    <div className="mt-3 flex justify-center">
+                      <TurnstileWidget
+                        key={`partial-${turnstileKey}`}
+                        onToken={setPartialToken}
+                        compact
+                      />
+                    </div>
                     <button type="submit" disabled={busy} className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-cyan-400 px-4 text-sm font-bold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50">
                       {busy ? <LoaderCircle className="size-4 animate-spin" /> : null}
                       {busy ? "Salvando…" : "Continuar"}

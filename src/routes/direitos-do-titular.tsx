@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { submitPrivacyRequest } from "@/lib/privacy.functions";
+import { TurnstileWidget, isTurnstileEnabled } from "@/components/turnstile-widget";
 
 export const Route = createFileRoute("/direitos-do-titular")({
   head: () => ({
@@ -42,6 +43,12 @@ function DataSubjectRightsPage() {
   const [result, setResult] = useState<{ protocol: string; immediatelyRevoked: boolean } | null>(
     null,
   );
+  // Anti-bot (Turnstile, item 12 da auditoria): o token é de uso único —
+  // depois de cada tentativa o widget é remontado (turnstileKey) para
+  // gerar um novo. Sem a site key configurada o widget não renderiza e
+  // o envio segue sem token.
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileKey, setTurnstileKey] = useState(0);
   const mutation = useMutation({
     mutationFn: () =>
       submitRequest({
@@ -49,10 +56,16 @@ function DataSubjectRightsPage() {
           ...form,
           requestType: form.requestType as
             "access" | "correction" | "deletion" | "marketing_revocation" | "information" | "other",
+          turnstileToken: turnstileToken ?? undefined,
         },
       }),
     onSuccess: setResult,
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => {
+      // O token é de uso único: tentativa consumida, gera outro.
+      setTurnstileToken(null);
+      setTurnstileKey((v) => v + 1);
+      toast.error(error.message);
+    },
   });
   return (
     <LegalPageShell
@@ -80,6 +93,11 @@ function DataSubjectRightsPage() {
             className="grid gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:grid-cols-2"
             onSubmit={(event) => {
               event.preventDefault();
+              // Anti-bot: sem token (e com o widget ativo), nem chama o servidor.
+              if (isTurnstileEnabled() && !turnstileToken) {
+                toast.error("Confirme que você não é um robô antes de continuar.");
+                return;
+              }
               mutation.mutate();
             }}
           >
@@ -162,10 +180,14 @@ function DataSubjectRightsPage() {
               />
             </div>
             <div className="sm:col-span-2">
+              <TurnstileWidget
+                key={`privacy-${turnstileKey}`}
+                onToken={setTurnstileToken}
+              />
               <Button
                 type="submit"
                 disabled={mutation.isPending}
-                className="bg-cyan-400 text-slate-950 hover:bg-cyan-300"
+                className="mt-4 bg-cyan-400 text-slate-950 hover:bg-cyan-300"
               >
                 {mutation.isPending && <Loader2 className="size-4 animate-spin" />}
                 Registrar solicitação

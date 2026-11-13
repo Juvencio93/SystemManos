@@ -20,6 +20,7 @@ import { expiryMessage } from "@/integrations/supabase/session-limits";
 import { signInFn } from "@/integrations/supabase/auth-session.functions";
 import { mfaVerifyFn } from "@/integrations/supabase/mfa.functions";
 import { LOGIN_RATE_LIMIT_MESSAGE } from "@/integrations/supabase/login-rate-limit";
+import { TurnstileWidget, isTurnstileEnabled } from "@/components/turnstile-widget";
 import {
   MFA_INVALID_CODE_MESSAGE,
   MFA_PENDING_EXPIRED_MESSAGE,
@@ -73,6 +74,20 @@ function AuthPage() {
     if (typeof window === "undefined") return true;
     return window.localStorage.getItem("manos:remember-me") !== "0";
   });
+  // Anti-bot (Turnstile, item 12 da auditoria): um token por formulário.
+  // O token é de uso único — depois de cada tentativa, o widget é
+  // remontado (turnstileKey) para gerar um novo. Sem a site key
+  // configurada o widget não renderiza e o envio segue sem token.
+  const [loginToken, setLoginToken] = useState<string | null>(null);
+  const [forgotToken, setForgotToken] = useState<string | null>(null);
+  const [resetToken, setResetToken] = useState<string | null>(null);
+  const [turnstileKey, setTurnstileKey] = useState(0);
+  function resetTurnstile() {
+    setLoginToken(null);
+    setForgotToken(null);
+    setResetToken(null);
+    setTurnstileKey((v) => v + 1);
+  }
   // Erro de credenciais exibido inline (fixo, não some sozinho).
   const [loginError, setLoginError] = useState<string | null>(null);
   // 2FA do ADM (item 4 da auditoria): depois da senha, o login pode exigir
@@ -128,12 +143,20 @@ function AuthPage() {
       setLoginError(parsed.error.issues[0]?.message ?? "Dados inválidos");
       return;
     }
+    // Anti-bot: sem token (e com o widget ativo), nem chama o servidor.
+    // Mensagem igual à de src/lib/turnstile.server.ts — manter em sync.
+    if (isTurnstileEnabled() && !loginToken) {
+      toast.error("Confirme que você não é um robô antes de continuar.");
+      return;
+    }
     setLoading(true);
     // Login no SERVIDOR: a sessão vai para um cookie httpOnly (ver
     // auth-session.functions.ts). A resposta hidrata o client em memória.
     // Para o ADM, a resposta pode ser a etapa do 2FA em vez da sessão.
     try {
-      const result = await signInServerFn({ data: parsed.data });
+      const result = await signInServerFn({
+        data: { ...parsed.data, turnstileToken: loginToken ?? undefined },
+      });
       if (result.kind === "session") {
         try {
           window.localStorage.setItem("manos:remember-me", rememberMe ? "1" : "0");
@@ -155,11 +178,15 @@ function AuthPage() {
       );
     } catch (err) {
       setLoading(false);
+      // O token do Turnstile é de uso único: tentativa consumida, gera outro.
+      resetTurnstile();
       // O bloqueio anti-força-bruta tem mensagem própria (neutra: não
       // revela se o e-mail existe) e continua no toast; erro de
       // credenciais vai para o aviso inline fixo acima do formulário.
+      // Erro do Turnstile (mensagem com "robô") também vai para o toast —
+      // nunca como "senha incorreta".
       const message = err instanceof Error ? err.message : "";
-      if (message === LOGIN_RATE_LIMIT_MESSAGE) {
+      if (message === LOGIN_RATE_LIMIT_MESSAGE || message.includes("robô")) {
         toast.error(message);
       } else {
         setLoginError("E-mail ou senha incorretos. Tente novamente.");
@@ -210,18 +237,27 @@ function AuthPage() {
       toast.error(parsedEmail.error.issues[0]?.message ?? "E-mail inválido");
       return;
     }
+    // Anti-bot: sem token (e com o widget ativo), nem chama o servidor.
+    if (isTurnstileEnabled() && !forgotToken) {
+      toast.error("Confirme que você não é um robô antes de continuar.");
+      return;
+    }
     setLoading(true);
     // Fluxo com aprovação (2026-10-20): o pedido NÃO dispara e-mail —
     // registra uma solicitação que o ADM aprova no painel ou pelo
     // Hermes, e o link é enviado ao cliente pela equipe.
     try {
-      await requestResetFn({ data: { email: parsedEmail.data } });
+      await requestResetFn({
+        data: { email: parsedEmail.data, turnstileToken: forgotToken ?? undefined },
+      });
     } catch {
       setLoading(false);
+      resetTurnstile();
       toast.error("Não foi possível registrar o pedido agora. Tente de novo em instantes.");
       return;
     }
     setLoading(false);
+    resetTurnstile();
     // Mensagem neutra de propósito: não confirmamos se o e-mail existe.
     toast.success(
       "Pedido registrado! Se este e-mail tiver uma conta, nossa equipe vai te enviar o link de redefinição.",
@@ -239,6 +275,12 @@ function AuthPage() {
       toast.error("As senhas não conferem.");
       return;
     }
+    // Anti-bot: o login que estabelece a sessão após a troca também passa
+    // pelo Turnstile (o token vem do widget deste formulário).
+    if (isTurnstileEnabled() && !resetToken) {
+      toast.error("Confirme que você não é um robô antes de continuar.");
+      return;
+    }
     setLoading(true);
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) {
@@ -254,7 +296,11 @@ function AuthPage() {
       const recoveryEmail = userData.user?.email ?? email;
       if (recoveryEmail) {
         const result = await signInServerFn({
-          data: { email: recoveryEmail, password: newPassword },
+          data: {
+            email: recoveryEmail,
+            password: newPassword,
+            turnstileToken: resetToken ?? undefined,
+          },
         });
         if (result.kind === "session") {
           await supabase.auth.setSession(result.session);
@@ -427,6 +473,10 @@ function AuthPage() {
                     Esqueci minha senha
                   </button>
                 </div>
+                <TurnstileWidget
+                  key={`login-${turnstileKey}`}
+                  onToken={setLoginToken}
+                />
                 <Button type="submit" className="w-full shadow-glow" disabled={loading || !ready}>
                   {loading ? (
                     <Loader2 className="size-4 animate-spin" aria-label="Entrando..." />
@@ -453,6 +503,10 @@ function AuthPage() {
                     required
                   />
                 </div>
+                <TurnstileWidget
+                  key={`forgot-${turnstileKey}`}
+                  onToken={setForgotToken}
+                />
                 <Button type="submit" className="w-full shadow-glow" disabled={loading || !ready}>
                   {loading ? "Registrando..." : "Pedir redefinição de senha"}
                 </Button>
@@ -491,6 +545,10 @@ function AuthPage() {
                     required
                   />
                 </div>
+                <TurnstileWidget
+                  key={`reset-${turnstileKey}`}
+                  onToken={setResetToken}
+                />
                 <Button type="submit" className="w-full shadow-glow" disabled={loading || !ready}>
                   {loading ? "Salvando..." : "Salvar nova senha"}
                 </Button>
