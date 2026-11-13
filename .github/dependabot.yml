@@ -1,0 +1,13 @@
+# Dependabot — atualizações semanais de dependências npm.
+# Auditoria de segurança (item 20, 12/11): antes não havia varredura
+# automática nenhuma — nem `npm audit` no CI, nem Dependabot.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 10
