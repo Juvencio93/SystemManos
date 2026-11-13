@@ -1,0 +1,13 @@
+-- RLS em hotspot_mac_bypass (auditoria de segurança 2026-11-12, item 4).
+-- Era a única das 63 tabelas sem RLS: sem ENABLE, qualquer GRANT futuro
+-- a `authenticated` exporia a tabela inteira (quem pode pular o portal).
+--
+-- Sem políticas: deny-all para `authenticated` — nenhum acesso direto via
+-- PostgREST do browser. O acesso continua só via service_role
+-- (`supabaseAdmin`), que ignora o RLS:
+--   - src/lib/mac-bypass.functions.ts (server functions, com checagem de
+--     permissão adm/matriz)
+--   - src/lib/rb-command.server.ts (sincronização dos ip-bindings na RB,
+--     chamado pelas rotas internas com supabaseAdmin)
+-- Nenhum caminho client-side (.tsx, rota, PostgREST direto) lê a tabela.
+ALTER TABLE public.hotspot_mac_bypass ENABLE ROW LEVEL SECURITY;
