@@ -52,9 +52,20 @@ async function requireAdm(context: {
 // sempre neutra — não revela se o e-mail tem conta.
 export const requestPasswordReset = createServerFn({ method: "POST" })
   .validator((data: unknown) =>
-    z.object({ email: z.string().trim().email().max(160) }).parse(data),
+    z
+      .object({
+        email: z.string().trim().email().max(160),
+        // Token do Cloudflare Turnstile (anti-bot, item 12 da auditoria).
+        // Opcional no schema; a verificação recusa quando a chave está
+        // configurada e o token falta ou é inválido (turnstile.server.ts).
+        turnstileToken: z.string().max(2048).optional(),
+      })
+      .parse(data),
   )
   .handler(async ({ data }) => {
+    // Anti-bot (Turnstile): conferir o token ANTES de registrar o pedido.
+    const { assertTurnstileToken } = await import("@/lib/turnstile.server");
+    await assertTurnstileToken(data.turnstileToken);
     const supabaseAdmin = await admin();
     const email = data.email.toLowerCase();
 

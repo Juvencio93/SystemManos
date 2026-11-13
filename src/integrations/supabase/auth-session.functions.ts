@@ -11,6 +11,11 @@ import { z } from "zod";
 const credentials = z.object({
   email: z.string().trim().email("E-mail inválido").max(255),
   password: z.string().min(6, "A senha deve ter ao menos 6 caracteres").max(72),
+  // Token do Cloudflare Turnstile (anti-bot, item 12 da auditoria de
+  // segurança). Opcional no schema para não quebrar chamadas antigas; a
+  // verificação no servidor recusa quando a chave está configurada e o
+  // token falta ou é inválido (ver turnstile.server.ts).
+  turnstileToken: z.string().max(2048).optional(),
 });
 
 // Login: autentica NO SERVIDOR e grava o cookie httpOnly. A resposta traz
@@ -25,6 +30,9 @@ const credentials = z.object({
 export const signInFn = createServerFn({ method: "POST" })
   .validator((data: unknown) => credentials.parse(data))
   .handler(async ({ data }) => {
+    // Anti-bot (Turnstile): conferir o token ANTES de autenticar.
+    const { assertTurnstileToken } = await import("@/lib/turnstile.server");
+    await assertTurnstileToken(data.turnstileToken);
     const { signInWithPasswordServer } = await import("./server");
     const result = await signInWithPasswordServer(data.email, data.password);
     if (result.kind === "session") {
