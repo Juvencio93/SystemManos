@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { Database } from "@/integrations/supabase/types";
+import { storedSecretMatches } from "@/lib/crypto.server";
 
 function nextChargeFromCompetence(competence: string) {
   const [monthStr, yearStr] = competence.split("/");
@@ -38,12 +39,16 @@ export const Route = createFileRoute("/api/public/asaas-webhook-v2")({
             });
           }
 
-          const { data: integration, error: integrationError } = await supabaseAdmin
+          // O token de webhook é cifrado em repouso e não pode ser comparado
+          // com `.eq()` no banco: busca os candidatos e compara decifrado.
+          const { data: candidates, error: integrationError } = await supabaseAdmin
             .from("asaas_integrations")
-            .select("id")
-            .eq("webhook_token", asaasToken)
-            .neq("status", "disabled")
-            .maybeSingle();
+            .select("id, webhook_token")
+            .neq("status", "disabled");
+          const integration =
+            (candidates ?? []).find((row: any) =>
+              storedSecretMatches(row.webhook_token, asaasToken),
+            ) ?? null;
 
           if (integrationError) {
             const integrationErrorText = [

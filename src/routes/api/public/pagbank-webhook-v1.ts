@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createPublicKey, verify } from "node:crypto";
+import { decryptSecret } from "@/lib/crypto.server";
 
 const api = (environment: string) => environment === "sandbox" ? "https://sandbox.api.pagseguro.com" : "https://api.pagseguro.com";
 
@@ -69,7 +70,7 @@ export const Route = createFileRoute("/api/public/pagbank-webhook-v1")({
             .eq("status", "configured");
           if (error) throw error;
           const valid = await Promise.all(
-            (integrations ?? []).map((i: any) => signatureValid(raw, signature, i.access_token, i.environment)),
+            (integrations ?? []).map((i: any) => signatureValid(raw, signature, decryptSecret(i.access_token) as string, i.environment)),
           );
           if (!valid.some(Boolean)) return new Response("Assinatura inválida.", { status: 401 });
           const payload = JSON.parse(raw) as any;

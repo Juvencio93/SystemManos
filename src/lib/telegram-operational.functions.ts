@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { decryptSecret, encryptSecret, maskStoredSecret } from "@/lib/crypto.server";
 
 async function requireAdm(supabase: any, userId: string) {
   const { data } = await supabase
@@ -18,8 +19,6 @@ async function getSupabaseAdmin() {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   return supabaseAdmin as any;
 }
-
-const mask = (value?: string | null) => (value ? `${value.slice(0, 6)}****${value.slice(-4)}` : null);
 
 export const getTelegramOperationalIntegration = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -41,7 +40,7 @@ export const getTelegramOperationalIntegration = createServerFn({ method: "GET" 
           botUsername: data.bot_username,
           alertChatId: data.alert_chat_id,
           pairingCode: data.pairing_code,
-          tokenMasked: mask(data.bot_token),
+          tokenMasked: maskStoredSecret(data.bot_token),
           status: data.status,
           lastError,
         }
@@ -70,7 +69,9 @@ export const saveTelegramOperationalIntegration = createServerFn({ method: "POST
       .from("telegram_operational_integrations")
       .select("id,webhook_secret,pairing_code")
       .maybeSingle();
-    const secret = existing?.webhook_secret || crypto.randomUUID().replaceAll("-", "");
+    // O segredo do webhook salvo pode estar em claro (legado) ou cifrado:
+    // decifra antes de reutilizar — a escrita abaixo o re-cifra.
+    const secret = (decryptSecret(existing?.webhook_secret) as string | null | undefined) || crypto.randomUUID().replaceAll("-", "");
     const pairingCode =
       existing?.pairing_code || crypto.randomUUID().replaceAll("-", "").slice(0, 8).toUpperCase();
     const webhookUrl = `${process.env["VITE_SITE_URL"] || "https://manostech-system.com.br"}/api/public/telegram-operational-webhook`;
@@ -90,10 +91,10 @@ export const saveTelegramOperationalIntegration = createServerFn({ method: "POST
     }
 
     const payload = {
-      bot_token: data.botToken,
+      bot_token: encryptSecret(data.botToken),
       bot_username: result.result.username,
       alert_chat_id: data.alertChatId,
-      webhook_secret: secret,
+      webhook_secret: encryptSecret(secret),
       pairing_code: pairingCode,
       status: "configured",
       last_error: null,
@@ -139,7 +140,8 @@ export const removeTelegramOperationalIntegration = createServerFn({ method: "PO
       .select("bot_token")
       .maybeSingle();
     if (data?.bot_token) {
-      await fetch(`https://api.telegram.org/bot${data.bot_token}/deleteWebhook`, { method: "POST", signal: AbortSignal.timeout(30_000) });
+      const botToken = decryptSecret(data.bot_token) as string;
+      await fetch(`https://api.telegram.org/bot${botToken}/deleteWebhook`, { method: "POST", signal: AbortSignal.timeout(30_000) });
     }
     const { error } = await supabaseAdmin
       .from("telegram_operational_integrations")

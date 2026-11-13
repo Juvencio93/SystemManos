@@ -11,6 +11,7 @@ import {
 import { validateContact } from "@/lib/contact-validation.server";
 import { Json } from "@/integrations/supabase/types";
 import { HotspotVendor } from "@/lib/adapters";
+import { decryptConfigSecrets } from "@/lib/crypto.server";
 import {
   issueHotspotAccessGrant,
   safeHotspotLoginUrl,
@@ -211,7 +212,10 @@ export const submitPortalLead = createServerFn({ method: "POST" })
           mac: hotspotData.mac,
           ip: hotspotData.ip,
           username: data.email,
-          config: hotspot.config || ({} as Json),
+          // O `config` pode trazer segredos cifrados (chaves conhecidas,
+          // ver `HOTSPOT_CONFIG_SECRET_KEYS`): decifra antes de entregar ao
+          // adaptador do fornecedor. Valores legados em claro passam como estão.
+          config: decryptConfigSecrets(hotspot.config || {}) as Json,
         });
       }
     }

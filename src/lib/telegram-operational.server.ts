@@ -1,3 +1,5 @@
+import { decryptSecret } from "@/lib/crypto.server";
+
 export function formatTelegramHtml(text: string) {
   const escaped = text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
@@ -18,7 +20,8 @@ export async function sendOperationalTelegramAlert(
     .neq("status", "disabled")
     .maybeSingle();
   if (!integration) return { sent: false, reason: "not_configured" as const };
-  const response = await fetch(`https://api.telegram.org/bot${integration.bot_token}/sendMessage`, {
+  const botToken = decryptSecret(integration.bot_token) as string;
+  const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
     method: "POST",
     signal: AbortSignal.timeout(30_000),
     headers: { "Content-Type": "application/json" },
