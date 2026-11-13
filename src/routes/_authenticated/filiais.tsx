@@ -54,7 +54,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCnpj, isValidCnpj, slugify } from "@/lib/cnpj-utils";
 import { lookupCnpj } from "@/lib/cnpj.functions";
 import { createBranchWithAccess, deleteBranch, updateBranch } from "@/lib/branch.functions";
+import {
+  CAMPAIGN_ASSETS_BUCKET,
+  validateCampaignAssetClaim,
+} from "@/lib/campaign-upload-validation";
 import { getBranchDisplayName, getCompanyDisplayName } from "@/lib/name-utils";
+import { finalizeCampaignAssetUpload } from "@/lib/storage.functions";
 
 export const Route = createFileRoute("/_authenticated/filiais")({
   head: () => ({
@@ -100,11 +105,14 @@ const editSchema = schema.extend({
 });
 
 const TEN_YEARS = 60 * 60 * 24 * 365 * 10;
-const MAX_LOGO_BYTES = 10 * 1024 * 1024;
 
 async function uploadBranchLogo(file: File) {
-  if (!file.type.startsWith("image/")) throw new Error("Envie um arquivo de imagem.");
-  if (file.size > MAX_LOGO_BYTES) throw new Error("Limite de 10 MB para a logo.");
+  const claimError = validateCampaignAssetClaim({
+    kind: "branch-logo",
+    mimeType: file.type,
+    size: file.size,
+  });
+  if (claimError) throw new Error(claimError);
   const ext = file.name.split(".").pop()?.toLowerCase() ?? "png";
   const { data: authData, error: authError } = await supabase.auth.getUser();
   if (authError || !authData.user) throw new Error("Sessão inválida para enviar a logo.");
@@ -116,7 +124,25 @@ async function uploadBranchLogo(file: File) {
     upsert: false,
     contentType: file.type,
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (/mime/i.test(error.message) || error.message.includes("415")) {
+      throw new Error("Só são aceitas imagens em PNG, JPEG ou WebP.");
+    }
+    if (error.message.includes("maximum allowed size") || error.message.includes("413")) {
+      throw new Error("O servidor recusou o arquivo por exceder o limite de 10 MB.");
+    }
+    throw new Error(error.message);
+  }
+  // Segundo portão: o servidor confere o objeto gravado (MIME/tamanho reais).
+  await finalizeCampaignAssetUpload({
+    data: {
+      bucket: CAMPAIGN_ASSETS_BUCKET,
+      objectPath: path,
+      kind: "branch-logo",
+      size: file.size,
+      mimeType: file.type,
+    },
+  });
   const { data, error: signError } = await supabase.storage
     .from("campaign-assets")
     .createSignedUrl(path, TEN_YEARS);
