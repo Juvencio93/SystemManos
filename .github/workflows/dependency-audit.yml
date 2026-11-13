@@ -1,0 +1,50 @@
+name: Dependency audit
+
+# Varredura semanal de vulnerabilidades (auditoria de segurança, item 20).
+#
+# Por que um workflow agendado, e não uma etapa com falha no
+# `repository-health.yml`: a linha de base atual de vulnerabilidades não
+# pôde ser estabelecida antes desta PR — o endpoint do `npm audit` é
+# bloqueado pela política de egresso desta VM (POST
+# registry.npmjs.org/-/npm/v1/security/audits/quick -> 403
+# policy_denied), então não há contagem local confiável de
+# high/critical pré-existentes. Travar os PRs no dia 1 poderia deixar
+# o CI vermelho por débito pré-existente. A primeira execução deste
+# workflow (que roda com internet plena no GitHub Actions) estabelece
+# a linha de base; o Dependabot (ver `.github/dependabot.yml`) abre as
+# PRs de correção. Quando a base estiver limpa, promover esta etapa a
+# gate obrigatório no `repository-health.yml`.
+#
+# A execução agendada FALHA quando há vulnerabilidade high/critical
+# (`npm audit --audit-level=high`), e o GitHub notifica a falha do
+# workflow agendado — a varredura não é silenciosa.
+
+on:
+  schedule:
+    # Segundas 06:00 UTC.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Audit dependencies (fail on high/critical)
+        run: npm audit --audit-level=high
