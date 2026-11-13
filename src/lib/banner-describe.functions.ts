@@ -33,6 +33,10 @@ import {
 } from "@/lib/banner-brief";
 import { interpretBannerBrief } from "@/lib/banner-interpret";
 import { resolveBannerConversationTurn } from "@/lib/banner-agent.functions";
+import {
+  CAMPAIGN_ASSET_MAX_BYTES,
+  campaignAssetExtensionForMime,
+} from "@/lib/campaign-upload-validation";
 
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${DESCRIBE_GEMINI_MODEL}:generateContent`;
 
@@ -357,8 +361,16 @@ export const generateBannerImage = createServerFn({ method: "POST" })
           inlineData: { mimeType: decoded.mimeType, data: decoded.bytes.toString("base64") },
         });
         // Guarda o link (nunca os bytes) para reuso futuro e contagem.
+        // O MIME já vem allowlistado (decodeDataUrl só aceita PNG/JPEG/
+        // WebP e validateDescribeAttachments barra o resto), mas a extensão
+        // do caminho precisa acompanhar o MIME real — antes era sempre
+        // `.jpg` mesmo com `contentType: image/png` — e os bytes precisam
+        // respeitar o teto do bucket. Upload via service key, sem passar
+        // pela finalização do navegador.
         try {
-          const path = `banner-describe/${companyId}/${crypto.randomUUID()}.jpg`;
+          if (decoded.bytes.length > CAMPAIGN_ASSET_MAX_BYTES) continue;
+          const ext = campaignAssetExtensionForMime(decoded.mimeType) ?? "jpg";
+          const path = `banner-describe/${companyId}/${crypto.randomUUID()}.${ext}`;
           const { error: uploadError } = await supabaseAdmin.storage
             .from("campaign-assets")
             .upload(path, decoded.bytes, {

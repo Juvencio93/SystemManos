@@ -1,0 +1,44 @@
+-- Frente 5 (item 16 da auditoria de segurança, 12/11/2026): enforcement
+-- server-side de upload no bucket `campaign-assets`.
+--
+-- Problema: o bucket tinha `file_size_limit = 5 MB` mas NENHUM
+-- `allowed_mime_types`, e a policy de INSERT só checava bucket + escopo de
+-- pasta. Um usuário autenticado conseguia subir qualquer tipo até 5 MB
+-- (.html, .svg, .exe) chamando a API do Storage direto — e o bucket é
+-- PÚBLICO para leitura, então o arquivo subido era servido para qualquer
+-- visitante do portal. Tipo/tamanho/duração só existiam no navegador.
+--
+-- O que esta migration faz (idempotente — pode rodar de novo sem efeito):
+--   1. `allowed_mime_types = PNG, JPEG, WebP, MP4` — os únicos tipos que
+--      o front aceita. O Storage passa a recusar qualquer outro MIME com
+--      erro 415, qualquer que seja o caminho do upload (navegador, API
+--      direta ou service key).
+--   2. `file_size_limit = 15 MB` (era 5 MB) — alinha o teto real do bucket
+--      com o que o front já promete (banner 15 MB, vídeo 10 MB, logo de
+--      empresa/filial 10 MB). Decisão documentada: subir o bucket em vez
+--      de baixar o front. 15 MB cabe no plano Supabase (o teto global de
+--      arquivo do plano Free é 50 MB) e o bucket `brand-assets`, no mesmo
+--      projeto, já opera com 15 MB.
+--
+-- O que NÃO muda: as policies de INSERT/UPDATE/DELETE (escopo por empresa)
+-- continuam as mesmas; a leitura pública continua pública; arquivos já
+-- gravados não são tocados. Arquivos antigos fora da allowlist (ex.: um
+-- .gif ou .svg subido antes) continuam servidos — a limpeza deles, se
+-- houver, é outro trabalho.
+--
+-- Limitação conhecida: a duração máxima de 10 s do vídeo NÃO dá para impor
+-- no Storage — o teto de 10 MB por vídeo é o limite prático. A duração
+-- continua sendo atestada pelo cliente e conferida pela server function
+-- `finalizeCampaignAssetUpload` (que valida o objeto gravado no Storage
+-- antes de liberar a URL pública).
+--
+-- COMO APLICAR (Gabriel): Supabase Dashboard → SQL Editor → colar este
+-- arquivo inteiro → Run. Depois conferir com:
+--   SELECT id, file_size_limit, allowed_mime_types
+--   FROM storage.buckets WHERE id = 'campaign-assets';
+-- Esperado: file_size_limit = 15728640 e allowed_mime_types =
+-- {image/png,image/jpeg,image/webp,video/mp4}.
+UPDATE storage.buckets
+SET file_size_limit = 15728640,
+    allowed_mime_types = ARRAY['image/png', 'image/jpeg', 'image/webp', 'video/mp4']
+WHERE id = 'campaign-assets';

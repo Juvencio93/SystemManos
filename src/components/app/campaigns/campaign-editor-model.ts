@@ -2,11 +2,17 @@ import { z } from "zod";
 
 import { supabase } from "@/integrations/supabase/client";
 import type { PortalAppearance } from "@/lib/campaign-appearance";
+import type { SponsorDisplayType } from "@/lib/campaign-sponsors";
 import {
-  MAX_SPONSOR_BANNER_BYTES,
-  MAX_SPONSOR_LOGO_BYTES,
-  type SponsorDisplayType,
-} from "@/lib/campaign-sponsors";
+  CAMPAIGN_ASSETS_BUCKET,
+  MAX_CAMPAIGN_BANNER_BYTES,
+  MAX_CAMPAIGN_LOGO_BYTES,
+  MAX_CAMPAIGN_VIDEO_BYTES,
+  MAX_CAMPAIGN_VIDEO_SECONDS,
+  validateCampaignAssetClaim,
+  type CampaignAssetKind,
+} from "@/lib/campaign-upload-validation";
+import { finalizeCampaignAssetUpload } from "@/lib/storage.functions";
 
 export const campaignSchema = z.object({
   name: z.string().trim().min(2, "Informe o nome da campanha").max(120),
@@ -15,10 +21,10 @@ export const campaignSchema = z.object({
   redirect_url: z.string().trim().url("URL inválida").optional().or(z.literal("")),
 });
 
-export const MAX_BANNER_FILE_BYTES = 15 * 1024 * 1024;
-export const MAX_OTHER_FILE_BYTES = 5 * 1024 * 1024;
-export const MAX_VIDEO_FILE_BYTES = 10 * 1024 * 1024;
-export const MAX_VIDEO_SECONDS = 10;
+export const MAX_BANNER_FILE_BYTES = MAX_CAMPAIGN_BANNER_BYTES;
+export const MAX_OTHER_FILE_BYTES = MAX_CAMPAIGN_LOGO_BYTES;
+export const MAX_VIDEO_FILE_BYTES = MAX_CAMPAIGN_VIDEO_BYTES;
+export const MAX_VIDEO_SECONDS = MAX_CAMPAIGN_VIDEO_SECONDS;
 export const VIDEO_COMPRESS_URL = "https://www.freeconvert.com/pt/video-compressor";
 const BANNER_MAX_WIDTH = 1600;
 const BANNER_MAX_HEIGHT = 900;
@@ -74,29 +80,66 @@ async function uploadImage(path: string, file: File) {
   if (error) throw error;
 }
 
-export async function uploadCampaignAsset(companyId: string, kind: "logo" | "banner", file: File) {
-  if (!file.type.startsWith("image/")) throw new Error(`${file.name}: envie apenas imagens.`);
-  const limit = kind === "banner" ? MAX_BANNER_FILE_BYTES : MAX_OTHER_FILE_BYTES;
-  const limitLabel = kind === "banner" ? "15 MB" : "5 MB";
-  if (file.size > limit) {
-    throw new Error(
-      `A imagem possui ${(file.size / (1024 * 1024)).toFixed(2)} MB. O limite é de ${limitLabel} por imagem.`,
+/**
+ * Segundo portão do upload: depois de gravar no Storage, o servidor confere
+ * o objeto gravado (MIME e tamanho reais) e só então libera o uso do caminho.
+ * Se o servidor recusar, o objeto já foi apagado por ele — basta repassar a
+ * mensagem amigável.
+ */
+async function finalizeUpload(
+  kind: CampaignAssetKind,
+  objectPath: string,
+  file: File,
+  durationSeconds?: number,
+) {
+  await finalizeCampaignAssetUpload({
+    data: {
+      bucket: CAMPAIGN_ASSETS_BUCKET,
+      objectPath,
+      kind,
+      size: file.size,
+      mimeType: file.type,
+      durationSeconds,
+    },
+  });
+}
+
+/**
+ * Traduz erros crus do Storage para pt-BR. O bucket agora impõe a allowlist
+ * de MIME (erro 415) e o teto de 15 MB (erro 413) — sem isso o usuário veria
+ * a mensagem em inglês da API.
+ */
+function storageUploadErrorMessage(fileName: string, error: unknown): Error {
+  const message = error instanceof Error ? error.message : String(error);
+  if (/mime/i.test(message) || message.includes("415")) {
+    return new Error(
+      `O servidor recusou o arquivo ${fileName}: só são aceitos PNG, JPEG e WebP (imagens) e MP4 (vídeo).`,
     );
   }
+  if (message.includes("maximum allowed size") || message.includes("413")) {
+    return new Error(
+      `O servidor recusou o arquivo ${fileName} por exceder o limite real do Storage.`,
+    );
+  }
+  return new Error(`Erro no armazenamento (${fileName}): ${message}`);
+}
+
+export async function uploadCampaignAsset(companyId: string, kind: "logo" | "banner", file: File) {
+  const claimError = validateCampaignAssetClaim({
+    kind,
+    mimeType: file.type,
+    size: file.size,
+  });
+  if (claimError) throw new Error(`${file.name}: ${claimError}`);
 
   const uploadFile = kind === "banner" ? await optimizeBanner(file) : file;
   const ext = uploadFile.name.split(".").pop()?.toLowerCase() ?? "png";
   const path = `${companyId}/${kind}/${crypto.randomUUID()}.${ext}`;
   try {
     await uploadImage(path, uploadFile);
+    await finalizeUpload(kind, path, uploadFile);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (message.includes("maximum allowed size") || message.includes("413")) {
-      throw new Error(
-        `O servidor recusou o arquivo ${file.name} por exceder o limite real do Storage.`,
-      );
-    }
-    throw new Error(`Erro no armazenamento (${file.name}): ${message}`);
+    throw storageUploadErrorMessage(file.name, error);
   }
   return path;
 }
@@ -205,20 +248,19 @@ export async function uploadCampaignVideo(companyId: string, file: File) {
   const videoPath = `${companyId}/video/${uuid}.mp4`;
   try {
     await uploadImage(videoPath, file);
+    await finalizeUpload("video", videoPath, file, roundedSeconds);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (message.includes("maximum allowed size") || message.includes("413")) {
-      throw new Error(
-        `O servidor recusou o arquivo ${file.name} por exceder o limite real do Storage.`,
-      );
-    }
-    throw new Error(`Erro no armazenamento (${file.name}): ${message}`);
+    throw storageUploadErrorMessage(file.name, error);
   }
   let posterPath: string | null = null;
   try {
     const poster = await captureVideoPoster(file);
     posterPath = `${companyId}/video/${uuid}.jpg`;
     await uploadImage(posterPath, poster);
+    // A capa é gerada no navegador (JPEG do canvas), não são bytes do usuário,
+    // mas passa pelo mesmo portão do servidor — sem ele, o caminho da capa
+    // aceitaria qualquer conteúdo via API direta do Storage.
+    await finalizeUpload("video-poster", posterPath, poster);
   } catch (posterError) {
     console.error("Falha ao gerar a capa do vídeo, seguindo sem capa:", posterError);
     posterPath = null;
@@ -231,21 +273,16 @@ export async function uploadSponsorAsset(
   kind: "sponsor-logo" | "sponsor-banner",
   file: File,
 ) {
-  if (!file.type.startsWith("image/")) throw new Error(`${file.name}: envie apenas imagens.`);
-  const limit = kind === "sponsor-banner" ? MAX_SPONSOR_BANNER_BYTES : MAX_SPONSOR_LOGO_BYTES;
-  if (file.size > limit) {
-    throw new Error(
-      `A imagem possui ${(file.size / (1024 * 1024)).toFixed(2)} MB. O limite é de ${(limit / (1024 * 1024)).toFixed(0)} MB.`,
-    );
-  }
+  const claimError = validateCampaignAssetClaim({ kind, mimeType: file.type, size: file.size });
+  if (claimError) throw new Error(`${file.name}: ${claimError}`);
   const uploadFile = kind === "sponsor-banner" ? await optimizeBanner(file) : file;
   const ext = uploadFile.name.split(".").pop()?.toLowerCase() ?? "png";
   const path = `${companyId}/${kind}/${crypto.randomUUID()}.${ext}`;
   try {
     await uploadImage(path, uploadFile);
+    await finalizeUpload(kind, path, uploadFile);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Erro no armazenamento (${file.name}): ${message}`);
+    throw storageUploadErrorMessage(file.name, error);
   }
   return path;
 }
