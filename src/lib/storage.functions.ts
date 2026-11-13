@@ -61,7 +61,7 @@ export const getAttachmentSignedUrl = createServerFn({ method: "GET" })
     const { data: attachment, error: attError } = await supabase
       .from("chat_attachments")
       .select(`
-        *,
+        id, message_id, file_name, file_path, file_size, mime_type, created_at,
         messages (
           conversation_id
         )

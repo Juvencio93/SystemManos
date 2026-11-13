@@ -75,7 +75,7 @@ export const getLatestOperationalAnalysis = createServerFn({ method: "GET" })
       }
       const { data, error } = await dataClient
         .from("operational_analyses")
-        .select("*")
+        .select("id, analysis_date, created_at, updated_at, status, indicators, metrics_snapshot, ai_result")
         .is("company_id", null)
         .order("analysis_date", { ascending: false })
         .limit(1)
@@ -191,7 +191,7 @@ export const getLatestOperationalAnalysis = createServerFn({ method: "GET" })
       
       const { data: analiseHoje, error: fetchError } = await supabase
         .from("company_operational_analyses")
-        .select("*")
+        .select("id, analysis_date, generated_at, operations_snapshot, summary")
         .eq("company_id", companyId)
         .eq("analysis_date", today)
         .maybeSingle();
@@ -206,7 +206,7 @@ export const getLatestOperationalAnalysis = createServerFn({ method: "GET" })
       if (!existingAnalysis) {
         const { data: ultima, error: erroUltima } = await supabase
           .from("company_operational_analyses")
-          .select("*")
+          .select("id, analysis_date, generated_at, operations_snapshot, summary")
           .eq("company_id", companyId)
           .lt("analysis_date", today)
           .order("analysis_date", { ascending: false })
@@ -323,7 +323,7 @@ export const getOperationalAlerts = createServerFn({ method: "GET" })
 
     const { data, error } = await supabase
       .from("operational_alerts")
-      .select("*")
+      .select("id, company_id, branch_id, status, severity")
       .neq("status", "resolvido")
       .order("created_at", { ascending: false });
 

@@ -35,7 +35,7 @@ export const getAiMemories = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     let query = context.supabase
       .from("ai_memories")
-      .select("*")
+      .select("id, content, category, related_id, created_at, updated_at")
       .eq("user_id", context.userId)
       .order("created_at", { ascending: false });
 

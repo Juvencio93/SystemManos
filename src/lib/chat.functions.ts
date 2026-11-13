@@ -165,7 +165,7 @@ export const getConversations = createServerFn({ method: "GET" })
     let query = supabase
       .from("conversations")
       .select(`
-        *,
+        id, company_id, created_at, last_message_at,
         company:companies(id, name, trade_name),
         conversation_participants (
           id,
@@ -245,7 +245,7 @@ export const getConversations = createServerFn({ method: "GET" })
           reply_to_message_id,
           edited_at,
           deleted_at,
-          chat_attachments (*),
+          chat_attachments(id, message_id, file_name, file_path, file_size, mime_type, created_at),
           sender_profile:profiles!messages_sender_id_fkey(id, display_name, full_name, chat_avatar_url),
           chat_message_receipts (
             delivered_at,
@@ -766,7 +766,7 @@ export const getConversationMessages = createServerFn({ method: "GET" })
         reply_to_message_id,
         edited_at,
         deleted_at,
-        chat_attachments (*),
+        chat_attachments(id, message_id, file_name, file_path, file_size, mime_type, created_at),
         sender_profile:profiles!messages_sender_id_fkey(id, display_name, full_name, chat_avatar_url),
         chat_message_receipts (
           delivered_at,
@@ -822,7 +822,7 @@ export const setConversationPinned = createServerFn({ method: "POST" })
       }, {
         onConflict: "user_id,conversation_id"
       })
-      .select()
+      .select("conversation_id, user_id")
       .single();
     
     if (error) {
@@ -902,8 +902,8 @@ export const sendMessage = createServerFn({ method: "POST" })
     const { data: existingMessage } = await supabase
       .from("messages")
       .select(`
-        *,
-        chat_attachments (*),
+        id, conversation_id, sender_id, content, event, client_message_id, reply_to_message_id, created_at, edited_at, deleted_at, read_at,
+        chat_attachments(id, message_id, file_name, file_path, file_size, mime_type, created_at),
         chat_message_receipts (
           delivered_at,
           read_at,
@@ -943,7 +943,7 @@ export const sendMessage = createServerFn({ method: "POST" })
         reply_to_message_id: data.replyToMessageId || null,
       } as any)
 
-      .select()
+      .select("id, conversation_id, sender_id, content, event, client_message_id, reply_to_message_id, created_at, edited_at, deleted_at, read_at")
       .single();
 
     if (error) {
@@ -1047,8 +1047,8 @@ export const sendMessage = createServerFn({ method: "POST" })
     const { data: finalMessage } = await supabase
       .from("messages")
       .select(`
-        *,
-        chat_attachments (*),
+        id, conversation_id, sender_id, content, event, client_message_id, reply_to_message_id, created_at, edited_at, deleted_at, read_at,
+        chat_attachments(id, message_id, file_name, file_path, file_size, mime_type, created_at),
         chat_message_receipts (
           delivered_at,
           read_at,

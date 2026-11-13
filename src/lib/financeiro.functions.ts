@@ -154,7 +154,7 @@ export const confirmManualPayment = createServerFn({ method: "POST" })
       })
       .eq("id", data.chargeId)
       .in("status", ["pendente", "atrasado"])
-      .select("*, companies(id, due_day, monthly_price)")
+      .select("id, company_id, amount, competence, companies(id, due_day, monthly_price)")
       .maybeSingle();
 
     if (updateError) throw updateError;
@@ -358,13 +358,13 @@ export const getFinanceiroStats = createServerFn({ method: "POST" })
     const buildChargesQuery = () =>
       financeReadClient
         .from("company_charges")
-        .select("*, companies(id, name, trade_name, legal_name, plan_name, monthly_price)")
+        .select("id, company_id, amount, due_date, status, paid_at, reference, competence, asaas_payment_id, companies(id, name, trade_name, legal_name, plan_name, monthly_price)")
         .order("id");
     const buildExpensesQuery = () =>
       financeReadClient
         .from("expenses")
         .select(
-          "*, companies(id, name, trade_name, legal_name), branches(id, name, trade_name, legal_name)",
+          "id, company_id, branch_id, description, amount, date, category, type, observation, competence, payment_method, status, companies(id, name, trade_name, legal_name), branches(id, name, trade_name, legal_name)",
         )
         .order("id");
     const buildCreditOrdersQuery = () =>
@@ -716,7 +716,7 @@ export const getBranchesByCompany = createServerFn({ method: "GET" })
     await assertExpenseAccess(supabaseAdmin, access, companyId);
     const { data, error } = await supabaseAdmin
       .from("branches")
-      .select("*")
+      .select("id, company_id, name, trade_name, legal_name, is_headquarters, active")
       .eq("company_id", companyId);
     if (error) throw error;
     return data;

@@ -974,7 +974,7 @@ export const markConversationAsReadLegacy = createServerFn({ method: "POST" })
       // Calculate remaining anyway to be sure
       const { count } = await supabaseAdmin
         .from("chat_message_receipts")
-        .select("*", { count: 'exact', head: true })
+        .select("id", { count: 'exact', head: true })
         .eq("recipient_profile_id", userId)
         .is("read_at", null);
 
@@ -1036,7 +1036,7 @@ export const markConversationAsReadLegacy = createServerFn({ method: "POST" })
     // 6. Return counts for local UI update
     const { count: remainingCount } = await supabaseAdmin
       .from("chat_message_receipts")
-      .select("*", { count: 'exact', head: true })
+      .select("id", { count: 'exact', head: true })
       .eq("recipient_profile_id", userId)
       .is("read_at", null);
 
@@ -1098,7 +1098,7 @@ export const markConversationAsRead = createServerFn({ method: "POST" })
 
     const { count } = await supabase
       .from("chat_message_receipts")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .eq("recipient_profile_id", userId)
       .is("read_at", null);
 
