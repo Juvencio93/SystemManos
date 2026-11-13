@@ -16,7 +16,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "npm run typecheck && npm run lint && npm run build"
+    "check": "npm run typecheck && npm run lint && npm run build",
+    "audit": "npm audit --audit-level=high"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1110.0",
