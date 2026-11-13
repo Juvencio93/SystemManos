@@ -3,6 +3,7 @@ import { z } from "zod";
 import QRCode from "qrcode";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getPagBankErrorMessage } from "@/lib/pagbank-errors";
+import { decryptSecret } from "@/lib/crypto.server";
 
 const api = (environment: string) => environment === "sandbox" ? "https://sandbox.api.pagseguro.com" : "https://api.pagseguro.com";
 async function pagbank(token: string, environment: string, path: string, body?: unknown) {
@@ -71,17 +72,19 @@ export const getOrCreatePagBankPix = createServerFn({ method: "POST" }).middlewa
   const ownerType = resellerId ? "reseller" : "platform"; const ownerId = resellerId;
   const { data: pref } = await ownerScope(supabaseAdmin.from("payment_provider_preferences").select("provider"), ownerType, ownerId).maybeSingle(); if (pref?.provider !== "pagbank") return { available: false, provider: "pagbank" as const };
   const { data: integration } = await ownerScope(supabaseAdmin.from("pagbank_integrations" as any).select("access_token, environment, webhook_url, status"), ownerType, ownerId).maybeSingle(); if (!integration || integration.status !== "configured") return { available: false, provider: "pagbank" as const };
+  // O token salvo pode estar em claro (legado) ou cifrado.
+  const accessToken = decryptSecret(integration.access_token) as string;
   if (!company?.document || !company?.contact_email) {
     const detail = `Complete CPF/CNPJ e e-mail no cadastro de ${company?.trade_name || company?.name || "matriz"} para permitir cobranças pelo PagBank.`;
     await notifyPagBankFailure(supabaseAdmin, company, charge.company_id, detail);
     throw new Error("Não foi possível gerar o pagamento PIX agora.");
   }
-  if (charge.pagbank_order_id) { try { const order = await pagbank(integration.access_token, integration.environment, `/orders/${charge.pagbank_order_id}`); const stored = order?.charges?.[0]?.qr_code?.text; if (stored) { const dataUrl = await QRCode.toDataURL(stored, { margin: 1, width: 360 }); return { success: true, available: true, provider: "pagbank" as const, copyPaste: stored, qrCode: dataUrl.replace(/^data:image\/png;base64,/, "") }; } } catch { await supabaseAdmin.from("company_charges").update({ pagbank_order_id: null, pagbank_last_event_id: null, pix_payload: null, external_id: null, updated_at: new Date().toISOString() } as any).eq("id", charge.id); }
+  if (charge.pagbank_order_id) { try { const order = await pagbank(accessToken, integration.environment, `/orders/${charge.pagbank_order_id}`); const stored = order?.charges?.[0]?.qr_code?.text; if (stored) { const dataUrl = await QRCode.toDataURL(stored, { margin: 1, width: 360 }); return { success: true, available: true, provider: "pagbank" as const, copyPaste: stored, qrCode: dataUrl.replace(/^data:image\/png;base64,/, "") }; } } catch { await supabaseAdmin.from("company_charges").update({ pagbank_order_id: null, pagbank_last_event_id: null, pix_payload: null, external_id: null, updated_at: new Date().toISOString() } as any).eq("id", charge.id); }
   }
   const phone = String(company.contact_phone || "").replace(/\D/g, ""); const expires = new Date(Date.now() + 86400000).toISOString();
   let order: any;
   try {
-    order = await pagbank(integration.access_token, integration.environment, "/orders", { reference_id: charge.id, customer: { name: company.trade_name || company.name, email: company.contact_email, tax_id: String(company.document).replace(/\D/g, ""), ...(phone.length >= 10 ? { phones: [{ type: "MOBILE", country: "55", area: phone.slice(-11, -9), number: phone.slice(-9) }] } : {}) }, items: [{ reference_id: charge.id, name: charge.reference, quantity: 1, unit_amount: Math.round(Number(charge.amount) * 100) }], charges: [{ reference_id: charge.id, description: charge.reference, amount: { value: Math.round(Number(charge.amount) * 100), currency: "BRL" }, payment_method: { type: "PIX", pix: { expiration_date: expires } } }], notification_urls: [integration.webhook_url] });
+    order = await pagbank(accessToken, integration.environment, "/orders", { reference_id: charge.id, customer: { name: company.trade_name || company.name, email: company.contact_email, tax_id: String(company.document).replace(/\D/g, ""), ...(phone.length >= 10 ? { phones: [{ type: "MOBILE", country: "55", area: phone.slice(-11, -9), number: phone.slice(-9) }] } : {}) }, items: [{ reference_id: charge.id, name: charge.reference, quantity: 1, unit_amount: Math.round(Number(charge.amount) * 100) }], charges: [{ reference_id: charge.id, description: charge.reference, amount: { value: Math.round(Number(charge.amount) * 100), currency: "BRL" }, payment_method: { type: "PIX", pix: { expiration_date: expires } } }], notification_urls: [integration.webhook_url] });
   } catch (cause) {
     const detail = cause instanceof Error ? cause.message : "O PagBank recusou a criação da cobrança PIX.";
     await notifyPagBankFailure(supabaseAdmin, company, charge.company_id, detail);

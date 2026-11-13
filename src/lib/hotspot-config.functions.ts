@@ -3,7 +3,8 @@ import { createHmac } from "node:crypto";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import type { Database } from "@/integrations/supabase/types";
+import type { Database, Json } from "@/integrations/supabase/types";
+import { encryptConfigSecrets } from "@/lib/crypto.server";
 import { normalizeMac } from "./rb-inventory";
 
 const targetSchema = z.object({
@@ -240,7 +241,12 @@ export const saveHotspotConfig = createServerFn({ method: "POST" })
       checkin_limit: data.checkinLimit ?? 3,
       checkin_block_minutes: data.checkinBlockMinutes ?? 30,
       limit_source: data.limitSource,
-      config: {},
+      // O `config` (jsonb) hoje nasce vazio — nenhum segredo é gravado aqui.
+      // Se um fornecedor passar a exigir segredo no `config`, ele DEVE
+      // entrar por `encryptConfigSecrets(...)` (cifra as chaves conhecidas,
+      // ver `HOTSPOT_CONFIG_SECRET_KEYS`); a leitura em `portal.functions.ts`
+      // já decifra antes de entregar ao adaptador.
+      config: encryptConfigSecrets({}) as Json,
       is_active: false,
       updated_at: new Date().toISOString(),
     };

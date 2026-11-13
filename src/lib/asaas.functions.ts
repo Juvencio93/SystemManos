@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { Database } from "@/integrations/supabase/types";
+import { decryptSecret } from "@/lib/crypto.server";
 
 const ASAAS_USER_AGENT = "ManosTech/1.0 (Asaas API; server)";
 
@@ -119,9 +120,12 @@ export const getOrGeneratePix = createServerFn({ method: "POST" })
         };
       }
 
+      // O token salvo pode estar em claro (legado) ou cifrado.
+      const accessToken = decryptSecret(integration.access_token) as string;
+
       if (charge.asaas_payment_id) {
         const qrCode = await fetchAsaas({
-          accessToken: integration.access_token,
+          accessToken,
           environment: integration.environment as AsaasEnvironment,
           endpoint: `/payments/${charge.asaas_payment_id}/pixQrCode`,
         });
@@ -155,7 +159,7 @@ export const getOrGeneratePix = createServerFn({ method: "POST" })
 
       if (!asaasCustomerId) {
         const existingCustomer = await fetchAsaas({
-          accessToken: integration.access_token,
+          accessToken,
           environment: integration.environment as AsaasEnvironment,
           endpoint: `/customers?cpfCnpj=${companyDocument}`,
         });
@@ -164,7 +168,7 @@ export const getOrGeneratePix = createServerFn({ method: "POST" })
           asaasCustomerId = existingCustomer.data[0].id;
         } else {
           const newCustomer = await fetchAsaas({
-            accessToken: integration.access_token,
+            accessToken,
             environment: integration.environment as AsaasEnvironment,
             endpoint: "/customers",
             options: {
@@ -184,7 +188,7 @@ export const getOrGeneratePix = createServerFn({ method: "POST" })
       }
 
       const payment = await fetchAsaas({
-        accessToken: integration.access_token,
+        accessToken,
         environment: integration.environment as AsaasEnvironment,
         endpoint: "/payments",
         options: {
@@ -201,7 +205,7 @@ export const getOrGeneratePix = createServerFn({ method: "POST" })
       });
 
       const qrCode = await fetchAsaas({
-        accessToken: integration.access_token,
+        accessToken,
         environment: integration.environment as AsaasEnvironment,
         endpoint: `/payments/${payment.id}/pixQrCode`,
       });
@@ -245,13 +249,13 @@ export const cancelMatrizPayment = createServerFn({ method: "POST" })
     if (["pago", "received", "confirmed"].includes(String(charge.status).toLowerCase())) throw new Error("Este pagamento já foi confirmado e não pode ser cancelado.");
     if (charge.asaas_payment_id) {
       const { data: integration } = await supabaseAdmin.from("asaas_integrations").select("access_token, environment").eq("owner_type", "platform").is("owner_id", null).neq("status", "disabled").maybeSingle();
-      if (integration?.access_token) await fetchAsaas({ accessToken: integration.access_token, environment: integration.environment as AsaasEnvironment, endpoint: `/payments/${charge.asaas_payment_id}`, options: { method: "DELETE" } });
+      if (integration?.access_token) await fetchAsaas({ accessToken: decryptSecret(integration.access_token) as string, environment: integration.environment as AsaasEnvironment, endpoint: `/payments/${charge.asaas_payment_id}`, options: { method: "DELETE" } });
     }
     if (charge.payment_provider === "pagbank" && charge.pagbank_order_id) {
       const { data: integration } = await supabaseAdmin.from("pagbank_integrations").select("access_token, environment").eq("owner_type", "platform").is("owner_id", null).neq("status", "disabled").maybeSingle();
       if (integration?.access_token) {
         const base = integration.environment === "sandbox" ? "https://sandbox.api.pagseguro.com" : "https://api.pagseguro.com";
-        const response = await fetch(`${base}/orders/${charge.pagbank_order_id}`, { headers: { Authorization: `Bearer ${integration.access_token}`, Accept: "application/json" } });
+        const response = await fetch(`${base}/orders/${charge.pagbank_order_id}`, { headers: { Authorization: `Bearer ${decryptSecret(integration.access_token) as string}`, Accept: "application/json" } });
         const order = await response.json().catch(() => ({}));
         const remoteStatus = String(order?.charges?.[0]?.status || "").toUpperCase();
         if (["PAID", "AUTHORIZED"].includes(remoteStatus)) throw new Error("Este pagamento PagBank já foi confirmado e não pode ser cancelado.");

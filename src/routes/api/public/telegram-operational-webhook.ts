@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { decryptSecret, storedSecretMatches } from "@/lib/crypto.server";
 
 type TelegramIntegration = {
   id: string;
@@ -30,9 +31,12 @@ export const Route = createFileRoute("/api/public/telegram-operational-webhook")
           .neq("status", "disabled")
           .maybeSingle();
         const integration = data as TelegramIntegration | null;
-        if (!integration || secret !== integration.webhook_secret) {
+        if (!integration || !storedSecretMatches(integration.webhook_secret, secret)) {
           return new Response("Não autorizado.", { status: 401 });
         }
+
+        // O token salvo pode estar em claro (legado) ou cifrado.
+        const botToken = decryptSecret(integration.bot_token) as string;
 
         authorizedIntegration = integration;
         update = (await request.json().catch(() => ({}))) as any;
@@ -67,7 +71,7 @@ export const Route = createFileRoute("/api/public/telegram-operational-webhook")
           const icon = delivery.severity === "critical" ? "🚨" : delivery.severity === "success" ? "✅" : "⚠️";
           const alertText = `${icon} <b>${escapeHtml(String(delivery.title))}</b>\n\n${escapeHtml(String(delivery.description))}`;
           const telegramResponse = await fetch(
-            `https://api.telegram.org/bot${integration.bot_token}/sendMessage`,
+            `https://api.telegram.org/bot${botToken}/sendMessage`,
             {
               method: "POST",
               signal: AbortSignal.timeout(30_000),
@@ -112,7 +116,7 @@ export const Route = createFileRoute("/api/public/telegram-operational-webhook")
         if (!chatId || !text) return new Response("OK");
 
         const send = (messageText: string, parseMode?: "HTML") =>
-          fetch(`https://api.telegram.org/bot${integration.bot_token}/sendMessage`, {
+          fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
             method: "POST",
             signal: AbortSignal.timeout(30_000),
             headers: { "Content-Type": "application/json" },
@@ -149,7 +153,7 @@ export const Route = createFileRoute("/api/public/telegram-operational-webhook")
           return new Response("OK");
         }
 
-        await fetch(`https://api.telegram.org/bot${integration.bot_token}/sendChatAction`, {
+        await fetch(`https://api.telegram.org/bot${botToken}/sendChatAction`, {
           method: "POST",
           signal: AbortSignal.timeout(30_000),
           headers: { "Content-Type": "application/json" },

@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Database } from "@/integrations/supabase/types";
+import { decryptSecret } from "@/lib/crypto.server";
 
 const CREDIT_UNIT_PRICE = 50;
 const ASAAS_USER_AGENT = "ManosTech/1.0 (Asaas API; server)";
@@ -101,13 +102,16 @@ export const getOrCreateResellerCreditPix = createServerFn({ method: "POST" })
     if (integrationError) throw new Error("Não foi possível carregar a integração Asaas.");
     if (!integration?.access_token) throw new Error("A integração Asaas não está configurada.");
 
+    // O token salvo pode estar em claro (legado) ou cifrado.
+    const accessToken = decryptSecret(integration.access_token) as string;
+
     const document = onlyDigits(reseller.document);
     if (!document) throw new Error("Cadastre o CPF ou CNPJ da revenda antes de gerar o PIX.");
 
     let customerId = reseller.asaas_customer_id;
     if (!customerId) {
       const customers = await fetchAsaas({
-        accessToken: integration.access_token,
+        accessToken,
         environment: integration.environment as AsaasEnvironment,
         endpoint: `/customers?cpfCnpj=${document}`,
       });
@@ -115,7 +119,7 @@ export const getOrCreateResellerCreditPix = createServerFn({ method: "POST" })
         Array.isArray(customers?.data) && customers.data[0]?.id ? customers.data[0].id : null;
       if (!customerId) {
         const customer = await fetchAsaas({
-          accessToken: integration.access_token,
+          accessToken,
           environment: integration.environment as AsaasEnvironment,
           endpoint: "/customers",
           options: {
@@ -159,7 +163,7 @@ export const getOrCreateResellerCreditPix = createServerFn({ method: "POST" })
 
     try {
       const payment = await fetchAsaas({
-        accessToken: integration.access_token,
+        accessToken,
         environment: integration.environment as AsaasEnvironment,
         endpoint: "/payments",
         options: {
@@ -175,7 +179,7 @@ export const getOrCreateResellerCreditPix = createServerFn({ method: "POST" })
         },
       });
       const qrCode = await fetchAsaas({
-        accessToken: integration.access_token,
+        accessToken,
         environment: integration.environment as AsaasEnvironment,
         endpoint: `/payments/${payment.id}/pixQrCode`,
       });

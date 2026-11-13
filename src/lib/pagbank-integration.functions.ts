@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { decryptSecret, encryptSecret, maskStoredSecret } from "@/lib/crypto.server";
 import { getPagBankErrorMessage } from "@/lib/pagbank-errors";
 
 type Owner = { ownerType: "platform" | "reseller"; ownerId: string | null; label: string };
@@ -31,7 +32,7 @@ export const getPagBankIntegration = createServerFn({ method: "GET" }).middlewar
   const owner = await ownerFor(context.supabase, context.userId); const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data, error } = await scoped(supabaseAdmin.from("pagbank_integrations" as any).select("id, access_token, environment, webhook_url, status, last_tested_at, last_error"), owner).maybeSingle();
   if (error) throw new Error(error.message);
-  return data ? { configured: data.status === "configured", saved: data.status !== "disabled", status: data.status, tokenMasked: mask(data.access_token), environment: data.environment, webhookUrl: data.webhook_url, lastTestedAt: data.last_tested_at, lastError: data.last_error, ownerLabel: owner.label } : { configured: false, saved: false, status: "not_configured", ownerLabel: owner.label };
+  return data ? { configured: data.status === "configured", saved: data.status !== "disabled", status: data.status, tokenMasked: maskStoredSecret(data.access_token), environment: data.environment, webhookUrl: data.webhook_url, lastTestedAt: data.last_tested_at, lastError: data.last_error, ownerLabel: owner.label } : { configured: false, saved: false, status: "not_configured", ownerLabel: owner.label };
 });
 
 export const savePagBankIntegration = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).validator((input: unknown) => z.object({ accessToken: z.string().trim().min(12, "Informe o token PagBank."), environment: z.enum(["sandbox", "production"]), siteUrl: z.string().trim().url().optional().or(z.literal("")) }).parse(input)).handler(async ({ context, data }) => {
@@ -42,7 +43,7 @@ export const savePagBankIntegration = createServerFn({ method: "POST" }).middlew
   catch (cause) { validationError = cause instanceof Error ? cause.message : "Não foi possível validar o acesso ao PagBank."; }
   const webhookUrl = `${url}/api/public/pagbank-webhook-v1`; const now = new Date().toISOString();
   const { data: existing, error: findError } = await scoped(supabaseAdmin.from("pagbank_integrations" as any).select("id"), owner).maybeSingle(); if (findError) throw new Error(findError.message);
-  const payload = { owner_type: owner.ownerType, owner_id: owner.ownerId, access_token: data.accessToken, environment: data.environment, webhook_url: webhookUrl, status: validationError ? "error" : "configured", last_tested_at: now, last_error: validationError, updated_at: now };
+  const payload = { owner_type: owner.ownerType, owner_id: owner.ownerId, access_token: encryptSecret(data.accessToken), environment: data.environment, webhook_url: webhookUrl, status: validationError ? "error" : "configured", last_tested_at: now, last_error: validationError, updated_at: now };
   const { error } = existing ? await supabaseAdmin.from("pagbank_integrations" as any).update(payload).eq("id", existing.id) : await supabaseAdmin.from("pagbank_integrations" as any).insert(payload); if (error) throw new Error(error.message);
   if (validationError) throw new Error(validationError);
   return { success: true, configured: true, tokenMasked: mask(data.accessToken), webhookUrl };
@@ -50,7 +51,7 @@ export const savePagBankIntegration = createServerFn({ method: "POST" }).middlew
 
 export const testPagBankIntegration = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
   const owner = await ownerFor(context.supabase, context.userId); const { supabaseAdmin } = await import("@/integrations/supabase/client.server"); const { data: integration, error } = await scoped(supabaseAdmin.from("pagbank_integrations" as any).select("id, access_token, environment"), owner).maybeSingle(); if (error || !integration) throw new Error("Integração PagBank ainda não configurada."); const now = new Date().toISOString();
-  try { await requestWebhookPublicKey(integration.access_token, integration.environment); await supabaseAdmin.from("pagbank_integrations" as any).update({ status: "configured", last_tested_at: now, last_error: null, updated_at: now }).eq("id", integration.id); return { success: true }; }
+  try { await requestWebhookPublicKey(decryptSecret(integration.access_token) as string, integration.environment); await supabaseAdmin.from("pagbank_integrations" as any).update({ status: "configured", last_tested_at: now, last_error: null, updated_at: now }).eq("id", integration.id); return { success: true }; }
   catch (cause) { const message = cause instanceof Error ? cause.message : "Falha ao testar PagBank."; await supabaseAdmin.from("pagbank_integrations" as any).update({ status: "error", last_tested_at: now, last_error: message, updated_at: now }).eq("id", integration.id); throw new Error(message); }
 });
 export const removePagBankIntegration = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => { const owner = await ownerFor(context.supabase, context.userId); const { supabaseAdmin } = await import("@/integrations/supabase/client.server"); const { error } = await scoped(supabaseAdmin.from("pagbank_integrations" as any).update({ status: "disabled", updated_at: new Date().toISOString() }), owner); if (error) throw new Error(error.message); return { success: true }; });

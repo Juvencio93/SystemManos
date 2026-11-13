@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
+import { decryptSecret } from "@/lib/crypto.server";
 
 const ASAAS_USER_AGENT = "ManosTech/1.0 (Asaas API; server)";
 
@@ -105,7 +106,7 @@ export const Route = createFileRoute("/api/public/asaas-manager")({
                 ...options.headers,
                 "Content-Type": "application/json",
                 "User-Agent": ASAAS_USER_AGENT,
-                access_token: integration.access_token,
+                access_token: decryptSecret(integration.access_token) as string,
               },
             });
             if (!res.ok) {

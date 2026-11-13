@@ -1,6 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  decryptSecret,
+  encryptSecret,
+  maskStoredSecret,
+} from "@/lib/crypto.server";
 
 const ASAAS_EVENTS = [
   "PAYMENT_CREATED",
@@ -260,8 +265,8 @@ export const getAsaasIntegration = createServerFn({ method: "GET" })
     return {
       configured: data.status !== "disabled",
       environment: data.environment as AsaasEnvironment,
-      accessTokenMasked: maskSecret(data.access_token),
-      pixKeyMasked: maskSecret(data.pix_key),
+      accessTokenMasked: maskStoredSecret(data.access_token),
+      pixKeyMasked: maskStoredSecret(data.pix_key),
       webhookId: data.webhook_id,
       webhookUrl: data.webhook_url,
       notificationEmail: data.notification_email,
@@ -318,7 +323,9 @@ export const saveAsaasIntegration = createServerFn({ method: "POST" })
       throw new Error(existingError.message);
     }
 
-    const webhookToken = existing?.webhook_token || createWebhookToken();
+    // O token de webhook salvo pode estar em claro (legado) ou cifrado:
+    // decifra antes de reutilizar — a escrita abaixo o re-cifra.
+    const webhookToken = (decryptSecret(existing?.webhook_token) as string | null | undefined) || createWebhookToken();
     const webhookUrl = `${siteUrl}/api/public/asaas-webhook-v2`;
     const webhookPayload = {
       name: `Manos Tech - pagamentos (${owner.label})`,
@@ -341,13 +348,16 @@ export const saveAsaasIntegration = createServerFn({ method: "POST" })
     });
 
     const now = new Date().toISOString();
+    // Segredos cifrados em repouso (AES-256-GCM, `APP_ENCRYPTION_KEY`).
+    // Sem a chave configurada, `encryptSecret` falha de forma explícita em
+    // vez de gravar o segredo em claro.
     const payload = {
         owner_type: owner.ownerType,
         owner_id: owner.ownerId,
         environment: data.environment,
-        access_token: data.accessToken,
-        pix_key: data.pixKey,
-        webhook_token: webhookToken,
+        access_token: encryptSecret(data.accessToken),
+        pix_key: encryptSecret(data.pixKey),
+        webhook_token: encryptSecret(webhookToken),
         webhook_id: webhook?.id || null,
         webhook_url: webhookUrl,
         notification_email: data.notificationEmail || null,
@@ -392,10 +402,11 @@ export const testAsaasIntegration = createServerFn({ method: "POST" })
     }
     if (!integration) throw new Error("Integração Asaas ainda não configurada.");
 
+    const accessToken = decryptSecret(integration.access_token) as string;
     const now = new Date().toISOString();
     try {
       await fetchAsaas({
-        accessToken: integration.access_token,
+        accessToken,
         environment: integration.environment as AsaasEnvironment,
         endpoint: "/customers?limit=1",
       });
