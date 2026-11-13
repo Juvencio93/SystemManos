@@ -72,7 +72,7 @@ export const getCurrentMatrizCharge = createServerFn({ method: "GET" })
     // Regra: Retornar a cobrança válida de menor vencimento.
     const { data: charges, error } = await supabase
       .from("company_charges")
-      .select("*")
+      .select("id, company_id, amount, due_date, status, reference, competence, receipt_code, method, payment_provider, paid_at, created_at, updated_at")
       .eq("company_id", companyId)
       .in("status", ["pendente", "atrasado"])
       .order("due_date", { ascending: true });
@@ -114,7 +114,7 @@ export const ensureCurrentCharge = createServerFn({ method: "POST" })
     // 3. Verificar se já existe
     const { data: existingCharge, error: searchError } = await supabaseAdmin
       .from("company_charges")
-      .select("*")
+      .select("id, company_id, amount, due_date, status, reference, competence, receipt_code, method, payment_provider, paid_at, created_at, updated_at")
       .eq("company_id", companyId)
       .eq("competence", targetCompetence)
       .maybeSingle();
@@ -143,14 +143,14 @@ export const ensureCurrentCharge = createServerFn({ method: "POST" })
         competence: targetCompetence,
         receipt_code: `REC-${Date.now()}`,
       } as Database["public"]["Tables"]["company_charges"]["Insert"])
-      .select()
+      .select("id, company_id, amount, due_date, status, reference, competence, receipt_code, method, payment_provider, paid_at, created_at, updated_at")
       .single();
 
     if (insertError) {
       if (insertError.code === "23505") {
         const { data: retry } = await supabaseAdmin
           .from("company_charges")
-          .select("*")
+          .select("id, company_id, amount, due_date, status, reference, competence, receipt_code, method, payment_provider, paid_at, created_at, updated_at")
           .eq("company_id", companyId)
           .eq("competence", targetCompetence)
           .single();

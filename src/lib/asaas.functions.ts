@@ -82,7 +82,7 @@ export const getOrGeneratePix = createServerFn({ method: "POST" })
 
       const { data: charge, error: chargeError } = await supabaseAdmin
         .from("company_charges")
-        .select("*, companies(*)")
+        .select("id, company_id, status, asaas_payment_id, amount, due_date, reference, companies(id, reseller_id, document, trade_name, legal_name, name, contact_email, contact_phone)")
         .eq("id", chargeId)
         .maybeSingle();
 

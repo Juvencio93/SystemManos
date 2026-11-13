@@ -71,7 +71,7 @@ function hojeSP(): string {
 async function buscarInstancia(admin: any, scope: WhatsappScope) {
   let q = admin
     .from("whatsapp_instancias")
-    .select("*")
+    .select("id, instance_name, numero, status, aquecimento_inicio, conectada_em")
     .eq("company_id", scope.companyId);
   q = scope.branchId ? q.eq("branch_id", scope.branchId) : q.is("branch_id", null);
   const { data, error } = await q.maybeSingle();
@@ -189,7 +189,7 @@ async function garantirInstancia(admin: any, scope: WhatsappScope) {
       branch_id: scope.branchId,
       instance_name: instanceName,
     })
-    .select("*")
+    .select("id, instance_name, numero, status, aquecimento_inicio, conectada_em")
     .single();
   if (error) throw new Error("Erro ao preparar a conexão do WhatsApp.");
   return data as any;

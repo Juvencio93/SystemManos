@@ -29,7 +29,7 @@ export const getReceiptData = createServerFn({ method: "GET" })
       .from("company_charges")
       .select(
         `
-        *,
+        id, company_id, amount, due_date, paid_at, competence, status,
         companies (
           id,
           name,
@@ -86,7 +86,7 @@ export const getReceiptData = createServerFn({ method: "GET" })
     }
 
     // 5. Get Platform Settings (for logos and company info)
-    const { data: settings } = await supabaseAdmin.from("platform_settings").select("*").single();
+    const { data: settings } = await supabaseAdmin.from("platform_settings").select("id, display_name, document, logo_url, logo_url_relatorios, support_phone").single();
 
     return {
       charge,
