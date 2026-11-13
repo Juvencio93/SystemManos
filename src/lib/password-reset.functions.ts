@@ -232,6 +232,15 @@ export const approvePasswordResetRequest = createServerFn({ method: "POST" })
     // (só o 2FA continua ativo — dá para tentar de novo).
     const mfaRemoved = await clearUserMfaFactors(supabaseAdmin, userId);
 
+    // Trilha de auditoria (frente 10): fail-open — nunca bloqueia a aprovação.
+    const { logAdminAction } = await import("@/lib/admin-audit-log.server");
+    await logAdminAction(supabaseAdmin, {
+      userId: decidedBy,
+      action: "password_reset.approve",
+      companyId: null,
+      details: { request_id: row.id, email: row.email, mfa_removed: mfaRemoved },
+    });
+
     return {
       tempPassword: temporaria,
       email: row.email,
@@ -287,5 +296,15 @@ export const denyPasswordResetRequest = createServerFn({ method: "POST" })
         updated_at: nowIso,
       })
       .eq("id", row.id);
+
+    // Trilha de auditoria (frente 10): fail-open — nunca bloqueia a negação.
+    const { logAdminAction } = await import("@/lib/admin-audit-log.server");
+    await logAdminAction(supabaseAdmin, {
+      userId: decidedBy,
+      action: "password_reset.deny",
+      companyId: null,
+      details: { request_id: row.id },
+    });
+
     return { success: true };
   });

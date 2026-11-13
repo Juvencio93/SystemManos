@@ -226,6 +226,20 @@ export const confirmManualPayment = createServerFn({ method: "POST" })
       }
     }
 
+    // Trilha de auditoria (frente 10): fail-open — nunca bloqueia a baixa.
+    const { logAdminAction } = await import("@/lib/admin-audit-log.server");
+    await logAdminAction(supabaseAdmin, {
+      userId: context.userId,
+      action: "payment.confirm",
+      companyId: charge.company_id as string,
+      details: {
+        charge_id: charge.id,
+        amount: charge.amount,
+        paid_at: data.paidAt,
+        competence: charge.competence ?? null,
+      },
+    });
+
     return { success: true };
   });
 

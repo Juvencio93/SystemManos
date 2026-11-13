@@ -1,5 +1,6 @@
 import type { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { extractCampaignAssetPath } from "./company-delete";
+import { logAdminAction } from "./admin-audit-log.server";
 
 type AdminDb = typeof supabaseAdmin;
 
@@ -178,6 +179,20 @@ export async function deleteCompanyFull(
       removedFiles = removed?.length ?? 0;
     }
   }
+
+  // Trilha de auditoria (frente 10): a empresa já foi apagada, então o
+  // company_id fica null (a FK é ON DELETE SET NULL) e o nome vai no
+  // detalhe. Fail-open: nunca desfaz a exclusão.
+  await logAdminAction(db, {
+    userId,
+    action: "company.delete",
+    companyId: null,
+    details: {
+      company_name: companyName,
+      slug: company.slug,
+      refunded_credits: refundedCredits,
+    },
+  });
 
   return {
     companyName,
