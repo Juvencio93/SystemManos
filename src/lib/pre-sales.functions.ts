@@ -3,6 +3,13 @@ import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  PRE_SALE_RATE_LIMIT_BUCKET,
+  PUBLIC_RATE_LIMIT_EXCEEDED_MESSAGE,
+  PUBLIC_RATE_LIMIT_PER_IP,
+  PUBLIC_RATE_WINDOW_SECONDS,
+  publicRateLimitBucket,
+} from "@/integrations/supabase/public-rate-limit";
 
 const submitPreSaleSchema = z.object({
   companyName: z.string().trim().min(2).max(160),
@@ -62,6 +69,42 @@ async function getRequestIpHash() {
   if (!secret || ip === "unknown") return null;
   const { createHmac } = await import("node:crypto");
   return createHmac("sha256", secret).update(ip).digest("hex");
+}
+
+// IP do cliente na requisição atual — mesma cadeia do portal
+// (portal.functions.ts) e da privacidade: o cabeçalho da borda tem
+// precedência; sem ele, a primeira entrada do X-Forwarded-For.
+// (getRequestIpHash, acima, é outra coisa: o hash HMAC do IP que vai
+// gravado em pre_sales.ip_hash.)
+function getRequestIp(): string {
+  const request = getRequest();
+  return (
+    request?.headers.get("x-vercel-forwarded-for") ||
+    request?.headers.get("cf-connecting-ip") ||
+    request?.headers.get("x-real-ip") ||
+    request?.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    "unknown"
+  );
+}
+
+// Rate limit (10/min/IP, mesmo padrão do portal) para os submits
+// públicos. Fail-open com log (mesmo padrão do login): se a RPC falhar,
+// o pedido segue. Os três submits compartilham o balde `pre_sale:<ip>` —
+// o fluxo legítimo em 2 passos (parcial + conclusão) usa 2 tentativas.
+async function checkPreSaleRateLimit(adminDb: any): Promise<void> {
+  const { data: allowed, error: limiterError } = await adminDb.rpc(
+    "consume_portal_checkin_rate_limit",
+    {
+      p_bucket_key: publicRateLimitBucket(PRE_SALE_RATE_LIMIT_BUCKET, getRequestIp()),
+      p_limit: PUBLIC_RATE_LIMIT_PER_IP,
+      p_window_seconds: PUBLIC_RATE_WINDOW_SECONDS,
+    },
+  );
+  if (limiterError) {
+    console.error("[PreSale] limitador indisponível (fail-open):", limiterError);
+    return;
+  }
+  if (allowed !== true) throw new Error(PUBLIC_RATE_LIMIT_EXCEEDED_MESSAGE);
 }
 
 type PreSaleNotification = {
@@ -136,6 +179,9 @@ export const submitPreSale = createServerFn({ method: "POST" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const adminDb: any = supabaseAdmin;
+    // Rate limit 10/min/IP antes de qualquer leitura/escrita. A trava de
+    // 3 registros/10min abaixo continua valendo (regra de negócio).
+    await checkPreSaleRateLimit(adminDb);
     const ipHash = await getRequestIpHash();
 
     if (ipHash) {
@@ -204,6 +250,9 @@ export const savePreSalePartial = createServerFn({ method: "POST" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const adminDb: any = supabaseAdmin;
+    // Rate limit 10/min/IP antes de qualquer leitura/escrita. A trava de
+    // 3 registros/10min abaixo continua valendo (regra de negócio).
+    await checkPreSaleRateLimit(adminDb);
     const ipHash = await getRequestIpHash();
 
     if (ipHash) {
@@ -262,6 +311,8 @@ export const completePreSale = createServerFn({ method: "POST" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const adminDb: any = supabaseAdmin;
+    // Rate limit 10/min/IP antes de qualquer leitura/escrita.
+    await checkPreSaleRateLimit(adminDb);
 
     const { data: existing, error: fetchError } = await adminDb
       .from("pre_sales")

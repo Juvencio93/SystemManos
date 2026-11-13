@@ -1,7 +1,15 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  PASSWORD_RESET_RATE_LIMIT_BUCKET,
+  PUBLIC_RATE_LIMIT_EXCEEDED_MESSAGE,
+  PUBLIC_RATE_LIMIT_PER_IP,
+  PUBLIC_RATE_WINDOW_SECONDS,
+  publicRateLimitBucket,
+} from "@/integrations/supabase/public-rate-limit";
 import type { Database } from "@/integrations/supabase/types";
 
 // Redefinição de senha COM APROVAÇÃO (2026-10-20): o "Esqueci minha
@@ -33,6 +41,20 @@ function gerarSenhaTemporaria(): string {
 async function admin(): Promise<AdminClient> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   return supabaseAdmin;
+}
+
+// IP do cliente na requisição atual — mesma cadeia do portal
+// (portal.functions.ts) e da privacidade: o cabeçalho da borda tem
+// precedência; sem ele, a primeira entrada do X-Forwarded-For.
+function requestIp(): string {
+  const request = getRequest();
+  return (
+    request?.headers.get("x-vercel-forwarded-for") ||
+    request?.headers.get("cf-connecting-ip") ||
+    request?.headers.get("x-real-ip") ||
+    request?.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    "unknown"
+  );
 }
 
 async function requireAdm(context: {
@@ -67,6 +89,25 @@ export const requestPasswordReset = createServerFn({ method: "POST" })
     const { assertTurnstileToken } = await import("@/lib/turnstile.server");
     await assertTurnstileToken(data.turnstileToken);
     const supabaseAdmin = await admin();
+
+    // Rate limit (10/min/IP, mesmo padrão do portal) ANTES de qualquer
+    // leitura ou escrita — sem ele, o endpoint vira oráculo de e-mails
+    // e gerador de spam de pedido de aprovação. Fail-open com log (mesmo
+    // padrão do login): se a RPC falhar, o pedido segue.
+    const { data: allowed, error: limiterError } = await (supabaseAdmin as any).rpc(
+      "consume_portal_checkin_rate_limit",
+      {
+        p_bucket_key: publicRateLimitBucket(PASSWORD_RESET_RATE_LIMIT_BUCKET, requestIp()),
+        p_limit: PUBLIC_RATE_LIMIT_PER_IP,
+        p_window_seconds: PUBLIC_RATE_WINDOW_SECONDS,
+      },
+    );
+    if (limiterError) {
+      console.error("[password-reset] limitador indisponível (fail-open):", limiterError);
+    } else if (allowed !== true) {
+      throw new Error(PUBLIC_RATE_LIMIT_EXCEEDED_MESSAGE);
+    }
+
     const email = data.email.toLowerCase();
 
     const { data: profile } = await supabaseAdmin
