@@ -68,6 +68,7 @@ import { Route as ApiPublicHotspotEntryRouteImport } from './routes/api/public/h
 import { Route as ApiPublicMarketingCrmSummaryRouteImport } from './routes/api/public/marketing-crm-summary'
 import { Route as ApiPublicOperationalJobRouteImport } from './routes/api/public/operational-job'
 import { Route as ApiPublicPagbankWebhookV1RouteImport } from './routes/api/public/pagbank-webhook-v1'
+import { Route as ApiPublicStorageOrphanSweepRouteImport } from './routes/api/public/storage-orphan-sweep'
 import { Route as ApiPublicTelegramOperationalWebhookRouteImport } from './routes/api/public/telegram-operational-webhook'
 import { Route as AuthenticatedFinanceiroReciboChargeIdRouteImport } from './routes/_authenticated/financeiro/recibo.$chargeId'
 
@@ -392,6 +393,12 @@ const ApiPublicPagbankWebhookV1Route =
     path: '/api/public/pagbank-webhook-v1',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicStorageOrphanSweepRoute =
+  ApiPublicStorageOrphanSweepRouteImport.update({
+    id: '/api/public/storage-orphan-sweep',
+    path: '/api/public/storage-orphan-sweep',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicTelegramOperationalWebhookRoute =
   ApiPublicTelegramOperationalWebhookRouteImport.update({
     id: '/api/public/telegram-operational-webhook',
@@ -462,6 +469,7 @@ export interface FileRoutesByFullPath {
   '/api/public/marketing-crm-summary': typeof ApiPublicMarketingCrmSummaryRoute
   '/api/public/operational-job': typeof ApiPublicOperationalJobRoute
   '/api/public/pagbank-webhook-v1': typeof ApiPublicPagbankWebhookV1Route
+  '/api/public/storage-orphan-sweep': typeof ApiPublicStorageOrphanSweepRoute
   '/api/public/telegram-operational-webhook': typeof ApiPublicTelegramOperationalWebhookRoute
   '/empresas/': typeof AuthenticatedEmpresasIndexRoute
   '/financeiro/': typeof AuthenticatedFinanceiroIndexRoute
@@ -523,6 +531,7 @@ export interface FileRoutesByTo {
   '/api/public/marketing-crm-summary': typeof ApiPublicMarketingCrmSummaryRoute
   '/api/public/operational-job': typeof ApiPublicOperationalJobRoute
   '/api/public/pagbank-webhook-v1': typeof ApiPublicPagbankWebhookV1Route
+  '/api/public/storage-orphan-sweep': typeof ApiPublicStorageOrphanSweepRoute
   '/api/public/telegram-operational-webhook': typeof ApiPublicTelegramOperationalWebhookRoute
   '/empresas': typeof AuthenticatedEmpresasIndexRoute
   '/financeiro': typeof AuthenticatedFinanceiroIndexRoute
@@ -587,6 +596,7 @@ export interface FileRoutesById {
   '/api/public/marketing-crm-summary': typeof ApiPublicMarketingCrmSummaryRoute
   '/api/public/operational-job': typeof ApiPublicOperationalJobRoute
   '/api/public/pagbank-webhook-v1': typeof ApiPublicPagbankWebhookV1Route
+  '/api/public/storage-orphan-sweep': typeof ApiPublicStorageOrphanSweepRoute
   '/api/public/telegram-operational-webhook': typeof ApiPublicTelegramOperationalWebhookRoute
   '/_authenticated/empresas/': typeof AuthenticatedEmpresasIndexRoute
   '/_authenticated/financeiro/': typeof AuthenticatedFinanceiroIndexRoute
@@ -651,6 +661,7 @@ export interface FileRouteTypes {
     | '/api/public/marketing-crm-summary'
     | '/api/public/operational-job'
     | '/api/public/pagbank-webhook-v1'
+    | '/api/public/storage-orphan-sweep'
     | '/api/public/telegram-operational-webhook'
     | '/empresas/'
     | '/financeiro/'
@@ -712,6 +723,7 @@ export interface FileRouteTypes {
     | '/api/public/marketing-crm-summary'
     | '/api/public/operational-job'
     | '/api/public/pagbank-webhook-v1'
+    | '/api/public/storage-orphan-sweep'
     | '/api/public/telegram-operational-webhook'
     | '/empresas'
     | '/financeiro'
@@ -775,6 +787,7 @@ export interface FileRouteTypes {
     | '/api/public/marketing-crm-summary'
     | '/api/public/operational-job'
     | '/api/public/pagbank-webhook-v1'
+    | '/api/public/storage-orphan-sweep'
     | '/api/public/telegram-operational-webhook'
     | '/_authenticated/empresas/'
     | '/_authenticated/financeiro/'
@@ -813,6 +826,7 @@ export interface RootRouteChildren {
   ApiPublicMarketingCrmSummaryRoute: typeof ApiPublicMarketingCrmSummaryRoute
   ApiPublicOperationalJobRoute: typeof ApiPublicOperationalJobRoute
   ApiPublicPagbankWebhookV1Route: typeof ApiPublicPagbankWebhookV1Route
+  ApiPublicStorageOrphanSweepRoute: typeof ApiPublicStorageOrphanSweepRoute
   ApiPublicTelegramOperationalWebhookRoute: typeof ApiPublicTelegramOperationalWebhookRoute
 }
 
@@ -1231,6 +1245,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPagbankWebhookV1RouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/storage-orphan-sweep': {
+      id: '/api/public/storage-orphan-sweep'
+      path: '/api/public/storage-orphan-sweep'
+      fullPath: '/api/public/storage-orphan-sweep'
+      preLoaderRoute: typeof ApiPublicStorageOrphanSweepRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/telegram-operational-webhook': {
       id: '/api/public/telegram-operational-webhook'
       path: '/api/public/telegram-operational-webhook'
@@ -1363,6 +1384,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicMarketingCrmSummaryRoute: ApiPublicMarketingCrmSummaryRoute,
   ApiPublicOperationalJobRoute: ApiPublicOperationalJobRoute,
   ApiPublicPagbankWebhookV1Route: ApiPublicPagbankWebhookV1Route,
+  ApiPublicStorageOrphanSweepRoute: ApiPublicStorageOrphanSweepRoute,
   ApiPublicTelegramOperationalWebhookRoute:
     ApiPublicTelegramOperationalWebhookRoute,
 }

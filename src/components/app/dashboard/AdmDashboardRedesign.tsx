@@ -21,6 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Insights } from "@/lib/insights.server";
 import { getFinanceiroStats } from "@/lib/financeiro.functions";
 import { MovimentoChartNovo } from "./ClientDashboardRedesign";
+import { PlanoSupabaseCard } from "./PlanoSupabaseCard";
 import {
   DeltaChip,
   PrecisaDeVoceCard,
@@ -447,6 +448,11 @@ export function AdmDashboardRedesign({
 
       <div className="mb-6 sm:mb-8">
         <ProblemasRedeResumo />
+      </div>
+
+      {/* Frente 9 — gatilhos de migração para o Pro (só ADM, só alerta). */}
+      <div className="mb-6 sm:mb-8">
+        <PlanoSupabaseCard />
       </div>
 
       <div className="mb-6 sm:mb-8">

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Building2, Loader2, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
@@ -54,10 +54,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCnpj, isValidCnpj, slugify } from "@/lib/cnpj-utils";
 import { lookupCnpj } from "@/lib/cnpj.functions";
 import { createBranchWithAccess, deleteBranch, updateBranch } from "@/lib/branch.functions";
+import { extractCampaignAssetPath } from "@/lib/company-delete";
+import { removeReplacedAsset } from "@/lib/storage-cleanup";
 import {
   CAMPAIGN_ASSETS_BUCKET,
+  CAMPAIGN_ASSET_MAX_BYTES,
   validateCampaignAssetClaim,
 } from "@/lib/campaign-upload-validation";
+import { optimizeLogo } from "@/lib/image-optimization";
 import { getBranchDisplayName, getCompanyDisplayName } from "@/lib/name-utils";
 import { finalizeCampaignAssetUpload } from "@/lib/storage.functions";
 
@@ -107,29 +111,43 @@ const editSchema = schema.extend({
 const TEN_YEARS = 60 * 60 * 24 * 365 * 10;
 
 async function uploadBranchLogo(file: File) {
+  // Otimiza ANTES de validar (Frente 5): a logo vira WebP ≤ 1200 px e o
+  // limite vale para o arquivo que vai para o Storage, não para o
+  // original. Acima do teto do bucket (15 MB) nem se tenta decodificar.
+  // Se a otimização falhar, envia o original (fail-open).
+  if (file.size > CAMPAIGN_ASSET_MAX_BYTES) {
+    const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+    throw new Error(`O arquivo possui ${sizeMB} MB. O limite é de 15 MB por arquivo.`);
+  }
+  let uploadFile = file;
+  try {
+    uploadFile = await optimizeLogo(file);
+  } catch (error) {
+    console.warn("[uploadBranchLogo] Otimização falhou, enviando o original:", error);
+  }
   const claimError = validateCampaignAssetClaim({
     kind: "branch-logo",
-    mimeType: file.type,
-    size: file.size,
+    mimeType: uploadFile.type,
+    size: uploadFile.size,
   });
   if (claimError) throw new Error(claimError);
-  const ext = file.name.split(".").pop()?.toLowerCase() ?? "png";
+  const ext = uploadFile.name.split(".").pop()?.toLowerCase() ?? "png";
   const { data: authData, error: authError } = await supabase.auth.getUser();
   if (authError || !authData.user) throw new Error("Sessão inválida para enviar a logo.");
   const path = `users/${authData.user.id}/branch-logos/${crypto.randomUUID()}.${ext}`;
-  const { error } = await supabase.storage.from("campaign-assets").upload(path, file, {
+  const { error } = await supabase.storage.from("campaign-assets").upload(path, uploadFile, {
     // Caminho contém UUID (arquivo imutável/versionado): cache longo reduz
     // drasticamente o egress do Storage em carregamentos repetidos do portal.
     cacheControl: "31536000",
     upsert: false,
-    contentType: file.type,
+    contentType: uploadFile.type,
   });
   if (error) {
     if (/mime/i.test(error.message) || error.message.includes("415")) {
       throw new Error("Só são aceitas imagens em PNG, JPEG ou WebP.");
     }
     if (error.message.includes("maximum allowed size") || error.message.includes("413")) {
-      throw new Error("O servidor recusou o arquivo por exceder o limite de 10 MB.");
+      throw new Error("O servidor recusou o arquivo por exceder o limite de 15 MB.");
     }
     throw new Error(error.message);
   }
@@ -139,8 +157,8 @@ async function uploadBranchLogo(file: File) {
       bucket: CAMPAIGN_ASSETS_BUCKET,
       objectPath: path,
       kind: "branch-logo",
-      size: file.size,
-      mimeType: file.type,
+      size: uploadFile.size,
+      mimeType: uploadFile.type,
     },
   });
   const { data, error: signError } = await supabase.storage
@@ -200,6 +218,9 @@ function BranchesPage() {
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [uploading, setUploading] = useState(false);
+  // Caminho da logo salva ao abrir a edição — distingue a logo salva de
+  // um pick anterior ainda não salvo (Frente 1).
+  const savedLogoPathRef = useRef<string | null>(null);
 
   const set = (patch: Partial<typeof form>) => {
     setForm((prev) => ({ ...prev, ...patch }));
@@ -319,7 +340,8 @@ function BranchesPage() {
           : (access?.companyId ?? "");
       if (editingId) {
         const parsedEdit = editSchema.parse({ ...form, company_id: companyId });
-        return updateBranch({
+        const previousLogoPath = savedLogoPathRef.current;
+        const result = await updateBranch({
           data: {
             id: editingId,
             name: parsedEdit.name,
@@ -339,6 +361,12 @@ function BranchesPage() {
             logo_url: form.logo_url.trim() || null,
           },
         });
+        // Frente 1 — apaga a logo velha após o save com sucesso.
+        const newLogoPath = extractCampaignAssetPath(form.logo_url);
+        if (previousLogoPath && previousLogoPath !== newLogoPath) {
+          removeReplacedAsset("campaign-assets", previousLogoPath, newLogoPath);
+        }
+        return result;
       }
       const parsed = schema.parse({ ...form, company_id: companyId });
       return createBranchWithAccess({
@@ -369,6 +397,7 @@ function BranchesPage() {
       }
       setOpen(false);
       setEditingId(null);
+      savedLogoPathRef.current = null;
       setForm(emptyForm);
       setErrors({});
       queryClient.invalidateQueries({ queryKey: ["branches"] });
@@ -422,6 +451,7 @@ function BranchesPage() {
     }
 
     setEditingId(null);
+    savedLogoPathRef.current = null;
     setForm(emptyForm);
     setErrors({});
     setOpen(true);
@@ -430,6 +460,7 @@ function BranchesPage() {
   function startEdit(branch: BranchRow) {
     setErrors({});
     setEditingId(branch.id);
+    savedLogoPathRef.current = extractCampaignAssetPath(branch.logo_url);
     setForm({
       company_id: branch.company_id,
       name: branch.name ?? "",
@@ -640,6 +671,17 @@ function BranchesPage() {
                     onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
+                      // Pick anterior ainda não salvo: apaga na hora (Frente 1). A logo
+                      // salva só é apagada após o save com sucesso (ver saveBranch).
+                      const currentPath = extractCampaignAssetPath(form.logo_url);
+                      if (
+                        currentPath &&
+                        currentPath !== savedLogoPathRef.current &&
+                        currentPath.startsWith("users/") &&
+                        currentPath.includes("/branch-logos/")
+                      ) {
+                        removeReplacedAsset("campaign-assets", currentPath);
+                      }
                       setUploading(true);
                       try {
                         const url = await uploadBranchLogo(file);

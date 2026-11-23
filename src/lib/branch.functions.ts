@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { extractStorageObjectPath } from "./company-delete";
 
 const branchInput = z.object({
   company_id: z.string().uuid("Selecione a empresa"),
@@ -256,7 +257,24 @@ export const updateBranch = createServerFn({ method: "POST" })
     return { branchId: branch.id, email, passwordWarning };
   });
 
-/** Exclui a filial, seus dados operacionais e o login vinculado. ADM ou matriz. */
+/**
+ * Exclui a filial, seus dados operacionais e o login vinculado. ADM ou matriz.
+ *
+ * Ordem (Frente 3, mesmo padrão da exclusão de empresa — Frente 2):
+ *  1. Checagens: filial existe, ADM ou matriz da empresa.
+ *  2. Coleta pré-exclusão: TODOS os caminhos do Storage da filial
+ *     (logo da filial, banner_urls/logo_url das campanhas DA FILIAL,
+ *     logo_path/banner_path dos patrocinadores dessas campanhas e
+ *     storage_path dos anexos do banner-describe DA FILIAL) — ANTES
+ *     de apagar as linhas, porque depois não há mais como saber o
+ *     que apagar. Só o que pertence a esta filial: campanhas da
+ *     empresa e de outras filiais não são tocadas.
+ *  3. Apaga conexões, campanhas (a cascata leva os patrocinadores),
+ *     papéis e a filial.
+ *  4. Logins e arquivos (best-effort: a filial já sumiu; falha na
+ *     remoção dos arquivos vira aviso no retorno, não desfaz a
+ *     exclusão — os órfãos ficam para a varredura da Frente 7).
+ */
 export const deleteBranch = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((data) => z.object({ id: z.string().uuid() }).parse(data))
@@ -265,7 +283,7 @@ export const deleteBranch = createServerFn({ method: "POST" })
 
     const { data: branch, error: branchError } = await supabaseAdmin
       .from("branches")
-      .select("id, company_id")
+      .select("id, company_id, logo_url")
       .eq("id", data.id)
       .maybeSingle();
     if (branchError) throw new Error(branchError.message);
@@ -282,6 +300,55 @@ export const deleteBranch = createServerFn({ method: "POST" })
       .select("user_id")
       .eq("branch_id", branch.id);
 
+    // Coleta pré-exclusão (Frente 3): só caminhos da FILIAL. A logo é
+    // salva como URL assinada e banner_urls/logo_path são caminhos crus
+    // — o helper aceita os dois. Vídeo leva também a capa .jpg derivada
+    // (mesma regra de videoPosterPath — .mp4 vira .jpg no mesmo caminho).
+    // Set evita apagar o mesmo objeto duas vezes.
+    const campaignAssetPaths = new Set<string>();
+    const addCampaignAsset = (value: string | null | undefined) => {
+      const path = extractStorageObjectPath("campaign-assets", value);
+      if (path) campaignAssetPaths.add(path);
+    };
+    addCampaignAsset(branch.logo_url);
+
+    const { data: campaignRows } = await supabaseAdmin
+      .from("campaigns")
+      .select("id, banner_urls, logo_url")
+      .eq("branch_id", branch.id);
+    const campaignIds = (campaignRows ?? []).map((c) => c.id);
+    for (const campaign of campaignRows ?? []) {
+      addCampaignAsset(campaign.logo_url);
+      for (const bannerPath of campaign.banner_urls ?? []) {
+        addCampaignAsset(bannerPath);
+        const cleanBanner = bannerPath.split(/[?#]/)[0] ?? bannerPath;
+        if (/\.mp4$/i.test(cleanBanner)) {
+          addCampaignAsset(cleanBanner.replace(/\.mp4$/i, ".jpg"));
+        }
+      }
+    }
+
+    if (campaignIds.length > 0) {
+      const { data: sponsorRows } = await supabaseAdmin
+        .from("campaign_sponsors")
+        .select("logo_path, banner_path")
+        .in("campaign_id", campaignIds);
+      for (const sponsor of sponsorRows ?? []) {
+        addCampaignAsset(sponsor.logo_path);
+        addCampaignAsset(sponsor.banner_path);
+      }
+    }
+
+    // Anexos do banner-describe da filial (branch_id ON DELETE CASCADE:
+    // as linhas somem com a filial, então os caminhos vão agora).
+    const { data: attachmentRows } = await supabaseAdmin
+      .from("banner_describe_attachments")
+      .select("storage_path")
+      .eq("branch_id", branch.id);
+    for (const row of attachmentRows ?? []) {
+      addCampaignAsset(row.storage_path);
+    }
+
     await supabaseAdmin.from("connections").delete().eq("branch_id", branch.id);
     await supabaseAdmin.from("campaigns").delete().eq("branch_id", branch.id);
     await supabaseAdmin.from("user_roles").delete().eq("branch_id", branch.id);
@@ -296,5 +363,20 @@ export const deleteBranch = createServerFn({ method: "POST" })
       if (role.user_id) await supabaseAdmin.auth.admin.deleteUser(role.user_id);
     }
 
-    return { deleted: true };
+    // Arquivos (best-effort): a filial já sumiu; falha aqui vira aviso
+    // no retorno, não desfaz a exclusão.
+    const warnings: string[] = [];
+    let removedFiles = 0;
+    if (campaignAssetPaths.size > 0) {
+      const { data: removed, error: storageError } = await supabaseAdmin.storage
+        .from("campaign-assets")
+        .remove([...campaignAssetPaths]);
+      if (storageError) {
+        warnings.push(`Arquivos não removidos (campaign-assets): ${storageError.message}`);
+      } else {
+        removedFiles += removed?.length ?? 0;
+      }
+    }
+
+    return { deleted: true, removedFiles, warnings };
   });

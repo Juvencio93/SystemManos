@@ -54,6 +54,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { getSettingsData, updateSettings, updatePassword } from "@/lib/settings.functions";
+import { extractStoragePath } from "@/lib/storage-path";
+import { removeReplacedAsset } from "@/lib/storage-cleanup";
 import {
   listPasswordResetRequests,
   approvePasswordResetRequest,
@@ -440,6 +442,10 @@ function SettingsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatAvatarInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // URL da logo salva ao carregar as settings — processImage sobrescreve
+  // o estado logoUrl no pick, então o diff do save precisa do valor
+  // original aqui (Frente 1).
+  const savedLogoUrlRef = useRef("");
 
   const [uploadState, setUploadState] = useState<UploadState>("idle");
   const [fileInfo, setFileInfo] = useState<{
@@ -503,14 +509,17 @@ function SettingsPage() {
       setPhone(data.platformSettings?.support_phone || "");
       setPlatformDocument(data.platformSettings?.document || "");
       setLogoUrl(data.platformSettings?.logo_url_relatorios || "");
+      savedLogoUrlRef.current = data.platformSettings?.logo_url_relatorios || "";
     } else if (data.role === "matriz") {
       setName(data.companyData?.trade_name || data.companyData?.name || "");
       setPhone(data.companyData?.contact_phone || "");
       setLogoUrl(data.companyData?.logo_url || "");
+      savedLogoUrlRef.current = data.companyData?.logo_url || "";
     } else if (data.role === "filial") {
       setName(data.branchData?.trade_name || data.branchData?.name || "");
       setPhone(data.branchData?.contact_phone || "");
       setLogoUrl(data.branchData?.logo_url || "");
+      savedLogoUrlRef.current = data.branchData?.logo_url || "";
     }
   }, [data]);
 
@@ -572,7 +581,15 @@ function SettingsPage() {
       if (!result.success) throw new Error("Falha na atualização");
       return result;
     },
-    onSuccess: async () => {
+    onSuccess: async (_data, variables) => {
+      // Frente 1 — apaga a logo velha da plataforma após o save.
+      const oldLogoPath = extractStoragePath("brand-assets", savedLogoUrlRef.current);
+      const newLogoPath = extractStoragePath("brand-assets", variables.logo_url);
+      savedLogoUrlRef.current = variables.logo_url;
+      if (oldLogoPath && oldLogoPath !== newLogoPath) {
+        removeReplacedAsset("brand-assets", oldLogoPath, newLogoPath);
+      }
+
       // Force immediate refresh of user profile and access data
       queryClient.invalidateQueries({ queryKey: ["settings-data"] });
       queryClient.invalidateQueries({ queryKey: ["access"] });
@@ -616,6 +633,8 @@ function SettingsPage() {
   };
 
   const handleChatAvatarUpload = async (file: File) => {
+    // Avatar salvo atual — apagado após o novo ser salvo (Frente 1).
+    const previousAvatarUrl = chatAvatarUrl;
     const allowedTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
     if (!allowedTypes.includes(file.type)) {
       toast.error("Use uma imagem PNG, JPG ou WebP.");
@@ -682,6 +701,14 @@ function SettingsPage() {
       const result = await updateSettingsFn({ data: { chatAvatarUrl: urlData.publicUrl } });
       if (!result.success) throw new Error("Não foi possível salvar a foto do bate-papo.");
 
+      // Frente 1 — apaga o avatar velho após o save com sucesso.
+      if (previousAvatarUrl && previousAvatarUrl !== urlData.publicUrl) {
+        removeReplacedAsset(
+          "chat-avatars",
+          extractStoragePath("chat-avatars", previousAvatarUrl),
+        );
+      }
+
       setChatAvatarUrl(urlData.publicUrl);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["settings-data"] }),
@@ -706,9 +733,9 @@ function SettingsPage() {
       return;
     }
 
-    if (file.size > 15 * 1024 * 1024) {
+    if (file.size > 10 * 1024 * 1024) {
       setUploadState("error");
-      toast.error("A imagem deve ter no máximo 15 MB.");
+      toast.error("A imagem deve ter no máximo 10 MB.");
       return;
     }
 
@@ -780,14 +807,19 @@ function SettingsPage() {
         canvas.toBlob((result) => {
           if (result) resolve(result);
           else reject(new Error("Falha ao gerar o arquivo final."));
-        }, "image/png", 0.9);
+        }, "image/webp", 0.8);
       });
 
       setUploadState("uploading");
-      const finalFile = new File([blob], file.name, { type: "image/png" });
+      // A logo sai em WebP (Frente 5): mesmo teto de 1200 px, arquivo bem
+      // menor que o PNG — o bucket `brand-assets` já aceita WebP
+      // (allowlist da migration de criação) e o WebP preserva a
+      // transparência da remoção de fundo.
+      const webpName = `${file.name.replace(/\.[^.]+$/, "") || "logo"}.webp`;
+      const finalFile = new File([blob], webpName, { type: "image/webp" });
       const { data: authData, error: authError } = await supabase.auth.getUser();
       if (authError || !authData.user) throw new Error("Sessão inválida para enviar a imagem.");
-      const path = `logos/${authData.user.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, "_")}`;
+      const path = `logos/${authData.user.id}/${Date.now()}-${finalFile.name.replace(/[^a-zA-Z0-9.]/g, "_")}`;
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from("brand-assets")
         .upload(path, finalFile, {
@@ -802,9 +834,17 @@ function SettingsPage() {
           bucket: "brand-assets",
           objectPath: uploadData.path,
           size: finalFile.size,
-          mimeType: "image/png",
+          mimeType: "image/webp",
         },
       });
+
+      // Pick anterior ainda não salvo: apaga na hora (Frente 1). A logo
+      // salva só é apagada após o save (ver updateProfileMutation).
+      const previousPickPath = extractStoragePath("brand-assets", pendingLogoUrl);
+      const savedLogoPath = extractStoragePath("brand-assets", savedLogoUrlRef.current);
+      if (previousPickPath && previousPickPath !== savedLogoPath) {
+        removeReplacedAsset("brand-assets", previousPickPath);
+      }
 
       setPendingLogoUrl(finalResult.publicUrl);
       setLogoUrl(finalResult.publicUrl);

@@ -23,3 +23,38 @@ export function extractCampaignAssetPath(
     return raw;
   }
 }
+
+/**
+ * Extrai o caminho de um objeto no Storage de um valor do banco que pode
+ * ser URL (assinada ou pública — ex.: logo de empresa/filial, avatar) ou
+ * caminho cru (ex.: banner_urls, logo_path de patrocinador, file_path de
+ * anexo). Devolve null para URL externa ou valor inválido — nunca joga
+ * erro. Usado pela exclusão de empresa (Frente 2), que precisa coletar
+ * TODOS os caminhos antes da cascata apagar as linhas.
+ */
+export function extractStorageObjectPath(
+  bucket: string,
+  value: string | null | undefined,
+): string | null {
+  if (!value) return null;
+  const marker = `/${bucket}/`;
+  const idx = value.indexOf(marker);
+  // URL do bucket → caminho após o marcador; URL de outro lugar → null.
+  if (idx >= 0) return cleanStoragePath(value.slice(idx + marker.length));
+  if (value.includes("://")) return null;
+  // Sem marcador e sem esquema → já é o caminho cru.
+  return cleanStoragePath(value);
+}
+
+function cleanStoragePath(raw: string): string | null {
+  const cut = raw.split(/[?#]/)[0] ?? "";
+  if (!cut || cut.includes("..") || cut.includes("\\") || cut.startsWith("/")) {
+    return null;
+  }
+  try {
+    const decoded = decodeURIComponent(cut);
+    return decoded ? decoded : null;
+  } catch {
+    return cut;
+  }
+}

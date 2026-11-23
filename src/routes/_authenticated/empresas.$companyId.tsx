@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   Building2,
   CalendarClock,
+  HardDrive,
   Lock,
   Megaphone,
   Smartphone,
@@ -60,6 +61,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { resetCompanyAccess } from "@/lib/cnpj.functions";
 import { getCompanyDetail, setCompanyBlocked } from "@/lib/company-detail.functions";
+import { formatQuotaBytes } from "@/lib/company-storage-quota";
+import { getCompanyStorageUsage } from "@/lib/company-storage-quota.functions";
 import { getCompanyDisplayName } from "@/lib/name-utils";
 
 export const Route = createFileRoute("/_authenticated/empresas/$companyId")({
@@ -129,6 +132,17 @@ function CompanyDetailPage() {
   const detail = useQuery({
     queryKey: ["company-detail", companyId],
     queryFn: () => fetchDetail({ data: { companyId, days: periodDays } }),
+  });
+
+  // Frente 8 — uso de arquivos da empresa (só alerta, nunca bloqueia).
+  // Uma vez por abertura da página, sem polling. Erro na medição só
+  // esconde o cartão — a página segue funcionando.
+  const fetchStorageUsage = useServerFn(getCompanyStorageUsage);
+  const storageUsage = useQuery({
+    queryKey: ["company-storage-usage", companyId],
+    queryFn: () => fetchStorageUsage({ data: { companyId } }),
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: false,
   });
 
   const block = useMutation({
@@ -363,6 +377,41 @@ function CompanyDetailPage() {
           ))}
         </div>
       )}
+
+      {storageUsage.data ? (
+        <Card
+          className={`mb-6 ${storageUsage.data.alerts.length > 0 ? "border-amber-500/50 bg-amber-500/10" : "glass-panel"}`}
+        >
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm">Uso de arquivos</CardTitle>
+            <HardDrive className="size-4 text-primary/60" />
+          </CardHeader>
+          <CardContent className="space-y-1 text-sm">
+            <p>
+              Campanhas ativas: <strong>{storageUsage.data.activeCampaigns}</strong> (alerta
+              acima de 10)
+            </p>
+            <p>
+              Mais banners numa campanha:{" "}
+              <strong>{storageUsage.data.maxBannersPerCampaign}</strong> (alerta acima de 6)
+            </p>
+            <p>
+              Arquivos:{" "}
+              <strong>
+                {storageUsage.data.totalBytes !== null
+                  ? formatQuotaBytes(storageUsage.data.totalBytes)
+                  : "não foi possível medir no momento"}
+              </strong>{" "}
+              (alerta acima de 100 MB)
+            </p>
+            {storageUsage.data.alerts.map((alert) => (
+              <p key={alert.kind} className="font-medium text-amber-500">
+                {alert.message}
+              </p>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {summaryCards.map((card) => (

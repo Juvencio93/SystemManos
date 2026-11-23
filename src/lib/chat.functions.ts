@@ -3,6 +3,10 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { mapRoleToParticipantType, normalizeAppRole } from "./chat-validation.functions";
 import { sendChatPush } from "./push.server";
+import {
+  CHAT_ATTACHMENTS_BUCKET,
+  validateChatAttachmentClaim,
+} from "./chat-attachment-validation";
 
 // Frente 1 — auditoria de logs do Supabase: getConversations carregava o
 // histórico INTEIRO de todas as conversas a cada poll (60s, até 3
@@ -872,6 +876,91 @@ export const hideConversation = createServerFn({ method: "POST" })
   });
 
 
+/**
+ * Anexos conferidos no servidor (Frente 6). O front valida tipo/tamanho,
+ * mas o upload vai direto do navegador para o Storage e o `sendMessage`
+ * confiava no que o cliente declarava — um upload direto pela API do
+ * Storage passava sem barreira. Agora, ANTES de gravar a mensagem, o
+ * servidor confere o objeto gravado (tipo e tamanho reais) e apaga o
+ * objeto quando está fora da regra — a mensagem nem chega a ser criada.
+ *
+ * Ordem importa: o caminho é conferido ANTES de qualquer exclusão, para
+ * nunca apagar um objeto que não é do remetente. A conferência do objeto
+ * é fail-closed (sem conseguir listar ou ler o metadado, o envio é
+ * recusado) — diferente da duração do vídeo da Frente 5, aqui a
+ * conferência É a barreira, não um reforço.
+ */
+async function validateChatAttachments({
+  storage,
+  conversationId,
+  userId,
+  attachments,
+}: {
+  storage: any;
+  conversationId: string;
+  userId: string;
+  attachments: Array<{
+    filePath: string;
+    fileName: string;
+    fileSize: number;
+    mimeType: string;
+  }>;
+}) {
+  const bucket = storage.storage.from(CHAT_ATTACHMENTS_BUCKET);
+  const rejectStored = async (filePath: string, message: string): Promise<never> => {
+    // Objeto fora da regra não fica órfão no bucket.
+    await bucket.remove([filePath]).catch(() => undefined);
+    throw new Error(message);
+  };
+  for (const attr of attachments) {
+    // 1. Caminho seguro e do remetente — antes de qualquer exclusão.
+    if (
+      attr.filePath.includes("..") ||
+      attr.filePath.includes("\\") ||
+      attr.filePath.startsWith("/") ||
+      !attr.filePath.startsWith(`chat/${conversationId}/${userId}/`)
+    ) {
+      throw new Error("Caminho de arquivo inválido.");
+    }
+    // 2. O que o cliente declarou.
+    const claimError = validateChatAttachmentClaim({
+      mimeType: attr.mimeType,
+      size: attr.fileSize,
+    });
+    if (claimError) await rejectStored(attr.filePath, claimError);
+    // 3. O que foi de fato gravado no Storage.
+    const slash = attr.filePath.lastIndexOf("/");
+    const dir = attr.filePath.slice(0, slash);
+    const fileName = attr.filePath.slice(slash + 1);
+    const { data: listed, error: listError } = await bucket.list(dir, {
+      limit: 10,
+      search: fileName,
+    });
+    const stored = (listed ?? []).find(
+      (entry: { name: string }) => entry.name === fileName,
+    );
+    if (listError || !stored) {
+      throw new Error("Arquivo não encontrado no armazenamento. Envie o arquivo novamente.");
+    }
+    const storedMime = (stored.metadata as { mimetype?: unknown } | null)?.mimetype;
+    const storedSize = (stored.metadata as { size?: unknown } | null)?.size;
+    if (typeof storedMime !== "string" || typeof storedSize !== "number") {
+      await rejectStored(attr.filePath, "Não foi possível conferir o arquivo enviado. Envie novamente.");
+    }
+    const realError = validateChatAttachmentClaim({
+      mimeType: storedMime as string,
+      size: storedSize as number,
+    });
+    if (realError) await rejectStored(attr.filePath, realError);
+    if (storedMime !== attr.mimeType || storedSize !== attr.fileSize) {
+      await rejectStored(
+        attr.filePath,
+        "O arquivo gravado não corresponde ao arquivo enviado. Envie novamente.",
+      );
+    }
+  }
+}
+
 export const sendMessage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((data: unknown) => z.object({
@@ -930,6 +1019,18 @@ export const sendMessage = createServerFn({ method: "POST" })
       await resolveConversationRecipientIds({ supabase, conversationId: data.conversationId, currentUserId: userId }),
     );
     const writeClient = await getOptionalSupabaseAdmin(supabase);
+
+    // Frente 6 — anexos conferidos no servidor ANTES de gravar a mensagem
+    // (ver `validateChatAttachments`): objeto fora da regra é apagado e o
+    // envio é recusado — a mensagem nem chega a ser criada.
+    if (data.attachments && data.attachments.length > 0) {
+      await validateChatAttachments({
+        storage: writeClient,
+        conversationId: data.conversationId,
+        userId,
+        attachments: data.attachments,
+      });
+    }
 
     // 1. Persist Message
     const { data: message, error } = await writeClient

@@ -1,0 +1,42 @@
+-- Frente 6 da correção de storage (23/11/2026): enforcement server-side
+-- de upload no bucket `chat_attachments`.
+--
+-- Problema: o bucket é PRIVADO (acesso por URL assinada de 1h) mas NÃO
+-- tinha `file_size_limit` nem `allowed_mime_types`, e a policy de INSERT
+-- só checava o bucket. Tipo/tamanho só existiam no navegador — um usuário
+-- autenticado conseguia subir qualquer tipo de qualquer tamanho chamando
+-- a API do Storage direto (ex.: um .exe de 25 MB), e o `sendMessage`
+-- confiava no tipo/tamanho que o cliente declarava ao vincular o anexo.
+--
+-- O que esta migration faz (idempotente — pode rodar de novo sem efeito):
+--   1. `allowed_mime_types = JPEG, PNG, WebP, PDF` — os únicos tipos que
+--      o front aceita. O Storage passa a recusar qualquer outro MIME com
+--      erro 415, qualquer que seja o caminho do upload (navegador ou API
+--      direta). Alinhamento: a tela de mensagens aceitava GIF e o widget
+--      de chat não — GIF sai da allowlist nos dois (o relatório da revisão
+--      define JPEG/PNG/WebP/PDF).
+--   2. `file_size_limit = 20 MB` (era sem limite) — alinha o teto real do
+--      bucket com o que o front já promete. 20 MB cabe no plano Supabase
+--      (o teto global de arquivo do plano Free é 50 MB).
+--
+-- O que NÃO muda: as policies de INSERT/SELECT/DELETE (escopo por bucket)
+-- continuam as mesmas; a leitura continua privada (URL assinada de 1h);
+-- arquivos já gravados não são tocados. Arquivos antigos fora da allowlist
+-- (ex.: um GIF subido antes) continuam servidos — a limpeza deles, se
+-- houver, é outro trabalho.
+--
+-- O servidor também confere o objeto gravado no `sendMessage` (tipo e
+-- tamanho reais, via `chat-attachment-validation.ts`) e apaga o objeto
+-- quando está fora da regra — a migration é a primeira barreira, o
+-- servidor é a segunda.
+--
+-- COMO APLICAR (Gabriel): Supabase Dashboard → SQL Editor → colar este
+-- arquivo inteiro → Run. Depois conferir com:
+--   SELECT id, file_size_limit, allowed_mime_types
+--   FROM storage.buckets WHERE id = 'chat_attachments';
+-- Esperado: file_size_limit = 20971520 e allowed_mime_types =
+-- {image/jpeg,image/png,image/webp,application/pdf}.
+UPDATE storage.buckets
+SET file_size_limit = 20971520,
+    allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+WHERE id = 'chat_attachments';
