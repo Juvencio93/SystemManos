@@ -244,6 +244,32 @@ async function canFinalizeCampaignAsset(
 }
 
 /**
+ * Quem pode apagar um objeto do Storage ao trocar um asset (Frente 1).
+ * `campaign-assets` reutiliza o mesmo critério do finalize (dono da pasta
+ * `users/<uid>/`, ADM ou acesso à empresa do primeiro segmento).
+ * `brand-assets` e `chat-avatars` são pastas por usuário: só o próprio
+ * dono do prefixo `<uid>/` (ou `logos/<uid>/`) — ou ADM.
+ */
+async function canRemoveStoredAsset(
+  userClient: SupabaseClient<Database>,
+  userId: string,
+  bucket: "campaign-assets" | "brand-assets" | "chat-avatars",
+  objectPath: string,
+) {
+  if (bucket === "campaign-assets") {
+    return canFinalizeCampaignAsset(userClient, userId, objectPath);
+  }
+  const { data: role } = await userClient
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (role?.role === "adm") return true;
+  if (bucket === "brand-assets") return objectPath.startsWith(`logos/${userId}/`);
+  return objectPath.startsWith(`${userId}/`);
+}
+
+/**
  * Finaliza um upload no bucket `campaign-assets` validando, no servidor,
  * o objeto que foi de fato gravado no Storage — mesmo padrão do
  * `finalizeLogoUpload`, mas conferindo o metadado real em vez de confiar
@@ -343,4 +369,55 @@ export const finalizeCampaignAssetUpload = createServerFn({ method: "POST" })
       data: { publicUrl },
     } = bucket.getPublicUrl(data.objectPath);
     return { publicUrl };
+  });
+
+/**
+ * Apaga o arquivo antigo do Storage quando um asset é trocado por um
+ * novo (Frente 1 da correção de storage). Best-effort por design: a
+ * remoção nunca joga erro para o chamador — falha só é logada — porque
+ * o arquivo novo já foi salvo e o velho é lixo órfão, não dado crítico.
+ * Sem ela, cada troca de banner/logo/vídeo/avatar deixava o arquivo
+ * velho no bucket para sempre (vazamento medido em 23/11/2026: só a
+ * pasta de banners do Boteco tinha 31 órfãos, ~132 MB).
+ */
+export const replaceStoredAsset = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) =>
+    z
+      .object({
+        bucket: z.enum(["campaign-assets", "brand-assets", "chat-avatars"]),
+        oldPath: z.string().trim().min(1).max(500),
+        newPath: z.string().trim().min(1).max(500).nullable().optional(),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    if (data.newPath != null && data.newPath === data.oldPath) return { removed: false };
+    if (
+      data.oldPath.includes("..") ||
+      data.oldPath.includes("\\") ||
+      data.oldPath.startsWith("/")
+    ) {
+      console.warn("[replaceStoredAsset] Caminho inválido recusado:", { bucket: data.bucket });
+      return { removed: false };
+    }
+    if (
+      !(await canRemoveStoredAsset(context.supabase, context.userId, data.bucket, data.oldPath))
+    ) {
+      console.warn("[replaceStoredAsset] Sem permissão para remover:", {
+        bucket: data.bucket,
+        userId: context.userId,
+      });
+      return { removed: false };
+    }
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.storage.from(data.bucket).remove([data.oldPath]);
+    if (error) {
+      console.warn("[replaceStoredAsset] Falha ao remover (best-effort):", {
+        bucket: data.bucket,
+        error: error.message,
+      });
+      return { removed: false };
+    }
+    return { removed: true };
   });

@@ -51,6 +51,8 @@ import type { Tables } from "@/integrations/supabase/types";
 import { formatCnpj, isValidCnpj, slugify } from "@/lib/cnpj-utils";
 import { createCompanyWithAccess, lookupCnpj, updateCompany } from "@/lib/cnpj.functions";
 import { deleteCompany } from "@/lib/company-delete.functions";
+import { extractCampaignAssetPath } from "@/lib/company-delete";
+import { removeReplacedAsset } from "@/lib/storage-cleanup";
 import {
   CAMPAIGN_ASSETS_BUCKET,
   validateCampaignAssetClaim,
@@ -208,6 +210,9 @@ function CompaniesPage() {
   const { data: access } = useAccess();
   const isAdm = access?.role === "adm";
   const fileRef = useRef<HTMLInputElement>(null);
+  // Caminho da logo salva ao abrir a edição — distingue a logo salva de
+  // um pick anterior ainda não salvo (Frente 1).
+  const savedLogoPathRef = useRef<string | null>(null);
   const set = (patch: Partial<FormState>) => {
     setForm((prev) => ({ ...prev, ...patch }));
     // Limpa erro do campo quando ele é alterado
@@ -236,6 +241,7 @@ function CompaniesPage() {
 
   const openNew = () => {
     setEditingId(null);
+    savedLogoPathRef.current = null;
     setForm(emptyForm);
     setErrors({});
     setPartners([]);
@@ -245,6 +251,7 @@ function CompaniesPage() {
   const openEdit = (company: Tables<"companies">) => {
     const s = (v: unknown) => (v === null || v === undefined ? "" : String(v));
     setEditingId(s(company.id));
+    savedLogoPathRef.current = extractCampaignAssetPath(company.logo_url);
     setErrors({});
     setPartners([]);
     setForm({
@@ -318,6 +325,17 @@ function CompaniesPage() {
 
   const handleLogoFile = async (file: File | undefined) => {
     if (!file) return;
+    // Pick anterior ainda não salvo: apaga na hora (Frente 1). A logo
+    // salva só é apagada após o save com sucesso (ver saveCompany).
+    const currentPath = extractCampaignAssetPath(form.logo_url);
+    if (
+      currentPath &&
+      currentPath !== savedLogoPathRef.current &&
+      currentPath.startsWith("users/") &&
+      currentPath.includes("/company-logos/")
+    ) {
+      removeReplacedAsset("campaign-assets", currentPath);
+    }
     setUploading(true);
     try {
       const url = await uploadCompanyLogo(file);
@@ -376,9 +394,16 @@ function CompaniesPage() {
       if (editingId) {
         if (form.access_password && form.access_password.length < 8)
           throw new Error("Nova senha precisa ter ao menos 8 caracteres.");
-        return updateCompany({
+        const previousLogoPath = savedLogoPathRef.current;
+        const result = await updateCompany({
           data: { ...payload, id: editingId, access_password: form.access_password || "" },
         });
+        // Frente 1 — apaga a logo velha após o save com sucesso.
+        const newLogoPath = extractCampaignAssetPath(form.logo_url);
+        if (previousLogoPath && previousLogoPath !== newLogoPath) {
+          removeReplacedAsset("campaign-assets", previousLogoPath, newLogoPath);
+        }
+        return result;
       }
       if (form.access_password.length < 8)
         throw new Error("Senha inicial precisa ter ao menos 8 caracteres.");
@@ -441,6 +466,7 @@ function CompaniesPage() {
       }
       setOpen(false);
       setEditingId(null);
+      savedLogoPathRef.current = null;
       setForm(emptyForm);
       setErrors({});
       setPartners([]);
@@ -906,7 +932,24 @@ function CompaniesPage() {
                   Carregar do computador
                 </Button>
                 {form.logo_url ? (
-                  <Button type="button" variant="ghost" onClick={() => set({ logo_url: "" })}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      // Pick ainda não salvo descartado: apaga na hora. A logo
+                      // salva é coberta pelo diff do save (Frente 1).
+                      const currentPath = extractCampaignAssetPath(form.logo_url);
+                      if (
+                        currentPath &&
+                        currentPath !== savedLogoPathRef.current &&
+                        currentPath.startsWith("users/") &&
+                        currentPath.includes("/company-logos/")
+                      ) {
+                        removeReplacedAsset("campaign-assets", currentPath);
+                      }
+                      set({ logo_url: "" });
+                    }}
+                  >
                     Remover
                   </Button>
                 ) : null}

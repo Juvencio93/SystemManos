@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Building2, Loader2, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
@@ -54,6 +54,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCnpj, isValidCnpj, slugify } from "@/lib/cnpj-utils";
 import { lookupCnpj } from "@/lib/cnpj.functions";
 import { createBranchWithAccess, deleteBranch, updateBranch } from "@/lib/branch.functions";
+import { extractCampaignAssetPath } from "@/lib/company-delete";
+import { removeReplacedAsset } from "@/lib/storage-cleanup";
 import {
   CAMPAIGN_ASSETS_BUCKET,
   validateCampaignAssetClaim,
@@ -200,6 +202,9 @@ function BranchesPage() {
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [uploading, setUploading] = useState(false);
+  // Caminho da logo salva ao abrir a edição — distingue a logo salva de
+  // um pick anterior ainda não salvo (Frente 1).
+  const savedLogoPathRef = useRef<string | null>(null);
 
   const set = (patch: Partial<typeof form>) => {
     setForm((prev) => ({ ...prev, ...patch }));
@@ -319,7 +324,8 @@ function BranchesPage() {
           : (access?.companyId ?? "");
       if (editingId) {
         const parsedEdit = editSchema.parse({ ...form, company_id: companyId });
-        return updateBranch({
+        const previousLogoPath = savedLogoPathRef.current;
+        const result = await updateBranch({
           data: {
             id: editingId,
             name: parsedEdit.name,
@@ -339,6 +345,12 @@ function BranchesPage() {
             logo_url: form.logo_url.trim() || null,
           },
         });
+        // Frente 1 — apaga a logo velha após o save com sucesso.
+        const newLogoPath = extractCampaignAssetPath(form.logo_url);
+        if (previousLogoPath && previousLogoPath !== newLogoPath) {
+          removeReplacedAsset("campaign-assets", previousLogoPath, newLogoPath);
+        }
+        return result;
       }
       const parsed = schema.parse({ ...form, company_id: companyId });
       return createBranchWithAccess({
@@ -369,6 +381,7 @@ function BranchesPage() {
       }
       setOpen(false);
       setEditingId(null);
+      savedLogoPathRef.current = null;
       setForm(emptyForm);
       setErrors({});
       queryClient.invalidateQueries({ queryKey: ["branches"] });
@@ -422,6 +435,7 @@ function BranchesPage() {
     }
 
     setEditingId(null);
+    savedLogoPathRef.current = null;
     setForm(emptyForm);
     setErrors({});
     setOpen(true);
@@ -430,6 +444,7 @@ function BranchesPage() {
   function startEdit(branch: BranchRow) {
     setErrors({});
     setEditingId(branch.id);
+    savedLogoPathRef.current = extractCampaignAssetPath(branch.logo_url);
     setForm({
       company_id: branch.company_id,
       name: branch.name ?? "",
@@ -640,6 +655,17 @@ function BranchesPage() {
                     onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
+                      // Pick anterior ainda não salvo: apaga na hora (Frente 1). A logo
+                      // salva só é apagada após o save com sucesso (ver saveBranch).
+                      const currentPath = extractCampaignAssetPath(form.logo_url);
+                      if (
+                        currentPath &&
+                        currentPath !== savedLogoPathRef.current &&
+                        currentPath.startsWith("users/") &&
+                        currentPath.includes("/branch-logos/")
+                      ) {
+                        removeReplacedAsset("campaign-assets", currentPath);
+                      }
                       setUploading(true);
                       try {
                         const url = await uploadBranchLogo(file);

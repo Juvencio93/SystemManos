@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { getBranchDisplayName, getCompanyDisplayName } from "@/lib/name-utils";
 
 import { Clapperboard, ExternalLink, Handshake, ImagePlus, Loader2, Monitor, Palette, Pencil, Play, Plus, Smartphone, Square, Trash2, Wifi, X } from "lucide-react";
@@ -45,11 +45,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAccess } from "@/hooks/use-access";
 import { supabase } from "@/integrations/supabase/client";
 import { getPublicStorageUrl } from "@/lib/storage.functions";
+import { extractStoragePath } from "@/lib/storage-path";
+import { removeReplacedAsset } from "@/lib/storage-cleanup";
 import { LogoResolver } from "@/components/app/campaigns/LogoResolver";
 import { removeLogoBackground } from "@/lib/logo-background";
 import {
   campaignSchema,
   isVideoPath,
+  videoPosterPath,
   MAX_BANNER_FILE_BYTES,
   MAX_OTHER_FILE_BYTES,
   uploadCampaignAsset,
@@ -101,6 +104,20 @@ function CampaignsPage() {
   const [open, setOpen] = useState(false);
 
   const [editing, setEditing] = useState<EditingCampaignState | null>(null);
+
+  // Snapshot dos assets salvos ao abrir a edição — editing.bannerUrls e
+  // editing.logoUrl são mutados pelos botões X, então o diff do save
+  // precisa dos valores originais para saber o que virou órfão (Frente 1).
+  const originalAssetsRef = useRef<{ logoUrl: string | null; bannerUrls: string[] } | null>(
+    null,
+  );
+
+  // Blob URL local → caminho no Storage (null enquanto o upload não terminou).
+  // O índice de localPreviewUrls NÃO vale para bannerUrls: bannerUrls só
+  // recebe os caminhos no fim do lote e contém também os salvos — apagar
+  // por índice apagaria o banner errado (Frente 1).
+  const localBannerPathRef = useRef<Map<string, string | null>>(new Map());
+  const discardedLocalPreviewsRef = useRef<Set<string>>(new Set());
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
   const [form, setForm] = useState<CampaignFormState>({
     name: "",
@@ -348,6 +365,8 @@ function CampaignsPage() {
 
     // Revoke object URLs to avoid memory leaks
     localPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
+    localBannerPathRef.current.clear();
+    discardedLocalPreviewsRef.current.clear();
     if (localLogoPreviewUrl) URL.revokeObjectURL(localLogoPreviewUrl);
     if (localVideoPreviewUrl) URL.revokeObjectURL(localVideoPreviewUrl);
 
@@ -365,6 +384,7 @@ function CampaignsPage() {
     setRemovedSponsorIds([]);
     setUploading({ status: "idle", pendingCount: 0, totalCount: 0 });
     setEditing(null);
+    originalAssetsRef.current = null;
   };
 
   const openCreate = () => {
@@ -379,6 +399,10 @@ function CampaignsPage() {
       logoUrl: campaign.logo_url,
       bannerUrls: campaign.banner_urls || [],
     });
+    originalAssetsRef.current = {
+      logoUrl: campaign.logo_url,
+      bannerUrls: campaign.banner_urls || [],
+    };
 
     setForm({
       name: campaign.name,
@@ -416,6 +440,8 @@ function CampaignsPage() {
     setSponsors([]);
     setRemovedSponsorIds([]);
     setUploading({ status: "idle", pendingCount: 0, totalCount: 0 });
+    localBannerPathRef.current.clear();
+    discardedLocalPreviewsRef.current.clear();
     setOpen(true);
 
     // Patrocinadores existem apenas em campanhas de evento.
@@ -614,7 +640,19 @@ function CampaignsPage() {
       }
 
       // Patrocinadores: exclusivos de campanhas do tipo Evento.
+      let removedSponsorPaths: string[] = [];
       if (campaignId && eventId) {
+        // Snapshot das linhas atuais antes do delete/upsert — os arquivos
+        // de patrocinadores removidos ou trocados são apagados do Storage
+        // após o save (Frente 1).
+        const { data: previousSponsors } = await supabase
+          .from("campaign_sponsors")
+          .select("logo_path, banner_path")
+          .eq("campaign_id", campaignId);
+        const previousSponsorPaths = (previousSponsors ?? [])
+          .flatMap((row) => [row.logo_path, row.banner_path])
+          .filter((path): path is string => path != null);
+
         if (removedSponsorIds.length > 0) {
           const { error } = await supabase
             .from("campaign_sponsors")
@@ -646,6 +684,41 @@ function CampaignsPage() {
             : await supabase.from("campaign_sponsors").insert(row);
           if (error) throw error;
         }
+
+        const keptSponsorPaths = new Set(
+          validSponsors
+            .flatMap((sponsor) => [sponsor.logoPath, sponsor.bannerPath])
+            .filter((path): path is string => path != null),
+        );
+        removedSponsorPaths = previousSponsorPaths.filter((path) => !keptSponsorPaths.has(path));
+      }
+
+      // Frente 1 — apaga do Storage os arquivos que deixaram de ser
+      // referenciados neste save. Best-effort (fire-and-forget): nunca
+      // falha o save; o arquivo novo já está salvo.
+      if (editing && originalAssetsRef.current) {
+        const snapshot = originalAssetsRef.current;
+        const snapshotLogoPath = snapshot.logoUrl ? getAssetPath(snapshot.logoUrl) : null;
+        const snapshotBannerPaths = snapshot.bannerUrls
+          .map(getAssetPath)
+          .filter((path): path is string => path != null);
+        const finalPaths = new Set<string>([
+          ...(finalLogoUrl ? [finalLogoUrl] : []),
+          ...finalBannerUrls,
+        ]);
+        if (snapshotLogoPath && !finalPaths.has(snapshotLogoPath)) {
+          removeReplacedAsset("campaign-assets", snapshotLogoPath, finalLogoUrl);
+        }
+        for (const path of snapshotBannerPaths) {
+          if (finalPaths.has(path)) continue;
+          removeReplacedAsset("campaign-assets", path);
+          if (isVideoPath(path)) {
+            removeReplacedAsset("campaign-assets", videoPosterPath(path));
+          }
+        }
+      }
+      for (const path of removedSponsorPaths) {
+        removeReplacedAsset("campaign-assets", path);
       }
 
       return;
@@ -1112,8 +1185,20 @@ function CampaignsPage() {
                             onClick={() => {
                               // We do not revoke here as it might be used by browser cache,
                               // we revoke on modal close or unmount
-                              setLocalPreviewUrls((prev) => prev.filter((_, i) => i !== index));
-                              setBannerUrls((prev) => prev.filter((_, i) => i !== index));
+                              // Banner recém-enviado e descartado antes do save: apaga na
+                              // hora pelo caminho exato do blob — o índice de
+                              // localPreviewUrls NÃO vale para bannerUrls (Frente 1).
+                              const discardedPath = localBannerPathRef.current.get(url) ?? null;
+                              localBannerPathRef.current.delete(url);
+                              if (discardedPath) {
+                                removeReplacedAsset("campaign-assets", discardedPath);
+                                setBannerUrls((prev) => prev.filter((p) => p !== discardedPath));
+                              } else {
+                                // Upload ainda em andamento: marca para descartar
+                                // quando terminar — o caminho não entra no save.
+                                discardedLocalPreviewsRef.current.add(url);
+                              }
+                              setLocalPreviewUrls((prev) => prev.filter((u) => u !== url));
                             }}
                             className="absolute right-1 top-1 grid size-6 place-items-center rounded-full bg-destructive text-destructive-foreground opacity-0 transition-opacity group-hover:opacity-100 shadow-sm"
                           >
@@ -1249,12 +1334,22 @@ function CampaignsPage() {
                               try {
                                 // 1. Create local URL with URL.createObjectURL(file)
                                 const localUrl = URL.createObjectURL(file);
+                                localBannerPathRef.current.set(localUrl, null);
 
                                 // 2. Save it directly to the visual preview state
                                 setLocalPreviewUrls((prev) => [...prev, localUrl]);
 
                                 // 3. Upload file
                                 const path = await uploadCampaignAsset(companyId, "banner", file);
+
+                                localBannerPathRef.current.set(localUrl, path);
+                                if (discardedLocalPreviewsRef.current.has(localUrl)) {
+                                  // Descartado pelo X durante o upload: apaga na hora e não entra no save.
+                                  removeReplacedAsset("campaign-assets", path);
+                                  localBannerPathRef.current.delete(localUrl);
+                                  discardedLocalPreviewsRef.current.delete(localUrl);
+                                  continue;
+                                }
 
                                 // 4. Attempt to resolve Signed URL, but keep local preview visible
                                 try {
@@ -1267,6 +1362,7 @@ function CampaignsPage() {
                                   setLocalPreviewUrls((prev) =>
                                     prev.filter((url) => url !== localUrl),
                                   );
+                                  localBannerPathRef.current.delete(localUrl);
                                 } catch (resolveErr) {
                                   console.error(
                                     "Signed URL resolution failed, keeping local preview:",
@@ -1325,6 +1421,21 @@ function CampaignsPage() {
                             <button
                               type="button"
                               onClick={() => {
+                                // Vídeo recém-enviado e descartado antes do save: apaga
+                                // na hora (com a capa). O vídeo salvo é coberto pelo
+                                // diff do save — só apaga aqui o que não estava no
+                                // snapshot (Frente 1).
+                                const discardedVideoPath = videoPath
+                                  ? extractStoragePath("campaign-assets", videoPath)
+                                  : null;
+                                const snapshotPaths = originalAssetsRef.current?.bannerUrls ?? [];
+                                if (discardedVideoPath && !snapshotPaths.includes(discardedVideoPath)) {
+                                  removeReplacedAsset("campaign-assets", discardedVideoPath);
+                                  removeReplacedAsset(
+                                    "campaign-assets",
+                                    videoPosterPath(discardedVideoPath),
+                                  );
+                                }
                                 if (localVideoPreviewUrl) URL.revokeObjectURL(localVideoPreviewUrl);
                                 setLocalVideoPreviewUrl(null);
                                 setResolvedVideoUrl(null);

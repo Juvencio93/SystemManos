@@ -54,6 +54,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { getSettingsData, updateSettings, updatePassword } from "@/lib/settings.functions";
+import { extractStoragePath } from "@/lib/storage-path";
+import { removeReplacedAsset } from "@/lib/storage-cleanup";
 import {
   listPasswordResetRequests,
   approvePasswordResetRequest,
@@ -440,6 +442,10 @@ function SettingsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatAvatarInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // URL da logo salva ao carregar as settings — processImage sobrescreve
+  // o estado logoUrl no pick, então o diff do save precisa do valor
+  // original aqui (Frente 1).
+  const savedLogoUrlRef = useRef("");
 
   const [uploadState, setUploadState] = useState<UploadState>("idle");
   const [fileInfo, setFileInfo] = useState<{
@@ -503,14 +509,17 @@ function SettingsPage() {
       setPhone(data.platformSettings?.support_phone || "");
       setPlatformDocument(data.platformSettings?.document || "");
       setLogoUrl(data.platformSettings?.logo_url_relatorios || "");
+      savedLogoUrlRef.current = data.platformSettings?.logo_url_relatorios || "";
     } else if (data.role === "matriz") {
       setName(data.companyData?.trade_name || data.companyData?.name || "");
       setPhone(data.companyData?.contact_phone || "");
       setLogoUrl(data.companyData?.logo_url || "");
+      savedLogoUrlRef.current = data.companyData?.logo_url || "";
     } else if (data.role === "filial") {
       setName(data.branchData?.trade_name || data.branchData?.name || "");
       setPhone(data.branchData?.contact_phone || "");
       setLogoUrl(data.branchData?.logo_url || "");
+      savedLogoUrlRef.current = data.branchData?.logo_url || "";
     }
   }, [data]);
 
@@ -572,7 +581,15 @@ function SettingsPage() {
       if (!result.success) throw new Error("Falha na atualização");
       return result;
     },
-    onSuccess: async () => {
+    onSuccess: async (_data, variables) => {
+      // Frente 1 — apaga a logo velha da plataforma após o save.
+      const oldLogoPath = extractStoragePath("brand-assets", savedLogoUrlRef.current);
+      const newLogoPath = extractStoragePath("brand-assets", variables.logo_url);
+      savedLogoUrlRef.current = variables.logo_url;
+      if (oldLogoPath && oldLogoPath !== newLogoPath) {
+        removeReplacedAsset("brand-assets", oldLogoPath, newLogoPath);
+      }
+
       // Force immediate refresh of user profile and access data
       queryClient.invalidateQueries({ queryKey: ["settings-data"] });
       queryClient.invalidateQueries({ queryKey: ["access"] });
@@ -616,6 +633,8 @@ function SettingsPage() {
   };
 
   const handleChatAvatarUpload = async (file: File) => {
+    // Avatar salvo atual — apagado após o novo ser salvo (Frente 1).
+    const previousAvatarUrl = chatAvatarUrl;
     const allowedTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
     if (!allowedTypes.includes(file.type)) {
       toast.error("Use uma imagem PNG, JPG ou WebP.");
@@ -681,6 +700,14 @@ function SettingsPage() {
       const { data: urlData } = supabase.storage.from("chat-avatars").getPublicUrl(objectPath);
       const result = await updateSettingsFn({ data: { chatAvatarUrl: urlData.publicUrl } });
       if (!result.success) throw new Error("Não foi possível salvar a foto do bate-papo.");
+
+      // Frente 1 — apaga o avatar velho após o save com sucesso.
+      if (previousAvatarUrl && previousAvatarUrl !== urlData.publicUrl) {
+        removeReplacedAsset(
+          "chat-avatars",
+          extractStoragePath("chat-avatars", previousAvatarUrl),
+        );
+      }
 
       setChatAvatarUrl(urlData.publicUrl);
       await Promise.all([
@@ -805,6 +832,14 @@ function SettingsPage() {
           mimeType: "image/png",
         },
       });
+
+      // Pick anterior ainda não salvo: apaga na hora (Frente 1). A logo
+      // salva só é apagada após o save (ver updateProfileMutation).
+      const previousPickPath = extractStoragePath("brand-assets", pendingLogoUrl);
+      const savedLogoPath = extractStoragePath("brand-assets", savedLogoUrlRef.current);
+      if (previousPickPath && previousPickPath !== savedLogoPath) {
+        removeReplacedAsset("brand-assets", previousPickPath);
+      }
 
       setPendingLogoUrl(finalResult.publicUrl);
       setLogoUrl(finalResult.publicUrl);
