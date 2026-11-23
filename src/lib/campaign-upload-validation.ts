@@ -16,10 +16,13 @@
  * no plano Supabase: o teto global de arquivo do plano Free é 50 MB e o
  * bucket `brand-assets`, no mesmo projeto, já opera com 15 MB.
  *
- * Limitação conhecida: a duração máxima de 10 s do vídeo continua sendo
- * atestada pelo cliente (`durationSeconds`) — o Storage não impõe duração
- * e o servidor não decodifica o MP4. O teto de 10 MB por vídeo é o limite
- * prático que impede vídeos longos.
+ * Limitação conhecida (resolvida na Frente 5): a duração máxima de 10 s
+ * do vídeo era atestada só pelo cliente (`durationSeconds`) — o Storage
+ * não impõe duração. Agora o servidor confere a duração real: o
+ * `finalizeCampaignAssetUpload` baixa o MP4 gravado e lê o cabeçalho
+ * (`mvhd`, ver `mp4-duration.ts`). O valor declarado continua sendo o
+ * primeiro portão (validação rápida no front e no servidor); o teto de
+ * 10 MB por vídeo continua como limite prático adicional.
  */
 import {
   MAX_SPONSOR_BANNER_BYTES,
@@ -169,7 +172,7 @@ export interface CampaignAssetClaim {
   kind: CampaignAssetKind;
   mimeType: string;
   size: number;
-  /** Duração em segundos (só vídeo). Atestada pelo cliente — ver limitação no topo. */
+  /** Duração em segundos (só vídeo). Primeiro portão, declarado pelo cliente — o servidor confere a duração real do arquivo no finalize (ver `mp4-duration.ts`). */
   durationSeconds?: number | undefined;
 }
 

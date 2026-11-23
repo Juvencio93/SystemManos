@@ -6,6 +6,10 @@
     {
       "path": "/api/public/billing-access-sync",
       "schedule": "5 3 * * *"
+    },
+    {
+      "path": "/api/public/storage-orphan-sweep",
+      "schedule": "0 7 * * 0"
     }
   ],
   "headers": [

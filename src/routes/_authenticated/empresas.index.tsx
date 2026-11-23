@@ -51,10 +51,15 @@ import type { Tables } from "@/integrations/supabase/types";
 import { formatCnpj, isValidCnpj, slugify } from "@/lib/cnpj-utils";
 import { createCompanyWithAccess, lookupCnpj, updateCompany } from "@/lib/cnpj.functions";
 import { deleteCompany } from "@/lib/company-delete.functions";
+import { extractCampaignAssetPath } from "@/lib/company-delete";
+import { getCompaniesOverStorageQuota } from "@/lib/company-storage-quota.functions";
+import { removeReplacedAsset } from "@/lib/storage-cleanup";
 import {
   CAMPAIGN_ASSETS_BUCKET,
+  CAMPAIGN_ASSET_MAX_BYTES,
   validateCampaignAssetClaim,
 } from "@/lib/campaign-upload-validation";
+import { optimizeLogo } from "@/lib/image-optimization";
 import { getCompanyDisplayName } from "@/lib/name-utils";
 import { finalizeCampaignAssetUpload } from "@/lib/storage.functions";
 
@@ -117,29 +122,43 @@ const emptyForm = {
 type FormState = typeof emptyForm;
 
 async function uploadCompanyLogo(file: File) {
+  // Otimiza ANTES de validar (Frente 5): a logo vira WebP ≤ 1200 px e o
+  // limite vale para o arquivo que vai para o Storage, não para o
+  // original. Acima do teto do bucket (15 MB) nem se tenta decodificar.
+  // Se a otimização falhar, envia o original (fail-open).
+  if (file.size > CAMPAIGN_ASSET_MAX_BYTES) {
+    const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+    throw new Error(`O arquivo possui ${sizeMB} MB. O limite é de 15 MB por arquivo.`);
+  }
+  let uploadFile = file;
+  try {
+    uploadFile = await optimizeLogo(file);
+  } catch (error) {
+    console.warn("[uploadCompanyLogo] Otimização falhou, enviando o original:", error);
+  }
   const claimError = validateCampaignAssetClaim({
     kind: "company-logo",
-    mimeType: file.type,
-    size: file.size,
+    mimeType: uploadFile.type,
+    size: uploadFile.size,
   });
   if (claimError) throw new Error(claimError);
-  const ext = file.name.split(".").pop()?.toLowerCase() ?? "png";
+  const ext = uploadFile.name.split(".").pop()?.toLowerCase() ?? "png";
   const { data: authData, error: authError } = await supabase.auth.getUser();
   if (authError || !authData.user) throw new Error("Sessão inválida para enviar a logo.");
   const path = `users/${authData.user.id}/company-logos/${crypto.randomUUID()}.${ext}`;
-  const { error } = await supabase.storage.from("campaign-assets").upload(path, file, {
+  const { error } = await supabase.storage.from("campaign-assets").upload(path, uploadFile, {
     // Caminho contém UUID (arquivo imutável/versionado): cache longo reduz
     // drasticamente o egress do Storage em carregamentos repetidos do portal.
     cacheControl: "31536000",
     upsert: false,
-    contentType: file.type,
+    contentType: uploadFile.type,
   });
   if (error) {
     if (/mime/i.test(error.message) || error.message.includes("415")) {
       throw new Error("Só são aceitas imagens em PNG, JPEG ou WebP.");
     }
     if (error.message.includes("maximum allowed size") || error.message.includes("413")) {
-      throw new Error("O servidor recusou o arquivo por exceder o limite de 10 MB.");
+      throw new Error("O servidor recusou o arquivo por exceder o limite de 15 MB.");
     }
     throw new Error(error.message);
   }
@@ -149,8 +168,8 @@ async function uploadCompanyLogo(file: File) {
       bucket: CAMPAIGN_ASSETS_BUCKET,
       objectPath: path,
       kind: "company-logo",
-      size: file.size,
-      mimeType: file.type,
+      size: uploadFile.size,
+      mimeType: uploadFile.type,
     },
   });
   const { data, error: signError } = await supabase.storage
@@ -208,6 +227,9 @@ function CompaniesPage() {
   const { data: access } = useAccess();
   const isAdm = access?.role === "adm";
   const fileRef = useRef<HTMLInputElement>(null);
+  // Caminho da logo salva ao abrir a edição — distingue a logo salva de
+  // um pick anterior ainda não salvo (Frente 1).
+  const savedLogoPathRef = useRef<string | null>(null);
   const set = (patch: Partial<FormState>) => {
     setForm((prev) => ({ ...prev, ...patch }));
     // Limpa erro do campo quando ele é alterado
@@ -234,8 +256,23 @@ function CompaniesPage() {
     },
   });
 
+  // Frente 8 — empresas acima da quota de arquivos (só ADM, uma vez por
+  // abertura da página: sem polling, para o aviso não ficar repetindo).
+  // Erro na medição só esconde os selos — a lista segue funcionando.
+  const overQuota = useQuery({
+    queryKey: ["companies-storage-quota"],
+    queryFn: async () => getCompaniesOverStorageQuota({ data: {} }),
+    enabled: isAdm,
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: false,
+  });
+  const overQuotaByCompany = new Map(
+    (overQuota.data ?? []).map((usage) => [usage.companyId, usage]),
+  );
+
   const openNew = () => {
     setEditingId(null);
+    savedLogoPathRef.current = null;
     setForm(emptyForm);
     setErrors({});
     setPartners([]);
@@ -245,6 +282,7 @@ function CompaniesPage() {
   const openEdit = (company: Tables<"companies">) => {
     const s = (v: unknown) => (v === null || v === undefined ? "" : String(v));
     setEditingId(s(company.id));
+    savedLogoPathRef.current = extractCampaignAssetPath(company.logo_url);
     setErrors({});
     setPartners([]);
     setForm({
@@ -318,6 +356,17 @@ function CompaniesPage() {
 
   const handleLogoFile = async (file: File | undefined) => {
     if (!file) return;
+    // Pick anterior ainda não salvo: apaga na hora (Frente 1). A logo
+    // salva só é apagada após o save com sucesso (ver saveCompany).
+    const currentPath = extractCampaignAssetPath(form.logo_url);
+    if (
+      currentPath &&
+      currentPath !== savedLogoPathRef.current &&
+      currentPath.startsWith("users/") &&
+      currentPath.includes("/company-logos/")
+    ) {
+      removeReplacedAsset("campaign-assets", currentPath);
+    }
     setUploading(true);
     try {
       const url = await uploadCompanyLogo(file);
@@ -376,9 +425,16 @@ function CompaniesPage() {
       if (editingId) {
         if (form.access_password && form.access_password.length < 8)
           throw new Error("Nova senha precisa ter ao menos 8 caracteres.");
-        return updateCompany({
+        const previousLogoPath = savedLogoPathRef.current;
+        const result = await updateCompany({
           data: { ...payload, id: editingId, access_password: form.access_password || "" },
         });
+        // Frente 1 — apaga a logo velha após o save com sucesso.
+        const newLogoPath = extractCampaignAssetPath(form.logo_url);
+        if (previousLogoPath && previousLogoPath !== newLogoPath) {
+          removeReplacedAsset("campaign-assets", previousLogoPath, newLogoPath);
+        }
+        return result;
       }
       if (form.access_password.length < 8)
         throw new Error("Senha inicial precisa ter ao menos 8 caracteres.");
@@ -441,6 +497,7 @@ function CompaniesPage() {
       }
       setOpen(false);
       setEditingId(null);
+      savedLogoPathRef.current = null;
       setForm(emptyForm);
       setErrors({});
       setPartners([]);
@@ -906,7 +963,24 @@ function CompaniesPage() {
                   Carregar do computador
                 </Button>
                 {form.logo_url ? (
-                  <Button type="button" variant="ghost" onClick={() => set({ logo_url: "" })}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      // Pick ainda não salvo descartado: apaga na hora. A logo
+                      // salva é coberta pelo diff do save (Frente 1).
+                      const currentPath = extractCampaignAssetPath(form.logo_url);
+                      if (
+                        currentPath &&
+                        currentPath !== savedLogoPathRef.current &&
+                        currentPath.startsWith("users/") &&
+                        currentPath.includes("/company-logos/")
+                      ) {
+                        removeReplacedAsset("campaign-assets", currentPath);
+                      }
+                      set({ logo_url: "" });
+                    }}
+                  >
                     Remover
                   </Button>
                 ) : null}
@@ -1110,7 +1184,9 @@ function CompaniesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(companies.data ?? []).map((company) => (
+              {(companies.data ?? []).map((company) => {
+                const quotaUsage = overQuotaByCompany.get(company.id);
+                return (
                 <TableRow key={company.id}>
                   <TableCell>
                     <Link
@@ -1141,6 +1217,15 @@ function CompaniesPage() {
                               Perfil IA incompleto
                             </Badge>
                           )}
+                          {quotaUsage ? (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] bg-yellow-500/10 text-yellow-500 border-yellow-500/30 py-0 h-4"
+                              title={quotaUsage.alerts.map((a) => a.message).join(" ")}
+                            >
+                              Acima da quota de arquivos
+                            </Badge>
+                          ) : null}
                         </div>
                         <p className="text-xs text-muted-foreground">/{company.slug}</p>
                         <Badge
@@ -1203,7 +1288,8 @@ function CompaniesPage() {
                     ) : null}
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
               {!companies.isLoading && (companies.data ?? []).length === 0 ? (
                 <TableRow>
                   <TableCell

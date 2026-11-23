@@ -458,9 +458,9 @@ function MensagensPage() {
         toast.error("O arquivo excede o limite máximo de 20 MB.");
         return;
       }
-      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
       if (!allowedTypes.includes(file.type)) {
-        toast.error("Envie somente imagens (PNG, JPG, JPEG, WEBP, GIF) ou arquivos PDF.");
+        toast.error("Envie somente imagens ou arquivos PDF.");
         return;
       }
       setPendingFile(file);

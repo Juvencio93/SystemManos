@@ -1,5 +1,5 @@
 import type { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { extractCampaignAssetPath } from "./company-delete";
+import { extractStorageObjectPath } from "./company-delete";
 import { logAdminAction } from "./admin-audit-log.server";
 
 type AdminDb = typeof supabaseAdmin;
@@ -20,8 +20,11 @@ export type DeleteCompanyResult = {
  * Ordem (importa):
  *  1. Checagens: ADM, empresa existe, nenhuma RB vinculada (o banco
  *     também trava via RESTRICT, mas a mensagem aqui é legível).
- *  2. Coleta pré-exclusão: usuários, caminhos de arquivo e alocações
- *     de crédito — a cascata apaga essas linhas junto com a empresa.
+ *  2. Coleta pré-exclusão: usuários, TODOS os caminhos de arquivo da
+ *     empresa (campaign-assets, chat_attachments e chat-avatars) e
+ *     alocações de crédito — a cascata apaga essas linhas junto com a
+ *     empresa, então depois do delete não há mais como saber o que
+ *     apagar do Storage.
  *  3. Estorno do crédito da revenda (lê as alocações antes da cascata).
  *  4. Aviso de exclusão (tombstone). Se gravar falhar, NADA é apagado:
  *     sem aviso, o Hermes nunca saberia que a empresa sumiu.
@@ -61,7 +64,7 @@ export async function deleteCompanyFull(
 
   const { data: branches } = await db
     .from("branches")
-    .select("id")
+    .select("id, logo_url")
     .eq("company_id", companyId);
   const branchIds = (branches ?? []).map((b) => b.id);
   const { data: ownDevices } = await db
@@ -104,14 +107,109 @@ export async function deleteCompanyFull(
   );
   const keptUsers = companyUserIds.length - deleteUserIds.length;
 
+  // Coleta pré-exclusão (Frente 2): TODOS os caminhos do Storage da
+  // empresa, ANTES da cascata apagar as linhas — depois do delete não
+  // há mais como saber o que apagar. Cada valor pode ser URL (logo de
+  // empresa/filial é salva como URL assinada, avatar como URL pública)
+  // ou caminho cru (banner_urls, logo_path de patrocinador, file_path
+  // de anexo). Set por bucket evita apagar o mesmo objeto duas vezes.
+  const campaignAssetPaths = new Set<string>();
+  const chatAttachmentPaths = new Set<string>();
+  const chatAvatarPaths = new Set<string>();
+  const addCampaignAsset = (value: string | null | undefined) => {
+    const path = extractStorageObjectPath("campaign-assets", value);
+    if (path) campaignAssetPaths.add(path);
+  };
+  const addChatAvatar = (value: string | null | undefined) => {
+    const path = extractStorageObjectPath("chat-avatars", value);
+    if (path) chatAvatarPaths.add(path);
+  };
+
+  // Logo da empresa + anexos do banner-describe (já existiam).
+  addCampaignAsset(company.logo_url);
   const { data: attachmentRows } = await db
     .from("banner_describe_attachments")
     .select("storage_path")
     .eq("company_id", companyId);
-  const storagePaths = [
-    extractCampaignAssetPath(company.logo_url),
-    ...((attachmentRows ?? []).map((r) => r.storage_path).filter(Boolean)),
-  ].filter((p): p is string => p !== null);
+  for (const row of attachmentRows ?? []) {
+    addCampaignAsset(row.storage_path);
+  }
+
+  // Campanhas da empresa (inclui as das filiais: company_id é
+  // obrigatório em toda campanha): banner_urls + logo_url. Vídeo leva
+  // também a capa .jpg derivada (mesma regra de videoPosterPath em
+  // campaign-editor-model.ts — .mp4 vira .jpg no mesmo caminho).
+  const { data: campaignRows } = await db
+    .from("campaigns")
+    .select("id, banner_urls, logo_url")
+    .eq("company_id", companyId);
+  const campaignIds = (campaignRows ?? []).map((c) => c.id);
+  for (const campaign of campaignRows ?? []) {
+    addCampaignAsset(campaign.logo_url);
+    for (const bannerPath of campaign.banner_urls ?? []) {
+      addCampaignAsset(bannerPath);
+      const cleanBanner = bannerPath.split(/[?#]/)[0] ?? bannerPath;
+      if (/\.mp4$/i.test(cleanBanner)) {
+        addCampaignAsset(cleanBanner.replace(/\.mp4$/i, ".jpg"));
+      }
+    }
+  }
+
+  // Patrocinadores das campanhas da empresa.
+  if (campaignIds.length > 0) {
+    const { data: sponsorRows } = await db
+      .from("campaign_sponsors")
+      .select("logo_path, banner_path")
+      .in("campaign_id", campaignIds);
+    for (const sponsor of sponsorRows ?? []) {
+      addCampaignAsset(sponsor.logo_path);
+      addCampaignAsset(sponsor.banner_path);
+    }
+  }
+
+  // Gerações de imagem da empresa (image_url hoje é sempre null no
+  // código, mas se um dia guardar URL do Storage, entra na coleta).
+  const { data: generationRows } = await db
+    .from("image_generations")
+    .select("image_url")
+    .eq("company_id", companyId);
+  for (const generation of generationRows ?? []) {
+    addCampaignAsset(generation.image_url);
+  }
+
+  // Logos das filiais (salvas como URL assinada, como a da empresa).
+  // Reaproveita a consulta de filiais já feita acima para a trava de RB.
+  for (const branch of branches ?? []) {
+    addCampaignAsset(branch.logo_url);
+  }
+
+  // Anexos de chat: chat_attachments.file_path, via
+  // conversations (company_id) → messages → attachments.
+  const { data: conversationRows } = await db
+    .from("conversations")
+    .select("messages!inner(id, chat_attachments(file_path))")
+    .eq("company_id", companyId);
+  for (const conversation of conversationRows ?? []) {
+    for (const message of conversation.messages ?? []) {
+      for (const attachment of message.chat_attachments ?? []) {
+        if (attachment.file_path) {
+          chatAttachmentPaths.add(attachment.file_path);
+        }
+      }
+    }
+  }
+
+  // Avatares de chat: só dos usuários que perdem o login nesta
+  // exclusão — quem tem papel em outra empresa mantém o avatar.
+  if (deleteUserIds.length > 0) {
+    const { data: profileRows } = await db
+      .from("profiles")
+      .select("chat_avatar_url")
+      .in("id", deleteUserIds);
+    for (const profile of profileRows ?? []) {
+      addChatAvatar(profile.chat_avatar_url);
+    }
+  }
 
   // Estorno: a RPC é nova (ainda fora dos tipos gerados), como o
   // consumo de crédito já faz no código de CNPJ.
@@ -168,15 +266,26 @@ export async function deleteCompanyFull(
     else deletedUsers += 1;
   }
 
+  // Arquivos (best-effort, como antes): a empresa já sumiu; falha aqui
+  // vira aviso no retorno, não desfaz a exclusão. Os caminhos foram
+  // coletados ANTES do delete — é isso que garante que nada se perca.
+  const removals: Array<{ bucket: string; paths: string[] }> = [
+    { bucket: "campaign-assets", paths: [...campaignAssetPaths] },
+    { bucket: "chat_attachments", paths: [...chatAttachmentPaths] },
+    { bucket: "chat-avatars", paths: [...chatAvatarPaths] },
+  ];
   let removedFiles = 0;
-  if (storagePaths.length > 0) {
+  for (const { bucket, paths } of removals) {
+    if (paths.length === 0) continue;
     const { data: removed, error: storageError } = await db.storage
-      .from("campaign-assets")
-      .remove(storagePaths);
+      .from(bucket)
+      .remove(paths);
     if (storageError) {
-      warnings.push(`Arquivos não removidos: ${storageError.message}`);
+      warnings.push(
+        `Arquivos não removidos (${bucket}): ${storageError.message}`,
+      );
     } else {
-      removedFiles = removed?.length ?? 0;
+      removedFiles += removed?.length ?? 0;
     }
   }
 

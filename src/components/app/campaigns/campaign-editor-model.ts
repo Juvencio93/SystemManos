@@ -5,6 +5,7 @@ import type { PortalAppearance } from "@/lib/campaign-appearance";
 import type { SponsorDisplayType } from "@/lib/campaign-sponsors";
 import {
   CAMPAIGN_ASSETS_BUCKET,
+  CAMPAIGN_ASSET_MAX_BYTES,
   MAX_CAMPAIGN_BANNER_BYTES,
   MAX_CAMPAIGN_LOGO_BYTES,
   MAX_CAMPAIGN_VIDEO_BYTES,
@@ -13,6 +14,7 @@ import {
   type CampaignAssetKind,
 } from "@/lib/campaign-upload-validation";
 import { finalizeCampaignAssetUpload } from "@/lib/storage.functions";
+import { optimizeBanner, optimizeLogo } from "@/lib/image-optimization";
 
 export const campaignSchema = z.object({
   name: z.string().trim().min(2, "Informe o nome da campanha").max(120),
@@ -26,50 +28,6 @@ export const MAX_OTHER_FILE_BYTES = MAX_CAMPAIGN_LOGO_BYTES;
 export const MAX_VIDEO_FILE_BYTES = MAX_CAMPAIGN_VIDEO_BYTES;
 export const MAX_VIDEO_SECONDS = MAX_CAMPAIGN_VIDEO_SECONDS;
 export const VIDEO_COMPRESS_URL = "https://www.freeconvert.com/pt/video-compressor";
-const BANNER_MAX_WIDTH = 1600;
-const BANNER_MAX_HEIGHT = 900;
-const BANNER_WEBP_QUALITY = 0.8;
-
-async function decodeImage(file: File) {
-  if (typeof createImageBitmap === "function") return createImageBitmap(file);
-  const url = URL.createObjectURL(file);
-  try {
-    const image = new Image();
-    image.decoding = "async";
-    image.src = url;
-    await image.decode();
-    return image;
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
-
-async function optimizeBanner(file: File) {
-  const image = await decodeImage(file);
-  const sourceWidth = image.width;
-  const sourceHeight = image.height;
-  const scale = Math.min(1, BANNER_MAX_WIDTH / sourceWidth, BANNER_MAX_HEIGHT / sourceHeight);
-  const width = Math.max(1, Math.round(sourceWidth * scale));
-  const height = Math.max(1, Math.round(sourceHeight * scale));
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext("2d");
-  if (!context) throw new Error("Não foi possível otimizar o banner neste navegador.");
-  context.imageSmoothingEnabled = true;
-  context.imageSmoothingQuality = "high";
-  context.drawImage(image, 0, 0, width, height);
-  if ("close" in image && typeof image.close === "function") image.close();
-  const blob = await new Promise<Blob>((resolve, reject) =>
-    canvas.toBlob(
-      (result) => (result ? resolve(result) : reject(new Error("Falha ao converter o banner."))),
-      "image/webp",
-      BANNER_WEBP_QUALITY,
-    ),
-  );
-  const baseName = file.name.replace(/\.[^.]+$/, "") || "banner";
-  return new File([blob], `${baseName}.webp`, { type: "image/webp", lastModified: Date.now() });
-}
 
 async function uploadImage(path: string, file: File) {
   const { error } = await supabase.storage.from("campaign-assets").upload(path, file, {
@@ -125,14 +83,30 @@ function storageUploadErrorMessage(fileName: string, error: unknown): Error {
 }
 
 export async function uploadCampaignAsset(companyId: string, kind: "logo" | "banner", file: File) {
+  // Otimiza ANTES de validar (Frente 5): o limite vale para o arquivo que
+  // vai para o Storage (WebP), não para o original — um PNG de 8 MB vira
+  // WebP de ~300 KB e passa. A barreira prévia é só o teto do bucket
+  // (15 MB): acima disso nem se tenta decodificar. Se a otimização
+  // falhar, envia o original (fail-open) e a validação abaixo decide.
+  if (file.size > CAMPAIGN_ASSET_MAX_BYTES) {
+    const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+    throw new Error(
+      `${file.name}: o arquivo possui ${sizeMB} MB. O limite é de 15 MB por arquivo.`,
+    );
+  }
+  let uploadFile = file;
+  try {
+    uploadFile = kind === "banner" ? await optimizeBanner(file) : await optimizeLogo(file);
+  } catch (error) {
+    console.warn("[uploadCampaignAsset] Otimização falhou, enviando o original:", error);
+  }
   const claimError = validateCampaignAssetClaim({
     kind,
-    mimeType: file.type,
-    size: file.size,
+    mimeType: uploadFile.type,
+    size: uploadFile.size,
   });
   if (claimError) throw new Error(`${file.name}: ${claimError}`);
 
-  const uploadFile = kind === "banner" ? await optimizeBanner(file) : file;
   const ext = uploadFile.name.split(".").pop()?.toLowerCase() ?? "png";
   const path = `${companyId}/${kind}/${crypto.randomUUID()}.${ext}`;
   try {
@@ -273,9 +247,26 @@ export async function uploadSponsorAsset(
   kind: "sponsor-logo" | "sponsor-banner",
   file: File,
 ) {
-  const claimError = validateCampaignAssetClaim({ kind, mimeType: file.type, size: file.size });
+  // Mesmo padrão do upload de campanha (Frente 5): otimiza antes de
+  // validar — a logo do patrocinador também vira WebP ≤ 1200 px.
+  if (file.size > CAMPAIGN_ASSET_MAX_BYTES) {
+    const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+    throw new Error(
+      `${file.name}: o arquivo possui ${sizeMB} MB. O limite é de 15 MB por arquivo.`,
+    );
+  }
+  let uploadFile = file;
+  try {
+    uploadFile = kind === "sponsor-banner" ? await optimizeBanner(file) : await optimizeLogo(file);
+  } catch (error) {
+    console.warn("[uploadSponsorAsset] Otimização falhou, enviando o original:", error);
+  }
+  const claimError = validateCampaignAssetClaim({
+    kind,
+    mimeType: uploadFile.type,
+    size: uploadFile.size,
+  });
   if (claimError) throw new Error(`${file.name}: ${claimError}`);
-  const uploadFile = kind === "sponsor-banner" ? await optimizeBanner(file) : file;
   const ext = uploadFile.name.split(".").pop()?.toLowerCase() ?? "png";
   const path = `${companyId}/${kind}/${crypto.randomUUID()}.${ext}`;
   try {
