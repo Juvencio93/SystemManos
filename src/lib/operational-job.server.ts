@@ -239,7 +239,7 @@ export async function runOperationalAnalysisInternal(options?: {
 
     return {
       success: true,
-      message: "Análise atualizada com sucesso.",
+      message: "Análise atualizada.",
       aiCalled,
       companiesCount: totalCompanies,
       unitsCount: operations.length,

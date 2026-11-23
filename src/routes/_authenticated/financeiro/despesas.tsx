@@ -121,7 +121,7 @@ function GastosAtivacaoPage() {
   const createMutation = useMutation({
     mutationFn: (data: Partial<ExpenseRow>) => createExpense({ data }),
     onSuccess: () => {
-      toast.success("Investimento registrado com sucesso");
+      toast.success("Investimento registrado.");
       setIsModalOpen(false);
       queryClient.invalidateQueries({ queryKey: ["financeiro-stats"] });
     },
@@ -132,7 +132,7 @@ function GastosAtivacaoPage() {
     mutationFn: ({ id, updates }: { id: string; updates: Partial<ExpenseRow> }) =>
       updateExpense({ data: { id, updates } }),
     onSuccess: () => {
-      toast.success("Investimento atualizado com sucesso");
+      toast.success("Investimento atualizado.");
       setIsModalOpen(false);
       setEditingExpense(null);
       queryClient.invalidateQueries({ queryKey: ["financeiro-stats"] });

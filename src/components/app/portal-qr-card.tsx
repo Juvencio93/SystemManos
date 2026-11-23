@@ -97,7 +97,7 @@ export function PortalQrCard({
   const revoke = useMutation({
     mutationFn: async () => revokePortalUrl({ data: { companyId: item.id } }),
     onSuccess: () => {
-      toast.success("URL do portal revogada com sucesso.");
+      toast.success("Pronto — a URL do portal foi revogada.");
       setRevokeOpen(false);
       setRevokeConfirm("");
       queryClient.invalidateQueries({ queryKey: ["portals-list"] });
@@ -109,7 +109,7 @@ export function PortalQrCard({
   const deactivate = useMutation({
     mutationFn: async () => deactivatePortal({ data: { companyId: item.id } }),
     onSuccess: () => {
-      toast.success("Portal desativado com sucesso.");
+      toast.success("Portal desativado.");
       setDeleteOpen(false);
       setDeleteConfirm("");
       queryClient.invalidateQueries({ queryKey: ["portals-list"] });
@@ -121,7 +121,7 @@ export function PortalQrCard({
   const reactivate = useMutation({
     mutationFn: async () => createPortal({ data: { companyId: item.id } }),
     onSuccess: () => {
-      toast.success("Portal ativado com sucesso.");
+      toast.success("Portal ativado.");
       queryClient.invalidateQueries({ queryKey: ["portals-list"] });
     },
     onError: (error) =>
