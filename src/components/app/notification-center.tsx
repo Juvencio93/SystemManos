@@ -25,8 +25,8 @@ function notificationHref(category: string, role: AppRole): NotificationHref | u
     return role === "adm" || role === "matriz" ? "/solicitacoes-privacidade" : undefined;
   }
   if (category === "hotspot") {
-    if (role === "adm" || role === "revenda") return "/hotspot";
-    if (role === "matriz" || role === "filial") return "/dashboard";
+    if (role === "adm") return "/hotspot";
+    if (role === "matriz" || role === "filial" || role === "revenda") return "/dashboard";
   }
   return undefined;
 }

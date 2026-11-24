@@ -31,7 +31,7 @@ export const Route = createFileRoute("/_authenticated/hotspot")({
 function HotspotPage() {
   const { data: access } = useAccess();
   const queryClient = useQueryClient();
-  const canManageHotspot = access?.role === "adm" || access?.role === "revenda";
+  const canManageHotspot = access?.role === "adm";
   const getActivation = useServerFn(getMikrotikActivationDownload);
   const fetchPortals = useServerFn(getPortals);
   const portalsQuery = useQuery({ queryKey: ["hotspot-portals"], enabled: canManageHotspot, queryFn: () => fetchPortals() });
@@ -142,7 +142,7 @@ function HotspotPage() {
     return " · aguardando confirmação da RB";
   };
   if (access && !canManageHotspot) {
-    return <div className="container max-w-3xl py-10"><Card className="border-amber-400/30"><CardContent className="p-6"><PageHeader title="Acesso restrito" subtitle="O gerenciamento de equipamentos, homologação e arquivos Hotspot é exclusivo para administradores e revendas." /></CardContent></Card></div>;
+    return <div className="container max-w-3xl py-10"><Card className="border-amber-400/30"><CardContent className="p-6"><PageHeader title="Acesso restrito" subtitle="O gerenciamento de equipamentos, homologação e arquivos Hotspot é exclusivo para administradores." /></CardContent></Card></div>;
   }
     async function changeStatus(status: string) {
       if (!selected) return;

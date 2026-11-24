@@ -11,7 +11,7 @@ export const Route = createFileRoute("/_authenticated/estoque-rbs")({
 
 function RbInventoryPage() {
   const { data: access, isLoading } = useAccess();
-  const canManageInventory = access?.role === "adm" || access?.role === "revenda";
+  const canManageInventory = access?.role === "adm";
 
   if (isLoading) {
     return <div className="container max-w-5xl py-10">Carregando estoque…</div>;
@@ -24,7 +24,7 @@ function RbInventoryPage() {
           <CardContent className="p-6">
             <PageHeader
               title="Acesso restrito"
-              subtitle="O estoque e a transferência de RBs são exclusivos para administradores e revendas."
+              subtitle="O estoque e a transferência de RBs são exclusivos para administradores."
             />
           </CardContent>
         </Card>
