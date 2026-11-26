@@ -5,7 +5,6 @@ import {
   ArrowUp,
   Beer,
   Check,
-  ChevronDown,
   Croissant,
   Database,
   Gauge,
@@ -853,7 +852,7 @@ function SalesHomePage() {
               Sem fidelidade.
             </p>
           </ScrollReveal>
-          <div className="mx-auto mt-10 grid max-w-4xl gap-4 md:grid-cols-2">
+          <div className="mx-auto mt-10 grid max-w-4xl items-start gap-4 md:grid-cols-2">
             <ScrollReveal className="h-full">
               <article className="flex h-full flex-col rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 sm:p-6">
                 <h3 className="font-semibold">Essencial</h3>
@@ -896,7 +895,7 @@ function SalesHomePage() {
             </ScrollReveal>
             <ScrollReveal className="h-full" delay={90}>
               <article
-                className="group flex h-full cursor-pointer flex-col rounded-2xl border border-cyan-400/40 bg-[#0B1118] p-5 sm:p-6"
+                className={`group relative flex h-full cursor-pointer flex-col rounded-2xl border bg-[#0B1118] p-5 transition-all duration-300 sm:p-6 ${profissionalAberto ? "-translate-y-1.5 border-cyan-400/70 shadow-2xl shadow-cyan-400/25" : "border-cyan-400/40 hover:-translate-y-1.5 hover:border-cyan-400/70 hover:shadow-2xl hover:shadow-cyan-400/25"}`}
                 onClick={() => setProfissionalAberto((aberto) => !aberto)}
                 onKeyDown={(event) => {
                   if (event.target !== event.currentTarget) return;
@@ -941,15 +940,6 @@ function SalesHomePage() {
                     Sem cota inclusa: você paga a Meta direto, por mensagem enviada
                   </li>
                 </ul>
-                <p
-                  className={`mt-4 flex items-center gap-1.5 text-xs text-slate-400 ${profissionalAberto ? "hidden" : "group-hover:hidden"}`}
-                >
-                  Toque ou passe o mouse para ver como funciona
-                  <ChevronDown
-                    className={`size-4 shrink-0 transition-transform duration-300 ${profissionalAberto ? "rotate-180" : "group-hover:rotate-180"}`}
-                    aria-hidden="true"
-                  />
-                </p>
                 <button
                   type="button"
                   onClick={(event) => {
