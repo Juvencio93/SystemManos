@@ -5,6 +5,7 @@ import {
   ArrowUp,
   Beer,
   Check,
+  ChevronDown,
   Croissant,
   Database,
   Gauge,
@@ -491,6 +492,7 @@ function MobileBotecoDemo({ loop = false }: { loop?: boolean }) {
 
 function SalesHomePage() {
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const [profissionalAberto, setProfissionalAberto] = useState(false);
 
   useEffect(() => {
     let frame = 0;
@@ -893,7 +895,20 @@ function SalesHomePage() {
               </article>
             </ScrollReveal>
             <ScrollReveal className="h-full" delay={90}>
-              <article className="flex h-full flex-col rounded-2xl border border-cyan-400/40 bg-[#0B1118] p-5 sm:p-6">
+              <article
+                className="group flex h-full cursor-pointer flex-col rounded-2xl border border-cyan-400/40 bg-[#0B1118] p-5 sm:p-6"
+                onClick={() => setProfissionalAberto((aberto) => !aberto)}
+                onKeyDown={(event) => {
+                  if (event.target !== event.currentTarget) return;
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setProfissionalAberto((aberto) => !aberto);
+                  }
+                }}
+                tabIndex={0}
+                role="button"
+                aria-expanded={profissionalAberto}
+              >
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="font-semibold">Profissional</h3>
                   <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cyan-300">
@@ -926,9 +941,40 @@ function SalesHomePage() {
                     Sem cota inclusa: você paga a Meta direto, por mensagem enviada
                   </li>
                 </ul>
+                <p
+                  className={`mt-4 flex items-center gap-1.5 text-xs text-slate-400 ${profissionalAberto ? "hidden" : "group-hover:hidden"}`}
+                >
+                  Toque ou passe o mouse para ver como funciona
+                  <ChevronDown
+                    className={`size-4 shrink-0 transition-transform duration-300 ${profissionalAberto ? "rotate-180" : "group-hover:rotate-180"}`}
+                    aria-hidden="true"
+                  />
+                </p>
+                <div
+                  className={`grid transition-[grid-template-rows] duration-500 ease-out ${profissionalAberto ? "grid-rows-[1fr]" : "grid-rows-[0fr] group-hover:grid-rows-[1fr]"}`}
+                >
+                  <div className="overflow-hidden">
+                    <div className="mt-4 space-y-2.5 border-t border-white/[.08] pt-4 text-sm leading-6 text-slate-300">
+                      <p>
+                        <strong className="text-white">Disparo:</strong> você escreve a
+                        mensagem e escolhe quem recebe — só quem autorizou. O envio vai no
+                        ritmo certo, com histórico de quem recebeu e de quem pediu pra não
+                        receber mais.
+                      </p>
+                      <p>
+                        <strong className="text-white">Imagens:</strong> as imagens dos
+                        banners são geradas com a cara do seu negócio, sem você precisar de
+                        designer.
+                      </p>
+                    </div>
+                  </div>
+                </div>
                 <button
                   type="button"
-                  onClick={openPreSaleChat}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    openPreSaleChat();
+                  }}
                   className="mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-cyan-400 px-6 font-bold text-slate-950 transition hover:bg-cyan-400"
                 >
                   Começar 14 dias grátis <ArrowRight className="size-4" />
