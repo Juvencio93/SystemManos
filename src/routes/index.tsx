@@ -853,8 +853,8 @@ function SalesHomePage() {
             </p>
           </ScrollReveal>
           <div className="mx-auto mt-10 grid max-w-4xl items-start gap-4 md:grid-cols-2">
-            <ScrollReveal className="h-full">
-              <article className="flex h-full flex-col rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 sm:p-6">
+            <ScrollReveal>
+              <article className="flex flex-col rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 sm:p-6">
                 <h3 className="font-semibold">Essencial</h3>
                 <p className="mt-3">
                   <span className="font-display text-4xl font-bold">R$97</span>
@@ -893,9 +893,9 @@ function SalesHomePage() {
                 </button>
               </article>
             </ScrollReveal>
-            <ScrollReveal className="h-full" delay={90}>
+            <ScrollReveal delay={90}>
               <article
-                className={`group relative flex h-full cursor-pointer flex-col rounded-2xl border bg-[#0B1118] p-5 transition-all duration-300 sm:p-6 ${profissionalAberto ? "-translate-y-1.5 border-cyan-400/70 shadow-2xl shadow-cyan-400/25" : "border-cyan-400/40 hover:-translate-y-1.5 hover:border-cyan-400/70 hover:shadow-2xl hover:shadow-cyan-400/25"}`}
+                className={`group relative flex cursor-pointer flex-col rounded-2xl border bg-[#0B1118] p-5 transition-all duration-300 sm:p-6 ${profissionalAberto ? "-translate-y-2 border-cyan-400/70 shadow-2xl shadow-cyan-400/25" : "border-cyan-400/40 hover:-translate-y-2 hover:border-cyan-400/70 hover:shadow-2xl hover:shadow-cyan-400/25"}`}
                 onClick={() => setProfissionalAberto((aberto) => !aberto)}
                 onKeyDown={(event) => {
                   if (event.target !== event.currentTarget) return;
