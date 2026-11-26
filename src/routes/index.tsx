@@ -847,7 +847,7 @@ function SalesHomePage() {
               Um preço que cabe no caixa
             </h2>
             <p className="mt-4 max-w-2xl leading-7 text-slate-400">
-              Preço de lançamento garantido pra quem entrar agora. Sem fidelidade.
+              Sem fidelidade.
             </p>
           </ScrollReveal>
           <div className="mx-auto mt-10 grid max-w-4xl gap-4 md:grid-cols-2">
@@ -890,17 +890,10 @@ function SalesHomePage() {
                   <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cyan-300">
                     Mais escolhido
                   </span>
-                  <span className="rounded-full border border-white/15 bg-white/[.04] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-300">
-                    Preço de lançamento
-                  </span>
                 </div>
                 <p className="mt-3">
-                  <span className="font-display text-4xl font-bold">R$97</span>
+                  <span className="font-display text-4xl font-bold">R$147</span>
                   <span className="text-slate-400">/mês</span>
-                  <span className="ml-2 text-sm text-slate-500 line-through">R$147</span>
-                </p>
-                <p className="mt-2 text-xs leading-5 text-slate-400">
-                  Preço de lançamento — R$147/mês quando o disparo de WhatsApp estiver no ar.
                 </p>
                 <ul className="mt-5 flex-1 space-y-2.5 text-sm leading-6 text-slate-300">
                   <li className="flex items-start gap-2">
