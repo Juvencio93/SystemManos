@@ -950,6 +950,16 @@ function SalesHomePage() {
                     aria-hidden="true"
                   />
                 </p>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    openPreSaleChat();
+                  }}
+                  className="mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-cyan-400 px-6 font-bold text-slate-950 transition hover:bg-cyan-400"
+                >
+                  Começar 14 dias grátis <ArrowRight className="size-4" />
+                </button>
                 <div
                   className={`grid transition-[grid-template-rows] duration-500 ease-out ${profissionalAberto ? "grid-rows-[1fr]" : "grid-rows-[0fr] group-hover:grid-rows-[1fr]"}`}
                 >
@@ -969,16 +979,6 @@ function SalesHomePage() {
                     </div>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    openPreSaleChat();
-                  }}
-                  className="mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-cyan-400 px-6 font-bold text-slate-950 transition hover:bg-cyan-400"
-                >
-                  Começar 14 dias grátis <ArrowRight className="size-4" />
-                </button>
               </article>
             </ScrollReveal>
           </div>
