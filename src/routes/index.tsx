@@ -15,6 +15,7 @@ import {
   Store,
   Timer,
   UserPlus,
+  X,
 } from "lucide-react";
 import logo from "@/assets/manos-tech-logo-institutional.png";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -873,6 +874,10 @@ function SalesHomePage() {
                       {feature}
                     </li>
                   ))}
+                  <li className="flex items-start gap-2 text-slate-500">
+                    <X className="mt-1 size-4 shrink-0" aria-hidden="true" />
+                    Módulo de Disparos de WhatsApp não incluso
+                  </li>
                 </ul>
                 <button
                   type="button"
