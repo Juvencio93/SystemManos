@@ -878,6 +878,10 @@ function SalesHomePage() {
                     <X className="mt-1 size-4 shrink-0" aria-hidden="true" />
                     Módulo de Disparos de WhatsApp não incluso
                   </li>
+                  <li className="flex items-start gap-2 text-slate-500">
+                    <X className="mt-1 size-4 shrink-0" aria-hidden="true" />
+                    Geração de imagens para banner não inclusa
+                  </li>
                 </ul>
                 <button
                   type="button"
@@ -908,6 +912,14 @@ function SalesHomePage() {
                   <li className="flex items-start gap-2">
                     <Check className="mt-1 size-4 shrink-0 text-cyan-400" aria-hidden="true" />
                     Módulo de Disparos de WhatsApp (em breve)
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="mt-1 size-4 shrink-0 text-cyan-400" aria-hidden="true" />
+                    Estrutura completa de envio: só quem autorizou recebe, com histórico
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="mt-1 size-4 shrink-0 text-cyan-400" aria-hidden="true" />
+                    Geração de imagens para banner
                   </li>
                   <li className="flex items-start gap-2">
                     <Check className="mt-1 size-4 shrink-0 text-cyan-400" aria-hidden="true" />
