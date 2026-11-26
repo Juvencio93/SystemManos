@@ -21,10 +21,6 @@ const submitPreSaleSchema = z.object({
   summary: z.string().trim().min(20).max(3000),
   consent: z.literal(true),
   website: z.string().max(0).optional().default(""),
-  // Token do Cloudflare Turnstile (anti-bot, item 12 da auditoria).
-  // Opcional no schema; a verificação recusa quando a chave está
-  // configurada e o token falta ou é inválido (turnstile.server.ts).
-  turnstileToken: z.string().max(2048).optional(),
 });
 
 const statusSchema = z.enum(["novo", "em_andamento", "convertido", "encerrado"]);
@@ -171,9 +167,6 @@ async function createAdminPreSaleNotifications(adminDb: any, preSale: PreSaleNot
 export const submitPreSale = createServerFn({ method: "POST" })
   .validator((input: unknown) => submitPreSaleSchema.parse(input))
   .handler(async ({ data }) => {
-    // Anti-bot (Turnstile): conferir o token ANTES de registrar.
-    const { assertTurnstileToken } = await import("@/lib/turnstile.server");
-    await assertTurnstileToken(data.turnstileToken);
     // A honeypot keeps automated submissions from creating records.
     if (data.website) throw new Error("Não foi possível enviar sua solicitação.");
 
@@ -233,8 +226,6 @@ const savePreSalePartialSchema = z.object({
   contactName: z.string().trim().min(2).max(120),
   phone: z.string().trim().min(8).max(32),
   website: z.string().max(0).optional().default(""),
-  // Token do Cloudflare Turnstile (anti-bot, item 12 da auditoria).
-  turnstileToken: z.string().max(2048).optional(),
 });
 
 // O contato é salvo já no primeiro passo do balão: se o visitante parar
@@ -243,9 +234,6 @@ const savePreSalePartialSchema = z.object({
 export const savePreSalePartial = createServerFn({ method: "POST" })
   .validator((input: unknown) => savePreSalePartialSchema.parse(input))
   .handler(async ({ data }) => {
-    // Anti-bot (Turnstile): conferir o token ANTES de registrar.
-    const { assertTurnstileToken } = await import("@/lib/turnstile.server");
-    await assertTurnstileToken(data.turnstileToken);
     if (data.website) throw new Error("Não foi possível registrar sua solicitação.");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -293,8 +281,6 @@ const completePreSaleSchema = z.object({
   summary: z.string().trim().max(3000).optional().default(""),
   consent: z.literal(true),
   website: z.string().max(0).optional().default(""),
-  // Token do Cloudflare Turnstile (anti-bot, item 12 da auditoria).
-  turnstileToken: z.string().max(2048).optional(),
 });
 
 // Conclui um lead parcial: preenche os campos do passo 2, registra o
@@ -304,9 +290,6 @@ const completePreSaleSchema = z.object({
 export const completePreSale = createServerFn({ method: "POST" })
   .validator((input: unknown) => completePreSaleSchema.parse(input))
   .handler(async ({ data }) => {
-    // Anti-bot (Turnstile): conferir o token ANTES de concluir.
-    const { assertTurnstileToken } = await import("@/lib/turnstile.server");
-    await assertTurnstileToken(data.turnstileToken);
     if (data.website) throw new Error("Não foi possível enviar sua solicitação.");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
