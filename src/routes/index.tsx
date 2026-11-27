@@ -41,7 +41,7 @@ function ScrollReveal({
   delay?: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(true);
+  const [visible, setVisible] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
 
   useEffect(() => {
@@ -59,9 +59,9 @@ function ScrollReveal({
       frame = window.requestAnimationFrame(() => {
         frame = 0;
         const bounds = node.getBoundingClientRect();
-        const readingBandTop = window.innerHeight * 0.16;
-        const readingBandBottom = window.innerHeight * 0.84;
-        setVisible(bounds.bottom > readingBandTop && bounds.top < readingBandBottom);
+        // Revela uma só vez, assim que a seção entra na tela, e nunca
+        // esconde de novo: o vaivém antigo deixava vãos pretos ao rolar.
+        if (bounds.top < window.innerHeight * 0.95) setVisible(true);
       });
     };
 
@@ -202,7 +202,7 @@ const SEGMENTOS = [
   {
     Icon: PartyPopper,
     title: "Eventos",
-    body: "Milhares de conexões, milhares de leads.",
+    body: "Muitas conexões em um só dia.",
   },
   {
     Icon: Store,
@@ -237,7 +237,7 @@ const SOLUCOES: {
     Icon: MessageCircle,
     title: "Disparos WhatsApp",
     body: "Fale com sua base direto no WhatsApp. Em breve, no plano Profissional.",
-    badge: "EM BREVE",
+    badge: "Em breve",
     hideLink: true,
   },
 ];
@@ -535,11 +535,10 @@ function SalesHomePage() {
       </header>
 
       <section className="relative isolate">
-        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_20%_0%,rgba(0,194,204,.06),transparent_42%),radial-gradient(ellipse_at_95%_25%,rgba(25,98,190,.05),transparent_36%)]" />
         <div className="mx-auto grid max-w-7xl items-center gap-12 px-5 pb-20 pt-16 sm:px-8 sm:pb-28 sm:pt-24 lg:grid-cols-[1.1fr_.9fr] lg:gap-16">
           <ScrollReveal className="h-full">
             <div>
-              <h1 className="max-w-3xl font-display text-4xl font-bold leading-[1.08] tracking-tight sm:text-5xl lg:text-6xl">
+              <h1 className="max-w-3xl font-display text-4xl font-semibold leading-[1.08] tracking-tight sm:text-5xl lg:text-6xl">
                 Seu <span className="text-cyan-400">Wi-Fi</span> agora é seu melhor{" "}
                 <span className="text-cyan-400">vendedor</span>.
               </h1>
@@ -592,10 +591,10 @@ function SalesHomePage() {
       <section id="solucoes" className="scroll-mt-20">
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
           <ScrollReveal>
-            <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
+            <p className="text-xs font-semibold text-slate-400">
               Soluções
             </p>
-            <h2 className="mt-3 max-w-3xl font-display text-3xl font-bold tracking-tight sm:text-4xl">
+            <h2 className="mt-3 max-w-3xl font-display text-3xl font-semibold tracking-tight sm:text-4xl">
               Tudo que o seu Wi-Fi pode fazer
             </h2>
             <p className="mt-4 max-w-2xl leading-7 text-slate-400">
@@ -605,16 +604,14 @@ function SalesHomePage() {
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {SOLUCOES.map(({ Icon, title, body, badge, hideLink }, index) => (
               <ScrollReveal key={title} className="h-full" delay={(index % 4) * 80}>
-                <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 sm:p-6">
-                  <span className="flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400/20 to-cyan-400/5 text-cyan-400" aria-hidden="true">
+                <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-colors duration-200 hover:border-cyan-400/40 sm:p-6">
+                  <span className="flex size-12 items-center justify-center rounded-xl bg-cyan-400/10 text-cyan-400" aria-hidden="true">
                     <Icon className="size-6" />
                   </span>
                   <h3 className="mt-4 flex flex-wrap items-center gap-2 font-semibold">
                     {title}
                     {badge ? (
-                      <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cyan-300">
-                        {badge}
-                      </span>
+                      <span className="text-[11px] font-semibold text-cyan-300">{badge}</span>
                     ) : null}
                   </h3>
                   <p className="mt-2 text-sm leading-6 text-slate-400">{body}</p>
@@ -623,7 +620,7 @@ function SalesHomePage() {
                       href="#como-funciona"
                       className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-cyan-400 hover:text-cyan-300"
                     >
-                      Ver como funciona <ArrowRight className="size-3.5" aria-hidden="true" />
+                      Ver como funciona <ArrowRight className="size-4" aria-hidden="true" />
                     </a>
                   )}
                 </article>
@@ -636,10 +633,10 @@ function SalesHomePage() {
       <section id="portais" className="scroll-mt-20 border-y border-white/[.07] bg-[#070D13]">
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
           <ScrollReveal>
-            <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
+            <p className="text-xs font-semibold text-slate-400">
               Portal real
             </p>
-            <h2 className="mt-3 max-w-3xl font-display text-3xl font-bold tracking-tight sm:text-4xl">
+            <h2 className="mt-3 max-w-3xl font-display text-3xl font-semibold tracking-tight sm:text-4xl">
               Veja o que seu cliente encontra ao se conectar.
             </h2>
             <p className="mt-4 max-w-2xl leading-7 text-slate-400">
@@ -651,17 +648,17 @@ function SalesHomePage() {
               <NotebookCheckinDemo />
             </ScrollReveal>
             <ScrollReveal delay={120}>
-              <h3 className="text-xl font-bold">Portal personalizado para cada negócio.</h3>
+              <h3 className="text-xl font-semibold">Portal personalizado para cada negócio.</h3>
               <p className="mt-3 leading-7 text-slate-400">
                 Seu cliente acessa o Wi-Fi e encontra uma experiência criada para a sua marca.
               </p>
-              <h3 className="mt-8 text-xl font-bold">Sua marca em movimento.</h3>
+              <h3 className="mt-8 text-xl font-semibold">Sua marca em movimento.</h3>
               <p className="mt-3 leading-7 text-slate-400">
                 Vídeo de até 10 segundos com reprodução automática dentro do portal — antes da
                 navegação começar.
               </p>
-              <p className="mt-6 inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/[.06] px-4 py-1.5 text-xs font-bold uppercase tracking-[.15em] text-cyan-200">
-                <span className="size-1.5 rounded-full bg-emerald-400" aria-hidden="true" />
+              <p className="mt-6 inline-flex items-center gap-2 text-xs text-slate-300">
+                <span className="size-1.5 rounded-full bg-cyan-400" aria-hidden="true" />
                 Vídeo automático · até 10s
               </p>
               <div className="mt-6">
@@ -682,8 +679,8 @@ function SalesHomePage() {
       <section className="border-y border-white/[.07] bg-[#070D13]">
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
           <ScrollReveal>
-            <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">Painel</p>
-            <h2 className="mt-3 max-w-3xl font-display text-3xl font-bold tracking-tight sm:text-4xl">
+            <p className="text-xs font-semibold text-slate-400">Painel</p>
+            <h2 className="mt-3 max-w-3xl font-display text-3xl font-semibold tracking-tight sm:text-4xl">
               E você acompanha tudo pelo seu painel.
             </h2>
             <p className="mt-6 max-w-2xl text-base leading-7 text-slate-300">
@@ -701,7 +698,7 @@ function SalesHomePage() {
           <div className="mt-12">
             <DashboardDemo />
           </div>
-          <p className="mt-6 text-center text-xs italic text-slate-400">
+          <p className="mt-6 text-center text-xs text-slate-400">
             Demonstração com dados de exemplo.
           </p>
         </div>
@@ -710,10 +707,10 @@ function SalesHomePage() {
       <section id="controle" className="scroll-mt-20">
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
           <ScrollReveal>
-            <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
+            <p className="text-xs font-semibold text-slate-400">
               Controle
             </p>
-            <h2 className="mt-3 max-w-3xl font-display text-3xl font-bold tracking-tight sm:text-4xl">
+            <h2 className="mt-3 max-w-3xl font-display text-3xl font-semibold tracking-tight sm:text-4xl">
               Você controla o Wi-Fi dos seus visitantes.
             </h2>
             <p className="mt-6 max-w-2xl text-base leading-7 text-slate-300">
@@ -723,8 +720,8 @@ function SalesHomePage() {
           </ScrollReveal>
           <div className="mt-10 grid gap-4 sm:grid-cols-3">
             <ScrollReveal className="h-full">
-              <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 sm:p-6">
-                <Gauge className="size-7 text-cyan-400" aria-hidden="true" />
+              <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-colors duration-200 hover:border-cyan-400/40 sm:p-6">
+                <Gauge className="size-6 text-cyan-400" aria-hidden="true" />
                 <h3 className="mt-3 font-semibold">Velocidade por visitante</h3>
                 <p className="mt-2 text-sm leading-6 text-slate-400">
                   Defina a velocidade de download e upload que cada visitante usa —
@@ -733,8 +730,8 @@ function SalesHomePage() {
               </article>
             </ScrollReveal>
             <ScrollReveal className="h-full" delay={90}>
-              <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 sm:p-6">
-                <Timer className="size-7 text-cyan-400" aria-hidden="true" />
+              <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-colors duration-200 hover:border-cyan-400/40 sm:p-6">
+                <Timer className="size-6 text-cyan-400" aria-hidden="true" />
                 <h3 className="mt-3 font-semibold">Tempo de conexão</h3>
                 <p className="mt-2 text-sm leading-6 text-slate-400">
                   Escolha quanto tempo dura cada check-in e quanto tempo parado
@@ -743,8 +740,8 @@ function SalesHomePage() {
               </article>
             </ScrollReveal>
             <ScrollReveal className="h-full" delay={180}>
-              <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 sm:p-6">
-                <RotateCcw className="size-7 text-cyan-400" aria-hidden="true" />
+              <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-colors duration-200 hover:border-cyan-400/40 sm:p-6">
+                <RotateCcw className="size-6 text-cyan-400" aria-hidden="true" />
                 <h3 className="mt-3 font-semibold">Limite de reconexões</h3>
                 <p className="mt-2 text-sm leading-6 text-slate-400">
                   Defina quantas vezes o mesmo aparelho pode se conectar e por
@@ -764,10 +761,10 @@ function SalesHomePage() {
       <section id="como-funciona" className="scroll-mt-20">
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
           <ScrollReveal>
-            <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
+            <p className="text-xs font-semibold text-slate-400">
               O que acontece?
             </p>
-            <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
+            <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight sm:text-4xl">
               Como a ManosTech funciona?
             </h2>
           </ScrollReveal>
@@ -775,7 +772,7 @@ function SalesHomePage() {
             {STEPS.map(({ num, title, body }, index) => (
               <ScrollReveal key={title} className="h-full" delay={(index % 2) * 90}>
                 <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 sm:p-6">
-                  <p className="text-[11px] font-bold uppercase tracking-[.15em] text-slate-400">
+                  <p className="text-[11px] font-semibold text-slate-500">
                     {num}
                   </p>
                   <h3 className="mt-1 font-semibold">{title}</h3>
@@ -790,10 +787,10 @@ function SalesHomePage() {
       <section id="equipamento" className="scroll-mt-20 border-y border-white/[.07] bg-[#070D13]">
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
           <ScrollReveal>
-            <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
+            <p className="text-xs font-semibold text-slate-400">
               Equipamento
             </p>
-            <h2 className="mt-3 max-w-3xl font-display text-3xl font-bold tracking-tight sm:text-4xl">
+            <h2 className="mt-3 max-w-3xl font-display text-3xl font-semibold tracking-tight sm:text-4xl">
               Você não compra equipamento nenhum
             </h2>
             <p className="mt-4 max-w-2xl leading-7 text-slate-400">
@@ -821,7 +818,7 @@ function SalesHomePage() {
             ].map(({ num, title, body }, index) => (
               <ScrollReveal key={title} className="h-full" delay={(index % 3) * 80}>
                 <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 sm:p-6">
-                  <p className="text-[11px] font-bold uppercase tracking-[.15em] text-slate-400">
+                  <p className="text-[11px] font-semibold text-slate-500">
                     {num}
                   </p>
                   <h3 className="mt-1 font-semibold">{title}</h3>
@@ -842,10 +839,10 @@ function SalesHomePage() {
       <section id="planos" className="scroll-mt-20">
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
           <ScrollReveal>
-            <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
+            <p className="text-xs font-semibold text-slate-400">
               Planos
             </p>
-            <h2 className="mt-3 max-w-3xl font-display text-3xl font-bold tracking-tight sm:text-4xl">
+            <h2 className="mt-3 max-w-3xl font-display text-3xl font-semibold tracking-tight sm:text-4xl">
               Um preço que cabe no caixa
             </h2>
             <p className="mt-4 max-w-2xl leading-7 text-slate-400">
@@ -895,7 +892,7 @@ function SalesHomePage() {
             </ScrollReveal>
             <ScrollReveal delay={90}>
               <article
-                className={`group relative flex cursor-pointer flex-col rounded-2xl border bg-[#0B1118] p-5 transition-all duration-300 sm:p-6 ${profissionalAberto ? "-translate-y-2 border-cyan-400/70 shadow-2xl shadow-cyan-400/25" : "border-cyan-400/40 hover:-translate-y-2 hover:border-cyan-400/70 hover:shadow-2xl hover:shadow-cyan-400/25"}`}
+                className={`group relative flex cursor-pointer flex-col rounded-2xl border bg-[#0B1118] p-5 transition-[border-color,transform] duration-200 sm:p-6 ${profissionalAberto ? "-translate-y-2 border-cyan-400/70" : "border-cyan-400/40 hover:-translate-y-2 hover:border-cyan-400/70"}`}
                 onClick={() => setProfissionalAberto((aberto) => !aberto)}
                 onKeyDown={(event) => {
                   if (event.target !== event.currentTarget) return;
@@ -910,9 +907,7 @@ function SalesHomePage() {
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="font-semibold">Profissional</h3>
-                  <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cyan-300">
-                    Mais escolhido
-                  </span>
+                  <span className="text-[11px] font-semibold text-cyan-300">Mais escolhido</span>
                 </div>
                 <p className="mt-3">
                   <span className="font-display text-4xl font-bold">R$147</span>
@@ -987,18 +982,18 @@ function SalesHomePage() {
       <section className="border-y border-white/[.07] bg-[#070D13]">
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
           <ScrollReveal>
-            <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
+            <p className="text-xs font-semibold text-slate-400">
               Para quem é
             </p>
-            <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
+            <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight sm:text-4xl">
               Feito para o seu tipo de negócio
             </h2>
           </ScrollReveal>
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {SEGMENTOS.map(({ Icon, title, body }, index) => (
               <ScrollReveal key={title} className="h-full" delay={(index % 4) * 80}>
-                <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 sm:p-6">
-                  <span className="flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400/20 to-cyan-400/5 text-cyan-400" aria-hidden="true">
+                <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-colors duration-200 hover:border-cyan-400/40 sm:p-6">
+                  <span className="flex size-12 items-center justify-center rounded-xl bg-cyan-400/10 text-cyan-400" aria-hidden="true">
                     <Icon className="size-6" />
                   </span>
                   <h3 className="mt-4 font-semibold">{title}</h3>
@@ -1014,10 +1009,10 @@ function SalesHomePage() {
         <div className="mx-auto max-w-4xl px-5 py-16 sm:px-8 sm:py-20">
           <ScrollReveal>
             <div className="max-w-3xl">
-              <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
+              <p className="text-xs font-semibold text-slate-400">
                 Perguntas frequentes
               </p>
-              <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
+              <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight sm:text-4xl">
                 Dúvidas comuns
               </h2>
             </div>
@@ -1056,10 +1051,10 @@ function SalesHomePage() {
       <section className="border-t border-white/[.07] bg-[#070D13]">
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
           <ScrollReveal>
-            <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
+            <h2 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
               Seu cliente já está entrando pela porta.
             </h2>
-            <p className="mt-3 text-xl font-bold leading-8 sm:text-2xl">
+            <p className="mt-3 text-xl font-semibold leading-8 sm:text-2xl">
               Agora faça o Wi-Fi trazer ele de volta.
             </p>
             <p className="mt-6 max-w-2xl text-base leading-7 text-slate-300">
