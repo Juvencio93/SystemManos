@@ -22,7 +22,7 @@ export const defaultPortalAppearance: PortalAppearance = {
   accentColor: "#14B8A6",
   visualStyle: "moderno",
   logoPosition: "center",
-  buttonText: "Conectar ao Wi-Fi grátis",
+  buttonText: "Conectar e Ver Oferta",
   autoplayEnabled: true,
   showArrows: true,
   showIndicators: true,

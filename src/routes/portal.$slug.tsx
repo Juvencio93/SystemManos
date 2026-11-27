@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
-import { useMemo, useState, useEffect, useLayoutEffect } from "react";
+import { useCallback, useMemo, useState, useEffect, useLayoutEffect } from "react";
 import {
   CheckCircle2,
   Loader2,
@@ -1395,17 +1395,38 @@ function PortalSuccess({
     }
   }, []);
 
+  // Camada 1 (retenção pós-check-in): depois do cadastro, o visitante vê a
+  // campanha por até 10s antes de ir para o login da RB. É o único momento
+  // com a atenção dele garantida: a internet ainda não foi liberada e o
+  // navegador cativo (CNA) mantém a janela aberta. O botão de pular aparece
+  // após 3s. Sem banner, sem demonstração e sem bloqueio, segue o
+  // redirecionamento de 700ms de antes.
+  const hasOffer = !isDemo && !done.checkinBlocked && !!routerLoginUrl && portal.bannerUrls.length > 0;
+  const [offerSecondsLeft, setOfferSecondsLeft] = useState(10);
+  const goToRouter = useCallback(() => {
+    if (routerLoginUrl) window.location.replace(routerLoginUrl);
+  }, [routerLoginUrl]);
+
+  useEffect(() => {
+    if (!hasOffer || offerSecondsLeft <= 0) return;
+    const timer = window.setTimeout(() => setOfferSecondsLeft((current) => Math.max(0, current - 1)), 1000);
+    return () => clearTimeout(timer);
+  }, [hasOffer, offerSecondsLeft]);
+
   useEffect(() => {
     if (isDemo || done.checkinBlocked || !routerLoginUrl) return;
 
     // The check-in was submitted by the visitor; from here on the RouterOS
     // authentication hand-off must be automatic, with no second tap required.
+    // While the offer hold is running, this effect waits: the countdown
+    // above drives the redirect when it reaches zero.
+    if (hasOffer && offerSecondsLeft > 0) return;
     const timer = window.setTimeout(() => {
-      window.location.replace(routerLoginUrl);
+      goToRouter();
     }, 700);
 
     return () => clearTimeout(timer);
-  }, [done.checkinBlocked, isDemo, routerLoginUrl]);
+  }, [done.checkinBlocked, isDemo, routerLoginUrl, hasOffer, offerSecondsLeft, goToRouter]);
 
   useEffect(() => {
     // For MikroTik, RouterOS redirects only after FreeRADIUS accepts the
@@ -1427,6 +1448,29 @@ function PortalSuccess({
     <PortalShell appearance={portal.appearance}>
       <Card className={`overflow-hidden ${theme.cardClass}`} style={theme.cardStyle}>
         <CardContent className="space-y-6 p-10 text-center">
+          {hasOffer && offerSecondsLeft > 0 && (
+            <div className="space-y-3">
+              <BannerCarousel
+                urls={portal.bannerUrls}
+                alt={`Banner de ${portal.companyName}`}
+                appearance={portal.appearance}
+              />
+              <p className="text-sm font-semibold text-[color:var(--portal-text)]">
+                Aproveite a oferta — seu Wi-Fi libera em {offerSecondsLeft}s
+              </p>
+              {offerSecondsLeft <= 7 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-12 w-full gap-2 border-[color:var(--portal-border)] bg-transparent text-[color:var(--portal-text)] transition-all hover:bg-[color:var(--portal-surface-alt)]"
+                  onClick={goToRouter}
+                >
+                  <Wifi className="size-4" />
+                  <span>Pular e conectar</span>
+                </Button>
+              )}
+            </div>
+          )}
           <div className="mx-auto flex size-20 items-center justify-center rounded-full bg-primary/10 ring-1 ring-primary/20">
             {done.checkinBlocked ? <ShieldCheck className="size-10 text-primary" /> : <CheckCircle2 className="size-10 text-primary" />}
           </div>
