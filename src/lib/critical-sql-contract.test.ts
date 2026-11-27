@@ -38,10 +38,6 @@ const asaasManagerRoute = readFileSync(
   resolve(process.cwd(), "src/routes/api/public/asaas-manager.ts"),
   "utf8",
 );
-const asaasWebhookRoute = readFileSync(
-  resolve(process.cwd(), "src/routes/api/public/asaas-webhook.ts"),
-  "utf8",
-);
 const asaasWebhookV2Route = readFileSync(
   resolve(process.cwd(), "src/routes/api/public/asaas-webhook-v2.ts"),
   "utf8",
@@ -133,7 +129,6 @@ describe("critical SQL contracts", () => {
     expect(operationalJobRoute).not.toContain("details: message");
     expect(operationalJobRoute).not.toContain('error: "Configuration Error"');
     expect(asaasManagerRoute).not.toContain("JSON.stringify({ error: error.message })");
-    expect(asaasWebhookRoute).not.toContain("JSON.stringify({ error: message })");
   });
 });
 
