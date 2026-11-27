@@ -14,6 +14,11 @@
  *  - Lotes de 10, com intervalo aleatório de 45–75 min entre lotes e
  *    pausas aleatórias de 30–90s entre mensagens do mesmo lote.
  *  - Antes de cada envio: "digitando..." por ~2s (presença composing).
+ *  - Dupla checagem de opt-in antes de cada envio (PR #232): quem respondeu
+ *    SAIR depois do agendamento é cancelado sem enviar (status 'optout').
+ *  - Automações (PR #233): welcome/NPS/winback agendados em
+ *    whatsapp_automation_logs são enviados no mesmo ritmo e teto; o
+ *    resgate de inativos (winback) é varrido 1x/dia pelo próprio worker.
  *  - Número sem WhatsApp → marcado 'sem_whatsapp' e sai da fila.
  *  - Só envia das 08:00 às 20:00 (America/Sao_Paulo).
  *  - Campanha sem pendentes → 'concluida'. Instância desconectada →
@@ -99,6 +104,33 @@ function primeiroNome(nome) {
 }
 
 /**
+ * Dupla checagem de opt-in (PR #232): o visitante pode ter respondido SAIR
+ * entre o agendamento e o envio. Retorna true (pode enviar), false (opt-out
+ * confirmado) ou null (visitante não encontrado na base).
+ */
+async function visitanteAutorizado(item) {
+  let visitante = null;
+  if (item.visitor_id) {
+    const res = await sbGet(
+      `visitors?id=eq.${item.visitor_id}&select=whatsapp_opt_in,marketing_consent,marketing_opt_out_at&limit=1`,
+    );
+    visitante = res?.[0] || null;
+  }
+  if (!visitante) {
+    const res = await sbGet(
+      `visitors?company_id=eq.${item.company_id}&phone_e164=eq.${encodeURIComponent(`+${item.telefone}`)}&select=whatsapp_opt_in,marketing_consent,marketing_opt_out_at&limit=1`,
+    );
+    visitante = res?.[0] || null;
+  }
+  if (!visitante) return null;
+  return (
+    visitante.whatsapp_opt_in === true &&
+    visitante.marketing_consent !== false &&
+    visitante.marketing_opt_out_at === null
+  );
+}
+
+/**
  * Micro-variação invisível: 8 caracteres de largura zero sorteados por
  * envio — nenhuma mensagem sai byte a byte igual à outra, sem mudar
  * nada do que o cliente lê.
@@ -108,6 +140,228 @@ function variacaoInvisivel() {
   let out = "";
   for (let i = 0; i < 8; i++) out += INVISIVEIS[Math.floor(Math.random() * INVISIVEIS.length)];
   return out;
+}
+
+/**
+ * Automações vencidas (PR #233): welcome_coupon, post_visit_nps e
+ * winback_inactive agendados em whatsapp_automation_logs.
+ *
+ * Mesmas travas da fila: teto diário do número, dupla checagem de opt-in
+ * antes de cada envio, pausa humana de 30–90s entre mensagens. Diferente
+ * da campanha, NÃO espera o próximo lote (são 1:1 e sensíveis ao tempo —
+ * boas-vindas 2 min, NPS 30 min). Retorna quantas foram enviadas, para
+ * descontar do teto diário. Qualquer instância da empresa pode enviar
+ * qualquer log dela (a trava scheduled→processing impede duplicar).
+ */
+const MAX_AUTOMACOES_POR_CICLO = 5;
+
+function renderAutomacao(template, nome, empresa, linkAvaliacao) {
+  return (template || "")
+    .replaceAll("{nome}", nome || "cliente")
+    .replaceAll("{empresa}", empresa || "")
+    .replaceAll("{link_avaliacao}", linkAvaliacao || "");
+}
+
+async function buscarVisitanteAutomacao(log) {
+  let visitante = null;
+  if (log.visitor_id) {
+    const res = await sbGet(
+      `visitors?id=eq.${log.visitor_id}&select=full_name,whatsapp_opt_in,marketing_consent,marketing_opt_out_at&limit=1`,
+    );
+    visitante = res?.[0] || null;
+  }
+  if (!visitante) {
+    const res = await sbGet(
+      `visitors?company_id=eq.${log.company_id}&phone_e164=eq.${encodeURIComponent(log.phone_e164)}&select=full_name,whatsapp_opt_in,marketing_consent,marketing_opt_out_at&limit=1`,
+    );
+    visitante = res?.[0] || null;
+  }
+  return visitante;
+}
+
+async function processarAutomacoes(inst, restantesHoje) {
+  const nome = inst.instance_name;
+  let enviados = 0;
+  let logs = [];
+  try {
+    logs = await sbGet(
+      `whatsapp_automation_logs?company_id=eq.${inst.company_id}&status=eq.scheduled&scheduled_for=lte.${new Date().toISOString()}&order=scheduled_for.asc&limit=${MAX_AUTOMACOES_POR_CICLO}&select=*`,
+    );
+  } catch (e) {
+    // Tabela ainda não existe (migration não aplicada): sem automações.
+    console.warn(`[${nome}] automações indisponíveis: ${e.message}`);
+    return 0;
+  }
+  if (!logs?.length) return 0;
+  // Nome da empresa para a variável {empresa}.
+  let nomeEmpresa = "";
+  try {
+    const emp = await sbGet(
+      `companies?id=eq.${inst.company_id}&select=name,trade_name&limit=1`,
+    );
+    nomeEmpresa = emp?.[0]?.trade_name || emp?.[0]?.name || "";
+  } catch { /* segue sem o nome */ }
+  for (const log of logs) {
+    if (enviados >= restantesHoje) break;
+    // Trava o log para este ciclo (outro ciclo/instância não pega o mesmo).
+    let claimed = [];
+    try {
+      claimed = await sb(`whatsapp_automation_logs?id=eq.${log.id}&status=eq.scheduled`, {
+        method: "PATCH",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({ status: "processing" }),
+      });
+    } catch { claimed = []; }
+    if (!claimed?.length) continue;
+    // Regra atual: se foi desativada depois do agendamento, não envia.
+    let regra = null;
+    try {
+      const regras = await sbGet(
+        `whatsapp_automation_rules?company_id=eq.${log.company_id}&rule_type=eq.${log.rule_type}&enabled=eq.true&select=*`,
+      );
+      regra = (regras || []).find((r) => r.branch_id === log.branch_id)
+        || (regras || []).find((r) => r.branch_id === null)
+        || null;
+    } catch { regra = null; }
+    if (!regra) {
+      await sbPatch(`whatsapp_automation_logs?id=eq.${log.id}`, {
+        status: "failed",
+        error_message: "regra desativada ou removida após o agendamento",
+      }).catch(() => undefined);
+      continue;
+    }
+    // Dupla checagem de opt-in (mesma regra da fila, PR #232). Falha na
+    // consulta = segue com o envio (rede de segurança, não trava de infra).
+    let visitante = null;
+    try {
+      visitante = await buscarVisitanteAutomacao(log);
+    } catch (e) {
+      console.warn(`[${nome}] checagem de opt-in indisponível (${log.phone_e164}): ${e.message}`);
+      visitante = { whatsapp_opt_in: true, marketing_consent: true, marketing_opt_out_at: null, full_name: "" };
+    }
+    if (!visitante) {
+      await sbPatch(`whatsapp_automation_logs?id=eq.${log.id}`, {
+        status: "failed",
+        error_message: "visitante não encontrado (opt-in não confirmado)",
+      }).catch(() => undefined);
+      continue;
+    }
+    const autorizado =
+      visitante.whatsapp_opt_in === true &&
+      visitante.marketing_consent !== false &&
+      visitante.marketing_opt_out_at === null;
+    if (!autorizado) {
+      await sbPatch(`whatsapp_automation_logs?id=eq.${log.id}`, { status: "skipped_optout" }).catch(() => undefined);
+      console.log(`[${nome}] automação opt-out → ${log.phone_e164} (cancelado sem enviar)`);
+      continue;
+    }
+    const telefone = (log.phone_e164 || "").replace(/\D/g, "");
+    const texto = renderAutomacao(
+      regra.message_template,
+      primeiroNome(visitante.full_name),
+      nomeEmpresa,
+      regra.google_review_url,
+    );
+    try {
+      const check = await evo(`/chat/whatsappNumbers/${encodeURIComponent(nome)}`, {
+        method: "POST",
+        body: JSON.stringify({ numbers: [telefone] }),
+      });
+      const info = Array.isArray(check) ? check[0] : null;
+      if (info && info.exists === false) {
+        await sbPatch(`whatsapp_automation_logs?id=eq.${log.id}`, {
+          status: "failed",
+          error_message: "sem_whatsapp",
+        }).catch(() => undefined);
+        continue;
+      }
+      await evo(`/chat/sendPresence/${encodeURIComponent(nome)}`, {
+        method: "POST",
+        body: JSON.stringify({ number: telefone, presence: "composing", delay: 2000 }),
+      }).catch(() => undefined);
+      await sleep(2000);
+      await evo(`/message/sendText/${encodeURIComponent(nome)}`, {
+        method: "POST",
+        body: JSON.stringify({ number: telefone, text: texto, delay: rand(800, 2000) }),
+      });
+      await sbPatch(`whatsapp_automation_logs?id=eq.${log.id}`, {
+        status: log.rule_type === "post_visit_nps" ? "awaiting_nps_reply" : "sent",
+        sent_at: new Date().toISOString(),
+        instancia_id: inst.id,
+      }).catch(() => undefined);
+      enviados++;
+      console.log(`[${nome}] automação ${log.rule_type} → ${log.phone_e164}`);
+    } catch (e) {
+      console.warn(`[${nome}] automação erro ${log.phone_e164}: ${e.message}`);
+      await sbPatch(`whatsapp_automation_logs?id=eq.${log.id}`, {
+        status: "failed",
+        error_message: String(e.message).slice(0, 300),
+      }).catch(() => undefined);
+    }
+    await sleep(rand(30000, 90000)); // pausa humana entre mensagens
+  }
+  return enviados;
+}
+
+/**
+ * Resgate de inativos (PR #233): varre 1x/dia as regras winback_inactive
+ * ativas e agenda quem está sem aparecer há delay_minutes. Idempotente:
+ * trigger_ref winback:YYYY-MM + cooldown da regra. Roda no máximo 1x/dia
+ * (controle em memória; reinício só re-varre, sem duplicar).
+ */
+let ultimoScanWinbackMs = 0;
+async function escanearWinback() {
+  if (Date.now() - ultimoScanWinbackMs < 24 * 60 * 60 * 1000) return;
+  ultimoScanWinbackMs = Date.now();
+  let regras = [];
+  try {
+    regras = await sbGet(
+      `whatsapp_automation_rules?rule_type=eq.winback_inactive&enabled=eq.true&select=*`,
+    );
+  } catch (e) {
+    // Tabela ainda não existe (migration não aplicada).
+    return;
+  }
+  const sp = agoraSP();
+  const mesRef = `${sp.getFullYear()}-${String(sp.getMonth() + 1).padStart(2, "0")}`;
+  for (const regra of regras || []) {
+    try {
+      const limiteInatividade = new Date(Date.now() - regra.delay_minutes * 60 * 1000).toISOString();
+      const visitantes = await sbGet(
+        `visitors?company_id=eq.${regra.company_id}&whatsapp_opt_in=eq.true&marketing_consent=eq.true&marketing_opt_out_at=is.null&last_seen_at=lte.${limiteInatividade}&select=id,phone_e164,full_name&order=last_seen_at.asc&limit=100`,
+      );
+      if (!visitantes?.length) continue;
+      const corteCooldown = new Date(Date.now() - regra.cooldown_days * 86_400_000).toISOString();
+      const recentes = await sbGet(
+        `whatsapp_automation_logs?company_id=eq.${regra.company_id}&rule_type=eq.winback_inactive&created_at=gte.${corteCooldown}&select=visitor_id&limit=1000`,
+      );
+      const jaAgendados = new Set((recentes || []).map((r) => r.visitor_id));
+      const novos = (visitantes || [])
+        .filter((v) => !jaAgendados.has(v.id))
+        .map((v) => ({
+          company_id: regra.company_id,
+          branch_id: regra.branch_id,
+          visitor_id: v.id,
+          phone_e164: v.phone_e164,
+          rule_type: "winback_inactive",
+          trigger_ref: `winback:${mesRef}`,
+          status: "scheduled",
+          scheduled_for: new Date().toISOString(),
+        }));
+      if (!novos.length) continue;
+      await sb(
+        `whatsapp_automation_logs?on_conflict=company_id,visitor_id,rule_type,trigger_ref`,
+        {
+          method: "POST",
+          headers: { Prefer: "resolution=ignore-duplicates" },
+          body: JSON.stringify(novos),
+        },
+      );
+      console.log(`[winback] ${novos.length} agendados (${regra.company_id})`);
+    } catch (e) {
+      console.warn(`[winback] regra ${regra.id} falhou: ${e.message}`);
+    }
+  }
 }
 
 // ---------- Ciclo ----------
@@ -137,6 +391,29 @@ async function processarInstancia(inst) {
     });
   }
 
+  // Teto diário (fila + automações do dia, por número)
+  const enviadosHojeRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/whatsapp_fila?instancia_id=eq.${inst.id}&status=eq.enviado&enviado_em=gte.${inicioHojeISO()}&select=id`,
+    { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, Prefer: "count=exact", Range: "0-0" } },
+  );
+  const filaHoje = Number((enviadosHojeRes.headers.get("content-range") || "0/0").split("/")[1] || 0);
+  const logsHojeRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/whatsapp_automation_logs?instancia_id=eq.${inst.id}&status=in.(sent,awaiting_nps_reply)&sent_at=gte.${inicioHojeISO()}&select=id`,
+    { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, Prefer: "count=exact", Range: "0-0" } },
+  );
+  const logsHoje = Number((logsHojeRes.headers.get("content-range") || "0/0").split("/")[1] || 0);
+  const enviadosHoje = filaHoje + logsHoje;
+  const teto = limiteDiario(inst.aquecimento_inicio);
+  let restantesHoje = teto - enviadosHoje;
+  if (restantesHoje <= 0) {
+    console.log(`[${nome}] teto diário atingido (${enviadosHoje}/${teto}). Retoma amanhã.`);
+    return;
+  }
+
+  // Automações vencidas (PR #233): não esperam o lote da campanha — são
+  // 1:1 e sensíveis ao tempo. Consomem o mesmo teto diário.
+  restantesHoje -= await processarAutomacoes(inst, restantesHoje);
+
   // Campanha ativa desta instância
   const campanhas = await sbGet(
     `whatsapp_campanhas?instancia_id=eq.${inst.id}&status=eq.enviando&order=created_at.asc&limit=1&select=id,mensagem,mensagem_2,mensagem_3`,
@@ -144,25 +421,12 @@ async function processarInstancia(inst) {
   if (!campanhas?.length) return;
   const campanha = campanhas[0];
 
-  // Teto diário
-  const enviadosHojeRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/whatsapp_fila?instancia_id=eq.${inst.id}&status=eq.enviado&enviado_em=gte.${inicioHojeISO()}&select=id`,
-    { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, Prefer: "count=exact", Range: "0-0" } },
-  );
-  const enviadosHoje = Number((enviadosHojeRes.headers.get("content-range") || "0/0").split("/")[1] || 0);
-  const teto = limiteDiario(inst.aquecimento_inicio);
-  const restantesHoje = teto - enviadosHoje;
-  if (restantesHoje <= 0) {
-    console.log(`[${nome}] teto diário atingido (${enviadosHoje}/${teto}). Retoma amanhã.`);
-    return;
-  }
-
   // Hora do próximo lote?
   if (inst.proximo_lote_em && new Date(inst.proximo_lote_em) > new Date()) return;
 
   const qtd = Math.min(LOTE, restantesHoje);
   const fila = await sbGet(
-    `whatsapp_fila?campanha_id=eq.${campanha.id}&status=eq.pendente&order=created_at.asc&limit=${qtd}&select=id,telefone,nome`,
+    `whatsapp_fila?campanha_id=eq.${campanha.id}&status=eq.pendente&order=created_at.asc&limit=${qtd}&select=id,telefone,nome,visitor_id,company_id`,
   );
   if (!fila?.length) {
     await sbPatch(`whatsapp_campanhas?id=eq.${campanha.id}`, {
@@ -175,6 +439,30 @@ async function processarInstancia(inst) {
 
   console.log(`[${nome}] lote de ${fila.length} (hoje: ${enviadosHoje}/${teto})`);
   for (const item of fila) {
+    // Dupla checagem de opt-in (PR #232): sem opt-in válido, cancela sem
+    // enviar e sem gastar o delay de 30-90s. Falha na consulta = segue com
+    // o envio (a checagem é rede de segurança, não trava de infra).
+    let autorizado = true;
+    try {
+      autorizado = await visitanteAutorizado(item);
+    } catch (e) {
+      console.warn(`[${nome}] checagem de opt-in indisponível (${item.telefone}): ${e.message}`);
+      autorizado = true;
+    }
+    if (autorizado === false) {
+      await sbPatch(`whatsapp_fila?id=eq.${item.id}`, { status: "optout" });
+      console.log(`[${nome}] opt-out → ${item.telefone} (cancelado sem enviar)`);
+      continue;
+    }
+    if (autorizado === null) {
+      await sbPatch(`whatsapp_fila?id=eq.${item.id}`, {
+        status: "erro",
+        erro: "visitante não encontrado (opt-in não confirmado)",
+        tentativas: 1,
+      });
+      console.log(`[${nome}] visitante não encontrado → ${item.telefone}`);
+      continue;
+    }
     try {
       // O número tem WhatsApp?
       const check = await evo(`/chat/whatsappNumbers/${encodeURIComponent(nome)}`, {
@@ -246,6 +534,11 @@ async function ciclo() {
         console.error(`[${inst.instance_name}] ciclo falhou: ${e.message}`),
       );
     }
+    // Resgate de inativos (PR #233): no máximo 1x/dia; o agendamento é
+    // idempotente (trigger_ref winback:YYYY-MM + cooldown da regra).
+    await escanearWinback().catch((e) =>
+      console.error(`[winback] scan falhou: ${e.message}`),
+    );
   } finally {
     cicloEmAndamento = false;
   }

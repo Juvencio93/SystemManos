@@ -49,6 +49,14 @@ async function evolutionFetch(path: string, init?: RequestInit) {
   return json;
 }
 
+/** Envia um texto via Evolution (usado pelo webhook e pelas automações). */
+export async function evolutionSendText(instanceName: string, to: string, text: string): Promise<void> {
+  await evolutionFetch(`/message/sendText/${encodeURIComponent(instanceName)}`, {
+    method: "POST",
+    body: JSON.stringify({ number: to, text }),
+  });
+}
+
 /** Cria a instância na Evolution (idempotente: "já existe" é tratado como ok). */
 export async function evolutionCriarInstancia(instanceName: string) {
   try {
