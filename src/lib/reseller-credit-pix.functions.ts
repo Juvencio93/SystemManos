@@ -6,6 +6,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { decryptSecret } from "@/lib/crypto.server";
 
 const CREDIT_UNIT_PRICE = 50;
+const CREDIT_VALIDITY_DAYS = 30;
 const ASAAS_USER_AGENT = "ManosTech/1.0 (Asaas API; server)";
 
 type AsaasEnvironment = "production" | "sandbox";
@@ -66,6 +67,29 @@ async function requireCreditPurchaseAccess(
   if (data?.some((role) => role.role === "revenda" && role.reseller_id === resellerId)) return;
   throw new Error("Sem permissão para comprar créditos desta revenda.");
 }
+
+/**
+ * Tabela de atacado do parceiro (preço do crédito), visível SOMENTE dentro do
+ * painel autenticado (/revendas). A fonte de verdade do valor é a mesma
+ * constante usada na criação do pedido PIX — a tela nunca inventa o preço.
+ */
+export const getResellerCreditPricing = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", context.userId)
+      .in("role", ["adm", "revenda"]);
+    if (error) throw new Error("Não foi possível validar suas permissões.");
+    if (!data?.some((role) => role.role === "adm" || role.role === "revenda"))
+      throw new Error("Sem permissão para ver a tabela de atacado.");
+    return {
+      unitPrice: CREDIT_UNIT_PRICE,
+      validityDays: CREDIT_VALIDITY_DAYS,
+      unitDescription: "1 crédito ativa 1 unidade (Matriz ou Filial) por 30 dias.",
+    };
+  });
 
 export const getOrCreateResellerCreditPix = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

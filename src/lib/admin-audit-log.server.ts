@@ -33,6 +33,8 @@ export const ADMIN_AUDIT_ACTIONS = [
   "password_reset.deny",
   "reseller.login_create",
   "reseller.delete",
+  "reseller.credit_grant",
+  "reseller.kit_generated",
 ] as const;
 
 export type AdminAuditAction = (typeof ADMIN_AUDIT_ACTIONS)[number];

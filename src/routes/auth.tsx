@@ -4,6 +4,14 @@ import { useEffect, useRef, useState, Suspense } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { requestPasswordReset } from "@/lib/password-reset.functions";
+import { signupResellerFn } from "@/lib/reseller-signup.functions";
+import { weakPasswordReason } from "@/lib/auth-errors";
+import {
+  formatDocument,
+  formatPhone,
+  isValidDocument,
+  onlyDigits,
+} from "@/lib/document-utils";
 
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -53,16 +61,20 @@ const credentials = z.object({
   password: z.string().min(6, "A senha deve ter ao menos 6 caracteres").max(72),
 });
 
-type AuthMode = "login" | "forgot" | "reset";
+type AuthMode = "login" | "forgot" | "reset" | "revenda";
 
 function AuthPage() {
   const navigate = useNavigate();
   // ?expired=idle|max vem do redirect de expireLocalSession (sem
   // validateSearch na rota de propósito: não quebrar os links existentes
   // para /auth).
-  const { expired: expiredParam } = Route.useSearch() as { expired?: unknown };
+  const { expired: expiredParam, modo: modoParam } = Route.useSearch() as {
+    expired?: unknown;
+    modo?: unknown;
+  };
   const expired = expiredParam === "idle" || expiredParam === "max" ? expiredParam : undefined;
   const requestResetFn = useServerFn(requestPasswordReset);
+  const signupResellerServerFn = useServerFn(signupResellerFn);
   const signInServerFn = useServerFn(signInFn);
   const mfaVerifyServerFn = useServerFn(mfaVerifyFn);
   const [ready, setReady] = useState(false);
@@ -81,11 +93,13 @@ function AuthPage() {
   const [loginToken, setLoginToken] = useState<string | null>(null);
   const [forgotToken, setForgotToken] = useState<string | null>(null);
   const [resetToken, setResetToken] = useState<string | null>(null);
+  const [signupToken, setSignupToken] = useState<string | null>(null);
   const [turnstileKey, setTurnstileKey] = useState(0);
   function resetTurnstile() {
     setLoginToken(null);
     setForgotToken(null);
     setResetToken(null);
+    setSignupToken(null);
     setTurnstileKey((v) => v + 1);
   }
   // Erro de credenciais exibido inline (fixo, não some sozinho).
@@ -97,9 +111,18 @@ function AuthPage() {
   const [mfaCode, setMfaCode] = useState("");
   // UX parte 6: recuperação de senha (antes não existia nenhum caminho —
   // quem esquecia a senha ficava travado fora do painel).
-  const [mode, setMode] = useState<AuthMode>("login");
+  // ?modo=revenda abre direto o cadastro de Parceiro / Revendedor
+  // (CTA da landing). Sem o parâmetro, a tela abre no login normal.
+  const [mode, setMode] = useState<AuthMode>(modoParam === "revenda" ? "revenda" : "login");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  // Cadastro de Parceiro / Revendedor (auto-cadastro, Frente C).
+  const [resellerName, setResellerName] = useState("");
+  const [resellerPhone, setResellerPhone] = useState("");
+  const [resellerDocument, setResellerDocument] = useState("");
+  const [resellerPassword, setResellerPassword] = useState("");
+  const [showResellerPassword, setShowResellerPassword] = useState(false);
+  const [signupError, setSignupError] = useState<string | null>(null);
 
   // Sessão expirada pelos limites (redirect de expireLocalSession): mensagem
   // amigável uma única vez; depois limpa o parâmetro da URL.
@@ -230,6 +253,79 @@ function AuthPage() {
     navigate({ to: "/dashboard", replace: true });
   }
 
+  async function handleResellerSignup(e: React.FormEvent) {
+    e.preventDefault();
+    setSignupError(null);
+    const name = resellerName.trim();
+    const phoneDigits = onlyDigits(resellerPhone);
+    const documentDigits = onlyDigits(resellerDocument);
+    if (name.length < 2) {
+      setSignupError("Informe seu nome completo ou a razão social.");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setSignupError("Informe um e-mail válido.");
+      return;
+    }
+    if (phoneDigits.length < 10 || phoneDigits.length > 11) {
+      setSignupError("Informe um WhatsApp válido com DDD.");
+      return;
+    }
+    if (!isValidDocument(resellerDocument)) {
+      setSignupError("CPF ou CNPJ inválido. Confira os números.");
+      return;
+    }
+    const weak = weakPasswordReason(resellerPassword);
+    if (weak) {
+      setSignupError(weak);
+      return;
+    }
+    // Anti-bot: sem token (e com o widget ativo), nem chama o servidor.
+    if (isTurnstileEnabled() && !signupToken) {
+      toast.error("Confirme que você não é um robô antes de continuar.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const result = await signupResellerServerFn({
+        data: {
+          name,
+          email: email.trim(),
+          phone: resellerPhone,
+          document: resellerDocument,
+          password: resellerPassword,
+          turnstileToken: signupToken ?? undefined,
+        },
+      });
+      if (result.alreadyExists) {
+        setLoading(false);
+        resetTurnstile();
+        toast.info("Você já tem cadastro — entre com seu e-mail e senha.");
+        setMode("login");
+        return;
+      }
+      if (result.kind === "session") {
+        await supabase.auth.setSession(result.session);
+        registerClientSessionStart(result.sessionStartedAt);
+        setLoading(false);
+        toast.success("Conta criada! Bem-vindo ao Portal do Parceiro.");
+        navigate({ to: "/revendas", replace: true });
+        return;
+      }
+      setLoading(false);
+      setMode("login");
+    } catch (err) {
+      setLoading(false);
+      resetTurnstile();
+      const message = err instanceof Error ? err.message : "";
+      if (message.includes("robô")) {
+        toast.error(message);
+      } else {
+        setSignupError(message || "Não foi possível criar sua conta. Tente de novo.");
+      }
+    }
+  }
+
   async function handleForgot(e: React.FormEvent) {
     e.preventDefault();
     const parsedEmail = z.string().trim().email("E-mail inválido").max(255).safeParse(email);
@@ -353,7 +449,9 @@ function AuthPage() {
                 A inteligência por trás do seu Wi-Fi corporativo
               </h2>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Acesso restrito. Use as credenciais fornecidas pela Manos Tech.
+                {mode === "revenda"
+                  ? "Crie sua conta de parceiro e comece a oferecer a ManosTech para os seus clientes."
+                  : "Acesso restrito. Use as credenciais fornecidas pela Manos Tech."}
               </p>
             </div>
 
@@ -486,6 +584,130 @@ function AuthPage() {
                     "Carregando..."
                   )}
                 </Button>
+                <p className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => setMode("revenda")}
+                    className="text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-cyan-400 hover:underline"
+                  >
+                    Quero ser parceiro / revendedor
+                  </button>
+                </p>
+              </form>
+            ) : mode === "revenda" ? (
+              <form onSubmit={handleResellerSignup} className="space-y-5 text-left">
+                <div className="text-center">
+                  <h3 className="font-display text-base font-black tracking-tight">
+                    Cadastro de Parceiro / Revendedor
+                  </h3>
+                  <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+                    O cadastro é grátis. Os créditos para ativar clientes são comprados depois,
+                    via PIX, quando você quiser.
+                  </p>
+                </div>
+                {signupError ? (
+                  <div
+                    role="alert"
+                    className="animate-in fade-in slide-in-from-top-2 duration-300 rounded-xl border border-red-500/30 bg-red-950/50 px-4 py-3 text-center text-sm text-red-300"
+                  >
+                    {signupError}
+                  </div>
+                ) : null}
+                <div className="space-y-2.5">
+                  <Label htmlFor="reseller-name" className="text-[11px] font-black uppercase tracking-widest opacity-60 ml-1">Nome completo / razão social</Label>
+                  <Input
+                    id="reseller-name"
+                    type="text"
+                    value={resellerName}
+                    onChange={(e) => { setResellerName(e.target.value); setSignupError(null); }}
+                    required
+                    autoComplete="name"
+                    className="transition-all duration-300 focus-visible:border-cyan-400/70 focus-visible:ring-2 focus-visible:ring-cyan-400/30"
+                  />
+                </div>
+                <div className="space-y-2.5">
+                  <Label htmlFor="reseller-email" className="text-[11px] font-black uppercase tracking-widest opacity-60 ml-1">E-mail</Label>
+                  <Input
+                    id="reseller-email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => { setEmail(e.target.value); setSignupError(null); }}
+                    required
+                    autoComplete="email"
+                    className="transition-all duration-300 focus-visible:border-cyan-400/70 focus-visible:ring-2 focus-visible:ring-cyan-400/30"
+                  />
+                </div>
+                <div className="space-y-2.5">
+                  <Label htmlFor="reseller-phone" className="text-[11px] font-black uppercase tracking-widest opacity-60 ml-1">WhatsApp / telefone</Label>
+                  <Input
+                    id="reseller-phone"
+                    type="tel"
+                    value={resellerPhone}
+                    onChange={(e) => { setResellerPhone(formatPhone(e.target.value)); setSignupError(null); }}
+                    required
+                    autoComplete="tel"
+                    placeholder="(00) 00000-0000"
+                    className="transition-all duration-300 focus-visible:border-cyan-400/70 focus-visible:ring-2 focus-visible:ring-cyan-400/30"
+                  />
+                </div>
+                <div className="space-y-2.5">
+                  <Label htmlFor="reseller-document" className="text-[11px] font-black uppercase tracking-widest opacity-60 ml-1">CPF ou CNPJ</Label>
+                  <Input
+                    id="reseller-document"
+                    type="text"
+                    inputMode="numeric"
+                    value={resellerDocument}
+                    onChange={(e) => { setResellerDocument(formatDocument(e.target.value)); setSignupError(null); }}
+                    required
+                    placeholder="000.000.000-00"
+                    className="transition-all duration-300 focus-visible:border-cyan-400/70 focus-visible:ring-2 focus-visible:ring-cyan-400/30"
+                  />
+                </div>
+                <div className="space-y-2.5">
+                  <Label htmlFor="reseller-password" className="text-[11px] font-black uppercase tracking-widest opacity-60 ml-1">Senha</Label>
+                  <div className="relative">
+                    <Input
+                      id="reseller-password"
+                      type={showResellerPassword ? "text" : "password"}
+                      value={resellerPassword}
+                      onChange={(e) => { setResellerPassword(e.target.value); setSignupError(null); }}
+                      required
+                      autoComplete="new-password"
+                      className="pr-11 transition-all duration-300 focus-visible:border-cyan-400/70 focus-visible:ring-2 focus-visible:ring-cyan-400/30"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowResellerPassword((v) => !v)}
+                      aria-label={showResellerPassword ? "Ocultar senha" : "Mostrar senha"}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-cyan-400"
+                    >
+                      {showResellerPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Ao menos 8 caracteres, com letras e números.</p>
+                </div>
+                <TurnstileWidget
+                  key={`signup-${turnstileKey}`}
+                  onToken={setSignupToken}
+                />
+                <Button type="submit" className="w-full shadow-glow" disabled={loading || !ready}>
+                  {loading ? (
+                    <Loader2 className="size-4 animate-spin" aria-label="Criando conta..." />
+                  ) : ready ? (
+                    "Criar minha conta de parceiro"
+                  ) : (
+                    "Carregando..."
+                  )}
+                </Button>
+                <p className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => setMode("login")}
+                    className="text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
+                  >
+                    Já tem conta? Entrar
+                  </button>
+                </p>
               </form>
             ) : mode === "forgot" ? (
               <form onSubmit={handleForgot} className="space-y-5 text-left">
