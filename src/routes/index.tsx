@@ -4,6 +4,7 @@ import {
   ArrowRight,
   ArrowUp,
   Beer,
+  Check,
   Croissant,
   Database,
   Gauge,
@@ -14,6 +15,7 @@ import {
   Store,
   Timer,
   UserPlus,
+  X,
 } from "lucide-react";
 import logo from "@/assets/manos-tech-logo-institutional.png";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -24,6 +26,10 @@ import { WifiVisitantesDemo } from "@/components/app/wifi-visitantes-demo";
 import { isFrameDocumentReady } from "@/lib/iframe-ready";
 
 const SOCIAL_IMAGE_URL = new URL(logo, "https://manostech-system.com.br").toString();
+
+const WHATSAPP_URL = `https://wa.me/5547997049730?text=${encodeURIComponent(
+  "Olá! Quero saber como o ManosTech System pode funcionar no meu negócio.",
+)}`;
 
 function ScrollReveal({
   children,
@@ -131,11 +137,31 @@ const FAQ_ITEMS = [
   },
   {
     q: "E a privacidade dos clientes?",
-    a: "A coleta e o tratamento dos dados devem seguir as regras e finalidades informadas ao usuário, respeitando a legislação aplicável e os direitos dos titulares. Consulte a Política de Privacidade para conhecer os detalhes.",
+    a: "A coleta e o tratamento dos dados devem seguir as regras e finalidades informadas ao usuário, respeitando a legislação aplicável e os direitos dos titulares. O contato só é usado para promoções se o cliente marcar a caixinha de autorização. Consulte a Política de Privacidade para conhecer os detalhes.",
   },
   {
     q: "O que posso fazer com os contatos gerados?",
     a: "Você pode utilizar a base para criar ações de relacionamento e campanhas para pessoas que já tiveram contato com o seu estabelecimento.",
+  },
+  {
+    q: "Preciso comprar equipamento?",
+    a: "Não. É nosso, em comodato. Se cancelar, retiramos.",
+  },
+  {
+    q: "Meu roteador serve?",
+    a: "Talvez. Se for compatível, reaproveitamos. Se não, instalamos um nosso.",
+  },
+  {
+    q: "Quanto custa a instalação?",
+    a: "A partir de R$300, conforme o local. Você sabe o valor antes de fechar. E só é cobrada se você continuar depois dos 14 dias grátis.",
+  },
+  {
+    q: "Como funcionam os disparos de WhatsApp?",
+    a: "Em breve, no plano Profissional. Você conecta o seu WhatsApp e paga a Meta direto, por mensagem. Só enviamos para quem aceitou receber.",
+  },
+  {
+    q: "Posso cancelar quando quiser?",
+    a: "Sim. Sem multa e sem fidelidade.",
   },
 ];
 
@@ -185,7 +211,13 @@ const SEGMENTOS = [
   },
 ];
 
-const SOLUCOES = [
+const SOLUCOES: {
+  Icon: typeof UserPlus;
+  title: string;
+  body: string;
+  badge?: string;
+  hideLink?: boolean;
+}[] = [
   {
     Icon: UserPlus,
     title: "Captura de leads",
@@ -204,7 +236,9 @@ const SOLUCOES = [
   {
     Icon: MessageCircle,
     title: "Disparos WhatsApp",
-    body: "Fale com sua base direto no WhatsApp, com 1 clique.",
+    body: "Fale com sua base direto no WhatsApp. Em breve, no plano Profissional.",
+    badge: "EM BREVE",
+    hideLink: true,
   },
 ];
 
@@ -457,6 +491,7 @@ function MobileBotecoDemo({ loop = false }: { loop?: boolean }) {
 
 function SalesHomePage() {
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const [profissionalAberto, setProfissionalAberto] = useState(false);
 
   useEffect(() => {
     let frame = 0;
@@ -509,9 +544,9 @@ function SalesHomePage() {
                 <span className="text-cyan-400">vendedor</span>.
               </h1>
               <p className="mt-6 max-w-2xl text-base leading-7 text-slate-300 sm:text-lg">
-                Com a <strong>ManosTech System</strong>, o Wi-Fi do seu estabelecimento deixa de
-                ser apenas um serviço gratuito e passa a ser uma{" "}
-                <strong>ferramenta de relacionamento e vendas</strong>.
+                O <strong>Wi-Fi</strong> do seu estabelecimento deixa de ser só um favor e vira{" "}
+                <strong>ferramenta de vendas</strong>: cada cliente que se conecta vira um
+                contato na sua base.
               </p>
               <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300 sm:text-lg">
                 Conheça melhor quem visita seu negócio, transforme acessos em oportunidades e use
@@ -531,15 +566,20 @@ function SalesHomePage() {
                   onClick={openPreSaleChat}
                   className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-cyan-400 px-6 font-bold text-slate-950 transition hover:bg-cyan-400"
                 >
-                  Quero transformar meu Wi-Fi em vendas <ArrowRight className="size-4" />
+                  Testar grátis por 14 dias <ArrowRight className="size-4" />
                 </button>
                 <a
-                  href="#portais"
+                  href={WHATSAPP_URL}
+                  target="_blank"
+                  rel="noreferrer"
                   className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/15 px-6 font-semibold text-white transition hover:border-white/35"
                 >
-                  Ver um portal de verdade <ArrowRight className="size-4" />
+                  Falar no WhatsApp <ArrowRight className="size-4" />
                 </a>
               </div>
+              <p className="mt-4 text-sm text-slate-400">
+                Sem cartão de crédito. Equipamento incluso, você não compra nada.
+              </p>
             </div>
           </ScrollReveal>
 
@@ -563,20 +603,29 @@ function SalesHomePage() {
             </p>
           </ScrollReveal>
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {SOLUCOES.map(({ Icon, title, body }, index) => (
+            {SOLUCOES.map(({ Icon, title, body, badge, hideLink }, index) => (
               <ScrollReveal key={title} className="h-full" delay={(index % 4) * 80}>
                 <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 sm:p-6">
                   <span className="flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400/20 to-cyan-400/5 text-cyan-400" aria-hidden="true">
                     <Icon className="size-6" />
                   </span>
-                  <h3 className="mt-4 font-semibold">{title}</h3>
+                  <h3 className="mt-4 flex flex-wrap items-center gap-2 font-semibold">
+                    {title}
+                    {badge ? (
+                      <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cyan-300">
+                        {badge}
+                      </span>
+                    ) : null}
+                  </h3>
                   <p className="mt-2 text-sm leading-6 text-slate-400">{body}</p>
-                  <a
-                    href="#como-funciona"
-                    className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-cyan-400 hover:text-cyan-300"
-                  >
-                    Ver como funciona <ArrowRight className="size-3.5" aria-hidden="true" />
-                  </a>
+                  {hideLink ? null : (
+                    <a
+                      href="#como-funciona"
+                      className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-cyan-400 hover:text-cyan-300"
+                    >
+                      Ver como funciona <ArrowRight className="size-3.5" aria-hidden="true" />
+                    </a>
+                  )}
                 </article>
               </ScrollReveal>
             ))}
@@ -738,6 +787,203 @@ function SalesHomePage() {
         </div>
       </section>
 
+      <section id="equipamento" className="scroll-mt-20 border-y border-white/[.07] bg-[#070D13]">
+        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
+          <ScrollReveal>
+            <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
+              Equipamento
+            </p>
+            <h2 className="mt-3 max-w-3xl font-display text-3xl font-bold tracking-tight sm:text-4xl">
+              Você não compra equipamento nenhum
+            </h2>
+            <p className="mt-4 max-w-2xl leading-7 text-slate-400">
+              A gente leva e instala tudo. O equipamento é nosso e fica com você em comodato
+              enquanto for cliente. Se cancelar, a gente retira.
+            </p>
+          </ScrollReveal>
+          <div className="mt-10 grid gap-4 sm:grid-cols-3">
+            {[
+              {
+                num: "01",
+                title: "A gente instala",
+                body: "Instalamos um equipamento nosso, ligado à internet que você já tem.",
+              },
+              {
+                num: "02",
+                title: "Seu roteador pode servir",
+                body: "Se o seu roteador servir, reaproveitamos. Se o do provedor for bloqueado, instalamos um segundo equipamento nosso.",
+              },
+              {
+                num: "03",
+                title: "No mesmo dia",
+                body: "No mesmo dia o Wi-Fi já capta contatos.",
+              },
+            ].map(({ num, title, body }, index) => (
+              <ScrollReveal key={title} className="h-full" delay={(index % 3) * 80}>
+                <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 sm:p-6">
+                  <p className="text-[11px] font-bold uppercase tracking-[.15em] text-slate-400">
+                    {num}
+                  </p>
+                  <h3 className="mt-1 font-semibold">{title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-400">{body}</p>
+                </article>
+              </ScrollReveal>
+            ))}
+          </div>
+          <ScrollReveal>
+            <p className="mt-8 text-base leading-7 text-slate-300">
+              <strong>Instalação: a partir de R$300</strong>, avaliada caso a caso (visita,
+              configuração e portal com a sua marca).
+            </p>
+          </ScrollReveal>
+        </div>
+      </section>
+
+      <section id="planos" className="scroll-mt-20">
+        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
+          <ScrollReveal>
+            <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-400">
+              Planos
+            </p>
+            <h2 className="mt-3 max-w-3xl font-display text-3xl font-bold tracking-tight sm:text-4xl">
+              Um preço que cabe no caixa
+            </h2>
+            <p className="mt-4 max-w-2xl leading-7 text-slate-400">
+              Sem fidelidade.
+            </p>
+          </ScrollReveal>
+          <div className="mx-auto mt-10 grid max-w-4xl items-start gap-4 md:grid-cols-2">
+            <ScrollReveal>
+              <article className="flex flex-col rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 sm:p-6">
+                <h3 className="font-semibold">Essencial</h3>
+                <p className="mt-3">
+                  <span className="font-display text-4xl font-bold">R$97</span>
+                  <span className="text-slate-400">/mês</span>
+                </p>
+                <ul className="mt-5 flex-1 space-y-2.5 text-sm leading-6 text-slate-300">
+                  {[
+                    "Portal com a sua marca",
+                    "Captura de leads",
+                    "CRM",
+                    "Controle do Wi-Fi (velocidade e tempo de conexão)",
+                    "Painel",
+                    "Suporte no WhatsApp",
+                    "1 estabelecimento",
+                  ].map((feature) => (
+                    <li key={feature} className="flex items-start gap-2">
+                      <Check className="mt-1 size-4 shrink-0 text-cyan-400" aria-hidden="true" />
+                      {feature}
+                    </li>
+                  ))}
+                  <li className="flex items-start gap-2 text-slate-500">
+                    <X className="mt-1 size-4 shrink-0" aria-hidden="true" />
+                    Módulo de Disparos de WhatsApp não incluso
+                  </li>
+                  <li className="flex items-start gap-2 text-slate-500">
+                    <X className="mt-1 size-4 shrink-0" aria-hidden="true" />
+                    Geração de imagens para banner não inclusa
+                  </li>
+                </ul>
+                <button
+                  type="button"
+                  onClick={openPreSaleChat}
+                  className="mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/15 px-6 font-semibold text-white transition hover:border-white/35"
+                >
+                  Começar 14 dias grátis <ArrowRight className="size-4" />
+                </button>
+              </article>
+            </ScrollReveal>
+            <ScrollReveal delay={90}>
+              <article
+                className={`group relative flex cursor-pointer flex-col rounded-2xl border bg-[#0B1118] p-5 transition-all duration-300 sm:p-6 ${profissionalAberto ? "-translate-y-2 border-cyan-400/70 shadow-2xl shadow-cyan-400/25" : "border-cyan-400/40 hover:-translate-y-2 hover:border-cyan-400/70 hover:shadow-2xl hover:shadow-cyan-400/25"}`}
+                onClick={() => setProfissionalAberto((aberto) => !aberto)}
+                onKeyDown={(event) => {
+                  if (event.target !== event.currentTarget) return;
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setProfissionalAberto((aberto) => !aberto);
+                  }
+                }}
+                tabIndex={0}
+                role="button"
+                aria-expanded={profissionalAberto}
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="font-semibold">Profissional</h3>
+                  <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cyan-300">
+                    Mais escolhido
+                  </span>
+                </div>
+                <p className="mt-3">
+                  <span className="font-display text-4xl font-bold">R$147</span>
+                  <span className="text-slate-400">/mês</span>
+                </p>
+                <ul className="mt-5 flex-1 space-y-2.5 text-sm leading-6 text-slate-300">
+                  <li className="flex items-start gap-2">
+                    <Check className="mt-1 size-4 shrink-0 text-cyan-400" aria-hidden="true" />
+                    Tudo do Essencial
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="mt-1 size-4 shrink-0 text-cyan-400" aria-hidden="true" />
+                    Módulo de Disparos de WhatsApp (em breve)
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="mt-1 size-4 shrink-0 text-cyan-400" aria-hidden="true" />
+                    Estrutura completa de envio: só quem autorizou recebe, com histórico
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="mt-1 size-4 shrink-0 text-cyan-400" aria-hidden="true" />
+                    Geração de imagens para banner
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="mt-1 size-4 shrink-0 text-cyan-400" aria-hidden="true" />
+                    Sem cota inclusa: você paga a Meta direto, por mensagem enviada
+                  </li>
+                </ul>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    openPreSaleChat();
+                  }}
+                  className="mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-cyan-400 px-6 font-bold text-slate-950 transition hover:bg-cyan-400"
+                >
+                  Começar 14 dias grátis <ArrowRight className="size-4" />
+                </button>
+                <div
+                  className={`grid transition-[grid-template-rows] duration-500 ease-out ${profissionalAberto ? "grid-rows-[1fr]" : "grid-rows-[0fr] group-hover:grid-rows-[1fr]"}`}
+                >
+                  <div className="overflow-hidden">
+                    <div className="mt-4 space-y-2.5 border-t border-white/[.08] pt-4 text-sm leading-6 text-slate-300">
+                      <p>
+                        <strong className="text-white">Disparo:</strong> você escreve a
+                        mensagem e escolhe quem recebe — só quem autorizou. O envio vai no
+                        ritmo certo, com histórico de quem recebeu e de quem pediu pra não
+                        receber mais.
+                      </p>
+                      <p>
+                        <strong className="text-white">Imagens:</strong> as imagens dos
+                        banners são geradas com a cara do seu negócio, sem você precisar de
+                        designer.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            </ScrollReveal>
+          </div>
+          <ScrollReveal>
+            <p className="mx-auto mt-8 max-w-4xl text-xs leading-5 text-slate-400">
+              Instalação a partir de R$300, caso a caso. Equipamento em comodato. 14 dias
+              grátis, sem fidelidade, cancela quando quiser. Disparos de WhatsApp (plano
+              Profissional, em breve): os envios são cobrados pela Meta diretamente no cartão
+              do cliente, por mensagem (hoje cerca de R$0,32 por mensagem de marketing; valor
+              definido pela Meta e pode mudar). A ManosTech não cobra por mensagem enviada.
+            </p>
+          </ScrollReveal>
+        </div>
+      </section>
+
       <section className="border-y border-white/[.07] bg-[#070D13]">
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
           <ScrollReveal>
@@ -814,20 +1060,28 @@ function SalesHomePage() {
               Seu cliente já está entrando pela porta.
             </h2>
             <p className="mt-3 text-xl font-bold leading-8 sm:text-2xl">
-              Agora faça o Wi-Fi trabalhar para trazer esse cliente de volta.
+              Agora faça o Wi-Fi trazer ele de volta.
             </p>
             <p className="mt-6 max-w-2xl text-base leading-7 text-slate-300">
               Transforme o Wi-Fi do seu estabelecimento em uma ferramenta de relacionamento,
               inteligência e vendas.
             </p>
-            <div className="mt-8">
+            <div className="mt-8 flex flex-col flex-wrap gap-3 sm:flex-row">
               <button
                 type="button"
                 onClick={openPreSaleChat}
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-cyan-400 px-6 font-bold text-slate-950 transition hover:bg-cyan-400"
               >
-                Quero transformar meu Wi-Fi em vendas <ArrowRight className="size-4" />
+                Começar 14 dias grátis <ArrowRight className="size-4" />
               </button>
+              <a
+                href={WHATSAPP_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/15 px-6 font-semibold text-white transition hover:border-white/35"
+              >
+                Falar no WhatsApp <ArrowRight className="size-4" />
+              </a>
             </div>
           </ScrollReveal>
         </div>
