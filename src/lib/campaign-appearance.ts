@@ -38,6 +38,12 @@ export function safePortalColor(value: string | null | undefined, fallback: stri
 
 type PortalAppearanceInput = { [K in keyof PortalAppearance]?: PortalAppearance[K] | undefined };
 
+// O texto antigo do botão foi o padrão até 27/11/2026 e ficou gravado na
+// aparência de empresas que nunca o personalizaram. Ele não conta como
+// personalização: essas empresas seguem o padrão atual. Só um texto
+// diferente do antigo é respeitado como escolha da empresa.
+const LEGACY_DEFAULT_BUTTON_TEXT = "Conectar ao Wi-Fi grátis";
+
 export function normalizePortalAppearance(input?: PortalAppearanceInput | null): PortalAppearance {
   const visualStyle = portalVisualStyles.includes(input?.visualStyle as PortalVisualStyle)
     ? (input!.visualStyle as PortalVisualStyle)
@@ -52,7 +58,10 @@ export function normalizePortalAppearance(input?: PortalAppearanceInput | null):
     accentColor: safePortalColor(input?.accentColor, defaultPortalAppearance.accentColor),
     visualStyle,
     logoPosition,
-    buttonText: input?.buttonText?.trim().slice(0, 60) || defaultPortalAppearance.buttonText,
+    buttonText:
+      input?.buttonText?.trim() && input.buttonText.trim() !== LEGACY_DEFAULT_BUTTON_TEXT
+        ? input.buttonText.trim().slice(0, 60)
+        : defaultPortalAppearance.buttonText,
     autoplayEnabled: input?.autoplayEnabled ?? defaultPortalAppearance.autoplayEnabled,
     showArrows: input?.showArrows ?? defaultPortalAppearance.showArrows,
     showIndicators: input?.showIndicators ?? defaultPortalAppearance.showIndicators,
