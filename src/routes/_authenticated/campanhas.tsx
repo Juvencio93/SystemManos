@@ -1940,7 +1940,7 @@ function CampaignsPage() {
                       id="button_text"
                       value={form.appearance.buttonText}
                       maxLength={60}
-                      placeholder="Conectar ao Wi-Fi grátis"
+                      placeholder="Conectar e Ver Oferta"
                       onChange={(event) => updateAppearance({ buttonText: event.target.value })}
                     />
                   </div>

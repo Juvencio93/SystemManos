@@ -186,13 +186,13 @@ function schedulerIntervalCommand() {
 function hotspotLoginFileSyncCommand() {
   // Upgrade the on-router login page once. This keeps the credentials POST
   // same-origin with RouterOS and retries on later heartbeats if a fetch fails.
-  return `:if ([:len [/file find where name="flash/manos-login-v3.marker"]] = 0) do={
+  return `:if ([:len [/file find where name="flash/manos-login-v4.marker"]] = 0) do={
   :do {
     :local manosLoginFetch [/tool fetch url="https://manostech-system.com.br/mikrotik/login.html" mode=https dst-path="flash/hotspot/login.html" check-certificate=yes as-value]
     :if (($manosLoginFetch->"status") = "finished") do={
       :local manosAloginFetch [/tool fetch url="https://manostech-system.com.br/mikrotik/alogin.html" mode=https dst-path="flash/hotspot/alogin.html" check-certificate=yes as-value]
       :if (($manosAloginFetch->"status") = "finished") do={
-        /tool fetch url="https://manostech-system.com.br/mikrotik/manos-login-v3.marker" mode=https dst-path="flash/manos-login-v3.marker" check-certificate=yes
+        /tool fetch url="https://manostech-system.com.br/mikrotik/manos-login-v4.marker" mode=https dst-path="flash/manos-login-v4.marker" check-certificate=yes
       }
     }
   } on-error={ :log warning "Manos Tech login page update failed; will retry" }
@@ -210,7 +210,7 @@ function syncAcknowledgementCommand(identity: string, requestedAt: string, block
   // These checks run after the commands above. An import or fetch failure
   // leaves the request pending instead of reporting a false success.
   return `:if ([:len [/radius find where service=hotspot comment~"^MANOS-RADIUS" disabled=no]] = 0) do={ :error "Manos Tech RADIUS sync not confirmed" }
-:if ([:len [/file find where name="flash/manos-login-v3.marker"]] = 0) do={ :error "Manos Tech login sync not confirmed" }
+:if ([:len [/file find where name="flash/manos-login-v4.marker"]] = 0) do={ :error "Manos Tech login sync not confirmed" }
 :if ([:len [/system scheduler find where name="MANOS-HEARTBEAT" comment="MANOS-FW-${firewallState}"]] = 0) do={ :error "Manos Tech firewall sync not confirmed" }
 /tool fetch url="${url}" http-method=post http-data="" output=none check-certificate=yes
 `;
