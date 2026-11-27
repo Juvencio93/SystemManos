@@ -8,10 +8,14 @@ import {
   Croissant,
   Database,
   Gauge,
+  Handshake,
   Megaphone,
   MessageCircle,
   PartyPopper,
+  PlugZap,
   RotateCcw,
+  Scale,
+  ShieldCheck,
   Store,
   Timer,
   UserPlus,
@@ -524,6 +528,12 @@ function SalesHomePage() {
             </span>
           </Link>
           <nav className="flex items-center gap-2 sm:gap-6">
+            <a
+              href="/auth?modo=revenda"
+              className="hidden text-sm font-semibold text-slate-300 transition hover:text-cyan-400 sm:block"
+            >
+              Sou Parceiro
+            </a>
             <Link
               to="/auth"
               className="rounded-full border border-white/15 px-4 py-2 text-sm font-semibold transition hover:border-cyan-400 hover:bg-cyan-400 hover:text-slate-950 focus-visible:border-cyan-400 focus-visible:bg-cyan-400 focus-visible:text-slate-950 active:border-cyan-400 active:bg-cyan-400 active:text-slate-950"
@@ -1005,6 +1015,85 @@ function SalesHomePage() {
         </div>
       </section>
 
+      <section id="parceiros" className="scroll-mt-20 border-y border-white/[.07] bg-[#070D13]">
+        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
+          <ScrollReveal>
+            <p className="text-xs font-semibold text-slate-400">Para parceiros</p>
+            <h2 className="mt-3 max-w-3xl font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+              Para Técnicos de TI, Provedores e Integradores
+            </h2>
+            <p className="mt-6 max-w-2xl text-base leading-7 text-slate-300">
+              Você instala internet e redes nos seus clientes? A ManosTech vira mais um
+              serviço no seu portfólio — sem você precisar criar nada do zero.
+            </p>
+          </ScrollReveal>
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <ScrollReveal className="h-full">
+              <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-colors duration-200 hover:border-cyan-400/40 sm:p-6">
+                <span className="flex size-12 items-center justify-center rounded-xl bg-cyan-400/10 text-cyan-400" aria-hidden="true">
+                  <PlugZap className="size-6" />
+                </span>
+                <h3 className="mt-4 font-semibold">Kit MikroTik plug &amp; play</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-400">
+                  A configuração do roteador é gerada automaticamente, já testada antes e
+                  depois da instalação, com checagem de saúde e atualização remota. Você
+                  pluga, o sistema cuida do resto.
+                </p>
+              </article>
+            </ScrollReveal>
+            <ScrollReveal className="h-full" delay={80}>
+              <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-colors duration-200 hover:border-cyan-400/40 sm:p-6">
+                <span className="flex size-12 items-center justify-center rounded-xl bg-cyan-400/10 text-cyan-400" aria-hidden="true">
+                  <ShieldCheck className="size-6" />
+                </span>
+                <h3 className="mt-4 font-semibold">Isolamento total do caixa</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-400">
+                  A rede dos visitantes fica separada da rede interna: o caixa e o sistema
+                  de vendas nunca ficam no mesmo caminho da internet dos clientes.
+                </p>
+              </article>
+            </ScrollReveal>
+            <ScrollReveal className="h-full" delay={160}>
+              <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-colors duration-200 hover:border-cyan-400/40 sm:p-6">
+                <span className="flex size-12 items-center justify-center rounded-xl bg-cyan-400/10 text-cyan-400" aria-hidden="true">
+                  <Scale className="size-6" />
+                </span>
+                <h3 className="mt-4 font-semibold">Privacidade e lei em dia</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-400">
+                  O visitante autoriza o contato na hora, pode sair quando quiser
+                  respondendo SAIR, e tudo fica registrado para auditoria.
+                </p>
+              </article>
+            </ScrollReveal>
+            <ScrollReveal className="h-full" delay={240}>
+              <article className="h-full rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 transition-colors duration-200 hover:border-cyan-400/40 sm:p-6">
+                <span className="flex size-12 items-center justify-center rounded-xl bg-cyan-400/10 text-cyan-400" aria-hidden="true">
+                  <Handshake className="size-6" />
+                </span>
+                <h3 className="mt-4 font-semibold">Painel próprio de revenda</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-400">
+                  Sua carteira de clientes num só lugar, créditos comprados via PIX, e
+                  liberdade para definir sua mensalidade e taxa de instalação.
+                </p>
+              </article>
+            </ScrollReveal>
+          </div>
+          <ScrollReveal>
+            <div className="mt-10 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+              <a
+                href="/auth?modo=revenda"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-cyan-400 px-6 font-bold text-slate-950 transition hover:bg-cyan-400"
+              >
+                Quero ser Parceiro / Revendedor <ArrowRight className="size-4" />
+              </a>
+              <p className="text-sm text-slate-400">
+                Cadastre-se grátis e comece quando quiser.
+              </p>
+            </div>
+          </ScrollReveal>
+        </div>
+      </section>
+
       <section id="duvidas" className="scroll-mt-20">
         <div className="mx-auto max-w-4xl px-5 py-16 sm:px-8 sm:py-20">
           <ScrollReveal>
@@ -1131,6 +1220,9 @@ function SalesHomePage() {
             <Link className="transition hover:text-slate-300" to="/auth">
               Entrar no sistema
             </Link>
+            <a className="transition hover:text-slate-300" href="/auth?modo=revenda">
+              Área do Parceiro / Revenda
+            </a>
           </div>
         </footer>
       </ScrollReveal>

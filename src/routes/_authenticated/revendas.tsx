@@ -420,6 +420,34 @@ export function ResellersPage() {
           ) : undefined
         }
       />
+      {isReseller &&
+      !resellers.isLoading &&
+      !companies.isLoading &&
+      resellerList.length > 0 &&
+      availableCredits(resellerList[0]!.id) === 0 &&
+      companyList.filter((company: any) => company.reseller_id === resellerList[0]!.id)
+        .length === 0 ? (
+        <div
+          role="status"
+          className="flex flex-col gap-4 rounded-2xl border border-primary/25 bg-primary/10 p-5 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div>
+            <p className="font-display text-lg font-bold">Bem-vindo ao Portal do Parceiro!</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Adquira seus primeiros créditos via PIX para cadastrar seu primeiro cliente.
+            </p>
+          </div>
+          <Button
+            onClick={() => {
+              setPixDialogReseller(resellerList[0]);
+              setPixData(null);
+              setCreditQuantity("1");
+            }}
+          >
+            Comprar créditos via PIX
+          </Button>
+        </div>
+      ) : null}
       <div className="grid gap-4 md:grid-cols-3">
         {isAdm ? <>
           <MetricCard icon={Handshake} label="Revendas cadastradas" value={resellerList.length} />
