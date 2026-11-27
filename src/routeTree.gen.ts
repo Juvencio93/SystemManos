@@ -37,6 +37,7 @@ import { Route as AuthenticatedResumoSemanalRouteImport } from './routes/_authen
 import { Route as AuthenticatedRevendasRouteImport } from './routes/_authenticated/revendas'
 import { Route as AuthenticatedSolicitacoesPrivacidadeRouteImport } from './routes/_authenticated/solicitacoes-privacidade'
 import { Route as AuthenticatedVisitantesRouteImport } from './routes/_authenticated/visitantes'
+import { Route as AuthenticatedWhatsappRouteImport } from './routes/_authenticated/whatsapp'
 import { Route as PortalSlugRouteImport } from './routes/portal.$slug'
 import { Route as AuthenticatedEmpresasIndexRouteImport } from './routes/_authenticated/empresas.index'
 import { Route as AuthenticatedEmpresasCompanyIdRouteImport } from './routes/_authenticated/empresas.$companyId'
@@ -215,6 +216,11 @@ const AuthenticatedSolicitacoesPrivacidadeRoute =
 const AuthenticatedVisitantesRoute = AuthenticatedVisitantesRouteImport.update({
   id: '/visitantes',
   path: '/visitantes',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedWhatsappRoute = AuthenticatedWhatsappRouteImport.update({
+  id: '/whatsapp',
+  path: '/whatsapp',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const PortalSlugRoute = PortalSlugRouteImport.update({
@@ -441,6 +447,7 @@ export interface FileRoutesByFullPath {
   '/revendas': typeof AuthenticatedRevendasRoute
   '/solicitacoes-privacidade': typeof AuthenticatedSolicitacoesPrivacidadeRoute
   '/visitantes': typeof AuthenticatedVisitantesRoute
+  '/whatsapp': typeof AuthenticatedWhatsappRoute
   '/portal/$slug': typeof PortalSlugRoute
   '/empresas/$companyId': typeof AuthenticatedEmpresasCompanyIdRoute
   '/financeiro/a-receber': typeof AuthenticatedFinanceiroAReceberRoute
@@ -503,6 +510,7 @@ export interface FileRoutesByTo {
   '/revendas': typeof AuthenticatedRevendasRoute
   '/solicitacoes-privacidade': typeof AuthenticatedSolicitacoesPrivacidadeRoute
   '/visitantes': typeof AuthenticatedVisitantesRoute
+  '/whatsapp': typeof AuthenticatedWhatsappRoute
   '/portal/$slug': typeof PortalSlugRoute
   '/empresas/$companyId': typeof AuthenticatedEmpresasCompanyIdRoute
   '/financeiro/a-receber': typeof AuthenticatedFinanceiroAReceberRoute
@@ -568,6 +576,7 @@ export interface FileRoutesById {
   '/_authenticated/revendas': typeof AuthenticatedRevendasRoute
   '/_authenticated/solicitacoes-privacidade': typeof AuthenticatedSolicitacoesPrivacidadeRoute
   '/_authenticated/visitantes': typeof AuthenticatedVisitantesRoute
+  '/_authenticated/whatsapp': typeof AuthenticatedWhatsappRoute
   '/portal/$slug': typeof PortalSlugRoute
   '/_authenticated/empresas/$companyId': typeof AuthenticatedEmpresasCompanyIdRoute
   '/_authenticated/financeiro/a-receber': typeof AuthenticatedFinanceiroAReceberRoute
@@ -633,6 +642,7 @@ export interface FileRouteTypes {
     | '/revendas'
     | '/solicitacoes-privacidade'
     | '/visitantes'
+    | '/whatsapp'
     | '/portal/$slug'
     | '/empresas/$companyId'
     | '/financeiro/a-receber'
@@ -695,6 +705,7 @@ export interface FileRouteTypes {
     | '/revendas'
     | '/solicitacoes-privacidade'
     | '/visitantes'
+    | '/whatsapp'
     | '/portal/$slug'
     | '/empresas/$companyId'
     | '/financeiro/a-receber'
@@ -759,6 +770,7 @@ export interface FileRouteTypes {
     | '/_authenticated/revendas'
     | '/_authenticated/solicitacoes-privacidade'
     | '/_authenticated/visitantes'
+    | '/_authenticated/whatsapp'
     | '/portal/$slug'
     | '/_authenticated/empresas/$companyId'
     | '/_authenticated/financeiro/a-receber'
@@ -1027,6 +1039,13 @@ declare module '@tanstack/react-router' {
       path: '/visitantes'
       fullPath: '/visitantes'
       preLoaderRoute: typeof AuthenticatedVisitantesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/whatsapp': {
+      id: '/_authenticated/whatsapp'
+      path: '/whatsapp'
+      fullPath: '/whatsapp'
+      preLoaderRoute: typeof AuthenticatedWhatsappRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/portal/$slug': {
@@ -1317,6 +1336,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedRevendasRoute: typeof AuthenticatedRevendasRoute
   AuthenticatedSolicitacoesPrivacidadeRoute: typeof AuthenticatedSolicitacoesPrivacidadeRoute
   AuthenticatedVisitantesRoute: typeof AuthenticatedVisitantesRoute
+  AuthenticatedWhatsappRoute: typeof AuthenticatedWhatsappRoute
   AuthenticatedEmpresasCompanyIdRoute: typeof AuthenticatedEmpresasCompanyIdRoute
   AuthenticatedMarketingCampaignIdRoute: typeof AuthenticatedMarketingCampaignIdRoute
   AuthenticatedEmpresasIndexRoute: typeof AuthenticatedEmpresasIndexRoute
@@ -1345,6 +1365,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSolicitacoesPrivacidadeRoute:
     AuthenticatedSolicitacoesPrivacidadeRoute,
   AuthenticatedVisitantesRoute: AuthenticatedVisitantesRoute,
+  AuthenticatedWhatsappRoute: AuthenticatedWhatsappRoute,
   AuthenticatedEmpresasCompanyIdRoute: AuthenticatedEmpresasCompanyIdRoute,
   AuthenticatedMarketingCampaignIdRoute: AuthenticatedMarketingCampaignIdRoute,
   AuthenticatedEmpresasIndexRoute: AuthenticatedEmpresasIndexRoute,

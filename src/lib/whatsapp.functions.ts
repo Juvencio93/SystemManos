@@ -13,14 +13,17 @@ import {
   somenteDigitos,
 } from "@/lib/whatsapp.server";
 
-type WhatsappScope = {
+export type WhatsappScope = {
   role: "matriz" | "filial";
   companyId: string;
   branchId: string | null;
   userId: string;
 };
 
-async function resolveWhatsappScope(supabase: any, userId: string): Promise<WhatsappScope> {
+export async function resolveWhatsappScope(
+  supabase: any,
+  userId: string,
+): Promise<WhatsappScope> {
   const { data, error } = await supabase
     .from("user_roles")
     .select("role, company_id, branch_id")
@@ -47,6 +50,38 @@ async function resolveWhatsappScope(supabase: any, userId: string): Promise<What
   };
 }
 
+/**
+ * Escopo das réguas no painel. O ADM não tem empresa própria: ele escolhe
+ * a empresa na tela e configura as réguas dela em nível de matriz. O
+ * companyId vindo do cliente só vale quando o papel é ADM — verificado
+ * aqui no servidor, nunca confiado. Matriz e filial usam o próprio vínculo.
+ */
+export async function resolveAutomationScope(
+  supabase: any,
+  userId: string,
+  companyId?: string | null,
+): Promise<WhatsappScope> {
+  const { data, error } = await supabase
+    .from("user_roles")
+    .select("role, company_id, branch_id")
+    .eq("user_id", userId);
+  if (error || !data?.length) {
+    throw new Error("Sem permissão para acessar os disparos de WhatsApp.");
+  }
+  const linhas = data as Array<{
+    role: string;
+    company_id: string | null;
+    branch_id: string | null;
+  }>;
+  if (linhas.some((l) => l.role === "adm")) {
+    if (!companyId) {
+      throw new Error("Escolha uma empresa para configurar as mensagens automáticas.");
+    }
+    return { role: "matriz", companyId, branchId: null, userId };
+  }
+  return resolveWhatsappScope(supabase, userId);
+}
+
 function isMissingWhatsappTable(error: unknown) {
   const msg = error && typeof error === "object" ? JSON.stringify(error).toLowerCase() : "";
   return (
@@ -68,7 +103,7 @@ function hojeSP(): string {
   return inicioHojeSP().slice(0, 10);
 }
 
-async function buscarInstancia(admin: any, scope: WhatsappScope) {
+export async function buscarInstancia(admin: any, scope: WhatsappScope) {
   let q = admin
     .from("whatsapp_instancias")
     .select("id, instance_name, numero, status, aquecimento_inicio, conectada_em")
