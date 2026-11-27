@@ -10,6 +10,7 @@ import {
   MAX_CAMPAIGN_LOGO_BYTES,
   MAX_CAMPAIGN_VIDEO_BYTES,
   MAX_CAMPAIGN_VIDEO_SECONDS,
+  campaignAssetLimitLabel,
   validateCampaignAssetClaim,
   type CampaignAssetKind,
 } from "@/lib/campaign-upload-validation";
@@ -31,7 +32,7 @@ export const VIDEO_COMPRESS_URL = "https://www.freeconvert.com/pt/video-compress
 
 async function uploadImage(path: string, file: File) {
   const { error } = await supabase.storage.from("campaign-assets").upload(path, file, {
-    cacheControl: "31536000",
+    cacheControl: "public, max-age=31536000, immutable",
     upsert: true,
     contentType: file.type,
   });
@@ -205,7 +206,7 @@ export async function uploadCampaignVideo(companyId: string, file: File) {
   if (file.size > MAX_VIDEO_FILE_BYTES) {
     const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
     throw new Error(
-      `O vídeo possui ${sizeMB} MB. O limite é de 10 MB por vídeo. Comprima gratuitamente e envie de novo.`,
+      `O vídeo possui ${sizeMB} MB. O limite é de ${campaignAssetLimitLabel("video")} por vídeo. Comprima gratuitamente e envie de novo.`,
     );
   }
   const duration = await getVideoDurationSeconds(file);

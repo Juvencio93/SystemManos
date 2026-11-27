@@ -149,7 +149,7 @@ async function uploadCompanyLogo(file: File) {
   const { error } = await supabase.storage.from("campaign-assets").upload(path, uploadFile, {
     // Caminho contém UUID (arquivo imutável/versionado): cache longo reduz
     // drasticamente o egress do Storage em carregamentos repetidos do portal.
-    cacheControl: "31536000",
+    cacheControl: "public, max-age=31536000, immutable",
     upsert: false,
     contentType: uploadFile.type,
   });

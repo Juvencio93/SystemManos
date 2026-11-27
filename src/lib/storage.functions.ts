@@ -7,6 +7,7 @@ import {
   CAMPAIGN_ASSETS_BUCKET,
   CAMPAIGN_ASSET_KINDS,
   CAMPAIGN_ASSET_MAX_BYTES,
+  MAX_BRAND_LOGO_BYTES,
   MAX_CAMPAIGN_VIDEO_SECONDS,
   campaignAssetExtensionForMime,
   campaignAssetExtensionMatchesMime,
@@ -195,10 +196,11 @@ export const finalizeLogoUpload = createServerFn({ method: "POST" })
       .object({
         bucket: z.literal("brand-assets"),
         objectPath: z.string().trim().min(1).max(500),
-        // Alinhado com o front (Frente 5): 10 MB + PNG/JPEG/WebP. O bucket
-        // continua com 15 MB como teto — o finalize é o portão efetivo,
-        // mesmo padrão do `campaign-assets` (bucket 15 MB, tetos por tipo).
-        size: z.number().int().positive().max(10 * 1024 * 1024),
+        // P1 (escala): 500 KB + PNG/JPEG/WebP — o limite vale para o
+        // arquivo final (WebP otimizado). O bucket continua com 15 MB
+        // como teto — o finalize é o portão efetivo, mesmo padrão do
+        // `campaign-assets` (bucket 15 MB, tetos por tipo).
+        size: z.number().int().positive().max(MAX_BRAND_LOGO_BYTES),
         mimeType: z.enum(["image/png", "image/jpeg", "image/webp"]),
       })
       .parse(data),
@@ -293,7 +295,7 @@ async function canRemoveStoredAsset(
  * no arquivo: para `kind === "video"`, o handler baixa o MP4 gravado e
  * lê a duração do cabeçalho (`mvhd`, ver `mp4-duration.ts`). Um cliente
  * que declarar menos que o real não passa; se o arquivo não der para ler,
- * aceita com log (fail-open — o cliente já validou e o teto de 10 MB
+ * aceita com log (fail-open — o cliente já validou e o teto de 3 MB
  * continua valendo).
  *
  * O zod aqui só delimita formato; a regra de negócio com mensagem amigável

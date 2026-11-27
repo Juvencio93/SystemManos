@@ -10,11 +10,11 @@
  * 15 MB (migration `20261112210000_campaign_assets_allowed_mime_types`) e
  * o servidor confere o objeto gravado antes de liberar a URL pública.
  *
- * Decisão do teto (documentada na PR): o bucket subiu de 5 MB para 15 MB
- * em vez de o front baixar para 5 MB, porque o front já promete 15 MB de
- * banner / 10 MB de vídeo / 10 MB de logo de empresa e filial. 15 MB cabe
- * no plano Supabase: o teto global de arquivo do plano Free é 50 MB e o
- * bucket `brand-assets`, no mesmo projeto, já opera com 15 MB.
+ * Tetos P1 (escala, 27/11/2026): imagem máx. 500 KB e vídeo máx. 3 MB —
+ * o egress do Storage é o gargalo (um vídeo de 8 MB × 30 mil visitantes
+ * come quase toda a cota do plano Pro). Os tetos valem para o arquivo que
+ * vai para o Storage (após a otimização para WebP ≤ 1200 px); o teto do
+ * bucket continua em 15 MB como guarda pré-decodificação.
  *
  * Limitação conhecida (resolvida na Frente 5): a duração máxima de 10 s
  * do vídeo era atestada só pelo cliente (`durationSeconds`) — o Storage
@@ -22,7 +22,7 @@
  * `finalizeCampaignAssetUpload` baixa o MP4 gravado e lê o cabeçalho
  * (`mvhd`, ver `mp4-duration.ts`). O valor declarado continua sendo o
  * primeiro portão (validação rápida no front e no servidor); o teto de
- * 10 MB por vídeo continua como limite prático adicional.
+ * 3 MB por vídeo continua como limite prático adicional.
  */
 import {
   MAX_SPONSOR_BANNER_BYTES,
@@ -53,15 +53,17 @@ export const CAMPAIGN_ASSET_VIDEO_MIME_TYPES = ["video/mp4"] as const;
 /** Teto do bucket (migration): 15 MB. */
 export const CAMPAIGN_ASSET_MAX_BYTES = 15 * 1024 * 1024;
 
-/** Tetos por tipo de upload — iguais aos prometidos no front. */
-export const MAX_CAMPAIGN_LOGO_BYTES = 5 * 1024 * 1024;
-export const MAX_CAMPAIGN_BANNER_BYTES = 15 * 1024 * 1024;
-export const MAX_CAMPAIGN_VIDEO_BYTES = 10 * 1024 * 1024;
+/** Tetos por tipo de upload — P1 (escala): imagem 500 KB, vídeo 3 MB. */
+export const MAX_CAMPAIGN_LOGO_BYTES = 500 * 1024;
+export const MAX_CAMPAIGN_BANNER_BYTES = 500 * 1024;
+export const MAX_CAMPAIGN_VIDEO_BYTES = 3 * 1024 * 1024;
 export const MAX_CAMPAIGN_VIDEO_SECONDS = 10;
-export const MAX_COMPANY_LOGO_BYTES = 10 * 1024 * 1024;
-export const MAX_BRANCH_LOGO_BYTES = 10 * 1024 * 1024;
+export const MAX_COMPANY_LOGO_BYTES = 500 * 1024;
+export const MAX_BRANCH_LOGO_BYTES = 500 * 1024;
 /** Capa de vídeo gerada no navegador (JPEG a partir do canvas). */
-export const MAX_VIDEO_POSTER_BYTES = 5 * 1024 * 1024;
+export const MAX_VIDEO_POSTER_BYTES = 500 * 1024;
+/** Logo da plataforma (bucket `brand-assets`, ver `finalizeLogoUpload`). */
+export const MAX_BRAND_LOGO_BYTES = 500 * 1024;
 
 export const CAMPAIGN_ASSET_KINDS = [
   "logo",
@@ -165,7 +167,9 @@ export function campaignAssetMaxBytes(kind: CampaignAssetKind): number {
 }
 
 export function campaignAssetLimitLabel(kind: CampaignAssetKind): string {
-  return `${Math.round(KIND_RULES[kind].maxBytes / (1024 * 1024))} MB`;
+  const maxBytes = KIND_RULES[kind].maxBytes;
+  if (maxBytes < 1024 * 1024) return `${Math.round(maxBytes / 1024)} KB`;
+  return `${Math.round(maxBytes / (1024 * 1024))} MB`;
 }
 
 export interface CampaignAssetClaim {

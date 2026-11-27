@@ -73,6 +73,7 @@ import { getPaymentProviderPreference, savePaymentProviderPreference } from "@/l
 import { getPagBankIntegration, removePagBankIntegration, savePagBankIntegration, testPagBankIntegration } from "@/lib/pagbank-integration.functions";
 import { isPagBankProductionApprovalPending } from "@/lib/pagbank-errors";
 import { finalizeLogoUpload } from "@/lib/storage.functions";
+import { MAX_BRAND_LOGO_BYTES } from "@/lib/campaign-upload-validation";
 import { useServerFn } from "@tanstack/react-start";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -817,6 +818,15 @@ function SettingsPage() {
       // transparência da remoção de fundo.
       const webpName = `${file.name.replace(/\.[^.]+$/, "") || "logo"}.webp`;
       const finalFile = new File([blob], webpName, { type: "image/webp" });
+      // P1 (escala): o limite de 500 KB vale para o arquivo final (WebP
+      // otimizado) — o finalize do servidor recusa acima disso.
+      if (finalFile.size > MAX_BRAND_LOGO_BYTES) {
+        setUploadState("error");
+        toast.error(
+          "A imagem otimizada ficou com mais de 500 KB. Use uma imagem menor ou com menos detalhes.",
+        );
+        return;
+      }
       const { data: authData, error: authError } = await supabase.auth.getUser();
       if (authError || !authData.user) throw new Error("Sessão inválida para enviar a imagem.");
       const path = `logos/${authData.user.id}/${Date.now()}-${finalFile.name.replace(/[^a-zA-Z0-9.]/g, "_")}`;
@@ -825,7 +835,7 @@ function SettingsPage() {
         .upload(path, finalFile, {
           // Caminho único por upload (Date.now + nome): logo imutável,
           // servida por URL pública repetidamente — cache longo corta egress.
-          cacheControl: "31536000",
+          cacheControl: "public, max-age=31536000, immutable",
         });
       if (uploadError) throw uploadError;
 
@@ -1201,8 +1211,9 @@ function SettingsPage() {
                         preferencialmente uma logo em PNG com fundo transparente.
                       </p>
                       <p className="text-[10px] text-muted-foreground/70">
-                        Formatos aceitos: PNG, JPG ou WebP. Tamanho máximo: 15 MB. Pré-visualização
-                        disponível após o envio.
+                        Formatos aceitos: PNG, JPG ou WebP. A imagem é otimizada
+                        automaticamente e o arquivo final deve ter no máximo 500 KB.
+                        Pré-visualização disponível após o envio.
                       </p>
                     </div>
                   </div>
