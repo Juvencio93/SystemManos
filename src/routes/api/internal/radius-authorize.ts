@@ -55,6 +55,21 @@ export const Route = createFileRoute("/api/internal/radius-authorize")({
         const { data: valid, error: validationError } = await (supabaseAdmin as any).rpc("validate_hotspot_assignment", { p_identity: normalizedIdentity, p_username: username });
         if (validationError || valid !== true) return unauthorized();
 
+        // Réguas automáticas (PR #233): agenda welcome/NPS para esta conexão.
+        // Fail-open — o agendamento nunca trava a liberação do Wi-Fi. A
+        // tabela ainda não existe até a migration ser aplicada no Supabase;
+        // nesse caso o agendamento só não acontece (log de aviso, sem erro).
+        try {
+          if (username) {
+            const { scheduleAutomationForConnection } = await import(
+              "@/lib/whatsapp-automation.server"
+            );
+            await scheduleAutomationForConnection(supabaseAdmin, { username });
+          }
+        } catch (e) {
+          console.warn("[radius-authorize] automação não agendada:", e instanceof Error ? e.message : String(e));
+        }
+
         // RouterOS applies these attributes only to this authenticated HotSpot
         // session. Its rate notation is router-centric: rx is client upload
         // and tx is client download.
