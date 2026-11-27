@@ -64,8 +64,6 @@ import {
   campaignSchema,
   isVideoPath,
   videoPosterPath,
-  MAX_BANNER_FILE_BYTES,
-  MAX_OTHER_FILE_BYTES,
   uploadCampaignAsset,
   uploadCampaignVideo,
   uploadSponsorAsset,
@@ -76,6 +74,7 @@ import {
   type SponsorDraft,
   type UploadProgress,
 } from "@/components/app/campaigns/campaign-editor-model";
+import { CAMPAIGN_ASSET_MAX_BYTES } from "@/lib/campaign-upload-validation";
 import { CampaignPortalPreview } from "@/components/app/campaign-portal-preview";
 import { StylePickerCards } from "@/components/app/campaigns/style-picker-cards";
 import {
@@ -1081,10 +1080,13 @@ function CampaignsPage() {
                               const file = e.target.files?.[0];
                               if (!file) return;
 
-                              if (file.size > MAX_OTHER_FILE_BYTES) {
+                              // Pré-filtro: só o teto do bucket (15 MB) barra aqui — o
+                              // limite de 500 KB vale para o arquivo otimizado e é
+                              // validado dentro de `uploadCampaignAsset`.
+                              if (file.size > CAMPAIGN_ASSET_MAX_BYTES) {
                                 const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
                                 toast.error(
-                                  `A imagem possui ${sizeMB} MB. O limite é de 5 MB por imagem.`,
+                                  `A imagem possui ${sizeMB} MB. O limite é de 15 MB por imagem.`,
                                 );
                                 e.target.value = "";
                                 return;
@@ -1153,7 +1155,7 @@ function CampaignsPage() {
                           />
                         </Button>
                         <p className="text-[10px] text-muted-foreground">
-                          PNG, JPG ou WEBP • Máximo 5 MB
+                          PNG, JPG ou WEBP • Máximo 500 KB (otimizamos automaticamente)
                         </p>
                       </div>
 
@@ -1329,7 +1331,10 @@ function CampaignsPage() {
                             }
 
                             const validFiles = selectedFiles.filter((f) => {
-                              if (f.size > MAX_BANNER_FILE_BYTES) {
+                              // Pré-filtro: só o teto do bucket (15 MB) barra aqui — o
+                              // limite de 500 KB vale para o arquivo otimizado e é
+                              // validado dentro de `uploadCampaignAsset`.
+                              if (f.size > CAMPAIGN_ASSET_MAX_BYTES) {
                                 const sizeMB = (f.size / (1024 * 1024)).toFixed(2);
                                 toast.error(
                                   `A imagem possui ${sizeMB} MB. O limite é de 15 MB por imagem.`,
@@ -1422,7 +1427,7 @@ function CampaignsPage() {
                       </label>
                     </div>
                     <p className="text-[10px] text-muted-foreground italic">
-                      Máximo 15 MB por imagem. O sistema otimiza automaticamente para WebP.
+                      Máximo 500 KB por imagem. O sistema otimiza automaticamente para WebP.
                     </p>
 
                     <div className="space-y-4 border-t pt-6">
@@ -1433,7 +1438,7 @@ function CampaignsPage() {
                       </div>
                       <p className="text-xs text-muted-foreground">
                         Um vídeo curto no carrossel, no lugar de um banner. MP4, até 10
-                        segundos e até 10 MB. Toca sem som, em loop, e nunca trava o botão
+                        segundos e até 3 MB. Toca sem som, em loop, e nunca trava o botão
                         Conectar. Limite: 1 vídeo por campanha.
                       </p>
 
@@ -1486,7 +1491,7 @@ function CampaignsPage() {
                               Adicionar vídeo
                             </span>
                             <span className="text-[10px] text-muted-foreground">
-                              MP4 · até 10s · até 10 MB
+                              MP4 · até 10s · até 3 MB
                             </span>
                             <input
                               type="file"
@@ -1559,7 +1564,7 @@ function CampaignsPage() {
                       <div className="rounded-lg border p-3">
                         <p className="text-xs text-muted-foreground">
                           <span className="font-semibold text-foreground">
-                            Seu vídeo está maior que 10 MB?
+                            Seu vídeo está maior que 3 MB?
                           </span>{" "}
                           Comprima gratuitamente no site que indicamos e envie de novo — o
                           envio aqui só aceita vídeos dentro do limite.
@@ -1756,7 +1761,7 @@ function CampaignsPage() {
                                 />
                               </Button>
                               <p className="text-[10px] text-muted-foreground">
-                                Proporção original preservada • Máximo 2 MB
+                                Proporção original preservada • Máximo 500 KB
                               </p>
                             </div>
 
@@ -1815,7 +1820,7 @@ function CampaignsPage() {
                                 />
                               </Button>
                               <p className="text-[10px] text-muted-foreground">
-                                Formato 4:1 recomendado • Máximo 3 MB
+                                Formato 4:1 recomendado • Máximo 500 KB
                               </p>
                             </div>
                           </div>

@@ -9,6 +9,7 @@ import {
 } from "./campaign-upload-validation";
 
 const MB = 1024 * 1024;
+const KB = 1024;
 
 describe("isAllowedCampaignAssetMime", () => {
   it("aceita só PNG, JPEG, WebP e MP4", () => {
@@ -39,58 +40,58 @@ describe("isAllowedCampaignAssetMime", () => {
 });
 
 describe("validateCampaignAssetClaim", () => {
-  it("aceita banner de 15 MB no limite e barra 15 MB + 1 byte", () => {
+  it("aceita banner de 500 KB no limite e barra 500 KB + 1 byte", () => {
     expect(
-      validateCampaignAssetClaim({ kind: "banner", mimeType: "image/webp", size: 15 * MB }),
+      validateCampaignAssetClaim({ kind: "banner", mimeType: "image/webp", size: 500 * KB }),
     ).toBeNull();
     expect(
       validateCampaignAssetClaim({
         kind: "banner",
         mimeType: "image/webp",
-        size: 15 * MB + 1,
+        size: 500 * KB + 1,
       }),
-    ).toMatch(/15 MB/);
+    ).toMatch(/500 KB/);
   });
 
-  it("barra logo acima de 5 MB e vídeo acima de 10 MB", () => {
+  it("barra logo acima de 500 KB e vídeo acima de 3 MB", () => {
     expect(
-      validateCampaignAssetClaim({ kind: "logo", mimeType: "image/png", size: 5 * MB + 1 }),
-    ).toMatch(/5 MB/);
+      validateCampaignAssetClaim({ kind: "logo", mimeType: "image/png", size: 500 * KB + 1 }),
+    ).toMatch(/500 KB/);
     expect(
-      validateCampaignAssetClaim({ kind: "video", mimeType: "video/mp4", size: 10 * MB + 1 }),
-    ).toMatch(/10 MB/);
+      validateCampaignAssetClaim({ kind: "video", mimeType: "video/mp4", size: 3 * MB + 1 }),
+    ).toMatch(/3 MB/);
   });
 
-  it("barra logo de patrocinador acima de 2 MB e banner acima de 3 MB", () => {
+  it("barra logo de patrocinador acima de 500 KB e banner acima de 500 KB", () => {
     expect(
       validateCampaignAssetClaim({
         kind: "sponsor-logo",
         mimeType: "image/png",
-        size: 2 * MB + 1,
+        size: 500 * KB + 1,
       }),
-    ).toMatch(/2 MB/);
+    ).toMatch(/500 KB/);
     expect(
       validateCampaignAssetClaim({
         kind: "sponsor-banner",
         mimeType: "image/png",
-        size: 3 * MB + 1,
+        size: 500 * KB + 1,
       }),
-    ).toMatch(/3 MB/);
+    ).toMatch(/500 KB/);
   });
 
-  it("barra logo de empresa/filial acima de 10 MB", () => {
+  it("barra logo de empresa/filial acima de 500 KB", () => {
     expect(
       validateCampaignAssetClaim({
         kind: "company-logo",
         mimeType: "image/jpeg",
-        size: 10 * MB + 1,
+        size: 500 * KB + 1,
       }),
-    ).toMatch(/10 MB/);
+    ).toMatch(/500 KB/);
     expect(
       validateCampaignAssetClaim({
         kind: "branch-logo",
         mimeType: "image/jpeg",
-        size: 10 * MB,
+        size: 500 * KB,
       }),
     ).toBeNull();
   });
@@ -119,7 +120,7 @@ describe("validateCampaignAssetClaim", () => {
       validateCampaignAssetClaim({
         kind: "video",
         mimeType: "video/mp4",
-        size: 5 * MB,
+        size: 2 * MB,
         durationSeconds: 10,
       }),
     ).toBeNull();
@@ -127,7 +128,7 @@ describe("validateCampaignAssetClaim", () => {
       validateCampaignAssetClaim({
         kind: "video",
         mimeType: "video/mp4",
-        size: 5 * MB,
+        size: 2 * MB,
         durationSeconds: 11,
       }),
     ).toMatch(/11 segundos/);

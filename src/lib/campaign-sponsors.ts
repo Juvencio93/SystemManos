@@ -11,8 +11,8 @@ export type PortalSponsor = {
   linkUrl: string | null;
 };
 
-export const MAX_SPONSOR_LOGO_BYTES = 2 * 1024 * 1024; // 2 MB
-export const MAX_SPONSOR_BANNER_BYTES = 3 * 1024 * 1024; // 3 MB
+export const MAX_SPONSOR_LOGO_BYTES = 500 * 1024; // 500 KB (P1 escala)
+export const MAX_SPONSOR_BANNER_BYTES = 500 * 1024; // 500 KB (P1 escala)
 
 export function normalizeSponsorDisplayType(value: string | null | undefined): SponsorDisplayType {
   return value === "banner" ? "banner" : "logo";

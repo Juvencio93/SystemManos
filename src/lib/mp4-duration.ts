@@ -8,7 +8,7 @@
  * Devolve a duração em segundos ou `null` quando o arquivo não é um MP4
  * parseável (corrompido, truncado, `moov` ausente). `null` NÃO significa
  * "vídeo inválido" — o chamador decide (o finalize usa fail-open com
- * log, porque o cliente já validou a duração e o teto de 10 MB continua).
+ * log, porque o cliente já validou a duração e o teto de 3 MB continua).
  */
 
 function readBoxHeader(view: DataView, offset: number) {

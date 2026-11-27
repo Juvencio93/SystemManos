@@ -376,7 +376,7 @@ export const generateBannerImage = createServerFn({ method: "POST" })
             .upload(path, decoded.bytes, {
               contentType: decoded.mimeType,
               upsert: false,
-              cacheControl: "31536000",
+              cacheControl: "public, max-age=31536000, immutable",
             });
           if (uploadError) throw uploadError;
           const {

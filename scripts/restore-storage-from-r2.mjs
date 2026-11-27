@@ -77,6 +77,8 @@ for (const file of manifest.files) {
     bytes,
     {
       contentType: file.contentType || "application/octet-stream",
+      // P1 (escala): o restore preserva o cache longo das mídias do portal.
+      cacheControl: "public, max-age=31536000, immutable",
       upsert: true,
     },
   );
