@@ -61,7 +61,6 @@ import { Route as ApiInternalRadiusAuthorizeRouteImport } from './routes/api/int
 import { Route as ApiInternalRadiusConfigRouteImport } from './routes/api/internal/radius-config'
 import { Route as ApiPublicAsaasClientRouteImport } from './routes/api/public/asaas-client'
 import { Route as ApiPublicAsaasManagerRouteImport } from './routes/api/public/asaas-manager'
-import { Route as ApiPublicAsaasWebhookRouteImport } from './routes/api/public/asaas-webhook'
 import { Route as ApiPublicAsaasWebhookV2RouteImport } from './routes/api/public/asaas-webhook-v2'
 import { Route as ApiPublicBillingAccessSyncRouteImport } from './routes/api/public/billing-access-sync'
 import { Route as ApiPublicHotspotEntryRouteImport } from './routes/api/public/hotspot-entry'
@@ -356,11 +355,6 @@ const ApiPublicAsaasManagerRoute = ApiPublicAsaasManagerRouteImport.update({
   path: '/api/public/asaas-manager',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicAsaasWebhookRoute = ApiPublicAsaasWebhookRouteImport.update({
-  id: '/api/public/asaas-webhook',
-  path: '/api/public/asaas-webhook',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiPublicAsaasWebhookV2Route = ApiPublicAsaasWebhookV2RouteImport.update({
   id: '/api/public/asaas-webhook-v2',
   path: '/api/public/asaas-webhook-v2',
@@ -469,7 +463,6 @@ export interface FileRoutesByFullPath {
   '/api/internal/radius-config': typeof ApiInternalRadiusConfigRoute
   '/api/public/asaas-client': typeof ApiPublicAsaasClientRoute
   '/api/public/asaas-manager': typeof ApiPublicAsaasManagerRoute
-  '/api/public/asaas-webhook': typeof ApiPublicAsaasWebhookRoute
   '/api/public/asaas-webhook-v2': typeof ApiPublicAsaasWebhookV2Route
   '/api/public/billing-access-sync': typeof ApiPublicBillingAccessSyncRoute
   '/api/public/hotspot-entry': typeof ApiPublicHotspotEntryRoute
@@ -532,7 +525,6 @@ export interface FileRoutesByTo {
   '/api/internal/radius-config': typeof ApiInternalRadiusConfigRoute
   '/api/public/asaas-client': typeof ApiPublicAsaasClientRoute
   '/api/public/asaas-manager': typeof ApiPublicAsaasManagerRoute
-  '/api/public/asaas-webhook': typeof ApiPublicAsaasWebhookRoute
   '/api/public/asaas-webhook-v2': typeof ApiPublicAsaasWebhookV2Route
   '/api/public/billing-access-sync': typeof ApiPublicBillingAccessSyncRoute
   '/api/public/hotspot-entry': typeof ApiPublicHotspotEntryRoute
@@ -598,7 +590,6 @@ export interface FileRoutesById {
   '/api/internal/radius-config': typeof ApiInternalRadiusConfigRoute
   '/api/public/asaas-client': typeof ApiPublicAsaasClientRoute
   '/api/public/asaas-manager': typeof ApiPublicAsaasManagerRoute
-  '/api/public/asaas-webhook': typeof ApiPublicAsaasWebhookRoute
   '/api/public/asaas-webhook-v2': typeof ApiPublicAsaasWebhookV2Route
   '/api/public/billing-access-sync': typeof ApiPublicBillingAccessSyncRoute
   '/api/public/hotspot-entry': typeof ApiPublicHotspotEntryRoute
@@ -664,7 +655,6 @@ export interface FileRouteTypes {
     | '/api/internal/radius-config'
     | '/api/public/asaas-client'
     | '/api/public/asaas-manager'
-    | '/api/public/asaas-webhook'
     | '/api/public/asaas-webhook-v2'
     | '/api/public/billing-access-sync'
     | '/api/public/hotspot-entry'
@@ -727,7 +717,6 @@ export interface FileRouteTypes {
     | '/api/internal/radius-config'
     | '/api/public/asaas-client'
     | '/api/public/asaas-manager'
-    | '/api/public/asaas-webhook'
     | '/api/public/asaas-webhook-v2'
     | '/api/public/billing-access-sync'
     | '/api/public/hotspot-entry'
@@ -792,7 +781,6 @@ export interface FileRouteTypes {
     | '/api/internal/radius-config'
     | '/api/public/asaas-client'
     | '/api/public/asaas-manager'
-    | '/api/public/asaas-webhook'
     | '/api/public/asaas-webhook-v2'
     | '/api/public/billing-access-sync'
     | '/api/public/hotspot-entry'
@@ -832,7 +820,6 @@ export interface RootRouteChildren {
   ApiInternalRadiusConfigRoute: typeof ApiInternalRadiusConfigRoute
   ApiPublicAsaasClientRoute: typeof ApiPublicAsaasClientRoute
   ApiPublicAsaasManagerRoute: typeof ApiPublicAsaasManagerRoute
-  ApiPublicAsaasWebhookRoute: typeof ApiPublicAsaasWebhookRoute
   ApiPublicAsaasWebhookV2Route: typeof ApiPublicAsaasWebhookV2Route
   ApiPublicBillingAccessSyncRoute: typeof ApiPublicBillingAccessSyncRoute
   ApiPublicHotspotEntryRoute: typeof ApiPublicHotspotEntryRoute
@@ -1210,13 +1197,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicAsaasManagerRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/asaas-webhook': {
-      id: '/api/public/asaas-webhook'
-      path: '/api/public/asaas-webhook'
-      fullPath: '/api/public/asaas-webhook'
-      preLoaderRoute: typeof ApiPublicAsaasWebhookRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/public/asaas-webhook-v2': {
       id: '/api/public/asaas-webhook-v2'
       path: '/api/public/asaas-webhook-v2'
@@ -1398,7 +1378,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiInternalRadiusConfigRoute: ApiInternalRadiusConfigRoute,
   ApiPublicAsaasClientRoute: ApiPublicAsaasClientRoute,
   ApiPublicAsaasManagerRoute: ApiPublicAsaasManagerRoute,
-  ApiPublicAsaasWebhookRoute: ApiPublicAsaasWebhookRoute,
   ApiPublicAsaasWebhookV2Route: ApiPublicAsaasWebhookV2Route,
   ApiPublicBillingAccessSyncRoute: ApiPublicBillingAccessSyncRoute,
   ApiPublicHotspotEntryRoute: ApiPublicHotspotEntryRoute,
