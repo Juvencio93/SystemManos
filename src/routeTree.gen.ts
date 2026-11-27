@@ -70,6 +70,7 @@ import { Route as ApiPublicOperationalJobRouteImport } from './routes/api/public
 import { Route as ApiPublicPagbankWebhookV1RouteImport } from './routes/api/public/pagbank-webhook-v1'
 import { Route as ApiPublicStorageOrphanSweepRouteImport } from './routes/api/public/storage-orphan-sweep'
 import { Route as ApiPublicTelegramOperationalWebhookRouteImport } from './routes/api/public/telegram-operational-webhook'
+import { Route as ApiPublicWhatsappWebhookRouteImport } from './routes/api/public/whatsapp-webhook'
 import { Route as AuthenticatedFinanceiroReciboChargeIdRouteImport } from './routes/_authenticated/financeiro/recibo.$chargeId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -405,6 +406,12 @@ const ApiPublicTelegramOperationalWebhookRoute =
     path: '/api/public/telegram-operational-webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicWhatsappWebhookRoute =
+  ApiPublicWhatsappWebhookRouteImport.update({
+    id: '/api/public/whatsapp-webhook',
+    path: '/api/public/whatsapp-webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedFinanceiroReciboChargeIdRoute =
   AuthenticatedFinanceiroReciboChargeIdRouteImport.update({
     id: '/recibo/$chargeId',
@@ -471,6 +478,7 @@ export interface FileRoutesByFullPath {
   '/api/public/pagbank-webhook-v1': typeof ApiPublicPagbankWebhookV1Route
   '/api/public/storage-orphan-sweep': typeof ApiPublicStorageOrphanSweepRoute
   '/api/public/telegram-operational-webhook': typeof ApiPublicTelegramOperationalWebhookRoute
+  '/api/public/whatsapp-webhook': typeof ApiPublicWhatsappWebhookRoute
   '/empresas/': typeof AuthenticatedEmpresasIndexRoute
   '/financeiro/': typeof AuthenticatedFinanceiroIndexRoute
   '/financeiro/recibo/$chargeId': typeof AuthenticatedFinanceiroReciboChargeIdRoute
@@ -533,6 +541,7 @@ export interface FileRoutesByTo {
   '/api/public/pagbank-webhook-v1': typeof ApiPublicPagbankWebhookV1Route
   '/api/public/storage-orphan-sweep': typeof ApiPublicStorageOrphanSweepRoute
   '/api/public/telegram-operational-webhook': typeof ApiPublicTelegramOperationalWebhookRoute
+  '/api/public/whatsapp-webhook': typeof ApiPublicWhatsappWebhookRoute
   '/empresas': typeof AuthenticatedEmpresasIndexRoute
   '/financeiro': typeof AuthenticatedFinanceiroIndexRoute
   '/financeiro/recibo/$chargeId': typeof AuthenticatedFinanceiroReciboChargeIdRoute
@@ -598,6 +607,7 @@ export interface FileRoutesById {
   '/api/public/pagbank-webhook-v1': typeof ApiPublicPagbankWebhookV1Route
   '/api/public/storage-orphan-sweep': typeof ApiPublicStorageOrphanSweepRoute
   '/api/public/telegram-operational-webhook': typeof ApiPublicTelegramOperationalWebhookRoute
+  '/api/public/whatsapp-webhook': typeof ApiPublicWhatsappWebhookRoute
   '/_authenticated/empresas/': typeof AuthenticatedEmpresasIndexRoute
   '/_authenticated/financeiro/': typeof AuthenticatedFinanceiroIndexRoute
   '/_authenticated/financeiro/recibo/$chargeId': typeof AuthenticatedFinanceiroReciboChargeIdRoute
@@ -663,6 +673,7 @@ export interface FileRouteTypes {
     | '/api/public/pagbank-webhook-v1'
     | '/api/public/storage-orphan-sweep'
     | '/api/public/telegram-operational-webhook'
+    | '/api/public/whatsapp-webhook'
     | '/empresas/'
     | '/financeiro/'
     | '/financeiro/recibo/$chargeId'
@@ -725,6 +736,7 @@ export interface FileRouteTypes {
     | '/api/public/pagbank-webhook-v1'
     | '/api/public/storage-orphan-sweep'
     | '/api/public/telegram-operational-webhook'
+    | '/api/public/whatsapp-webhook'
     | '/empresas'
     | '/financeiro'
     | '/financeiro/recibo/$chargeId'
@@ -789,6 +801,7 @@ export interface FileRouteTypes {
     | '/api/public/pagbank-webhook-v1'
     | '/api/public/storage-orphan-sweep'
     | '/api/public/telegram-operational-webhook'
+    | '/api/public/whatsapp-webhook'
     | '/_authenticated/empresas/'
     | '/_authenticated/financeiro/'
     | '/_authenticated/financeiro/recibo/$chargeId'
@@ -828,6 +841,7 @@ export interface RootRouteChildren {
   ApiPublicPagbankWebhookV1Route: typeof ApiPublicPagbankWebhookV1Route
   ApiPublicStorageOrphanSweepRoute: typeof ApiPublicStorageOrphanSweepRoute
   ApiPublicTelegramOperationalWebhookRoute: typeof ApiPublicTelegramOperationalWebhookRoute
+  ApiPublicWhatsappWebhookRoute: typeof ApiPublicWhatsappWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1259,6 +1273,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicTelegramOperationalWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/whatsapp-webhook': {
+      id: '/api/public/whatsapp-webhook'
+      path: '/api/public/whatsapp-webhook'
+      fullPath: '/api/public/whatsapp-webhook'
+      preLoaderRoute: typeof ApiPublicWhatsappWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/financeiro/recibo/$chargeId': {
       id: '/_authenticated/financeiro/recibo/$chargeId'
       path: '/recibo/$chargeId'
@@ -1387,6 +1408,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicStorageOrphanSweepRoute: ApiPublicStorageOrphanSweepRoute,
   ApiPublicTelegramOperationalWebhookRoute:
     ApiPublicTelegramOperationalWebhookRoute,
+  ApiPublicWhatsappWebhookRoute: ApiPublicWhatsappWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
