@@ -14,6 +14,8 @@
  *  - Lotes de 10, com intervalo aleatório de 45–75 min entre lotes e
  *    pausas aleatórias de 30–90s entre mensagens do mesmo lote.
  *  - Antes de cada envio: "digitando..." por ~2s (presença composing).
+ *  - Dupla checagem de opt-in antes de cada envio (PR #232): quem respondeu
+ *    SAIR depois do agendamento é cancelado sem enviar (status 'optout').
  *  - Número sem WhatsApp → marcado 'sem_whatsapp' e sai da fila.
  *  - Só envia das 08:00 às 20:00 (America/Sao_Paulo).
  *  - Campanha sem pendentes → 'concluida'. Instância desconectada →
@@ -99,6 +101,33 @@ function primeiroNome(nome) {
 }
 
 /**
+ * Dupla checagem de opt-in (PR #232): o visitante pode ter respondido SAIR
+ * entre o agendamento e o envio. Retorna true (pode enviar), false (opt-out
+ * confirmado) ou null (visitante não encontrado na base).
+ */
+async function visitanteAutorizado(item) {
+  let visitante = null;
+  if (item.visitor_id) {
+    const res = await sbGet(
+      `visitors?id=eq.${item.visitor_id}&select=whatsapp_opt_in,marketing_consent,marketing_opt_out_at&limit=1`,
+    );
+    visitante = res?.[0] || null;
+  }
+  if (!visitante) {
+    const res = await sbGet(
+      `visitors?company_id=eq.${item.company_id}&phone_e164=eq.${encodeURIComponent(`+${item.telefone}`)}&select=whatsapp_opt_in,marketing_consent,marketing_opt_out_at&limit=1`,
+    );
+    visitante = res?.[0] || null;
+  }
+  if (!visitante) return null;
+  return (
+    visitante.whatsapp_opt_in === true &&
+    visitante.marketing_consent !== false &&
+    visitante.marketing_opt_out_at === null
+  );
+}
+
+/**
  * Micro-variação invisível: 8 caracteres de largura zero sorteados por
  * envio — nenhuma mensagem sai byte a byte igual à outra, sem mudar
  * nada do que o cliente lê.
@@ -162,7 +191,7 @@ async function processarInstancia(inst) {
 
   const qtd = Math.min(LOTE, restantesHoje);
   const fila = await sbGet(
-    `whatsapp_fila?campanha_id=eq.${campanha.id}&status=eq.pendente&order=created_at.asc&limit=${qtd}&select=id,telefone,nome`,
+    `whatsapp_fila?campanha_id=eq.${campanha.id}&status=eq.pendente&order=created_at.asc&limit=${qtd}&select=id,telefone,nome,visitor_id,company_id`,
   );
   if (!fila?.length) {
     await sbPatch(`whatsapp_campanhas?id=eq.${campanha.id}`, {
@@ -175,6 +204,30 @@ async function processarInstancia(inst) {
 
   console.log(`[${nome}] lote de ${fila.length} (hoje: ${enviadosHoje}/${teto})`);
   for (const item of fila) {
+    // Dupla checagem de opt-in (PR #232): sem opt-in válido, cancela sem
+    // enviar e sem gastar o delay de 30-90s. Falha na consulta = segue com
+    // o envio (a checagem é rede de segurança, não trava de infra).
+    let autorizado = true;
+    try {
+      autorizado = await visitanteAutorizado(item);
+    } catch (e) {
+      console.warn(`[${nome}] checagem de opt-in indisponível (${item.telefone}): ${e.message}`);
+      autorizado = true;
+    }
+    if (autorizado === false) {
+      await sbPatch(`whatsapp_fila?id=eq.${item.id}`, { status: "optout" });
+      console.log(`[${nome}] opt-out → ${item.telefone} (cancelado sem enviar)`);
+      continue;
+    }
+    if (autorizado === null) {
+      await sbPatch(`whatsapp_fila?id=eq.${item.id}`, {
+        status: "erro",
+        erro: "visitante não encontrado (opt-in não confirmado)",
+        tentativas: 1,
+      });
+      console.log(`[${nome}] visitante não encontrado → ${item.telefone}`);
+      continue;
+    }
     try {
       // O número tem WhatsApp?
       const check = await evo(`/chat/whatsappNumbers/${encodeURIComponent(nome)}`, {
