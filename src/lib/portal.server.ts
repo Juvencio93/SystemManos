@@ -222,7 +222,7 @@ export async function resolvePortalTarget(
         .maybeSingle();
       logoPath =
         pSettings?.logo_url ||
-        "https://manostech.com.br/manos-tech-robot.png";
+        "https://manostech-system.com.br/manos-tech-logo.png";
     }
 
     return {
@@ -281,7 +281,7 @@ export async function resolvePortalTarget(
         .maybeSingle();
       logoPath =
         pSettings?.logo_url ||
-        "https://manostech.com.br/manos-tech-robot.png";
+        "https://manostech-system.com.br/manos-tech-logo.png";
     }
 
     return {
@@ -347,7 +347,7 @@ export async function resolvePortalTarget(
         .maybeSingle();
       logoPath =
         pSettings?.logo_url ||
-        "https://manostech.com.br/manos-tech-robot.png";
+        "https://manostech-system.com.br/manos-tech-logo.png";
     }
 
     return {
