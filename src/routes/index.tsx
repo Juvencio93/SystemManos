@@ -157,7 +157,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Quanto custa a instalação?",
-    a: "A partir de R$300, conforme o local. Você sabe o valor antes de fechar. E só é cobrada se você continuar depois dos 14 dias grátis.",
+    a: "O valor é avaliado caso a caso, conforme o local, e você sabe o valor antes de fechar. E só é cobrada se você continuar depois dos 14 dias grátis.",
   },
   {
     q: "Como funcionam os disparos de WhatsApp?",
@@ -839,8 +839,9 @@ function SalesHomePage() {
           </div>
           <ScrollReveal>
             <p className="mt-8 text-base leading-7 text-slate-300">
-              <strong>Instalação: a partir de R$300</strong>, avaliada caso a caso (visita,
-              configuração e portal com a sua marca).
+              <strong>Instalação avaliada caso a caso</strong>, com visita,
+              configuração e portal com a sua marca. O valor é combinado com você
+              antes de fechar.
             </p>
           </ScrollReveal>
         </div>
@@ -853,19 +854,18 @@ function SalesHomePage() {
               Planos
             </p>
             <h2 className="mt-3 max-w-3xl font-display text-3xl font-semibold tracking-tight sm:text-4xl">
-              Um preço que cabe no caixa
+              Dois planos para o seu momento
             </h2>
             <p className="mt-4 max-w-2xl leading-7 text-slate-400">
-              Sem fidelidade.
+              Sem fidelidade. Peça uma proposta e receba o valor para o seu negócio.
             </p>
           </ScrollReveal>
           <div className="mx-auto mt-10 grid max-w-4xl items-start gap-4 md:grid-cols-2">
             <ScrollReveal>
               <article className="flex flex-col rounded-2xl border border-white/[.08] bg-[#0B1118] p-5 sm:p-6">
                 <h3 className="font-semibold">Essencial</h3>
-                <p className="mt-3">
-                  <span className="font-display text-4xl font-bold">R$97</span>
-                  <span className="text-slate-400">/mês</span>
+                <p className="mt-3 text-sm leading-6 text-slate-400">
+                  Para começar a transformar o Wi-Fi em vendas.
                 </p>
                 <ul className="mt-5 flex-1 space-y-2.5 text-sm leading-6 text-slate-300">
                   {[
@@ -896,7 +896,7 @@ function SalesHomePage() {
                   onClick={openPreSaleChat}
                   className="mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/15 px-6 font-semibold text-white transition hover:border-white/35"
                 >
-                  Começar 14 dias grátis <ArrowRight className="size-4" />
+                  Solicitar Proposta <ArrowRight className="size-4" />
                 </button>
               </article>
             </ScrollReveal>
@@ -919,9 +919,8 @@ function SalesHomePage() {
                   <h3 className="font-semibold">Profissional</h3>
                   <span className="text-[11px] font-semibold text-cyan-300">Mais escolhido</span>
                 </div>
-                <p className="mt-3">
-                  <span className="font-display text-4xl font-bold">R$147</span>
-                  <span className="text-slate-400">/mês</span>
+                <p className="mt-3 text-sm leading-6 text-slate-400">
+                  Para quem quer vender também pelo WhatsApp.
                 </p>
                 <ul className="mt-5 flex-1 space-y-2.5 text-sm leading-6 text-slate-300">
                   <li className="flex items-start gap-2">
@@ -953,7 +952,7 @@ function SalesHomePage() {
                   }}
                   className="mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-cyan-400 px-6 font-bold text-slate-950 transition hover:bg-cyan-400"
                 >
-                  Começar 14 dias grátis <ArrowRight className="size-4" />
+                  Solicitar Proposta <ArrowRight className="size-4" />
                 </button>
                 <div
                   className={`grid transition-[grid-template-rows] duration-500 ease-out ${profissionalAberto ? "grid-rows-[1fr]" : "grid-rows-[0fr] group-hover:grid-rows-[1fr]"}`}
@@ -979,11 +978,10 @@ function SalesHomePage() {
           </div>
           <ScrollReveal>
             <p className="mx-auto mt-8 max-w-4xl text-xs leading-5 text-slate-400">
-              Instalação a partir de R$300, caso a caso. Equipamento em comodato. 14 dias
+              Instalação avaliada caso a caso. Equipamento em comodato. 14 dias
               grátis, sem fidelidade, cancela quando quiser. Disparos de WhatsApp (plano
               Profissional, em breve): os envios são cobrados pela Meta diretamente no cartão
-              do cliente, por mensagem (hoje cerca de R$0,32 por mensagem de marketing; valor
-              definido pela Meta e pode mudar). A ManosTech não cobra por mensagem enviada.
+              do cliente, por mensagem (valor definido pela Meta e pode mudar). A ManosTech não cobra por mensagem enviada.
             </p>
           </ScrollReveal>
         </div>

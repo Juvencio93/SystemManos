@@ -40,7 +40,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAccess } from "@/hooks/use-access";
 import { getCompanyDisplayName } from "@/lib/name-utils";
 import { useServerFn } from "@tanstack/react-start";
-import { getOrCreateResellerCreditPix } from "@/lib/reseller-credit-pix.functions";
+import { getOrCreateResellerCreditPix, getResellerCreditPricing } from "@/lib/reseller-credit-pix.functions";
+import { grantResellerCredits } from "@/lib/reseller-credit-manual.functions";
+import { listResellerClientKits } from "@/lib/reseller-client-kit.functions";
+import {
+  ClientKitDownload,
+  ResellerClientKitDialog,
+  type ClientKitResult,
+} from "@/components/app/reseller-client-kit-dialog";
 import { createResellerLogin, deleteReseller } from "@/lib/reseller-access.functions";
 
 export const Route = createFileRoute("/_authenticated/revendas")({
@@ -88,6 +95,13 @@ export function ResellersPage() {
     dueDate: string;
   } | null>(null);
   const generateCreditPix = useServerFn(getOrCreateResellerCreditPix);
+  const getPricing = useServerFn(getResellerCreditPricing);
+  const grantCreditsFn = useServerFn(grantResellerCredits);
+  const listKits = useServerFn(listResellerClientKits);
+  const [clientKitDialog, setClientKitDialog] = useState<{
+    reseller: { id: string; name: string };
+    kitOnlyCompany?: { id: string; name: string } | null;
+  } | null>(null);
   const createLogin = useServerFn(createResellerLogin);
   const removeReseller = useServerFn(deleteReseller);
   const isAdm = access?.role === "adm";
@@ -110,7 +124,7 @@ export function ResellersPage() {
       const { data, error } = await supabase
         .from("companies")
         .select(
-          "id, name, trade_name, monthly_price, reseller_id, status, blocked, billing_blocked, branches(id, active, is_headquarters)",
+          "id, name, trade_name, slug, monthly_price, reseller_id, status, blocked, billing_blocked, branches(id, active, is_headquarters)",
         )
         .order("name");
       if (error) throw error;
@@ -141,6 +155,18 @@ export function ResellersPage() {
     },
     enabled: isAdm || isReseller,
   });
+  // Kits já gerados (para o botão "Baixar kit" no card da empresa).
+  const clientKits = useQuery({
+    queryKey: ["reseller-client-kits"],
+    queryFn: () => listKits(),
+    enabled: isAdm || isReseller,
+  });
+  // Tabela de atacado: preço do crédito, visível SOMENTE aqui dentro do painel.
+  const pricing = useQuery({
+    queryKey: ["reseller-credit-pricing"],
+    queryFn: () => getPricing(),
+    enabled: isAdm || isReseller,
+  });
 
   const refresh = () =>
     Promise.all([
@@ -148,6 +174,7 @@ export function ResellersPage() {
       queryClient.invalidateQueries({ queryKey: ["reseller-companies"] }),
       queryClient.invalidateQueries({ queryKey: ["reseller-credit-lots"] }),
       queryClient.invalidateQueries({ queryKey: ["reseller-credit-allocations"] }),
+      queryClient.invalidateQueries({ queryKey: ["reseller-client-kits"] }),
     ]);
 
   const saveReseller = useMutation({
@@ -180,18 +207,14 @@ export function ResellersPage() {
       if (!form.loginPassword) throw new Error("Defina a senha inicial da revenda.");
       if (form.loginPassword.length < 8) throw new Error("A senha deve ter ao menos 8 caracteres.");
       if (initialCredits > 0) {
-        const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + 30);
-        const { error: creditsError } = await supabase.from("reseller_credit_lots").insert({
-          reseller_id: reseller.id,
-          quantity: initialCredits,
-          remaining_quantity: initialCredits,
-          source: "manual",
-          reference: "Créditos iniciais cadastrados pelo ADM",
-          expires_at: expiresAt.toISOString(),
-          created_by: access?.userId || null,
+        // Lote manual com trilha de auditoria (reseller.credit_grant).
+        await grantCreditsFn({
+          data: {
+            resellerId: reseller.id,
+            quantity: initialCredits,
+            reference: "Créditos iniciais cadastrados pelo ADM",
+          },
         });
-        if (creditsError) throw creditsError;
       }
       await createLogin({
         data: {
@@ -285,18 +308,10 @@ export function ResellersPage() {
       const quantity = Number(creditQuantity);
       if (!Number.isInteger(quantity) || quantity < 1)
         throw new Error("Informe uma quantidade inteira de créditos.");
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 30);
-      const { error } = await supabase.from("reseller_credit_lots").insert({
-        reseller_id: creditDialogReseller.id,
-        quantity,
-        remaining_quantity: quantity,
-        source: "manual",
-        reference: "Créditos adicionados manualmente pelo ADM",
-        expires_at: expiresAt.toISOString(),
-        created_by: access?.userId || null,
+      // Lote manual com trilha de auditoria (reseller.credit_grant).
+      return grantCreditsFn({
+        data: { resellerId: creditDialogReseller.id, quantity },
       });
-      if (error) throw error;
     },
     onSuccess: async () => {
       await refresh();
@@ -462,6 +477,43 @@ export function ResellersPage() {
       <Card className="glass-panel border-primary/20">
         <CardHeader>
           <div className="flex items-center gap-3">
+            <Wallet className="size-5 text-primary" />
+            <div>
+              <CardTitle>Tabela de atacado — só para parceiros</CardTitle>
+              <CardDescription>
+                Este é o valor que você paga à ManosTech por cada crédito. O preço que
+                você cobra do seu cliente é você quem define.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {pricing.isLoading ? (
+            <p className="text-sm text-muted-foreground">Carregando valores...</p>
+          ) : pricing.data ? (
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-white/10 px-3 py-2.5">
+                <span className="font-semibold">1 crédito</span>
+                <span className="text-xl font-bold text-primary">
+                  {money.format(pricing.data.unitPrice)}
+                </span>
+              </div>
+              <p className="text-muted-foreground">
+                {pricing.data.unitDescription} Validade de {pricing.data.validityDays} dias
+                após a confirmação do pagamento via PIX.
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Não foi possível carregar a tabela de atacado agora. Tente novamente em
+              instantes.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+      <Card className="glass-panel border-primary/20">
+        <CardHeader>
+          <div className="flex items-center gap-3">
             <ShieldCheck className="size-5 text-primary" />
             <div>
               <CardTitle>{isAdm ? "Base da operação de revendas" : "Gestão de créditos"}</CardTitle>
@@ -591,36 +643,73 @@ export function ResellersPage() {
                     <p className="text-sm text-muted-foreground">Nenhuma Matriz vinculada ainda.</p>
                   ) : (
                     <div className="space-y-2">
-                      {resellerCompanies.map((company: any) => (
-                        <div
-                          key={company.id}
-                          className="rounded-lg border border-white/10 px-3 py-2.5 text-sm"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="font-semibold">{getCompanyDisplayName(company)}</p>
-                            {isAdm && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 px-2 text-xs text-amber-300 hover:text-amber-200"
-                                onClick={() =>
-                                  claimCompany.mutate({
-                                    companyId: company.id,
-                                    companyName: getCompanyDisplayName(company),
-                                  })
-                                }
-                                disabled={claimCompany.isPending}
-                              >
-                                Assumir pelo ADM
-                              </Button>
-                            )}
+                      {resellerCompanies.map((company: any) => {
+                        const kit: ClientKitResult | undefined = (
+                          clientKits.data ?? []
+                        ).find((item) => item.companyId === company.id);
+                        return (
+                          <div
+                            key={company.id}
+                            className="rounded-lg border border-white/10 px-3 py-2.5 text-sm"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="font-semibold">{getCompanyDisplayName(company)}</p>
+                              {isAdm && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs text-amber-300 hover:text-amber-200"
+                                  onClick={() =>
+                                    claimCompany.mutate({
+                                      companyId: company.id,
+                                      companyName: getCompanyDisplayName(company),
+                                    })
+                                  }
+                                  disabled={claimCompany.isPending}
+                                >
+                                  Assumir pelo ADM
+                                </Button>
+                              )}
+                            </div>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              Mensalidade {money.format(Number(company.monthly_price || 0))} ·
+                              Matriz e{" "}
+                              {company.branches?.filter(
+                                (branch: any) => !branch.is_headquarters,
+                              ).length || 0}{" "}
+                              Filial(is)
+                            </p>
+                            {kit ? (
+                              <div className="mt-3 border-t border-white/10 pt-3">
+                                <ClientKitDownload kit={kit} />
+                              </div>
+                            ) : isReseller ? (
+                              <div className="mt-3 border-t border-white/10 pt-3">
+                                <p className="text-xs text-muted-foreground">
+                                  Nenhum equipamento vinculado ainda. Cadastre o MAC da RB para
+                                  gerar o kit de instalação.
+                                </p>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="mt-2"
+                                  onClick={() =>
+                                    setClientKitDialog({
+                                      reseller,
+                                      kitOnlyCompany: {
+                                        id: company.id,
+                                        name: getCompanyDisplayName(company),
+                                      },
+                                    })
+                                  }
+                                >
+                                  Gerar kit
+                                </Button>
+                              </div>
+                            ) : null}
                           </div>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Mensalidade {money.format(Number(company.monthly_price || 0))} · Matriz
-                            e {company.branches?.filter((branch: any) => !branch.is_headquarters).length || 0} Filial(is)
-                          </p>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                   <div className="flex flex-wrap gap-2 border-t border-white/10 pt-4">
@@ -645,15 +734,26 @@ export function ResellersPage() {
                       </>
                     )}
                     {isReseller && (
-                      <Button
-                        onClick={() => {
-                          setPixDialogReseller(reseller);
-                          setPixData(null);
-                          setCreditQuantity("1");
-                        }}
-                      >
-                        Comprar créditos via PIX
-                      </Button>
+                      <>
+                        <Button
+                          onClick={() => {
+                            setPixDialogReseller(reseller);
+                            setPixData(null);
+                            setCreditQuantity("1");
+                          }}
+                        >
+                          Comprar créditos via PIX
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() =>
+                            setClientKitDialog({ reseller, kitOnlyCompany: null })
+                          }
+                        >
+                          <Plus className="mr-2 size-4" />
+                          Nova Empresa Cliente
+                        </Button>
+                      </>
                     )}
                   </div>
                   {isAdm && (
@@ -814,8 +914,8 @@ export function ResellersPage() {
               />
             </Field>
             <p className="text-xs text-muted-foreground">
-              Cada crédito cobre uma Matriz ou Filial ativa por 30 dias. Nesta etapa, o lançamento é
-              manual pelo ADM; o PIX automático entrará na fase financeira.
+              Cada crédito cobre uma Matriz ou Filial ativa por 30 dias. A revenda também
+              pode comprar créditos sozinha via PIX, no próprio painel dela.
             </p>
           </div>
           <DialogFooter>
@@ -859,8 +959,9 @@ export function ResellersPage() {
                 />
               </Field>
               <p className="text-sm text-muted-foreground">
-                {money.format(Number(creditQuantity || 0) * 50)} · R$ 50 por crédito · validade de
-                30 dias após a confirmação.
+                {pricing.data
+                  ? `${money.format(Number(creditQuantity || 0) * pricing.data.unitPrice)} · ${money.format(pricing.data.unitPrice)} por crédito · validade de ${pricing.data.validityDays} dias após a confirmação.`
+                  : "Carregando valor do crédito..."}
               </p>
             </div>
           ) : (
@@ -907,13 +1008,37 @@ export function ResellersPage() {
               {pixData ? "Fechar" : "Cancelar"}
             </Button>
             {!pixData && (
-              <Button disabled={createCreditPix.isPending} onClick={() => createCreditPix.mutate()}>
+              <Button
+                disabled={createCreditPix.isPending || !pricing.data}
+                onClick={() => createCreditPix.mutate()}
+              >
                 {createCreditPix.isPending ? "Gerando PIX..." : "Gerar PIX"}
               </Button>
             )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ResellerClientKitDialog
+        open={Boolean(clientKitDialog)}
+        onOpenChange={(next) => {
+          if (!next) setClientKitDialog(null);
+        }}
+        reseller={clientKitDialog?.reseller ?? null}
+        availableCredits={
+          clientKitDialog ? availableCredits(clientKitDialog.reseller.id) : 0
+        }
+        kitOnlyCompany={clientKitDialog?.kitOnlyCompany ?? null}
+        onDone={() => refresh()}
+        onBuyCredits={() => {
+          if (!clientKitDialog) return;
+          const current = clientKitDialog.reseller;
+          setClientKitDialog(null);
+          setPixDialogReseller(current);
+          setPixData(null);
+          setCreditQuantity("1");
+        }}
+      />
     </div>
   );
 }
