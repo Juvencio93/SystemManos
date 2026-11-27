@@ -15,12 +15,18 @@
  */
 
 import { isOptedIn } from "./whatsapp-transport.server";
+import {
+  AUTOMATION_RULE_TYPES,
+  type AutomationRuleInput,
+  type AutomationRuleType,
+  type AutomationScope,
+} from "./whatsapp-automation-rules";
 
 const RULE_TYPES = ["welcome_coupon", "post_visit_nps"] as const;
 
 type AdminClient = any;
 
-type AutomationRule = {
+export type AutomationRule = {
   id: string;
   company_id: string;
   branch_id: string | null;
@@ -170,4 +176,114 @@ export async function cancelPendingAutomationLogs(
     .update({ status: "skipped_optout" })
     .in("visitor_id", input.visitorIds)
     .in("status", ["scheduled", "awaiting_nps_reply"]);
+}
+
+/**
+ * Tela de Automações & Réguas (Frente B, Item 3) — leitura e gravação
+ * das regras no painel.
+ *
+ * O upsert é feito à mão (SELECT pelo escopo, depois UPDATE ou INSERT):
+ * o índice único idx_wa_rules_scope_type usa
+ * COALESCE(branch_id, '00000000-0000-0000-0000-000000000000'), e o
+ * onConflict do PostgREST não aceita essa expressão — um upsert direto
+ * falharia. A leitura segue o mesmo escopo (empresa + filial ou empresa).
+ */
+
+function validarRegra(input: AutomationRuleInput): void {
+  if (!AUTOMATION_RULE_TYPES.includes(input.ruleType)) {
+    throw new Error("Regra desconhecida.");
+  }
+  if (!Number.isInteger(input.delayMinutes) || input.delayMinutes < 0) {
+    throw new Error("O tempo precisa ser zero ou mais.");
+  }
+  if (!input.messageTemplate || input.messageTemplate.trim().length < 10) {
+    throw new Error("Escreva a mensagem (ao menos 10 caracteres).");
+  }
+  if (input.messageTemplate.length > 2000) {
+    throw new Error("A mensagem pode ter no máximo 2000 caracteres.");
+  }
+  if (!Number.isInteger(input.minVisits) || input.minVisits < 1) {
+    throw new Error("O número mínimo de visitas precisa ser ao menos 1.");
+  }
+  if (!Number.isInteger(input.cooldownDays) || input.cooldownDays < 1) {
+    throw new Error("O intervalo entre envios precisa ser ao menos 1 dia.");
+  }
+  if (input.googleReviewUrl) {
+    try {
+      const url = new URL(input.googleReviewUrl);
+      if (url.protocol !== "http:" && url.protocol !== "https:") {
+        throw new Error("Link inválido.");
+      }
+    } catch {
+      throw new Error("Informe um link válido para a avaliação no Google.");
+    }
+  }
+}
+
+/** Regras já salvas no escopo (empresa + filial, ou empresa). */
+export async function listAutomationRules(
+  admin: AdminClient,
+  scope: AutomationScope,
+): Promise<AutomationRule[]> {
+  let q = admin
+    .from("whatsapp_automation_rules")
+    .select("*")
+    .eq("company_id", scope.companyId);
+  q = scope.branchId ? q.eq("branch_id", scope.branchId) : q.is("branch_id", null);
+  const { data, error } = await q.order("rule_type", { ascending: true });
+  if (error) throw new Error("Não foi possível carregar as réguas.");
+  return (data ?? []) as AutomationRule[];
+}
+
+/**
+ * Salva uma regra: procura pelo escopo + tipo; se existir, atualiza;
+ * se não, cria. Devolve o id e se foi criada agora.
+ */
+export async function upsertAutomationRule(
+  admin: AdminClient,
+  scope: AutomationScope,
+  input: AutomationRuleInput,
+): Promise<{ id: string; created: boolean }> {
+  validarRegra(input);
+
+  let q = admin
+    .from("whatsapp_automation_rules")
+    .select("id")
+    .eq("company_id", scope.companyId)
+    .eq("rule_type", input.ruleType);
+  q = scope.branchId ? q.eq("branch_id", scope.branchId) : q.is("branch_id", null);
+  const { data: existing, error: findError } = await q.maybeSingle();
+  if (findError) throw new Error("Não foi possível verificar a régua antes de salvar.");
+
+  const row = {
+    company_id: scope.companyId,
+    branch_id: scope.branchId,
+    rule_type: input.ruleType,
+    enabled: input.enabled,
+    delay_minutes: input.delayMinutes,
+    message_template: input.messageTemplate.trim(),
+    google_review_url: input.googleReviewUrl?.trim() || null,
+    min_visits: input.minVisits,
+    cooldown_days: input.cooldownDays,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (existing) {
+    const { error } = await admin
+      .from("whatsapp_automation_rules")
+      .update(row)
+      .eq("id", existing.id);
+    if (error) throw new Error("Não foi possível salvar a régua. Tente novamente.");
+    return { id: existing.id as string, created: false };
+  }
+
+  const { data: created, error: insertError } = await admin
+    .from("whatsapp_automation_rules")
+    .insert(row)
+    .select("id")
+    .single();
+  if (insertError || !created) {
+    throw new Error("Não foi possível salvar a régua. Tente novamente.");
+  }
+  return { id: created.id as string, created: true };
 }
